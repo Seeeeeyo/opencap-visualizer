@@ -8,16 +8,16 @@
             dark style="flex: 0.1; margin-right: 5px;" @input="onChangeTime"/>
                       <v-slider :value="frame" :min="0" :max="frames.length - 1" @input="onNavigate" hide-details
                           class="mb-2" style="flex: 1;" />
+                      </div>
                   </div>
-              </div>
             <div v-else-if="trialLoading" class="flex-grow-1 d-flex align-center justify-center">
                 <v-progress-circular indeterminate color="grey" size="30" width="4" />
-            </div>
-        </div>
+              </div>
+                  </div>
         <div class="right d-flex flex-column">
             <!-- Add recording controls -->
             <div class="recording-controls mb-4">
-                <v-btn
+                              <v-btn
                     v-if="!isRecording"
                     color="red"
                     dark
@@ -27,9 +27,9 @@
                 >
                     <v-icon left>mdi-record</v-icon>
                     Record
-                </v-btn>
-                <v-btn
-                    v-else
+                              </v-btn>
+                              <v-btn
+                                  v-else
                     color="grey"
                     dark
                     @click="stopRecording"
@@ -37,8 +37,8 @@
                 >
                     <v-icon left>mdi-stop</v-icon>
                     Stop Recording
-                </v-btn>
-            </div>
+                  </v-btn>
+              </div>
             <!-- Legend -->
             <div class="legend mb-4">
                 <div v-for="(animation, index) in animations" :key="index" class="legend-item mb-2">
@@ -73,9 +73,9 @@
                             @input="updateOffset(index, 'z', $event)"
                             style="width: 100px"
                         />
-                    </div>
-                </div>
-            </div>
+          </div>
+                  </div>
+              </div>
             <SpeedControl v-model="playSpeed" />
               <VideoNavigation :playing="playing" :value="frame" :maxFrame="frames.length - 1"
                   :disabled="videoControlsDisabled" @play="togglePlay(true)" @pause="togglePlay(false)"
@@ -284,17 +284,17 @@ const axiosInstance = axios.create();
                   this.animations.forEach((animation, index) => {
                       for (let body in animation.data.bodies) {
                           let bd = animation.data.bodies[body]
-                          bd.attachedGeometries.forEach((geom) => {
-                              let path = 'https://mc-opencap-public.s3.us-west-2.amazonaws.com/geometries/' + geom.substr(0, geom.length - 4) + ".obj";
+                    bd.attachedGeometries.forEach((geom) => {
+                      let path = 'https://mc-opencap-public.s3.us-west-2.amazonaws.com/geometries/' + geom.substr(0, geom.length - 4) + ".obj";
                               console.log('Loading geometry from:', path)
-                              objLoader.load(path, (root) => {
-                                  root.castShadow = true;
-                                  root.receiveShadow = true;
+                      objLoader.load(path, (root) => {
+                        root.castShadow = true;
+                        root.receiveShadow = true;
                                   
                                   // Apply color to all meshes in the geometry
                                   root.traverse((child) => {
-                                      if (child instanceof THREE.Mesh) {
-                                          child.castShadow = true;
+                          if (child instanceof THREE.Mesh) {
+                            child.castShadow = true;
                                           child.material = new THREE.MeshPhongMaterial({ 
                                               color: this.colors[index],
                                               transparent: true,
@@ -311,11 +311,11 @@ const axiosInstance = axios.create();
                                   // Apply initial offset
                                   root.position.add(animation.offset);
                                   
-                                  this.scene.add(root);
+                        this.scene.add(root);
                                   console.log('Added geometry to scene:', meshKey);
                               });
                           });
-                      }
+                  }
                   });
 
                   // Initial render
@@ -379,14 +379,14 @@ const axiosInstance = axios.create();
               // Update each animation
               this.animations.forEach((animation, animIndex) => {
                   let json = animation.data;
-                  for (let body in json.bodies) {
-                      json.bodies[body].attachedGeometries.forEach((geom) => {
+            for (let body in json.bodies) {
+              json.bodies[body].attachedGeometries.forEach((geom) => {
                           const meshKey = `anim${animIndex}_${body}${geom}`;
                           if (this.meshes[meshKey]) {
                               // Get base position from animation data
                               const position = new THREE.Vector3(
-                                  json.bodies[body].translation[cframe][0],
-                                  json.bodies[body].translation[cframe][1],
+                      json.bodies[body].translation[cframe][0],
+                      json.bodies[body].translation[cframe][1],
                                   json.bodies[body].translation[cframe][2]
                               );
                               
@@ -397,9 +397,9 @@ const axiosInstance = axios.create();
                               this.meshes[meshKey].position.copy(position);
                               
                               // Set rotation
-                              var euler = new THREE.Euler(
-                                  json.bodies[body].rotation[cframe][0],
-                                  json.bodies[body].rotation[cframe][1],
+                  var euler = new THREE.Euler(
+                      json.bodies[body].rotation[cframe][0],
+                      json.bodies[body].rotation[cframe][1],
                                   json.bodies[body].rotation[cframe][2]
                               );
                               this.meshes[meshKey].quaternion.setFromEuler(euler);
@@ -434,7 +434,7 @@ const axiosInstance = axios.create();
       this.time = time
       this.frame = Math.floor(time * this.frameRate)
         this.animateOneFrame()
-    },
+      },
     getFileName(animation) {
         // Extract filename from the URL used to load the animation
         return animation.fileName || 'Animation'
@@ -570,7 +570,7 @@ const axiosInstance = axios.create();
         }
       }
     }
-}
+  }
   </style>
   
   
