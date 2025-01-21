@@ -59,6 +59,18 @@
                     Load JSON Files
                 </v-btn>
             </div>
+            <!-- Add sync controls -->
+            <div class="sync-controls mb-4">
+                <v-btn
+                    color="grey darken-3"
+                    class="mb-2 white--text"
+                    block
+                    @click="syncAllAnimations"
+                >
+                    <v-icon left>mdi-sync</v-icon>
+                    Sync All Subjects
+                </v-btn>
+            </div>
             <!-- Legend -->
             <div class="legend mb-4">
                 <div v-for="(animation, index) in animations" :key="index" class="legend-item mb-2">
@@ -98,26 +110,6 @@
                             @input="updateOffset(index, 'z', $event)"
                             style="width: 100px"
                         />
-              </div>
-              <div class="sync-controls mt-2">
-                  <v-btn
-                      small
-                      color="primary"
-                      @click="syncAnimation(index)"
-                      class="mr-2"
-                  >
-                      <v-icon left small>mdi-sync</v-icon>
-                      Sync
-                  </v-btn>
-                  <v-text-field
-                      label="Sync Offset (s)"
-                      type="number"
-                      :step="0.01"
-                      :value="animation.syncOffset || 0"
-                      dense
-                      style="width: 100px"
-                      @input="updateSyncOffset(index, $event)"
-                  />
               </div>
             </div>
         </div>
@@ -787,83 +779,68 @@ const axiosInstance = axios.create();
         this.frame = Math.floor(time * this.frameRate);
         this.animateOneFrame();
     },
-    updateSyncOffset(index, value) {
-        // Ensure animations[index] has a syncOffset property
-        if (!this.animations[index].hasOwnProperty('syncOffset')) {
-            this.$set(this.animations[index], 'syncOffset', 0);
-        }
-        
-        this.animations[index].syncOffset = Number(value);
-        this.animateOneFrame(); // Update the view
-    },
-    syncAnimation(index) {
-        const animation = this.animations[index];
-        const syncOffset = animation.syncOffset || 0;
-        
-        // Convert time offset to frames
-        const frameOffset = Math.round(syncOffset * this.frameRate);
-        
-        // Create new arrays for the shifted data
-        const newData = {
-            ...animation.data,
-            time: [],
-            bodies: {}
-        };
+    syncAllAnimations() {
+        if (this.animations.length <= 1) return;
 
-        // Shift time array
-        animation.data.time.forEach((t, i) => {
-            newData.time[i] = t + syncOffset;
+        // Find the latest start time and earliest end time across all animations
+        let latestStart = -Infinity;
+        let earliestEnd = Infinity;
+
+        this.animations.forEach(animation => {
+            const startTime = animation.data.time[0];
+            const endTime = animation.data.time[animation.data.time.length - 1];
+            latestStart = Math.max(latestStart, startTime);
+            earliestEnd = Math.min(earliestEnd, endTime);
         });
 
-        // Shift all body data
-        for (let body in animation.data.bodies) {
-            newData.bodies[body] = {
-                ...animation.data.bodies[body],
-                translation: [],
-                rotation: []
+        // Sync each animation to the common time window
+        this.animations.forEach((animation, index) => {
+            const startTime = animation.data.time[0];
+            const timeOffset = latestStart - startTime;
+            
+            // Create new arrays for the shifted data
+            const newData = {
+                ...animation.data,
+                time: [],
+                bodies: {}
             };
 
-            const translationData = animation.data.bodies[body].translation;
-            const rotationData = animation.data.bodies[body].rotation;
+            // Find frame indices for the common window
+            const startFrame = animation.data.time.findIndex(t => t >= latestStart);
+            const endFrame = animation.data.time.findIndex(t => t > earliestEnd);
+            const commonFrames = endFrame === -1 ? 
+                animation.data.time.length - startFrame : 
+                endFrame - startFrame;
 
-            // If shifting forward, pad the beginning with first frame
-            if (frameOffset > 0) {
-                for (let i = 0; i < frameOffset; i++) {
-                    newData.bodies[body].translation.push([...translationData[0]]);
-                    newData.bodies[body].rotation.push([...rotationData[0]]);
-                }
-                // Add the rest of the frames
-                for (let i = 0; i < translationData.length - frameOffset; i++) {
-                    newData.bodies[body].translation.push([...translationData[i]]);
-                    newData.bodies[body].rotation.push([...rotationData[i]]);
-                }
+            // Adjust time array
+            for (let i = 0; i < commonFrames; i++) {
+                newData.time[i] = animation.data.time[startFrame + i];
             }
-            // If shifting backward, pad the end with last frame
-            else if (frameOffset < 0) {
-                // Add frames starting from -frameOffset
-                for (let i = -frameOffset; i < translationData.length; i++) {
-                    newData.bodies[body].translation.push([...translationData[i]]);
-                    newData.bodies[body].rotation.push([...rotationData[i]]);
-                }
-                // Pad the end
-                const lastTranslation = translationData[translationData.length - 1];
-                const lastRotation = rotationData[rotationData.length - 1];
-                for (let i = 0; i < -frameOffset; i++) {
-                    newData.bodies[body].translation.push([...lastTranslation]);
-                    newData.bodies[body].rotation.push([...lastRotation]);
-                }
-            }
-            // No shift needed
-            else {
-                newData.bodies[body].translation = translationData;
-                newData.bodies[body].rotation = rotationData;
-            }
-        }
 
-        // Update the animation data
-        this.animations[index].data = newData;
-        this.animations[index].syncOffset = 0; // Reset offset after applying
-        
+            // Adjust body data
+            for (let body in animation.data.bodies) {
+                newData.bodies[body] = {
+                    ...animation.data.bodies[body],
+                    translation: [],
+                    rotation: []
+                };
+
+                // Copy only the common frames
+                for (let i = 0; i < commonFrames; i++) {
+                    newData.bodies[body].translation[i] = [...animation.data.bodies[body].translation[startFrame + i]];
+                    newData.bodies[body].rotation[i] = [...animation.data.bodies[body].rotation[startFrame + i]];
+                }
+            }
+
+            // Update the animation data
+            this.animations[index].data = newData;
+        });
+
+        // Update frames array to match the new common length
+        this.frames = this.animations[0].data.time;
+        this.frame = 0;
+        this.time = this.frames[0];
+
         // Update the view
         this.animateOneFrame();
     }
@@ -932,6 +909,15 @@ const axiosInstance = axios.create();
         }
       }
 
+      .sync-controls {
+        text-align: center;
+        flex-shrink: 0;
+        
+        .v-btn {
+            width: 100%;
+        }
+      }
+
       .legend {
         flex: 1;
         overflow-y: auto;
@@ -973,13 +959,6 @@ const axiosInstance = axios.create();
             gap: 10px;
             width: 100%;
             flex-wrap: wrap;
-          }
-
-          .sync-controls {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            width: 100%;
           }
         }
       }
