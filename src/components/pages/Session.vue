@@ -84,7 +84,7 @@
                                 class="trial-name-input"
                             />
                             <div class="file-name text-caption">{{ getFileName(animation) }}</div>
-                        </div>
+          </div>
                         <v-menu offset-y>
                             <template v-slot:activator="{ on, attrs }">
                                 <v-btn
@@ -112,7 +112,7 @@
                                 </div>
                             </v-card>
                         </v-menu>
-                    </div>
+                  </div>
                     <!-- Offset controls -->
                     <div class="offset-controls mt-1">
                         <v-text-field
@@ -145,10 +145,9 @@
               </div>
             </div>
         </div>
-            <SpeedControl v-model="playSpeed" />
-              <VideoNavigation :playing="playing" :value="frame" :maxFrame="frames.length - 1"
-                  :disabled="videoControlsDisabled" @play="togglePlay(true)" @pause="togglePlay(false)"
-                  @input="onNavigate" class="mb-2" />
+            <VideoNavigation :playing="playing" :value="frame" :maxFrame="frames.length - 1"
+                :disabled="videoControlsDisabled" @play="togglePlay(true)" @pause="togglePlay(false)"
+                @input="onNavigate" class="mb-2" />
           </div>
       </div>
   </template>
@@ -159,7 +158,6 @@
   import * as THREE_OC from '@/orbitControls'
   import VideoNavigation from '@/components/ui/VideoNavigation'
   import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js'
-  import SpeedControl from '@/components/ui/SpeedControl'
   
 // Create a new axios instance without a base URL
 const axiosInstance = axios.create();
@@ -170,7 +168,6 @@ const axiosInstance = axios.create();
       name: 'Session',
       components: {
           VideoNavigation,
-          SpeedControl
       },
       data() {
           return {
@@ -186,7 +183,6 @@ const axiosInstance = axios.create();
               frame: 0,
               time: 0,
               playing: false,
-              playSpeed: 1,
               resizeObserver: null,
               animations: [], // Array to store multiple animations
               frameRate: 60,
@@ -1015,7 +1011,7 @@ const axiosInstance = axios.create();
     }
   
     .right {
-      flex: 0 0 200px;
+      flex: 0 0 300px;
       height: 100%;
       padding: 10px;
       overflow-y: auto;
@@ -1063,7 +1059,7 @@ const axiosInstance = axios.create();
         flex-shrink: 0;
         
         .v-btn {
-            width: 100%;
+          width: 100%;
         }
       }
 
@@ -1148,9 +1144,9 @@ const axiosInstance = axios.create();
             color: #000;
             font-size: 12px;
             font-weight: bold;
-        }
+      }
     }
-}
+  }
   </style>
   
   
