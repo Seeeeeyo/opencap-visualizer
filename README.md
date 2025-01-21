@@ -56,7 +56,7 @@ pip install -r requirements.txt
 npm run serve
 ```
 
-2. The viewer will be available at `http://localhost:8080`
+2. The viewer will be available at `http://localhost:3000`
 
 ### Manual Usage
 
