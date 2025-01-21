@@ -15,6 +15,30 @@
             </div>
         </div>
         <div class="right d-flex flex-column">
+            <!-- Add recording controls -->
+            <div class="recording-controls mb-4">
+                <v-btn
+                    v-if="!isRecording"
+                    color="red"
+                    dark
+                    @click="startRecording"
+                    :disabled="isRecording"
+                    class="mb-2"
+                >
+                    <v-icon left>mdi-record</v-icon>
+                    Record
+                </v-btn>
+                <v-btn
+                    v-else
+                    color="grey"
+                    dark
+                    @click="stopRecording"
+                    class="mb-2"
+                >
+                    <v-icon left>mdi-stop</v-icon>
+                    Stop Recording
+                </v-btn>
+            </div>
             <!-- Legend -->
             <div class="legend mb-4">
                 <div v-for="(animation, index) in animations" :key="index" class="legend-item mb-2">
@@ -101,7 +125,10 @@ const axiosInstance = axios.create();
               colors: [
                   new THREE.Color(0x00ff00), // Green for first model
                   new THREE.Color(0xff0000)  // Red for second model
-              ]
+              ],
+              mediaRecorder: null,
+              recordedChunks: [],
+              isRecording: false
           }
       },
       computed: {
@@ -394,6 +421,8 @@ const axiosInstance = axios.create();
         if (this.playing) {
           this.lastFrameTime = performance.now() // Reset timing when starting playback
           this.animate()
+        } else if (this.isRecording) {
+          this.playing = true;
         }
       },
       onNavigate(frame) {
@@ -427,6 +456,52 @@ const axiosInstance = axios.create();
         
         // Render the scene with updated positions
         this.renderer.render(this.scene, this.camera)
+    },
+    startRecording() {
+      if (!this.renderer) return;
+      
+      const canvas = this.renderer.domElement;
+      const stream = canvas.captureStream(this.frameRate); // Capture at our animation frame rate
+      
+      this.mediaRecorder = new MediaRecorder(stream, {
+        mimeType: 'video/webm;codecs=vp9',
+        videoBitsPerSecond: 5000000 // 5 Mbps for good quality
+      });
+      
+      this.recordedChunks = [];
+      this.mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          this.recordedChunks.push(event.data);
+        }
+      };
+      
+      this.mediaRecorder.onstop = () => {
+        const blob = new Blob(this.recordedChunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        document.body.appendChild(a);
+        a.style = 'display: none';
+        a.href = url;
+        a.download = 'animation-recording.webm';
+        a.click();
+        window.URL.revokeObjectURL(url);
+        this.recordedChunks = [];
+      };
+      
+      // Start recording
+      this.mediaRecorder.start();
+      this.isRecording = true;
+      
+      // If not already playing, start playback
+      if (!this.playing) {
+        this.togglePlay(true);
+      }
+    },
+    stopRecording() {
+      if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+        this.mediaRecorder.stop();
+        this.isRecording = false;
+      }
     }
     }
   }
@@ -453,6 +528,14 @@ const axiosInstance = axios.create();
       flex: 0 0 200px;
       height: 100%;
       padding: 10px;
+
+      .recording-controls {
+        text-align: center;
+        
+        .v-btn {
+          width: 100%;
+        }
+      }
 
       .legend {
         background: rgba(0, 0, 0, 0.2);
