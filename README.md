@@ -4,7 +4,7 @@ A web-based 3D viewer for OpenCap motion capture data with automated video recor
 
 ## Demo
 
-[Watch Demo Video](./demo/sub2.webm)
+[Watch Demo Video](./demo/subj2.webm)
 
 This demo shows:
 - Side-by-side comparison of two animations
