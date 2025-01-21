@@ -39,6 +39,26 @@
                     Stop Recording
                   </v-btn>
               </div>
+            <!-- Add file controls -->
+            <div class="file-controls mb-4">
+                <input
+                    type="file"
+                    ref="fileInput"
+                    accept=".json"
+                    style="display: none"
+                    @change="handleFileUpload"
+                    multiple
+                />
+                <v-btn
+                    color="grey darken-3"
+                    class="mb-2 white--text"
+                    block
+                    @click="$refs.fileInput.click()"
+                >
+                    <v-icon left>mdi-file-upload</v-icon>
+                    Load JSON Files
+                </v-btn>
+            </div>
             <!-- Legend -->
             <div class="legend mb-4">
                 <div v-for="(animation, index) in animations" :key="index" class="legend-item mb-2">
@@ -78,6 +98,26 @@
                             @input="updateOffset(index, 'z', $event)"
                             style="width: 100px"
                         />
+              </div>
+              <div class="sync-controls mt-2">
+                  <v-btn
+                      small
+                      color="primary"
+                      @click="syncAnimation(index)"
+                      class="mr-2"
+                  >
+                      <v-icon left small>mdi-sync</v-icon>
+                      Sync
+                  </v-btn>
+                  <v-text-field
+                      label="Sync Offset (s)"
+                      type="number"
+                      :step="0.01"
+                      :value="animation.syncOffset || 0"
+                      dense
+                      style="width: 100px"
+                      @input="updateSyncOffset(index, $event)"
+                  />
               </div>
             </div>
         </div>
@@ -128,8 +168,14 @@ const axiosInstance = axios.create();
               frameRate: 60,
               lastFrameTime: 0,
               colors: [
-                  new THREE.Color(0x00ff00), // Green for first model
-                  new THREE.Color(0xff0000)  // Red for second model
+                  new THREE.Color(0x00ff00),  // Green
+                  new THREE.Color(0xff0000),  // Red
+                  new THREE.Color(0x0000ff),  // Blue
+                  new THREE.Color(0xffff00),  // Yellow
+                  new THREE.Color(0xff00ff),  // Magenta
+                  new THREE.Color(0x00ffff),  // Cyan
+                  new THREE.Color(0xff8000),  // Orange
+                  new THREE.Color(0x8000ff),  // Purple
               ],
               mediaRecorder: null,
               recordedChunks: [],
@@ -144,7 +190,7 @@ const axiosInstance = axios.create();
     }
       },
     async mounted() {
-    this.loadTrial()
+        this.initScene();
     },
     beforeDestroy() {
       if (this.resizeObserver) {
@@ -479,11 +525,6 @@ const axiosInstance = axios.create();
       this.time = frame / this.frameRate
         this.animateOneFrame()
       },
-      onChangeTime(time) {
-      this.time = time
-      this.frame = Math.floor(time * this.frameRate)
-        this.animateOneFrame()
-      },
     getFileName(animation) {
         // Extract filename from the URL used to load the animation
         return animation.fileName || 'Animation'
@@ -558,6 +599,273 @@ const axiosInstance = axios.create();
         this.mediaRecorder.stop();
         this.isRecording = false;
       }
+    },
+    handleFileUpload(event) {
+        const files = event.target.files;
+        if (!files.length) return;
+
+        // Initialize scene if it doesn't exist
+        if (!this.scene) {
+            this.initScene();
+        }
+
+        // Get the current number of animations for offset calculation
+        const startIndex = this.animations.length;
+
+        // Load new files
+        Array.from(files).forEach((file, index) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const data = JSON.parse(e.target.result);
+                
+                // Calculate offset based on position in circle
+                const totalSubjects = startIndex + files.length;
+                const angle = ((startIndex + index) / totalSubjects) * Math.PI * 2;
+                const radius = 2; // Distance from center
+                const xOffset = Math.cos(angle) * radius;
+                const zOffset = Math.sin(angle) * radius;
+
+                this.animations.push({
+                    data: data,
+                    offset: new THREE.Vector3(xOffset, 0, zOffset),
+                    fileName: file.name,
+                    trialName: `Subject ${startIndex + index + 1}`
+                });
+
+                if (this.animations.length === 1) { // If this is the first animation ever
+                    this.frames = data.time;
+                    this.trial = { results: [] };
+                }
+
+                // If this is the last new file
+                if (index === files.length - 1) {
+                    this.$nextTick(() => {
+                        if (!this.scene) {
+                            this.initScene();
+                        }
+                        
+                        // Only load geometries for new animations
+                        this.animations.slice(startIndex).forEach((animation, relativeIndex) => {
+                            const animIndex = startIndex + relativeIndex;
+                            for (let body in animation.data.bodies) {
+                                let bd = animation.data.bodies[body];
+                                bd.attachedGeometries.forEach((geom) => {
+                                    let path = 'https://mc-opencap-public.s3.us-west-2.amazonaws.com/geometries/' + 
+                                             geom.substr(0, geom.length - 4) + ".obj";
+                                    objLoader.load(path, (root) => {
+                                        if (!this.scene) return;
+                                        
+                                        root.castShadow = true;
+                                        root.receiveShadow = true;
+                                        
+                                        root.traverse((child) => {
+                                            if (child instanceof THREE.Mesh) {
+                                                child.castShadow = true;
+                                                child.material = new THREE.MeshPhongMaterial({ 
+                                                    color: this.colors[animIndex % this.colors.length],
+                                                    transparent: true,
+                                                    opacity: 0.8
+                                                });
+                                            }
+                                        });
+                                        
+                                        const meshKey = `anim${animIndex}_${body}${geom}`;
+                                        this.meshes[meshKey] = root;
+                                        this.meshes[meshKey].scale.set(
+                                            bd.scaleFactors[0], 
+                                            bd.scaleFactors[1], 
+                                            bd.scaleFactors[2]
+                                        );
+                                        root.position.add(animation.offset);
+                                        this.scene.add(root);
+                                    });
+                                });
+                            }
+
+                            // Create text sprite for new animation
+                            if (this.scene) {
+                                const canvas = document.createElement('canvas');
+                                const context = canvas.getContext('2d');
+                                canvas.width = 256;
+                                canvas.height = 64;
+                                
+                                context.font = 'bold 40px Arial';
+                                context.textAlign = 'center';
+                                context.fillStyle = '#' + this.colors[animIndex % this.colors.length].getHexString();
+                                context.fillText(animation.trialName, canvas.width/2, canvas.height/2);
+                                
+                                const texture = new THREE.CanvasTexture(canvas);
+                                const spriteMaterial = new THREE.SpriteMaterial({ 
+                                    map: texture,
+                                    transparent: true,
+                                    opacity: 0.4
+                                });
+                                
+                                const sprite = new THREE.Sprite(spriteMaterial);
+                                sprite.scale.set(1, 0.25, 1);
+                                sprite.position.copy(animation.offset);
+                                sprite.position.y += 2;
+                                
+                                this.textSprites[`text_${animIndex}`] = sprite;
+                                this.scene.add(sprite);
+                            }
+                        });
+
+                        // Make sure animation is running
+                        this.animate();
+                    });
+                }
+            };
+            reader.readAsText(file);
+        });
+    },
+    initScene() {
+        const container = this.$refs.mocap;
+        if (!container) return;
+
+        let ratio = container.clientWidth / container.clientHeight;
+        this.camera = new THREE.PerspectiveCamera(45, ratio, 0.1, 125);
+        this.camera.position.x = 4.5;
+        this.camera.position.z = -3;
+        this.camera.position.y = 3;
+
+        this.scene = new THREE.Scene();
+        this.scene.background = new THREE.Color(0x808080);
+        this.renderer = new THREE.WebGLRenderer({antialias: true});
+        this.renderer.shadowMap.enabled = true;
+        this.onResize();
+        container.appendChild(this.renderer.domElement);
+        this.controls = new THREE_OC.OrbitControls(this.camera, this.renderer.domElement);
+
+        // Add plane
+        const planeSize = 5;
+        const loader = new THREE.TextureLoader();
+        const texture = loader.load('https://threejsfundamentals.org/threejs/resources/images/checker.png');
+        texture.wrapS = THREE.RepeatWrapping;
+        texture.wrapT = THREE.RepeatWrapping;
+        texture.magFilter = THREE.NearestFilter;
+        const repeats = planeSize * 2;
+        texture.repeat.set(repeats, repeats);
+
+        const planeGeo = new THREE.PlaneGeometry(planeSize, planeSize);
+        const planeMat = new THREE.MeshPhongMaterial({
+            map: texture,
+            side: THREE.DoubleSide,
+        });
+        const mesh = new THREE.Mesh(planeGeo, planeMat);
+        mesh.rotation.x = Math.PI * -.5;
+        mesh.position.y = 0;
+        mesh.receiveShadow = true;
+        this.scene.add(mesh);
+
+        // Add lights
+        const skyColor = 0xB1E1FF;
+        const groundColor = 0xB97A20;
+        const intensity = 0.5;
+        const hemisphereLight = new THREE.HemisphereLight(skyColor, groundColor, intensity);
+        this.scene.add(hemisphereLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xFFFFFF, 0.8);
+        directionalLight.position.set(2, 3, 1.5);
+        directionalLight.target.position.set(0, 0, 0);
+        directionalLight.castShadow = true;
+        directionalLight.shadow.camera.left = -10;
+        directionalLight.shadow.camera.right = 10;
+        directionalLight.shadow.camera.top = -10;
+        directionalLight.shadow.camera.bottom = 10;
+        directionalLight.shadow.camera.near = 0;
+        directionalLight.shadow.camera.far = 50;
+        directionalLight.shadow.camera.zoom = 8;
+        this.scene.add(directionalLight);
+        this.scene.add(directionalLight.target);
+
+        // Initial render
+        this.renderer.render(this.scene, this.camera);
+    },
+    onChangeTime(time) {
+        this.time = time;
+        this.frame = Math.floor(time * this.frameRate);
+        this.animateOneFrame();
+    },
+    updateSyncOffset(index, value) {
+        // Ensure animations[index] has a syncOffset property
+        if (!this.animations[index].hasOwnProperty('syncOffset')) {
+            this.$set(this.animations[index], 'syncOffset', 0);
+        }
+        
+        this.animations[index].syncOffset = Number(value);
+        this.animateOneFrame(); // Update the view
+    },
+    syncAnimation(index) {
+        const animation = this.animations[index];
+        const syncOffset = animation.syncOffset || 0;
+        
+        // Convert time offset to frames
+        const frameOffset = Math.round(syncOffset * this.frameRate);
+        
+        // Create new arrays for the shifted data
+        const newData = {
+            ...animation.data,
+            time: [],
+            bodies: {}
+        };
+
+        // Shift time array
+        animation.data.time.forEach((t, i) => {
+            newData.time[i] = t + syncOffset;
+        });
+
+        // Shift all body data
+        for (let body in animation.data.bodies) {
+            newData.bodies[body] = {
+                ...animation.data.bodies[body],
+                translation: [],
+                rotation: []
+            };
+
+            const translationData = animation.data.bodies[body].translation;
+            const rotationData = animation.data.bodies[body].rotation;
+
+            // If shifting forward, pad the beginning with first frame
+            if (frameOffset > 0) {
+                for (let i = 0; i < frameOffset; i++) {
+                    newData.bodies[body].translation.push([...translationData[0]]);
+                    newData.bodies[body].rotation.push([...rotationData[0]]);
+                }
+                // Add the rest of the frames
+                for (let i = 0; i < translationData.length - frameOffset; i++) {
+                    newData.bodies[body].translation.push([...translationData[i]]);
+                    newData.bodies[body].rotation.push([...rotationData[i]]);
+                }
+            }
+            // If shifting backward, pad the end with last frame
+            else if (frameOffset < 0) {
+                // Add frames starting from -frameOffset
+                for (let i = -frameOffset; i < translationData.length; i++) {
+                    newData.bodies[body].translation.push([...translationData[i]]);
+                    newData.bodies[body].rotation.push([...rotationData[i]]);
+                }
+                // Pad the end
+                const lastTranslation = translationData[translationData.length - 1];
+                const lastRotation = rotationData[rotationData.length - 1];
+                for (let i = 0; i < -frameOffset; i++) {
+                    newData.bodies[body].translation.push([...lastTranslation]);
+                    newData.bodies[body].rotation.push([...lastRotation]);
+                }
+            }
+            // No shift needed
+            else {
+                newData.bodies[body].translation = translationData;
+                newData.bodies[body].rotation = rotationData;
+            }
+        }
+
+        // Update the animation data
+        this.animations[index].data = newData;
+        this.animations[index].syncOffset = 0; // Reset offset after applying
+        
+        // Update the view
+        this.animateOneFrame();
     }
     }
   }
@@ -584,9 +892,40 @@ const axiosInstance = axios.create();
       flex: 0 0 200px;
       height: 100%;
       padding: 10px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+
+      &::-webkit-scrollbar {
+        width: 8px;
+      }
+
+      &::-webkit-scrollbar-track {
+        background: rgba(0, 0, 0, 0.1);
+        border-radius: 4px;
+      }
+
+      &::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.3);
+        border-radius: 4px;
+        
+        &:hover {
+          background: rgba(255, 255, 255, 0.4);
+        }
+      }
 
       .recording-controls {
         text-align: center;
+        flex-shrink: 0;
+        
+        .v-btn {
+          width: 100%;
+        }
+      }
+
+      .file-controls {
+        text-align: center;
+        flex-shrink: 0;
         
         .v-btn {
           width: 100%;
@@ -594,6 +933,8 @@ const axiosInstance = axios.create();
       }
 
       .legend {
+        flex: 1;
+        overflow-y: auto;
         background: rgba(0, 0, 0, 0.2);
         border-radius: 4px;
         padding: 10px;
@@ -631,7 +972,14 @@ const axiosInstance = axios.create();
             display: flex;
             gap: 10px;
             width: 100%;
-            flex-wrap: wrap; // Allow controls to wrap on narrow screens
+            flex-wrap: wrap;
+          }
+
+          .sync-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
           }
         }
       }
