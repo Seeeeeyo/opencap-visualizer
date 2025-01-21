@@ -1,9 +1,8 @@
-import axios from 'axios'
 import Vue from 'vue'
 import App from './App.vue'
 import vuetify from './plugins/vuetify'
 import router from '@/router'
-import store from '@/store/store.js'
+import axios from 'axios'
 import 'roboto-fontface/css/roboto/roboto-fontface.css'
 import '@mdi/font/css/materialdesignicons.css'
 import '@/assets/scss/main.scss'
@@ -86,16 +85,12 @@ Vue.toasted.register('warning', (message) => {
 
 Vue.config.productionTip = false
 
-axios.defaults.baseURL = process.env.VUE_APP_API_SERVER //"https://api.opencap.ai/"
-// axios.defaults.baseURL = "http://34.219.192.107/"
-// axios.defaults.baseURL = "http://localhost:8000/"
+// Set default axios base URL
+axios.defaults.baseURL = "http://localhost:8000/"
 
-store.dispatch('auth/checkToken').then(() => {
-  new Vue({
-    vuetify,
-    router,
-    store,
-    render: h => h(App)
-  }).$mount('#app')  
-})
+new Vue({
+  router,
+  vuetify,
+  render: h => h(App)
+}).$mount('#app')
 
