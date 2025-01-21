@@ -2,6 +2,16 @@
 
 A web-based 3D viewer for OpenCap motion capture data with automated video recording capabilities.
 
+## Demo
+
+[Watch Demo Video](./demo/sub2.webm)
+
+This demo shows:
+- Side-by-side comparison of two animations
+- Automatic camera angle changes
+- 3D model visualization with labels
+- Smooth playback and transitions
+
 ## Features
 
 - Load and visualize OpenCap JSON files in 3D

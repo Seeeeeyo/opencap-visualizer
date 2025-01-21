@@ -31,6 +31,7 @@ def automate_recording(json1_path, json2_path, output_video_path, wait_time=5, n
     
     # Set download directory to current directory
     download_dir = os.path.dirname(os.path.abspath(output_video_path))
+    output_filename = os.path.basename(output_video_path)
     chrome_options.add_experimental_option("prefs", {
         "download.default_directory": download_dir,
         "download.prompt_for_download": False,
@@ -54,6 +55,9 @@ def automate_recording(json1_path, json2_path, output_video_path, wait_time=5, n
         
         # Wait for models to load
         time.sleep(wait_time)
+        
+        # Set the recording filename using JavaScript
+        driver.execute_script(f"document.querySelector('#app').__vue__.$children[0].recordingFileName = '{output_filename}';")
         
         # Get the canvas element for mouse interactions
         canvas = driver.find_element(By.CSS_SELECTOR, "#mocap canvas")
@@ -115,10 +119,14 @@ def automate_recording(json1_path, json2_path, output_video_path, wait_time=5, n
         # Wait for download to complete
         time.sleep(2)
         
-        # Move the downloaded file to the desired location
-        downloaded_file = os.path.join(download_dir, "animation-recording.webm")
+        # Move the downloaded file to the desired location if it has a different name
+        downloaded_file = os.path.join(download_dir, output_filename)
+        if not os.path.exists(downloaded_file):
+            old_file = os.path.join(download_dir, "animation-recording.webm")
+            if os.path.exists(old_file):
+                shutil.move(old_file, downloaded_file)
+        
         if os.path.exists(downloaded_file):
-            shutil.move(downloaded_file, output_video_path)
             print(f"Video saved to: {output_video_path}")
         else:
             print("Warning: Recording file not found in downloads directory")
