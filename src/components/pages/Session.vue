@@ -76,11 +76,43 @@
                 <div v-for="(animation, index) in animations" :key="index" class="legend-item mb-2">
                     <div class="d-flex align-center mb-2">
                         <div class="color-box" :style="{ backgroundColor: '#' + colors[index].getHexString() }"></div>
-                        <div class="ml-2">
-                            <div class="trial-name">{{ animation.trialName }}</div>
+                        <div class="ml-2 flex-grow-1">
+                            <v-text-field
+                                v-model="animation.trialName"
+                                dense
+                                hide-details
+                                class="trial-name-input"
+                            />
                             <div class="file-name text-caption">{{ getFileName(animation) }}</div>
-          </div>
-                  </div>
+                        </div>
+                        <v-menu offset-y>
+                            <template v-slot:activator="{ on, attrs }">
+                                <v-btn
+                                    icon
+                                    small
+                                    v-bind="attrs"
+                                    v-on="on"
+                                    class="ml-2"
+                                >
+                                    <v-icon small>mdi-palette</v-icon>
+                                </v-btn>
+                            </template>
+                            <v-card class="color-picker pa-2">
+                                <div class="d-flex flex-wrap">
+                                    <v-btn
+                                        v-for="color in availableColors"
+                                        :key="color"
+                                        small
+                                        icon
+                                        class="ma-1"
+                                        @click="updateSubjectColor(index, color)"
+                                    >
+                                        <div class="color-sample" :style="{ backgroundColor: color }"></div>
+                                    </v-btn>
+                                </div>
+                            </v-card>
+                        </v-menu>
+                    </div>
                     <!-- Offset controls -->
                     <div class="offset-controls mt-1">
                         <v-text-field
@@ -174,6 +206,25 @@ const axiosInstance = axios.create();
               isRecording: false,
               textSprites: {}, // Store text sprites for each animation
               recordingFileName: 'animation-recording.webm', // Add default filename
+              availableColors: [
+                  'original',  // Change 'transparent' to 'original'
+                  '#00ff00', // Green
+                  '#ff0000', // Red
+                  '#0000ff', // Blue
+                  '#ffff00', // Yellow
+                  '#ff00ff', // Magenta
+                  '#00ffff', // Cyan
+                  '#ff8000', // Orange
+                  '#8000ff', // Purple
+                  '#ffffff', // White
+                  '#808080', // Gray
+                  '#ff8080', // Light Red
+                  '#80ff80', // Light Green
+                  '#8080ff', // Light Blue
+                  '#ff80ff', // Light Pink
+                  '#80ffff', // Light Cyan
+                  '#ffa040', // Light Orange
+              ],
           }
       },
       computed: {
@@ -205,6 +256,35 @@ const axiosInstance = axios.create();
         } else {
         this.resizeObserver?.unobserve(this.$refs.mocap)
       }
+    },
+    animations: {
+        handler(newAnimations) {
+            newAnimations.forEach((animation, index) => {
+                const sprite = this.textSprites[`text_${index}`];
+                if (sprite) {
+                    const canvas = document.createElement('canvas');
+                    const context = canvas.getContext('2d');
+                    canvas.width = 256;
+                    canvas.height = 64;
+                    
+                    context.font = 'bold 40px Arial';
+                    context.textAlign = 'center';
+                    context.fillStyle = '#' + this.colors[index].getHexString();
+                    context.fillText(animation.trialName, canvas.width/2, canvas.height/2);
+                    
+                    const texture = new THREE.CanvasTexture(canvas);
+                    if (sprite.material.map) sprite.material.map.dispose();
+                    sprite.material.map = texture;
+                    sprite.material.needsUpdate = true;
+                }
+            });
+            
+            // Render the scene with updated text
+            if (this.renderer) {
+                this.renderer.render(this.scene, this.camera);
+            }
+        },
+        deep: true
     }
     },
     methods: {
@@ -267,9 +347,9 @@ const axiosInstance = axios.create();
   
                   let ratio = container.clientWidth / container.clientHeight
                   this.camera = new THREE.PerspectiveCamera(45, ratio, 0.1, 125)
-                  this.camera.position.x = 4.5
-                  this.camera.position.z = -3
-                  this.camera.position.y = 3
+                  this.camera.position.x = 6
+                  this.camera.position.z = -6
+                  this.camera.position.y = 6
   
                   this.scene = new THREE.Scene()
                   this.scene.background = new THREE.Color(0x808080)
@@ -282,14 +362,14 @@ const axiosInstance = axios.create();
                   // add the plane
                   {
                 console.log('Adding plane')
-                    const planeSize = 5;
+                    const planeSize = 20;
   
                     const loader = new THREE.TextureLoader();
                     const texture = loader.load('https://threejsfundamentals.org/threejs/resources/images/checker.png');
                     texture.wrapS = THREE.RepeatWrapping;
                     texture.wrapT = THREE.RepeatWrapping;
                     texture.magFilter = THREE.NearestFilter;
-                    const repeats = planeSize * 2;
+                    const repeats = planeSize;
                     texture.repeat.set(repeats, repeats);
   
                     const planeGeo = new THREE.PlaneGeometry(planeSize, planeSize);
@@ -604,112 +684,117 @@ const axiosInstance = axios.create();
         // Get the current number of animations for offset calculation
         const startIndex = this.animations.length;
 
-        // Load new files
-        Array.from(files).forEach((file, index) => {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const data = JSON.parse(e.target.result);
-                
-                // Calculate offset based on position in circle
-                const totalSubjects = startIndex + files.length;
-                const angle = ((startIndex + index) / totalSubjects) * Math.PI * 2;
-                const radius = 2; // Distance from center
-                const xOffset = Math.cos(angle) * radius;
-                const zOffset = Math.sin(angle) * radius;
+        // Create a Promise for each file
+        const filePromises = Array.from(files).map(file => {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve({ data: JSON.parse(e.target.result), file });
+                reader.readAsText(file);
+            });
+        });
+
+        // Process all files together
+        Promise.all(filePromises).then(results => {
+            results.forEach(({ data, file }, index) => {
+                const offset = new THREE.Vector3(
+                    0,                    // X: always 0
+                    0,                    // Y: always 0
+                    startIndex + index    // Z: increases by 1 for each subject
+                );
 
                 this.animations.push({
                     data: data,
-                    offset: new THREE.Vector3(xOffset, 0, zOffset),
+                    offset: offset,
                     fileName: file.name,
                     trialName: `Subject ${startIndex + index + 1}`
                 });
 
-                if (this.animations.length === 1) { // If this is the first animation ever
+                if (this.animations.length === 1) {
                     this.frames = data.time;
                     this.trial = { results: [] };
                 }
+            });
 
-                // If this is the last new file
-                if (index === files.length - 1) {
-                    this.$nextTick(() => {
-                        if (!this.scene) {
-                            this.initScene();
-                        }
-                        
-                        // Only load geometries for new animations
-                        this.animations.slice(startIndex).forEach((animation, relativeIndex) => {
-                            const animIndex = startIndex + relativeIndex;
-                            for (let body in animation.data.bodies) {
-                                let bd = animation.data.bodies[body];
-                                bd.attachedGeometries.forEach((geom) => {
-                                    let path = 'https://mc-opencap-public.s3.us-west-2.amazonaws.com/geometries/' + 
-                                             geom.substr(0, geom.length - 4) + ".obj";
-                                    objLoader.load(path, (root) => {
-                                        if (!this.scene) return;
-                                        
-                                        root.castShadow = true;
-                                        root.receiveShadow = true;
-                                        
-                                        root.traverse((child) => {
-                                            if (child instanceof THREE.Mesh) {
-                                                child.castShadow = true;
-                                                child.material = new THREE.MeshPhongMaterial({ 
-                                                    color: this.colors[animIndex % this.colors.length],
-                                                    transparent: true,
-                                                    opacity: 0.8
-                                                });
-                                            }
-                                        });
-                                        
-                                        const meshKey = `anim${animIndex}_${body}${geom}`;
-                                        this.meshes[meshKey] = root;
-                                        this.meshes[meshKey].scale.set(
-                                            bd.scaleFactors[0], 
-                                            bd.scaleFactors[1], 
-                                            bd.scaleFactors[2]
-                                        );
-                                        root.position.add(animation.offset);
-                                        this.scene.add(root);
-                                    });
-                                });
-                            }
-
-                            // Create text sprite for new animation
-                            if (this.scene) {
-                                const canvas = document.createElement('canvas');
-                                const context = canvas.getContext('2d');
-                                canvas.width = 256;
-                                canvas.height = 64;
-                                
-                                context.font = 'bold 40px Arial';
-                                context.textAlign = 'center';
-                                context.fillStyle = '#' + this.colors[animIndex % this.colors.length].getHexString();
-                                context.fillText(animation.trialName, canvas.width/2, canvas.height/2);
-                                
-                                const texture = new THREE.CanvasTexture(canvas);
-                                const spriteMaterial = new THREE.SpriteMaterial({ 
-                                    map: texture,
-                                    transparent: true,
-                                    opacity: 0.4
-                                });
-                                
-                                const sprite = new THREE.Sprite(spriteMaterial);
-                                sprite.scale.set(1, 0.25, 1);
-                                sprite.position.copy(animation.offset);
-                                sprite.position.y += 2;
-                                
-                                this.textSprites[`text_${animIndex}`] = sprite;
-                                this.scene.add(sprite);
-                            }
-                        });
-
-                        // Make sure animation is running
-                        this.animate();
-                    });
+            // Load geometries after all files are processed
+            this.$nextTick(() => {
+                if (!this.scene) {
+                    this.initScene();
                 }
-            };
-            reader.readAsText(file);
+                
+                // Only load geometries for new animations
+                this.animations.slice(startIndex).forEach((animation, relativeIndex) => {
+                    const animIndex = startIndex + relativeIndex;
+                    for (let body in animation.data.bodies) {
+                        let bd = animation.data.bodies[body];
+                        bd.attachedGeometries.forEach((geom) => {
+                            let path = 'https://mc-opencap-public.s3.us-west-2.amazonaws.com/geometries/' + 
+                                     geom.substr(0, geom.length - 4) + ".obj";
+                            objLoader.load(path, (root) => {
+                                if (!this.scene) return;
+                                
+                                root.castShadow = true;
+                                root.receiveShadow = true;
+                                
+                                root.traverse((child) => {
+                                    if (child instanceof THREE.Mesh) {
+                                        child.castShadow = true;
+                                        child.material = new THREE.MeshPhongMaterial({ 
+                                            color: this.colors[animIndex % this.colors.length],
+                                            transparent: true,
+                                            opacity: 0.8
+                                        });
+                                    }
+                                });
+                                
+                                const meshKey = `anim${animIndex}_${body}${geom}`;
+                                this.meshes[meshKey] = root;
+                                this.meshes[meshKey].scale.set(
+                                    bd.scaleFactors[0], 
+                                    bd.scaleFactors[1], 
+                                    bd.scaleFactors[2]
+                                );
+                                root.position.add(animation.offset);
+                                this.scene.add(root);
+                            });
+                        });
+                    }
+
+                    // Create text sprite for new animation
+                    if (this.scene) {
+                        const canvas = document.createElement('canvas');
+                        const context = canvas.getContext('2d');
+                        canvas.width = 256;
+                        canvas.height = 64;
+                        
+                        context.font = 'bold 40px Arial';
+                        context.textAlign = 'center';
+                        context.fillStyle = '#' + this.colors[animIndex % this.colors.length].getHexString();
+                        context.fillText(animation.trialName, canvas.width/2, canvas.height/2);
+                        
+                        const texture = new THREE.CanvasTexture(canvas);
+                        const spriteMaterial = new THREE.SpriteMaterial({ 
+                            map: texture,
+                            transparent: true,
+                            opacity: 0.4
+                        });
+                        
+                        const sprite = new THREE.Sprite(spriteMaterial);
+                        sprite.scale.set(1, 0.25, 1);
+                        sprite.position.copy(animation.offset);
+                        sprite.position.y += 2;
+                        
+                        this.textSprites[`text_${animIndex}`] = sprite;
+                        this.scene.add(sprite);
+                    }
+                });
+
+                // Make sure animation is running
+                this.animate();
+            });
         });
+
+        // Clear the file input value so the same file can be selected again
+        event.target.value = '';
     },
     initScene() {
         const container = this.$refs.mocap;
@@ -717,9 +802,9 @@ const axiosInstance = axios.create();
 
         let ratio = container.clientWidth / container.clientHeight;
         this.camera = new THREE.PerspectiveCamera(45, ratio, 0.1, 125);
-        this.camera.position.x = 4.5;
-        this.camera.position.z = -3;
-        this.camera.position.y = 3;
+        this.camera.position.x = 6;
+        this.camera.position.z = -6;
+        this.camera.position.y = 6;
 
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color(0x808080);
@@ -730,13 +815,13 @@ const axiosInstance = axios.create();
         this.controls = new THREE_OC.OrbitControls(this.camera, this.renderer.domElement);
 
         // Add plane
-        const planeSize = 5;
+        const planeSize = 20;
         const loader = new THREE.TextureLoader();
         const texture = loader.load('https://threejsfundamentals.org/threejs/resources/images/checker.png');
         texture.wrapS = THREE.RepeatWrapping;
         texture.wrapT = THREE.RepeatWrapping;
         texture.magFilter = THREE.NearestFilter;
-        const repeats = planeSize * 2;
+        const repeats = planeSize;
         texture.repeat.set(repeats, repeats);
 
         const planeGeo = new THREE.PlaneGeometry(planeSize, planeSize);
@@ -843,6 +928,70 @@ const axiosInstance = axios.create();
 
         // Update the view
         this.animateOneFrame();
+    },
+    updateSubjectColor(index, colorHex) {
+        if (colorHex === 'original') {
+            // Remove color override, revert to original material
+            Object.keys(this.meshes).forEach(key => {
+                if (key.startsWith(`anim${index}_`)) {
+                    const mesh = this.meshes[key];
+                    mesh.traverse((child) => {
+                        if (child instanceof THREE.Mesh) {
+                            child.material = new THREE.MeshPhongMaterial({ 
+                                color: 0xcccccc,  // Default grey color
+                                transparent: false,
+                                opacity: 1
+                            });
+                        }
+                    });
+                }
+            });
+
+            // Update color in our array
+            this.colors[index] = new THREE.Color(0xcccccc);
+            this.$forceUpdate(); // Force update to refresh the color box
+        } else {
+            // Regular color update
+            const newColor = new THREE.Color(colorHex);
+            this.colors[index] = newColor;
+            this.$forceUpdate(); // Force update to refresh the color box
+
+            Object.keys(this.meshes).forEach(key => {
+                if (key.startsWith(`anim${index}_`)) {
+                    const mesh = this.meshes[key];
+                    mesh.traverse((child) => {
+                        if (child instanceof THREE.Mesh) {
+                            child.material.color = newColor;
+                            child.material.transparent = true;
+                            child.material.opacity = 0.8;
+                            child.material.needsUpdate = true;
+                        }
+                    });
+                }
+            });
+        }
+
+        // Update text sprite
+        const sprite = this.textSprites[`text_${index}`];
+        if (sprite) {
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            canvas.width = 256;
+            canvas.height = 64;
+            
+            context.font = 'bold 40px Arial';
+            context.textAlign = 'center';
+            context.fillStyle = colorHex === 'original' ? '#cccccc' : colorHex;
+            context.fillText(this.animations[index].trialName, canvas.width/2, canvas.height/2);
+            
+            const texture = new THREE.CanvasTexture(canvas);
+            sprite.material.map.dispose();
+            sprite.material.map = texture;
+            sprite.material.needsUpdate = true;
+        }
+
+        // Render the scene with updated colors
+        this.renderer.render(this.scene, this.camera);
     }
     }
   }
@@ -964,6 +1113,44 @@ const axiosInstance = axios.create();
       }
     }
   }
+
+.trial-name-input {
+    .v-input__slot {
+        margin-bottom: 0 !important;
+    }
+    input {
+        font-weight: bold !important;
+        font-size: 14px !important;
+    }
+}
+
+.color-picker {
+    background: #424242 !important;
+    max-width: 200px;
+}
+
+.color-sample {
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+
+    &[style*="original"] {
+        background-color: #cccccc !important;
+        position: relative;
+        
+        &::after {
+            content: "O";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #000;
+            font-size: 12px;
+            font-weight: bold;
+        }
+    }
+}
   </style>
   
   
