@@ -9,6 +9,8 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
 
 def automate_recording(json1_path, json2_path, output_video_path, wait_time=5, num_loops=3):
     """
@@ -38,7 +40,7 @@ def automate_recording(json1_path, json2_path, output_video_path, wait_time=5, n
     })
     
     # Initialize the driver
-    driver = webdriver.Chrome(options=chrome_options)
+    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
     
     try:
         # Copy JSON files to public directory
@@ -46,7 +48,7 @@ def automate_recording(json1_path, json2_path, output_video_path, wait_time=5, n
         shutil.copy(json2_path, "public/test2.json")
         
         # Navigate to the viewer
-        driver.get("http://localhost:8080")
+        driver.get("http://localhost:3000")
         
         # Wait for the scene to load
         WebDriverWait(driver, 10).until(
