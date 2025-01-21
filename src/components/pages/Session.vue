@@ -15,6 +15,43 @@
             </div>
         </div>
         <div class="right d-flex flex-column">
+            <!-- Legend -->
+            <div class="legend mb-4">
+                <div v-for="(animation, index) in animations" :key="index" class="legend-item mb-2">
+                    <div class="color-box" :style="{ backgroundColor: '#' + colors[index].getHexString() }"></div>
+                    <span class="ml-2">{{ getFileName(animation) }}</span>
+                    <!-- Offset controls -->
+                    <div class="offset-controls mt-1">
+                        <v-text-field
+                            label="X Offset"
+                            type="number"
+                            :step="0.5"
+                            :value="animation.offset.x"
+                            dense
+                            @input="updateOffset(index, 'x', $event)"
+                            style="width: 100px"
+                        />
+                        <v-text-field
+                            label="Y Offset"
+                            type="number"
+                            :step="0.5"
+                            :value="animation.offset.y"
+                            dense
+                            @input="updateOffset(index, 'y', $event)"
+                            style="width: 100px"
+                        />
+                        <v-text-field
+                            label="Z Offset"
+                            type="number"
+                            :step="0.5"
+                            :value="animation.offset.z"
+                            dense
+                            @input="updateOffset(index, 'z', $event)"
+                            style="width: 100px"
+                        />
+                    </div>
+                </div>
+            </div>
             <SpeedControl v-model="playSpeed" />
               <VideoNavigation :playing="playing" :value="frame" :maxFrame="frames.length - 1"
                   :disabled="videoControlsDisabled" @play="togglePlay(true)" @pause="togglePlay(false)"
@@ -121,14 +158,19 @@ const axiosInstance = axios.create();
             this.trial = { results: [] }
             this.frames = res1.data.time // Use first animation's time
             this.animations = [
-                { data: res1.data, offset: new THREE.Vector3(0, 0, 0) }
+                { 
+                    data: res1.data, 
+                    offset: new THREE.Vector3(0, 0, 0),
+                    fileName: 'test.json'
+                }
             ]
             
             // Add second animation if available
             if (res2 && res2.data) {
                 this.animations.push({ 
                     data: res2.data, 
-                    offset: new THREE.Vector3(2, 0, 0) 
+                    offset: new THREE.Vector3(0, 0, -1),
+                    fileName: 'test2.json'
                 })
             }
 
@@ -363,6 +405,28 @@ const axiosInstance = axios.create();
       this.time = time
       this.frame = Math.floor(time * this.frameRate)
         this.animateOneFrame()
+    },
+    getFileName(animation) {
+        // Extract filename from the URL used to load the animation
+        return animation.fileName || 'Animation'
+    },
+    updateOffset(animationIndex, axis, value) {
+        const offset = this.animations[animationIndex].offset
+        offset[axis] = Number(value)
+        
+        // Update all meshes for this animation
+        Object.keys(this.meshes).forEach(key => {
+            if (key.startsWith(`anim${animationIndex}_`)) {
+                const mesh = this.meshes[key]
+                // Reset position to remove old offset
+                mesh.position.sub(new THREE.Vector3().copy(offset))
+                // Apply new offset
+                mesh.position.add(offset)
+            }
+        })
+        
+        // Render the scene with updated positions
+        this.renderer.render(this.scene, this.camera)
     }
     }
   }
@@ -388,8 +452,42 @@ const axiosInstance = axios.create();
     .right {
       flex: 0 0 200px;
       height: 100%;
+      padding: 10px;
+
+      .legend {
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 4px;
+        padding: 10px;
+
+        .legend-item {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          padding: 5px;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+
+          &:last-child {
+            border-bottom: none;
+          }
+
+          .color-box {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            display: inline-block;
+            vertical-align: middle;
+          }
+
+          .offset-controls {
+            display: flex;
+            gap: 10px;
+            width: 100%;
+            flex-wrap: wrap; // Allow controls to wrap on narrow screens
+          }
+        }
+      }
     }
-  }
+}
   </style>
   
   
