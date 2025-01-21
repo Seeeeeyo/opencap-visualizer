@@ -42,8 +42,13 @@
             <!-- Legend -->
             <div class="legend mb-4">
                 <div v-for="(animation, index) in animations" :key="index" class="legend-item mb-2">
-                    <div class="color-box" :style="{ backgroundColor: '#' + colors[index].getHexString() }"></div>
-                    <span class="ml-2">{{ getFileName(animation) }}</span>
+                    <div class="d-flex align-center mb-2">
+                        <div class="color-box" :style="{ backgroundColor: '#' + colors[index].getHexString() }"></div>
+                        <div class="ml-2">
+                            <div class="trial-name">{{ animation.trialName }}</div>
+                            <div class="file-name text-caption">{{ getFileName(animation) }}</div>
+          </div>
+                  </div>
                     <!-- Offset controls -->
                     <div class="offset-controls mt-1">
                         <v-text-field
@@ -73,9 +78,9 @@
                             @input="updateOffset(index, 'z', $event)"
                             style="width: 100px"
                         />
-          </div>
-                  </div>
               </div>
+            </div>
+        </div>
             <SpeedControl v-model="playSpeed" />
               <VideoNavigation :playing="playing" :value="frame" :maxFrame="frames.length - 1"
                   :disabled="videoControlsDisabled" @play="togglePlay(true)" @pause="togglePlay(false)"
@@ -128,7 +133,9 @@ const axiosInstance = axios.create();
               ],
               mediaRecorder: null,
               recordedChunks: [],
-              isRecording: false
+              isRecording: false,
+              textSprites: {}, // Store text sprites for each animation
+              recordingFileName: 'animation-recording.webm', // Add default filename
           }
       },
       computed: {
@@ -143,6 +150,12 @@ const axiosInstance = axios.create();
       if (this.resizeObserver) {
         this.resizeObserver.unobserve(this.$refs.mocap)
       }
+      
+      // Clean up sprites
+      Object.values(this.textSprites).forEach(sprite => {
+          if (sprite.material.map) sprite.material.map.dispose();
+          if (sprite.material) sprite.material.dispose();
+      });
     },
     watch: {
       trial() {
@@ -188,7 +201,8 @@ const axiosInstance = axios.create();
                 { 
                     data: res1.data, 
                     offset: new THREE.Vector3(0, 0, 0),
-                    fileName: 'test.json'
+                    fileName: 'test.json',
+                    trialName: 'Subject 1'
                 }
             ]
             
@@ -197,7 +211,8 @@ const axiosInstance = axios.create();
                 this.animations.push({ 
                     data: res2.data, 
                     offset: new THREE.Vector3(0, 0, -1),
-                    fileName: 'test2.json'
+                    fileName: 'test2.json',
+                    trialName: 'Subject 2'
                 })
             }
 
@@ -316,6 +331,40 @@ const axiosInstance = axios.create();
                               });
                           });
                   }
+                  });
+
+                  // Create text sprites for each animation
+                  this.animations.forEach((animation, index) => {
+                      const canvas = document.createElement('canvas');
+                      const context = canvas.getContext('2d');
+                      canvas.width = 256;
+                      canvas.height = 64;
+                      
+                      // Set text style
+                      context.font = 'bold 40px Arial';
+                      context.textAlign = 'center';
+                      context.fillStyle = '#' + this.colors[index].getHexString();
+                      
+                      // Draw text
+                      context.fillText(animation.trialName, canvas.width/2, canvas.height/2);
+                      
+                      // Create sprite
+                      const texture = new THREE.CanvasTexture(canvas);
+                      const spriteMaterial = new THREE.SpriteMaterial({ 
+                          map: texture,
+                          transparent: true,
+                          opacity: 0.4
+                      });
+                      
+                      const sprite = new THREE.Sprite(spriteMaterial);
+                      sprite.scale.set(1, 0.25, 1); // Adjust size
+                      
+                      // Position sprite above model
+                      sprite.position.copy(animation.offset);
+                      sprite.position.y += 2; // Position above the model
+                      
+                      this.textSprites[`text_${index}`] = sprite;
+                      this.scene.add(sprite);
                   });
 
                   // Initial render
@@ -454,6 +503,13 @@ const axiosInstance = axios.create();
             }
         })
         
+        // Update sprite position
+        const sprite = this.textSprites[`text_${animationIndex}`];
+        if (sprite) {
+            sprite.position.copy(offset);
+            sprite.position.y += 2; // Keep it above the model
+        }
+        
         // Render the scene with updated positions
         this.renderer.render(this.scene, this.camera)
     },
@@ -482,7 +538,7 @@ const axiosInstance = axios.create();
         document.body.appendChild(a);
         a.style = 'display: none';
         a.href = url;
-        a.download = 'animation-recording.webm';
+        a.download = this.recordingFileName;
         a.click();
         window.URL.revokeObjectURL(url);
         this.recordedChunks = [];
@@ -559,6 +615,16 @@ const axiosInstance = axios.create();
             border-radius: 4px;
             display: inline-block;
             vertical-align: middle;
+          }
+
+          .trial-name {
+            font-weight: bold;
+            font-size: 14px;
+          }
+
+          .file-name {
+            opacity: 0.7;
+            font-size: 12px;
           }
 
           .offset-controls {
