@@ -351,9 +351,9 @@ const axiosInstance = axios.create();
   
                   let ratio = container.clientWidth / container.clientHeight
                   this.camera = new THREE.PerspectiveCamera(35, ratio, 0.1, 125)
-                  this.camera.position.x = 4
-                  this.camera.position.z = -4
-                  this.camera.position.y = 4
+                  this.camera.position.x = 3.33
+                  this.camera.position.z = -2.30
+                  this.camera.position.y = 3.5
   
                   this.scene = new THREE.Scene()
                   this.scene.background = new THREE.Color(0x808080)
@@ -362,6 +362,24 @@ const axiosInstance = axios.create();
                   this.onResize()
                   container.appendChild(this.renderer.domElement)
                   this.controls = new THREE_OC.OrbitControls(this.camera, this.renderer.domElement)
+  
+                  // Add control event listener
+                  this.controls.addEventListener('change', () => {
+                      console.log('Camera Position:', {
+                          x: this.camera.position.x.toFixed(2),
+                          y: this.camera.position.y.toFixed(2),
+                          z: this.camera.position.z.toFixed(2)
+                      });
+                      console.log('Camera FOV:', this.camera.fov);
+                  });
+  
+                  // Also log initial position
+                  console.log('Initial Camera Position:', {
+                      x: this.camera.position.x.toFixed(2),
+                      y: this.camera.position.y.toFixed(2),
+                      z: this.camera.position.z.toFixed(2)
+                  });
+                  console.log('Initial Camera FOV:', this.camera.fov);
   
                   // add the plane
                   {
@@ -838,9 +856,9 @@ const axiosInstance = axios.create();
 
         let ratio = container.clientWidth / container.clientHeight;
         this.camera = new THREE.PerspectiveCamera(35, ratio, 0.1, 125);
-        this.camera.position.x = 4;
-        this.camera.position.z = -4;
-        this.camera.position.y = 4;
+        this.camera.position.x = 3.33;
+        this.camera.position.z = -2.30;
+        this.camera.position.y = 3.5;
 
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color(0x808080);
@@ -849,6 +867,24 @@ const axiosInstance = axios.create();
         this.onResize();
         container.appendChild(this.renderer.domElement);
         this.controls = new THREE_OC.OrbitControls(this.camera, this.renderer.domElement);
+
+        // Add control event listener
+        this.controls.addEventListener('change', () => {
+            console.log('Camera Position:', {
+                x: this.camera.position.x.toFixed(2),
+                y: this.camera.position.y.toFixed(2),
+                z: this.camera.position.z.toFixed(2)
+            });
+            console.log('Camera FOV:', this.camera.fov);
+        });
+
+        // Also log initial position
+        console.log('Initial Camera Position:', {
+            x: this.camera.position.x.toFixed(2),
+            y: this.camera.position.y.toFixed(2),
+            z: this.camera.position.z.toFixed(2)
+        });
+        console.log('Initial Camera FOV:', this.camera.fov);
 
         // Add plane
         const planeSize = 20;
