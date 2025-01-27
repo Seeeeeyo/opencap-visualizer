@@ -77,8 +77,8 @@
                 >
                     <v-icon left>mdi-sync</v-icon>
                     Sync All Subjects
-                </v-btn>
-            </div>
+                  </v-btn>
+              </div>
             <!-- Legend -->
             <div class="legend mb-4">
                 <div v-for="(animation, index) in animations" :key="index" class="legend-item mb-2">
@@ -153,9 +153,9 @@
               </div>
             </div>
         </div>
-            <VideoNavigation :playing="playing" :value="frame" :maxFrame="frames.length - 1"
-                :disabled="videoControlsDisabled" @play="togglePlay(true)" @pause="togglePlay(false)"
-                @input="onNavigate" class="mb-2" />
+              <VideoNavigation :playing="playing" :value="frame" :maxFrame="frames.length - 1"
+                  :disabled="videoControlsDisabled" @play="togglePlay(true)" @pause="togglePlay(false)"
+                  @input="onNavigate" class="mb-2" />
           </div>
       </div>
   </template>
@@ -549,11 +549,11 @@ const axiosInstance = axios.create();
       },
       animate() {
         requestAnimationFrame(this.animate);
-        
-        // Calculate time since last frame
-        const currentTime = performance.now();
-        const deltaTime = (currentTime - this.lastFrameTime) / 1000; // Convert to seconds
-        
+          
+          // Calculate time since last frame
+          const currentTime = performance.now();
+          const deltaTime = (currentTime - this.lastFrameTime) / 1000; // Convert to seconds
+          
         if (this.playing && deltaTime >= (1 / this.frameRate)) { // Only update time if playing
             this.lastFrameTime = currentTime;
             this.animateOneFrame();
@@ -561,8 +561,8 @@ const axiosInstance = axios.create();
             // Still render the scene even when not playing
             this.renderer.render(this.scene, this.camera);
         }
-    },
-    animateOneFrame() {
+      },
+      animateOneFrame() {
           let cframe = this.frame
   
           if (cframe < this.frames.length) {
@@ -625,29 +625,49 @@ const axiosInstance = axios.create();
         return animation.fileName || 'Animation'
     },
     updateOffset(animationIndex, axis, value) {
-        const offset = this.animations[animationIndex].offset
-        offset[axis] = Number(value)
+        // Get the animation
+        const animation = this.animations[animationIndex];
+        if (!animation) return;
+
+        // Update the offset value
+        animation.offset[axis] = Number(value);
         
         // Update all meshes for this animation
         Object.keys(this.meshes).forEach(key => {
             if (key.startsWith(`anim${animationIndex}_`)) {
-                const mesh = this.meshes[key]
-                // Reset position to remove old offset
-                mesh.position.sub(new THREE.Vector3().copy(offset))
-                // Apply new offset
-                mesh.position.add(offset)
+                const mesh = this.meshes[key];
+                const body = key.split('_')[1].split('.')[0]; // Extract body name from key
+                
+                // Get current frame's base position
+                if (animation.data.bodies[body] && 
+                    animation.data.bodies[body].translation && 
+                    animation.data.bodies[body].translation[this.frame]) {
+                    
+                    // Get base position from current frame
+                    const basePosition = new THREE.Vector3(
+                        animation.data.bodies[body].translation[this.frame][0],
+                        animation.data.bodies[body].translation[this.frame][1],
+                        animation.data.bodies[body].translation[this.frame][2]
+                    );
+
+                    // Apply the offset directly
+                    mesh.position.copy(basePosition).add(animation.offset);
+                }
             }
-        })
+        });
         
         // Update sprite position
         const sprite = this.textSprites[`text_${animationIndex}`];
         if (sprite) {
-            sprite.position.copy(offset);
+            sprite.position.copy(animation.offset);
             sprite.position.y += 2; // Keep it above the model
         }
         
-        // Render the scene with updated positions
-        this.renderer.render(this.scene, this.camera)
+        // Force immediate render
+        if (this.renderer) {
+            this.renderer.render(this.scene, this.camera);
+            this.animateOneFrame(); // Ensure all positions are updated
+        }
     },
     startRecording() {
       if (!this.renderer) return;
