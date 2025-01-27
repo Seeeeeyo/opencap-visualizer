@@ -350,10 +350,10 @@ const axiosInstance = axios.create();
                   console.log('Container:', container)
   
                   let ratio = container.clientWidth / container.clientHeight
-                  this.camera = new THREE.PerspectiveCamera(45, ratio, 0.1, 125)
-                  this.camera.position.x = 6
-                  this.camera.position.z = -6
-                  this.camera.position.y = 6
+                  this.camera = new THREE.PerspectiveCamera(35, ratio, 0.1, 125)
+                  this.camera.position.x = 4
+                  this.camera.position.z = -4
+                  this.camera.position.y = 4
   
                   this.scene = new THREE.Scene()
                   this.scene.background = new THREE.Color(0x808080)
@@ -837,10 +837,10 @@ const axiosInstance = axios.create();
         if (!container) return;
 
         let ratio = container.clientWidth / container.clientHeight;
-        this.camera = new THREE.PerspectiveCamera(45, ratio, 0.1, 125);
-        this.camera.position.x = 6;
-        this.camera.position.z = -6;
-        this.camera.position.y = 6;
+        this.camera = new THREE.PerspectiveCamera(35, ratio, 0.1, 125);
+        this.camera.position.x = 4;
+        this.camera.position.z = -4;
+        this.camera.position.y = 4;
 
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color(0x808080);
