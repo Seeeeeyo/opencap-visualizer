@@ -626,7 +626,7 @@ const axiosInstance = axios.create();
       if (!this.renderer) return;
       
       const canvas = this.renderer.domElement;
-      const stream = canvas.captureStream(this.frameRate); // Capture at our animation frame rate
+      const stream = canvas.captureStream(this.frameRate); // Now using dynamic frame rate
       
       this.mediaRecorder = new MediaRecorder(stream, {
         mimeType: 'video/webm;codecs=vp9',
@@ -668,6 +668,16 @@ const axiosInstance = axios.create();
         this.isRecording = false;
       }
     },
+    calculateFrameRate(timeArray) {
+        if (timeArray.length < 2) return 60; // Default to 60 if not enough data
+        
+        // Calculate average time step
+        const totalTime = timeArray[timeArray.length - 1] - timeArray[0];
+        const averageTimeStep = totalTime / (timeArray.length - 1);
+        
+        // Convert to frames per second
+        return Math.round(1 / averageTimeStep);
+    },
     handleFileUpload(event) {
         const files = event.target.files;
         if (!files.length) return;
@@ -693,9 +703,9 @@ const axiosInstance = axios.create();
         Promise.all(filePromises).then(results => {
             results.forEach(({ data, file }, index) => {
                 const offset = new THREE.Vector3(
-                    0,                    // X: always 0
-                    0,                    // Y: always 0
-                    startIndex + index    // Z: increases by 1 for each subject
+                    0,                    
+                    0,                    
+                    startIndex + index    
                 );
 
                 this.animations.push({
@@ -708,6 +718,8 @@ const axiosInstance = axios.create();
                 if (this.animations.length === 1) {
                     this.frames = data.time;
                     this.trial = { results: [] };
+                    // Calculate and set frame rate from first animation
+                    this.frameRate = this.calculateFrameRate(data.time);
                 }
             });
 
