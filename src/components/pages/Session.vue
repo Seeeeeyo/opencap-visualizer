@@ -13,6 +13,14 @@
             <div v-else-if="trialLoading" class="flex-grow-1 d-flex align-center justify-center">
                 <v-progress-circular indeterminate color="grey" size="30" width="4" />
               </div>
+              <div v-else class="flex-grow-1 d-flex align-center justify-center">
+                <div class="text-center">
+                  <v-icon size="64" color="grey darken-1">mdi-file-upload-outline</v-icon>
+                  <div class="text-h6 grey--text text--darken-1 mt-4">
+                    Please upload JSON files using the button on the top right of this page "Load JSON Files"
+                  </div>
+                </div>
+              </div>
                   </div>
         <div class="right d-flex flex-column">
             <!-- Add recording controls -->
@@ -522,20 +530,21 @@ const axiosInstance = axios.create();
         }
       },
       animate() {
-        if (!this.trialLoading) {
-          requestAnimationFrame(this.animate)
-          
-          // Calculate time since last frame
-          const currentTime = performance.now();
-          const deltaTime = (currentTime - this.lastFrameTime) / 1000; // Convert to seconds
-          
-          if (deltaTime >= (1 / this.frameRate)) { // Only update if enough time has passed
+        requestAnimationFrame(this.animate);
+        
+        // Calculate time since last frame
+        const currentTime = performance.now();
+        const deltaTime = (currentTime - this.lastFrameTime) / 1000; // Convert to seconds
+        
+        if (this.playing && deltaTime >= (1 / this.frameRate)) { // Only update time if playing
             this.lastFrameTime = currentTime;
-          this.animateOneFrame()
-          }
+            this.animateOneFrame();
+        } else if (!this.playing) {
+            // Still render the scene even when not playing
+            this.renderer.render(this.scene, this.camera);
         }
-      },
-      animateOneFrame() {
+    },
+    animateOneFrame() {
           let cframe = this.frame
   
           if (cframe < this.frames.length) {
@@ -723,7 +732,13 @@ const axiosInstance = axios.create();
                 }
             });
 
-            // Load geometries after all files are processed
+            // Keep track of loaded geometries
+            let geometriesLoaded = 0;
+            const totalGeometries = results.reduce((total, { data }) => {
+                return total + Object.values(data.bodies).reduce((sum, body) => 
+                    sum + body.attachedGeometries.length, 0);
+            }, 0);
+
             this.$nextTick(() => {
                 if (!this.scene) {
                     this.initScene();
@@ -763,6 +778,22 @@ const axiosInstance = axios.create();
                                 );
                                 root.position.add(animation.offset);
                                 this.scene.add(root);
+
+                                // Track loaded geometries
+                                geometriesLoaded++;
+
+                                // If all geometries are loaded
+                                if (geometriesLoaded === totalGeometries) {
+                                    // After loading everything, sync the animations if we have more than one
+                                    if (this.animations.length > 1) {
+                                        this.syncAllAnimations();
+                                    }
+
+                                    // Start animation loop and render first frame
+                                    this.animate();
+                                    this.frame = 0;
+                                    this.animateOneFrame();
+                                }
                             });
                         });
                     }
@@ -795,9 +826,6 @@ const axiosInstance = axios.create();
                         this.scene.add(sprite);
                     }
                 });
-
-                // Make sure animation is running
-                this.animate();
             });
         });
 
@@ -878,39 +906,39 @@ const axiosInstance = axios.create();
         // Find the latest start time and earliest end time across all animations
         let latestStart = -Infinity;
         let earliestEnd = Infinity;
+        let smallestTimeStep = Infinity;
 
+        // First pass: find time boundaries and smallest time step
         this.animations.forEach(animation => {
             const startTime = animation.data.time[0];
             const endTime = animation.data.time[animation.data.time.length - 1];
             latestStart = Math.max(latestStart, startTime);
             earliestEnd = Math.min(earliestEnd, endTime);
+
+            // Find smallest time step
+            for (let i = 1; i < animation.data.time.length; i++) {
+                const timeStep = animation.data.time[i] - animation.data.time[i-1];
+                smallestTimeStep = Math.min(smallestTimeStep, timeStep);
+            }
         });
 
-        // Sync each animation to the common time window
+        // Create a common time array
+        const commonTimeArray = [];
+        let currentTime = latestStart;
+        while (currentTime <= earliestEnd) {
+            commonTimeArray.push(currentTime);
+            currentTime += smallestTimeStep;
+        }
+
+        // Sync each animation to the common time array
         this.animations.forEach((animation, index) => {
-            const startTime = animation.data.time[0];
-            const timeOffset = latestStart - startTime;
-            
-            // Create new arrays for the shifted data
             const newData = {
                 ...animation.data,
-                time: [],
+                time: commonTimeArray,
                 bodies: {}
             };
 
-            // Find frame indices for the common window
-            const startFrame = animation.data.time.findIndex(t => t >= latestStart);
-            const endFrame = animation.data.time.findIndex(t => t > earliestEnd);
-            const commonFrames = endFrame === -1 ? 
-                animation.data.time.length - startFrame : 
-                endFrame - startFrame;
-
-            // Adjust time array
-            for (let i = 0; i < commonFrames; i++) {
-                newData.time[i] = animation.data.time[startFrame + i];
-            }
-
-            // Adjust body data
+            // For each body in the animation
             for (let body in animation.data.bodies) {
                 newData.bodies[body] = {
                     ...animation.data.bodies[body],
@@ -918,24 +946,57 @@ const axiosInstance = axios.create();
                     rotation: []
                 };
 
-                // Copy only the common frames
-                for (let i = 0; i < commonFrames; i++) {
-                    newData.bodies[body].translation[i] = [...animation.data.bodies[body].translation[startFrame + i]];
-                    newData.bodies[body].rotation[i] = [...animation.data.bodies[body].rotation[startFrame + i]];
-                }
+                // For each frame in the common time array
+                commonTimeArray.forEach(time => {
+                    // Find the closest original frame
+                    const originalIndex = this.findClosestTimeIndex(animation.data.time, time);
+                    
+                    newData.bodies[body].translation.push([...animation.data.bodies[body].translation[originalIndex]]);
+                    newData.bodies[body].rotation.push([...animation.data.bodies[body].rotation[originalIndex]]);
+                });
             }
 
             // Update the animation data
             this.animations[index].data = newData;
         });
 
-        // Update frames array to match the new common length
-        this.frames = this.animations[0].data.time;
+        // Update frames array to match the new common time array
+        this.frames = commonTimeArray;
         this.frame = 0;
         this.time = this.frames[0];
+        
+        // Update frame rate based on new time steps
+        this.frameRate = this.calculateFrameRate(commonTimeArray);
 
         // Update the view
         this.animateOneFrame();
+    },
+    findClosestTimeIndex(timeArray, target) {
+        let left = 0;
+        let right = timeArray.length - 1;
+        
+        while (left <= right) {
+            const mid = Math.floor((left + right) / 2);
+            
+            if (timeArray[mid] === target) {
+                return mid;
+            }
+            
+            if (mid > 0 && timeArray[mid - 1] <= target && target < timeArray[mid]) {
+                // Return the closest of the two indices
+                return Math.abs(timeArray[mid - 1] - target) < Math.abs(timeArray[mid] - target) 
+                    ? mid - 1 
+                    : mid;
+            }
+            
+            if (timeArray[mid] < target) {
+                left = mid + 1;
+            } else {
+                right = mid - 1;
+            }
+        }
+        
+        return left;
     },
     updateSubjectColor(index, colorHex) {
         if (colorHex === 'original') {
