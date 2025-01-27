@@ -750,9 +750,9 @@ const axiosInstance = axios.create();
         Promise.all(filePromises).then(results => {
             results.forEach(({ data, file }, index) => {
                 const offset = new THREE.Vector3(
-                    0,                    
-                    0,                    
-                    startIndex + index    
+                    0,    // X: no offset
+                    0,    // Y: no offset
+                    0     // Z: no offset (changed from startIndex + index)
                 );
 
                 this.animations.push({
