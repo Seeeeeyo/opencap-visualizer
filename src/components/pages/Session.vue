@@ -1,27 +1,31 @@
 <template>
   <div class="viewer-container d-flex">
-        <div class="viewer flex-grow-1">
+        <div class="viewer flex-grow-1"
+            @dragover.prevent
+            @drop.prevent="handleDrop"
+        >
             <div v-if="trial" class="d-flex flex-column h-100">
                 <div id="mocap" ref="mocap" class="flex-grow-1" />
-        <div style="display: flex; flex-wrap: wrap; align-items: center;">
-                      <v-text-field label="Time (s)" type="number" :step="0.01" :value="time"
-            dark style="flex: 0.1; margin-right: 5px;" @input="onChangeTime"/>
-                      <v-slider :value="frame" :min="0" :max="frames.length - 1" @input="onNavigate" hide-details
-                          class="mb-2" style="flex: 1;" />
-                      </div>
-                  </div>
+                <div style="display: flex; flex-wrap: wrap; align-items: center;">
+                    <v-text-field label="Time (s)" type="number" :step="0.01" :value="time"
+                        dark style="flex: 0.1; margin-right: 5px;" @input="onChangeTime"/>
+                    <v-slider :value="frame" :min="0" :max="frames.length - 1" @input="onNavigate" hide-details
+                        class="mb-2" style="flex: 1;" />
+                </div>
+            </div>
             <div v-else-if="trialLoading" class="flex-grow-1 d-flex align-center justify-center">
                 <v-progress-circular indeterminate color="grey" size="30" width="4" />
-              </div>
-              <div v-else class="flex-grow-1 d-flex align-center justify-center">
-                <div class="text-center">
-                  <v-icon size="64" color="grey darken-1">mdi-file-upload-outline</v-icon>
-                  <div class="text-h6 grey--text text--darken-1 mt-4">
-                    Please upload JSON files using the button on the top right of this page "Load JSON Files"
-                  </div>
+            </div>
+            <div v-else class="flex-grow-1 d-flex align-center justify-center">
+                <div class="text-center drop-zone">
+                    <v-icon size="64" color="grey darken-1">mdi-file-upload-outline</v-icon>
+                    <div class="text-h6 grey--text text--darken-1 mt-4">
+                        Drag & drop JSON files here<br>
+                        or use the "Load JSON Files" button
+                    </div>
                 </div>
-              </div>
-                  </div>
+            </div>
+        </div>
         <div class="right d-flex flex-column">
             <!-- Add recording controls -->
             <div class="recording-controls mb-4">
@@ -1117,6 +1121,32 @@ const axiosInstance = axios.create();
 
         // Render the scene with updated colors
         this.renderer.render(this.scene, this.camera);
+    },
+    handleDrop(event) {
+        const files = Array.from(event.dataTransfer.files).filter(file => 
+            file.name.toLowerCase().endsWith('.json')
+        );
+        
+        if (files.length === 0) {
+            // Optional: show error message for non-JSON files
+            console.warn('Please drop only JSON files');
+            return;
+        }
+
+        // Create a new FileList-like object
+        const dataTransfer = new DataTransfer();
+        files.forEach(file => dataTransfer.items.add(file));
+        
+        // Create a fake event object
+        const fakeEvent = {
+            target: {
+                files: dataTransfer.files,
+                value: ''
+            }
+        };
+
+        // Use the existing file handler
+        this.handleFileUpload(fakeEvent);
     }
     }
   }
@@ -1276,6 +1306,24 @@ const axiosInstance = axios.create();
       }
     }
   }
+
+.drop-zone {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    border: 2px dashed rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    margin: 20px;
+    transition: all 0.3s ease;
+    
+    &:hover {
+        border-color: rgba(255, 255, 255, 0.3);
+        background: rgba(255, 255, 255, 0.05);
+    }
+}
   </style>
   
   
