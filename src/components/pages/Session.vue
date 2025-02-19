@@ -124,6 +124,16 @@
                                 </div>
                             </v-card>
                         </v-menu>
+                        <v-btn
+                            icon
+                            small
+                            class="ml-2"
+                            @click="deleteSubject(index)"
+                            :disabled="animations.length <= 1"
+                            :title="animations.length <= 1 ? 'Cannot delete last subject' : 'Delete subject'"
+                        >
+                            <v-icon small color="error">mdi-delete</v-icon>
+                        </v-btn>
                   </div>
                     <!-- Offset controls -->
                     <div class="offset-controls mt-1">
@@ -1147,6 +1157,101 @@ const axiosInstance = axios.create();
 
         // Use the existing file handler
         this.handleFileUpload(fakeEvent);
+    },
+    deleteSubject(index) {
+        // Remove meshes for this animation
+        Object.keys(this.meshes).forEach(key => {
+            if (key.startsWith(`anim${index}_`)) {
+                const mesh = this.meshes[key];
+                if (mesh) {
+                    // Remove from scene
+                    this.scene.remove(mesh);
+                    // Dispose of geometries and materials
+                    mesh.traverse((child) => {
+                        if (child instanceof THREE.Mesh) {
+                            if (child.geometry) child.geometry.dispose();
+                            if (child.material) {
+                                if (Array.isArray(child.material)) {
+                                    child.material.forEach(material => material.dispose());
+                                } else {
+                                    child.material.dispose();
+                                }
+                            }
+                        }
+                    });
+                }
+                delete this.meshes[key];
+            }
+        });
+
+        // Remove text sprite
+        const sprite = this.textSprites[`text_${index}`];
+        if (sprite) {
+            this.scene.remove(sprite);
+            if (sprite.material.map) sprite.material.map.dispose();
+            sprite.material.dispose();
+            delete this.textSprites[`text_${index}`];
+        }
+
+        // Remove animation from array
+        this.animations.splice(index, 1);
+        
+        // Remove and shift colors
+        this.colors.splice(index, 1);
+        
+        // Reassign colors to remaining subjects to maintain consistency
+        this.animations.forEach((animation, i) => {
+            Object.keys(this.meshes).forEach(key => {
+                if (key.startsWith(`anim${i}_`)) {
+                    const mesh = this.meshes[key];
+                    mesh.traverse((child) => {
+                        if (child instanceof THREE.Mesh) {
+                            child.material.color = this.colors[i];
+                            child.material.needsUpdate = true;
+                        }
+                    });
+                }
+            });
+
+            // Update text sprite color
+            const sprite = this.textSprites[`text_${i}`];
+            if (sprite) {
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                canvas.width = 256;
+                canvas.height = 64;
+                
+                context.font = 'bold 40px Arial';
+                context.textAlign = 'center';
+                context.fillStyle = '#' + this.colors[i].getHexString();
+                context.fillText(animation.trialName, canvas.width/2, canvas.height/2);
+                
+                const texture = new THREE.CanvasTexture(canvas);
+                if (sprite.material.map) sprite.material.map.dispose();
+                sprite.material.map = texture;
+                sprite.material.needsUpdate = true;
+            }
+        });
+
+        // If we still have animations, update the frames array
+        if (this.animations.length > 0) {
+            this.frames = this.animations[0].data.time;
+            // Optionally re-sync remaining animations
+            if (this.animations.length > 1) {
+                this.syncAllAnimations();
+            }
+        } else {
+            // Reset everything if no animations left
+            this.frames = [];
+            this.frame = 0;
+            this.time = 0;
+            this.trial = null;
+        }
+
+        // Force render update
+        if (this.renderer) {
+            this.renderer.render(this.scene, this.camera);
+        }
     }
     }
   }
