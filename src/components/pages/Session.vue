@@ -208,13 +208,13 @@ const axiosInstance = axios.create();
               frameRate: 60,
               lastFrameTime: 0,
               colors: [
-                  new THREE.Color(0x00ff00),  // Green
-                  new THREE.Color(0xff0000),  // Red
+                  new THREE.Color(0x00ff00),  // Green (first subject)
+                  new THREE.Color(0xff8000),  // Orange (second subject)
+                  new THREE.Color(0xff0000),  // Red (third subject)
                   new THREE.Color(0x0000ff),  // Blue
                   new THREE.Color(0xffff00),  // Yellow
                   new THREE.Color(0xff00ff),  // Magenta
                   new THREE.Color(0x00ffff),  // Cyan
-                  new THREE.Color(0xff8000),  // Orange
                   new THREE.Color(0x8000ff),  // Purple
               ],
               mediaRecorder: null,
