@@ -686,19 +686,10 @@ const axiosInstance = axios.create();
             }
         });
 
-        // Remove or comment out the text sprite update code
-        /*
-        // Update sprite position
-        const sprite = this.textSprites[`text_${animationIndex}`];
-        if (sprite) {
-            sprite.position.copy(animation.offset);
-            sprite.position.y += 2; // Keep it above the model
-        }
-        */
-
         // Render the scene with updated positions
         if (this.renderer) {
             this.renderer.render(this.scene, this.camera);
+            this.animateOneFrame();
         }
     },
     startRecording() {
