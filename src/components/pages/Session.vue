@@ -34,7 +34,7 @@
                     <v-icon left>mdi-play-circle</v-icon>
                     Try with Sample Files
                 </v-btn>
-            </div>
+              </div>
                   </div>
         <div class="right d-flex flex-column">
             <!-- Add recording controls -->
@@ -182,6 +182,15 @@
                             style="width: 100px"
                         />
               </div>
+            </div>
+            
+            <!-- Add credits at the bottom -->
+            <div class="credits mt-auto pt-2 text-center">
+                <div class="text-caption grey--text text--lighten-1">
+                    Developed by Selim Gilon<br>
+                    Based on OpenCap<br>
+                    <span class="text-caption grey--text text--darken-1">© 2025 PhD Research</span>
+                </div>
             </div>
         </div>
               <VideoNavigation :playing="playing" :value="frame" :maxFrame="frames.length - 1"
@@ -685,7 +694,7 @@ const axiosInstance = axios.create();
                 }
             }
         });
-
+        
         // Render the scene with updated positions
         if (this.renderer) {
             this.renderer.render(this.scene, this.camera);
