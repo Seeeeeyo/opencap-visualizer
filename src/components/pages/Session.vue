@@ -6,16 +6,16 @@
         >
             <div v-if="trial" class="d-flex flex-column h-100">
                 <div id="mocap" ref="mocap" class="flex-grow-1" />
-                <div style="display: flex; flex-wrap: wrap; align-items: center;">
-                    <v-text-field label="Time (s)" type="number" :step="0.01" :value="time"
-                        dark style="flex: 0.1; margin-right: 5px;" @input="onChangeTime"/>
-                    <v-slider :value="frame" :min="0" :max="frames.length - 1" @input="onNavigate" hide-details
-                        class="mb-2" style="flex: 1;" />
-                </div>
-            </div>
+        <div style="display: flex; flex-wrap: wrap; align-items: center;">
+                      <v-text-field label="Time (s)" type="number" :step="0.01" :value="time"
+            dark style="flex: 0.1; margin-right: 5px;" @input="onChangeTime"/>
+                      <v-slider :value="frame" :min="0" :max="frames.length - 1" @input="onNavigate" hide-details
+                          class="mb-2" style="flex: 1;" />
+                      </div>
+                  </div>
             <div v-else-if="trialLoading" class="flex-grow-1 d-flex align-center justify-center">
                 <v-progress-circular indeterminate color="grey" size="30" width="4" />
-            </div>
+              </div>
             <div v-else class="flex-grow-1 d-flex align-center justify-center">
                 <div class="text-center drop-zone">
                     <v-icon size="64" color="grey darken-1">mdi-file-upload-outline</v-icon>
@@ -24,8 +24,8 @@
                         or use the "Load JSON Files" button
                     </div>
                 </div>
-            </div>
-        </div>
+              </div>
+                  </div>
         <div class="right d-flex flex-column">
             <!-- Add recording controls -->
             <div class="recording-controls mb-4">
@@ -69,6 +69,15 @@
                 >
                     <v-icon left>mdi-file-upload</v-icon>
                     Load JSON Files
+                </v-btn>
+                <v-btn
+                    color="grey darken-3"
+                    class="white--text"
+                    block
+                    @click="loadSampleFiles"
+                >
+                    <v-icon left>mdi-file-document-multiple</v-icon>
+                    Use Sample Files
                 </v-btn>
             </div>
             <!-- Add sync controls -->
@@ -1247,6 +1256,224 @@ const axiosInstance = axios.create();
         if (this.renderer) {
             this.renderer.render(this.scene, this.camera);
         }
+    },
+    loadSampleFiles() {
+        // Define the URLs for the sample files
+        const sampleFiles = [
+            '/samples/sample_mocap.json',
+            '/samples/sample_mono.json',
+            '/samples/sample_wham.json'
+        ];
+        
+        // Show loading indicator
+        this.trialLoading = true;
+        
+        // Clear existing animations before loading new ones
+        this.animations = [];
+        
+        // Fetch all sample files
+        Promise.all(sampleFiles.map(url => 
+            fetch(url).then(response => {
+                if (!response.ok) {
+                    throw new Error(`Failed to load ${url}`);
+                }
+                return response.json();
+            })
+        ))
+        .then(results => {
+            // Process the sample files first
+            results.forEach((data, index) => {
+                // Get the filename from the URL
+                const fileName = sampleFiles[index].split('/').pop();
+                
+                // Create animation data with better names
+                this.animations.push({
+                    data: data,
+                    offset: new THREE.Vector3(0, 0, 0),
+                    fileName: fileName,
+                    trialName: fileName.replace('sample_', '').replace('.json', '')
+                });
+            });
+            
+            // Set up the trial and frames from the first animation
+            if (this.animations.length > 0) {
+                this.frames = this.animations[0].data.time;
+                this.trial = { results: [] };
+                this.frameRate = this.calculateFrameRate(this.animations[0].data.time);
+            }
+            
+            // Force Vue to update the DOM before proceeding
+            this.$nextTick(() => {
+                // Initialize the scene if needed
+                if (!this.scene || !this.renderer) {
+                    // Clear the container first
+                    const container = this.$refs.mocap;
+                    if (container) {
+                        while (container.firstChild) {
+                            container.removeChild(container.firstChild);
+                        }
+                    }
+                    
+                    // Initialize the scene
+                    this.initScene();
+                    
+                    // Wait a bit for the scene to be fully initialized
+                    setTimeout(() => {
+                        this.loadGeometriesForSamples();
+                    }, 100);
+                } else {
+                    // Clear existing meshes and sprites
+                    this.clearExistingObjects();
+                    this.loadGeometriesForSamples();
+                }
+            });
+        })
+        .catch(error => {
+            console.error('Error loading sample files:', error);
+            this.trialLoading = false;
+        });
+    },
+    clearExistingObjects() {
+        // Clear any existing meshes
+        Object.keys(this.meshes).forEach(key => {
+            const mesh = this.meshes[key];
+            if (mesh) {
+                this.scene.remove(mesh);
+                mesh.traverse((child) => {
+                    if (child instanceof THREE.Mesh) {
+                        if (child.geometry) child.geometry.dispose();
+                        if (child.material) {
+                            if (Array.isArray(child.material)) {
+                                child.material.forEach(material => material.dispose());
+                            } else {
+                                child.material.dispose();
+                            }
+                        }
+                    }
+                });
+            }
+        });
+        this.meshes = {};
+        
+        // Clear any existing text sprites
+        Object.keys(this.textSprites).forEach(key => {
+            const sprite = this.textSprites[key];
+            if (sprite) {
+                this.scene.remove(sprite);
+                if (sprite.material.map) sprite.material.map.dispose();
+                sprite.material.dispose();
+            }
+        });
+        this.textSprites = {};
+    },
+    loadGeometriesForSamples() {
+        // Load geometries
+        let geometriesLoaded = 0;
+        const totalGeometries = this.animations.reduce((total, animation) => {
+            return total + Object.values(animation.data.bodies).reduce((sum, body) => 
+                sum + body.attachedGeometries.length, 0);
+        }, 0);
+        
+        if (totalGeometries === 0) {
+            console.error('No geometries found in sample files');
+            this.finishSampleLoading();
+            return;
+        }
+        
+        this.animations.forEach((animation, index) => {
+            for (let body in animation.data.bodies) {
+                let bd = animation.data.bodies[body];
+                bd.attachedGeometries.forEach((geom) => {
+                    let path = 'https://mc-opencap-public.s3.us-west-2.amazonaws.com/geometries/' + 
+                             geom.substr(0, geom.length - 4) + ".obj";
+                    objLoader.load(path, (root) => {
+                        if (!this.scene) return;
+                        
+                        root.castShadow = true;
+                        root.receiveShadow = true;
+                        
+                        root.traverse((child) => {
+                            if (child instanceof THREE.Mesh) {
+                                child.castShadow = true;
+                                child.material = new THREE.MeshPhongMaterial({ 
+                                    color: this.colors[index % this.colors.length],
+                                    transparent: true,
+                                    opacity: 0.8
+                                });
+                            }
+                        });
+                        
+                        const meshKey = `anim${index}_${body}${geom}`;
+                        this.meshes[meshKey] = root;
+                        this.meshes[meshKey].scale.set(
+                            bd.scaleFactors[0], 
+                            bd.scaleFactors[1], 
+                            bd.scaleFactors[2]
+                        );
+                        root.position.add(animation.offset);
+                        this.scene.add(root);
+                        
+                        // Track loaded geometries
+                        geometriesLoaded++;
+                        
+                        // If all geometries are loaded
+                        if (geometriesLoaded === totalGeometries) {
+                            this.finishSampleLoading();
+                        }
+                    }, 
+                    undefined,
+                    (error) => {
+                        console.error('Error loading geometry:', error);
+                        geometriesLoaded++;
+                        if (geometriesLoaded === totalGeometries) {
+                            this.finishSampleLoading();
+                        }
+                    });
+                });
+            }
+        });
+    },
+    finishSampleLoading() {
+        // Create text sprites
+        this.animations.forEach((anim, i) => {
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            canvas.width = 256;
+            canvas.height = 64;
+            
+            context.font = 'bold 40px Arial';
+            context.textAlign = 'center';
+            context.fillStyle = '#' + this.colors[i].getHexString();
+            context.fillText(anim.trialName, canvas.width/2, canvas.height/2);
+            
+            const texture = new THREE.CanvasTexture(canvas);
+            const spriteMaterial = new THREE.SpriteMaterial({ 
+                map: texture,
+                transparent: true,
+                opacity: 0.4
+            });
+            
+            const sprite = new THREE.Sprite(spriteMaterial);
+            sprite.scale.set(1, 0.25, 1);
+            sprite.position.copy(anim.offset);
+            sprite.position.y += 2;
+            
+            this.textSprites[`text_${i}`] = sprite;
+            this.scene.add(sprite);
+        });
+        
+        // After loading everything, sync the animations if we have more than one
+        if (this.animations.length > 1) {
+            this.syncAllAnimations();
+        }
+        
+        // Start animation loop and render first frame
+        this.animate();
+        this.frame = 0;
+        this.animateOneFrame();
+        
+        // Hide loading indicator
+        this.trialLoading = false;
     }
     }
   }
@@ -1423,7 +1650,7 @@ const axiosInstance = axios.create();
         border-color: rgba(255, 255, 255, 0.3);
         background: rgba(255, 255, 255, 0.05);
     }
-}
+  }
   </style>
   
   
