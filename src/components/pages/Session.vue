@@ -16,7 +16,7 @@
             <div v-else-if="trialLoading" class="flex-grow-1 d-flex align-center justify-center">
                 <v-progress-circular indeterminate color="grey" size="30" width="4" />
               </div>
-            <div v-else class="flex-grow-1 d-flex align-center justify-center">
+            <div v-else class="flex-grow-1 d-flex flex-column align-center justify-center">
                 <div class="text-center drop-zone">
                     <v-icon size="64" color="grey darken-1">mdi-file-upload-outline</v-icon>
                     <div class="text-h6 grey--text text--darken-1 mt-4">
@@ -24,7 +24,17 @@
                         or use the "Load JSON Files" button
                     </div>
                 </div>
-              </div>
+                
+                <v-btn
+                    color="grey darken-3"
+                    dark
+                    class="mt-6"
+                    @click="loadSampleFiles"
+                >
+                    <v-icon left>mdi-play-circle</v-icon>
+                    Try with Sample Files
+                </v-btn>
+            </div>
                   </div>
         <div class="right d-flex flex-column">
             <!-- Add recording controls -->
