@@ -674,30 +674,31 @@ const axiosInstance = axios.create();
                     animation.data.bodies[body].translation && 
                     animation.data.bodies[body].translation[this.frame]) {
                     
-                    // Get base position from current frame
                     const basePosition = new THREE.Vector3(
                         animation.data.bodies[body].translation[this.frame][0],
                         animation.data.bodies[body].translation[this.frame][1],
                         animation.data.bodies[body].translation[this.frame][2]
                     );
 
-                    // Apply the offset directly
+                    // Apply the offset to the base position
                     mesh.position.copy(basePosition).add(animation.offset);
                 }
             }
         });
-        
+
+        // Remove or comment out the text sprite update code
+        /*
         // Update sprite position
         const sprite = this.textSprites[`text_${animationIndex}`];
         if (sprite) {
             sprite.position.copy(animation.offset);
             sprite.position.y += 2; // Keep it above the model
         }
-        
-        // Force immediate render
+        */
+
+        // Render the scene with updated positions
         if (this.renderer) {
             this.renderer.render(this.scene, this.camera);
-            this.animateOneFrame(); // Ensure all positions are updated
         }
     },
     startRecording() {
@@ -865,34 +866,6 @@ const axiosInstance = axios.create();
                                 }
                             });
                         });
-                    }
-
-                    // Create text sprite for new animation
-                    if (this.scene) {
-                        const canvas = document.createElement('canvas');
-                        const context = canvas.getContext('2d');
-                        canvas.width = 256;
-                        canvas.height = 64;
-                        
-                        context.font = 'bold 40px Arial';
-                        context.textAlign = 'center';
-                        context.fillStyle = '#' + this.colors[animIndex % this.colors.length].getHexString();
-                        context.fillText(animation.trialName, canvas.width/2, canvas.height/2);
-                        
-                        const texture = new THREE.CanvasTexture(canvas);
-                        const spriteMaterial = new THREE.SpriteMaterial({ 
-                            map: texture,
-                            transparent: true,
-                            opacity: 0.4
-                        });
-                        
-                        const sprite = new THREE.Sprite(spriteMaterial);
-                        sprite.scale.set(1, 0.25, 1);
-                        sprite.position.copy(animation.offset);
-                        sprite.position.y += 2;
-                        
-                        this.textSprites[`text_${animIndex}`] = sprite;
-                        this.scene.add(sprite);
                     }
                 });
             });
@@ -1444,7 +1417,8 @@ const axiosInstance = axios.create();
         });
     },
     finishSampleLoading() {
-        // Create text sprites
+        // Comment out or remove the text sprite creation code
+        /*
         this.animations.forEach((anim, i) => {
             const canvas = document.createElement('canvas');
             const context = canvas.getContext('2d');
@@ -1471,6 +1445,7 @@ const axiosInstance = axios.create();
             this.textSprites[`text_${i}`] = sprite;
             this.scene.add(sprite);
         });
+        */
         
         // After loading everything, sync the animations if we have more than one
         if (this.animations.length > 1) {
