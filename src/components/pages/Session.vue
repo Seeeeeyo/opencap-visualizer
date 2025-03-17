@@ -142,7 +142,7 @@
                                 v-bind="attrs"
                                 v-on="on"
                                 class="color-preview"
-                                :style="{ backgroundColor: groundColor }"
+                                :style="{ backgroundColor: showGround ? groundColor : 'transparent', border: !showGround ? '1px dashed rgba(255,255,255,0.5)' : '1px solid rgba(255,255,255,0.3)' }"
                             ></v-btn>
                         </template>
                         <v-card class="color-picker pa-2">
@@ -154,6 +154,7 @@
                                     icon
                                     class="ma-1"
                                     @click="updateGroundColor(color)"
+                                    :disabled="!showGround"
                                 >
                                     <div class="color-sample" :style="{ backgroundColor: color }"></div>
                                 </v-btn>
@@ -162,7 +163,15 @@
                                 <v-btn
                                     small
                                     text
+                                    @click="toggleGroundVisibility"
+                                >
+                                    {{ showGround ? 'Hide Ground' : 'Show Ground' }}
+                                </v-btn>
+                                <v-btn
+                                    small
+                                    text
                                     @click="toggleGroundTexture"
+                                    :disabled="!showGround"
                                 >
                                     {{ useGroundTexture ? 'Remove Texture' : 'Use Texture' }}
                                 </v-btn>
@@ -170,7 +179,7 @@
                                     small
                                     text
                                     @click="toggleCheckerboard"
-                                    :disabled="!useGroundTexture"
+                                    :disabled="!showGround || !useGroundTexture"
                                 >
                                     {{ useCheckerboard ? 'Use Grid' : 'Use Checkerboard' }}
                                 </v-btn>
@@ -384,6 +393,7 @@ const axiosInstance = axios.create();
               groundTexture: null,
               useCheckerboard: true,
               gridTexture: null,
+              showGround: true,
           }
       },
       computed: {
@@ -1713,6 +1723,14 @@ const axiosInstance = axios.create();
             // Dispose of old material
             if (oldMaterial) oldMaterial.dispose();
             
+            this.renderer.render(this.scene, this.camera);
+        }
+    },
+    toggleGroundVisibility() {
+        this.showGround = !this.showGround;
+        
+        if (this.groundMesh) {
+            this.groundMesh.visible = this.showGround;
             this.renderer.render(this.scene, this.camera);
         }
     }
