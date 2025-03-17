@@ -102,6 +102,84 @@
                     Sync All Subjects
                   </v-btn>
               </div>
+            <!-- Add scene color controls -->
+            <div class="scene-controls mb-4">
+                <div class="d-flex align-center mb-2">
+                    <div class="mr-2">Background:</div>
+                    <v-menu offset-y>
+                        <template v-slot:activator="{ on, attrs }">
+                            <v-btn
+                                small
+                                v-bind="attrs"
+                                v-on="on"
+                                class="color-preview"
+                                :style="{ backgroundColor: backgroundColor }"
+                            ></v-btn>
+                        </template>
+                        <v-card class="color-picker pa-2">
+                            <div class="d-flex flex-wrap">
+                                <v-btn
+                                    v-for="color in backgroundColors"
+                                    :key="color"
+                                    small
+                                    icon
+                                    class="ma-1"
+                                    @click="updateBackgroundColor(color)"
+                                >
+                                    <div class="color-sample" :style="{ backgroundColor: color }"></div>
+                                </v-btn>
+                            </div>
+                        </v-card>
+                    </v-menu>
+                </div>
+                
+                <div class="d-flex align-center">
+                    <div class="mr-2">Ground:</div>
+                    <v-menu offset-y>
+                        <template v-slot:activator="{ on, attrs }">
+                            <v-btn
+                                small
+                                v-bind="attrs"
+                                v-on="on"
+                                class="color-preview"
+                                :style="{ backgroundColor: groundColor }"
+                            ></v-btn>
+                        </template>
+                        <v-card class="color-picker pa-2">
+                            <div class="d-flex flex-wrap">
+                                <v-btn
+                                    v-for="color in groundColors"
+                                    :key="color"
+                                    small
+                                    icon
+                                    class="ma-1"
+                                    @click="updateGroundColor(color)"
+                                >
+                                    <div class="color-sample" :style="{ backgroundColor: color }"></div>
+                                </v-btn>
+                            </div>
+                            <div class="mt-2 text-center">
+                                <v-btn
+                                    small
+                                    text
+                                    @click="toggleGroundTexture"
+                                >
+                                    {{ useGroundTexture ? 'Remove Texture' : 'Use Texture' }}
+                                </v-btn>
+                                <v-btn
+                                    small
+                                    text
+                                    @click="toggleCheckerboard"
+                                    :disabled="!useGroundTexture"
+                                >
+                                    {{ useCheckerboard ? 'Use Grid' : 'Use Checkerboard' }}
+                                </v-btn>
+                            </div>
+                        </v-card>
+                    </v-menu>
+                </div>
+            </div>
+            
             <!-- Legend -->
             <div class="legend mb-4">
                 <div v-for="(animation, index) in animations" :key="index" class="legend-item mb-2">
@@ -269,6 +347,43 @@ const axiosInstance = axios.create();
                   '#80ffff', // Light Cyan
                   '#ffa040', // Light Orange
               ],
+              backgroundColors: [
+                  '#000000',
+                  '#1a1a1a',
+                  '#333333',
+                  '#4d4d4d',
+                  '#666666',
+                  '#808080',
+                  '#999999',
+                  '#b3b3b3',
+                  '#cccccc',
+                  '#e6e6e6',
+                  '#ffffff',
+              ],
+              groundColors: [
+                  '#cccccc',
+                  '#ffffff',
+                  '#e6e6e6',
+                  '#b3b3b3',
+                  '#999999',
+                  '#666666',
+                  '#333333',
+                  '#000000',
+                  '#d9f2d9',
+                  '#b3e6b3',
+                  '#8cd98c',
+                  '#d9d9f2',
+                  '#b3b3e6',
+                  '#8c8cd9',
+                  '#6666cc',
+              ],
+              backgroundColor: '#808080',
+              groundColor: '#cccccc',
+              useGroundTexture: true,
+              groundMesh: null,
+              groundTexture: null,
+              useCheckerboard: true,
+              gridTexture: null,
           }
       },
       computed: {
@@ -434,16 +549,26 @@ const axiosInstance = axios.create();
                     const repeats = planeSize;
                     texture.repeat.set(repeats, repeats);
   
+                    // Store the texture reference
+                    this.groundTexture = texture;
+
                     const planeGeo = new THREE.PlaneGeometry(planeSize, planeSize);
                     const planeMat = new THREE.MeshPhongMaterial({
-                      map: texture,
+                      map: this.useGroundTexture ? texture : null,
                       side: THREE.DoubleSide,
+                      color: new THREE.Color(this.groundColor)
                     });
-                    const mesh = new THREE.Mesh(planeGeo, planeMat);
-                    mesh.rotation.x = Math.PI * -.5;
-                    mesh.position.y = .0
-                    mesh.receiveShadow = true;
-                    this.scene.add(mesh);
+                    const groundMesh = new THREE.Mesh(planeGeo, planeMat);
+                    groundMesh.rotation.x = Math.PI * -.5;
+                    groundMesh.position.y = .0
+                    groundMesh.receiveShadow = true;
+                    this.scene.add(groundMesh);
+                    
+                    // Store the mesh reference inside the block where groundMesh is defined
+                    this.groundMesh = groundMesh;
+                    
+                    // Set initial background color
+                    this.scene.background = new THREE.Color(this.backgroundColor);
                   }
   
                   // add sun
@@ -919,17 +1044,27 @@ const axiosInstance = axios.create();
         texture.magFilter = THREE.NearestFilter;
         const repeats = planeSize;
         texture.repeat.set(repeats, repeats);
+        
+        // Store the texture reference
+        this.groundTexture = texture;
 
         const planeGeo = new THREE.PlaneGeometry(planeSize, planeSize);
         const planeMat = new THREE.MeshPhongMaterial({
-            map: texture,
+            map: this.useGroundTexture ? texture : null,
             side: THREE.DoubleSide,
+            color: new THREE.Color(this.groundColor)
         });
-        const mesh = new THREE.Mesh(planeGeo, planeMat);
-        mesh.rotation.x = Math.PI * -.5;
-        mesh.position.y = 0;
-        mesh.receiveShadow = true;
-        this.scene.add(mesh);
+        const groundMesh = new THREE.Mesh(planeGeo, planeMat);
+        groundMesh.rotation.x = Math.PI * -.5;
+        groundMesh.position.y = 0;
+        groundMesh.receiveShadow = true;
+        this.scene.add(groundMesh);
+        
+        // Store the mesh reference inside the block where groundMesh is defined
+        this.groundMesh = groundMesh;
+        
+        // Set initial background color
+        this.scene.background = new THREE.Color(this.backgroundColor);
 
         // Add lights
         const skyColor = 0xB1E1FF;
@@ -1459,6 +1594,127 @@ const axiosInstance = axios.create();
         
         // Hide loading indicator
         this.trialLoading = false;
+    },
+    updateBackgroundColor(color) {
+        this.backgroundColor = color;
+        if (this.scene) {
+            this.scene.background = new THREE.Color(color);
+            this.renderer.render(this.scene, this.camera);
+        }
+    },
+    updateGroundColor(color) {
+        this.groundColor = color;
+        if (this.groundMesh && this.groundMesh.material) {
+            // If not using texture, just set the color
+            if (!this.useGroundTexture) {
+                this.groundMesh.material.color = new THREE.Color(color);
+            } else {
+                // If using texture, create a new material with both texture and color
+                const oldMaterial = this.groundMesh.material;
+                const newMaterial = new THREE.MeshPhongMaterial({
+                    map: this.groundTexture,
+                    side: THREE.DoubleSide,
+                    color: new THREE.Color(color)
+                });
+                
+                this.groundMesh.material = newMaterial;
+                
+                // Dispose of old material
+                if (oldMaterial) oldMaterial.dispose();
+            }
+            
+            this.renderer.render(this.scene, this.camera);
+        }
+    },
+    toggleGroundTexture() {
+        this.useGroundTexture = !this.useGroundTexture;
+        
+        if (this.groundMesh) {
+            const oldMaterial = this.groundMesh.material;
+            
+            if (this.useGroundTexture) {
+                // Use textured material with either checkerboard or grid
+                const textureToUse = this.useCheckerboard ? this.groundTexture : this.gridTexture;
+                this.groundMesh.material = new THREE.MeshPhongMaterial({
+                    map: textureToUse,
+                    side: THREE.DoubleSide,
+                    color: new THREE.Color(this.groundColor)
+                });
+            } else {
+                // Use plain colored material
+                this.groundMesh.material = new THREE.MeshPhongMaterial({
+                    color: new THREE.Color(this.groundColor),
+                    side: THREE.DoubleSide
+                });
+            }
+            
+            // Dispose of old material
+            if (oldMaterial) oldMaterial.dispose();
+            
+            this.renderer.render(this.scene, this.camera);
+        }
+    },
+    toggleCheckerboard() {
+        this.useCheckerboard = !this.useCheckerboard;
+        
+        if (this.groundMesh && this.useGroundTexture) {
+            const oldMaterial = this.groundMesh.material;
+            
+            // Load the appropriate texture
+            if (!this.useCheckerboard && !this.gridTexture) {
+                // Create grid texture if it doesn't exist
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                canvas.width = 512;
+                canvas.height = 512;
+                
+                // Fill with background color
+                context.fillStyle = '#ffffff';
+                context.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // Draw grid lines
+                context.strokeStyle = '#000000';
+                context.lineWidth = 1;
+                
+                const gridSize = 32; // Size of grid cells
+                
+                // Draw vertical lines
+                for (let x = 0; x <= canvas.width; x += gridSize) {
+                    context.beginPath();
+                    context.moveTo(x, 0);
+                    context.lineTo(x, canvas.height);
+                    context.stroke();
+                }
+                
+                // Draw horizontal lines
+                for (let y = 0; y <= canvas.height; y += gridSize) {
+                    context.beginPath();
+                    context.moveTo(0, y);
+                    context.lineTo(canvas.width, y);
+                    context.stroke();
+                }
+                
+                // Create texture from canvas
+                this.gridTexture = new THREE.CanvasTexture(canvas);
+                this.gridTexture.wrapS = THREE.RepeatWrapping;
+                this.gridTexture.wrapT = THREE.RepeatWrapping;
+                this.gridTexture.repeat.set(10, 10); // Adjust repeat to match plane size
+            }
+            
+            // Create new material with the appropriate texture
+            const newMaterial = new THREE.MeshPhongMaterial({
+                map: this.useCheckerboard ? this.groundTexture : this.gridTexture,
+                side: THREE.DoubleSide,
+                color: new THREE.Color(this.groundColor)
+            });
+            
+            this.groundMesh.material = newMaterial;
+            
+            // Dispose of old material
+            if (oldMaterial) oldMaterial.dispose();
+            
+            this.renderer.render(this.scene, this.camera);
+        }
     }
     }
   }
@@ -1532,6 +1788,20 @@ const axiosInstance = axios.create();
         .v-btn {
           width: 100%;
         }
+      }
+
+      .scene-controls {
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 4px;
+        padding: 10px;
+      }
+
+      .color-preview {
+        width: 32px !important;
+        min-width: 32px !important;
+        height: 24px !important;
+        border-radius: 4px !important;
+        border: 1px solid rgba(255, 255, 255, 0.3) !important;
       }
 
       .legend {
