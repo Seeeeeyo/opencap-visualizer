@@ -60,6 +60,18 @@
                     <v-icon left>mdi-stop</v-icon>
                     Stop Recording
                   </v-btn>
+                  
+                  <!-- Add capture button -->
+                  <v-btn
+                      color="teal"
+                      dark
+                      @click="captureScreenshot"
+                      class="mb-2"
+                      block
+                  >
+                      <v-icon left>mdi-camera</v-icon>
+                      Capture Image
+                  </v-btn>
               </div>
             <!-- Add file controls -->
             <div class="file-controls mb-4">
@@ -1733,6 +1745,49 @@ const axiosInstance = axios.create();
             this.groundMesh.visible = this.showGround;
             this.renderer.render(this.scene, this.camera);
         }
+    },
+    captureScreenshot() {
+        if (!this.renderer) return;
+        
+        // Store original size
+        const originalWidth = this.renderer.domElement.width;
+        const originalHeight = this.renderer.domElement.height;
+        
+        // Set to high resolution for screenshot (4x)
+        const scale = 4;
+        this.renderer.setSize(originalWidth * scale, originalHeight * scale);
+        
+        // Force camera aspect ratio update
+        this.camera.aspect = (originalWidth * scale) / (originalHeight * scale);
+        this.camera.updateProjectionMatrix();
+        
+        // Render the high-res scene
+        this.renderer.render(this.scene, this.camera);
+        
+        // Capture the image
+        const dataURL = this.renderer.domElement.toDataURL('image/png');
+        
+        // Create a download link
+        const link = document.createElement('a');
+        link.href = dataURL;
+        link.download = 'mocap-capture.png';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Restore original size
+        this.renderer.setSize(originalWidth, originalHeight);
+        this.camera.aspect = originalWidth / originalHeight;
+        this.camera.updateProjectionMatrix();
+        
+        // Re-render at original size
+        this.renderer.render(this.scene, this.camera);
+        
+        // Show a success message
+        this.$nextTick(() => {
+            // If you have a notification system, you could use that instead
+            alert('Image captured and downloaded!');
+        });
     }
     }
   }
