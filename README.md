@@ -1,32 +1,39 @@
 # OpenCap Viewer
 
-A web-based 3D viewer for OpenCap motion capture data with automated video recording capabilities.
+A web-based 3D viewer for OpenCap motion capture data with advanced visualization and recording capabilities.
 
 ## Demo
 
-[Watch Demo Video](./demo/subj2.webm)
+[Live website](https://opencap-viewer.onrender.com)
 
 This demo shows:
-- Side-by-side comparison of two animations
-- Automatic camera angle changes
+- Side-by-side comparison of multiple animations
+- Customizable scene appearance
 - 3D model visualization with labels
 - Smooth playback and transitions
 
 ## Features
 
 - Load and visualize OpenCap JSON files in 3D
-- Compare two animations side by side
+- Compare multiple animations simultaneously
 - Adjustable offsets in X, Y, and Z directions
-- Color-coded models with labels
-- Video recording with multiple camera angles
+- Color-coded models with customizable colors
+- Video recording with configurable quality
+- High-resolution image capture
+- Customizable scene appearance:
+  - Background color selection
+  - Ground color and texture options
+  - Option to hide ground plane
 - Playback speed control
 - Interactive timeline
+- Drag and drop file loading
+- Sample files for quick testing
 
 ## Prerequisites
 
 - Node.js (v14 or higher)
-- Python 3.7+
-- Google Chrome browser
+- Python 3.7+ (for automation scripts)
+- Modern web browser (Chrome recommended)
 - npm or yarn
 
 ## Installation
@@ -61,12 +68,33 @@ npm run serve
 ### Manual Usage
 
 1. Open the viewer in your browser
-2. Load your JSON files
+2. Load your JSON files by:
+   - Using the "Load JSON Files" button
+   - Dragging and dropping files onto the viewer
+   - Using the "Try with Sample Files" button
 3. Use the controls to:
    - Adjust model positions using offset controls
    - Control playback using the timeline
-   - Adjust playback speed
-   - Record videos using the record button
+   - Customize subject colors
+   - Modify scene appearance (background and ground)
+   - Capture high-resolution screenshots
+   - Record videos
+
+### Scene Customization
+
+The viewer offers several options to customize the scene:
+
+- **Background Color**: Choose from various colors to change the scene background
+- **Ground Options**:
+  - Toggle ground visibility
+  - Switch between textured and solid color ground
+  - Choose between checkerboard and grid patterns
+  - Select from various ground colors
+
+### Recording and Capturing
+
+- **Video Recording**: Click the "Record" button to start recording the scene. Click "Stop Recording" to save the video.
+- **Image Capture**: Click the "Capture Image" button to save a high-resolution screenshot of the current scene.
 
 ### Automated Recording
 
@@ -84,14 +112,6 @@ Example:
 ```bash
 python automation.py test1.json test2.json comparison.webm --wait 10 --loops 4
 ```
-
-### Camera Angles
-
-The automated recording cycles through these views:
-1. Front view (0°)
-2. Side view (90°)
-3. Back view (180°)
-4. High angle diagonal view (45°)
 
 ## File Format
 
@@ -111,18 +131,22 @@ The viewer expects OpenCap JSON files with the following structure:
 
 ## Troubleshooting
 
-1. If the video doesn't download:
-   - Check Chrome's download permissions
+1. If videos or images don't download:
+   - Check browser download permissions
    - Ensure the output directory is writable
 
 2. If models don't appear:
    - Verify JSON file format
    - Check browser console for errors
-   - Increase the wait time using `--wait`
+   - Increase the wait time if using automation
 
 3. If camera controls don't work:
    - Ensure the browser window is focused
    - Try refreshing the page
+
+4. If colors or textures don't update:
+   - Try toggling the option off and on again
+   - Check browser console for errors
 
 ## Contributing
 
@@ -131,3 +155,7 @@ The viewer expects OpenCap JSON files with the following structure:
 3. Commit your changes
 4. Push to the branch
 5. Create a Pull Request
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
