@@ -1,302 +1,188 @@
 <template>
-  <div class="viewer-container d-flex">
-        <div class="viewer flex-grow-1"
-            @dragover.prevent
-            @drop.prevent="handleDrop"
-        >
-            <div v-if="trial" class="d-flex flex-column h-100">
-                <div id="mocap" ref="mocap" class="flex-grow-1" />
-        <div style="display: flex; flex-wrap: wrap; align-items: center;">
-                      <v-text-field label="Time (s)" type="number" :step="0.01" :value="time"
-            dark style="flex: 0.1; margin-right: 5px;" @input="onChangeTime"/>
-                      <v-slider :value="frame" :min="0" :max="frames.length - 1" @input="onNavigate" hide-details
-                          class="mb-2" style="flex: 1;" />
-                      </div>
-                  </div>
-            <div v-else-if="trialLoading" class="flex-grow-1 d-flex align-center justify-center">
-                <v-progress-circular indeterminate color="grey" size="30" width="4" />
-              </div>
-            <div v-else class="flex-grow-1 d-flex flex-column align-center justify-center">
-                <div class="text-center drop-zone">
-                    <v-icon size="64" color="grey darken-1">mdi-file-upload-outline</v-icon>
-                    <div class="text-h6 grey--text text--darken-1 mt-4">
-                        Drag & drop JSON files here<br>
-                        or use the "Load JSON Files" button
-                    </div>
-                </div>
-                
-                <v-btn
-                    color="grey darken-3"
-                    dark
-                    class="mt-6"
-                    @click="loadSampleFiles"
-                >
-                    <v-icon left>mdi-play-circle</v-icon>
-                    Try with Sample Files
-                </v-btn>
-              </div>
-                  </div>
-        <div class="right d-flex flex-column">
-            <!-- Add recording controls -->
-            <div class="recording-controls mb-4">
-                              <v-btn
-                    v-if="!isRecording"
-                    color="red"
-                    dark
-                    @click="startRecording"
-                    :disabled="isRecording"
-                    class="mb-2"
-                >
-                    <v-icon left>mdi-record</v-icon>
-                    Record
-                              </v-btn>
-                              <v-btn
-                                  v-else
-                    color="grey"
-                    dark
-                    @click="stopRecording"
-                    class="mb-2"
-                >
-                    <v-icon left>mdi-stop</v-icon>
-                    Stop Recording
-                  </v-btn>
-                  
-                  <!-- Add capture button -->
-                  <v-btn
-                      color="teal"
-                      dark
-                      @click="captureScreenshot"
-                      class="mb-2"
-                      block
-                  >
-                      <v-icon left>mdi-camera</v-icon>
-                      Capture Image
-                  </v-btn>
-              </div>
-            <!-- Add file controls -->
-            <div class="file-controls mb-4">
-                <input
-                    type="file"
-                    ref="fileInput"
-                    accept=".json"
-                    style="display: none"
-                    @change="handleFileUpload"
-                    multiple
-                />
-                <v-btn
-                    color="grey darken-3"
-                    class="mb-2 white--text"
-                    block
-                    @click="$refs.fileInput.click()"
-                >
-                    <v-icon left>mdi-file-upload</v-icon>
-                    Load JSON Files
-                </v-btn>
-                <v-btn
-                    color="grey darken-3"
-                    class="white--text"
-                    block
-                    @click="loadSampleFiles"
-                >
-                    <v-icon left>mdi-file-document-multiple</v-icon>
-                    Use Sample Files
-                </v-btn>
+    <div class="viewer-container d-flex">
+      <div class="viewer flex-grow-1" @dragover.prevent @drop.prevent="handleDrop">
+        <div v-if="trial" class="d-flex flex-column h-100">
+          <div id="mocap" ref="mocap" class="flex-grow-1" />
+          <div class="controls-container" style="display: flex; align-items: center; padding: 0 10px;">
+            <!-- Video controls on the left -->
+            <VideoNavigation 
+              :playing="playing" 
+              :value="frame" 
+              :maxFrame="frames.length - 1" 
+              :disabled="videoControlsDisabled" 
+              @play="togglePlay(true)" 
+              @pause="togglePlay(false)" 
+              @input="onNavigate" 
+              class="mr-3" 
+            />
+            <!-- Time and slider on the right -->
+            <div style="flex: 1; display: flex; flex-wrap: wrap; align-items: center;">
+              <v-text-field label="Time (s)" type="number" :step="0.01" :value="time" dark style="flex: 0.1; min-width: 80px; margin-right: 5px;" @input="onChangeTime" />
+              <v-slider :value="frame" :min="0" :max="frames.length - 1" @input="onNavigate" hide-details class="mb-2" style="flex: 1;" />
             </div>
-            <!-- Add sync controls -->
-            <div class="sync-controls mb-4">
-                <v-btn
-                    color="grey darken-3"
-                    class="mb-2 white--text"
-                    block
-                    @click="syncAllAnimations"
-                >
-                    <v-icon left>mdi-sync</v-icon>
-                    Sync All Subjects
-                  </v-btn>
-              </div>
-            <!-- Add scene color controls -->
-            <div class="scene-controls mb-4">
-                <div class="d-flex align-center mb-2">
-                    <div class="mr-2">Background:</div>
-                    <v-menu offset-y>
-                        <template v-slot:activator="{ on, attrs }">
-                            <v-btn
-                                small
-                                v-bind="attrs"
-                                v-on="on"
-                                class="color-preview"
-                                :style="{ backgroundColor: backgroundColor }"
-                            ></v-btn>
-                        </template>
-                        <v-card class="color-picker pa-2">
-                            <div class="d-flex flex-wrap">
-                                <v-btn
-                                    v-for="color in backgroundColors"
-                                    :key="color"
-                                    small
-                                    icon
-                                    class="ma-1"
-                                    @click="updateBackgroundColor(color)"
-                                >
-                                    <div class="color-sample" :style="{ backgroundColor: color }"></div>
-                                </v-btn>
-                            </div>
-                        </v-card>
-                    </v-menu>
-                </div>
-                
-                <div class="d-flex align-center">
-                    <div class="mr-2">Ground:</div>
-                    <v-menu offset-y>
-                        <template v-slot:activator="{ on, attrs }">
-                            <v-btn
-                                small
-                                v-bind="attrs"
-                                v-on="on"
-                                class="color-preview"
-                                :style="{ backgroundColor: showGround ? groundColor : 'transparent', border: !showGround ? '1px dashed rgba(255,255,255,0.5)' : '1px solid rgba(255,255,255,0.3)' }"
-                            ></v-btn>
-                        </template>
-                        <v-card class="color-picker pa-2">
-                            <div class="d-flex flex-wrap">
-                                <v-btn
-                                    v-for="color in groundColors"
-                                    :key="color"
-                                    small
-                                    icon
-                                    class="ma-1"
-                                    @click="updateGroundColor(color)"
-                                    :disabled="!showGround"
-                                >
-                                    <div class="color-sample" :style="{ backgroundColor: color }"></div>
-                                </v-btn>
-                            </div>
-                            <div class="mt-2 text-center">
-                                <v-btn
-                                    small
-                                    text
-                                    @click="toggleGroundVisibility"
-                                >
-                                    {{ showGround ? 'Hide Ground' : 'Show Ground' }}
-                                </v-btn>
-                                <v-btn
-                                    small
-                                    text
-                                    @click="toggleGroundTexture"
-                                    :disabled="!showGround"
-                                >
-                                    {{ useGroundTexture ? 'Remove Texture' : 'Use Texture' }}
-                                </v-btn>
-                                <v-btn
-                                    small
-                                    text
-                                    @click="toggleCheckerboard"
-                                    :disabled="!showGround || !useGroundTexture"
-                                >
-                                    {{ useCheckerboard ? 'Use Grid' : 'Use Checkerboard' }}
-                                </v-btn>
-                            </div>
-                        </v-card>
-                    </v-menu>
-                </div>
-            </div>
-            
-            <!-- Legend -->
-            <div class="legend mb-4">
-                <div v-for="(animation, index) in animations" :key="index" class="legend-item mb-2">
-                    <div class="d-flex align-center mb-2">
-                        <div class="color-box" :style="{ backgroundColor: '#' + colors[index].getHexString() }"></div>
-                        <div class="ml-2 flex-grow-1">
-                            <v-text-field
-                                v-model="animation.trialName"
-                                dense
-                                hide-details
-                                class="trial-name-input"
-                            />
-                            <div class="file-name text-caption">{{ getFileName(animation) }}</div>
           </div>
-                        <v-menu offset-y>
-                            <template v-slot:activator="{ on, attrs }">
-                                <v-btn
-                                    icon
-                                    small
-                                    v-bind="attrs"
-                                    v-on="on"
-                                    class="ml-2"
-                                >
-                                    <v-icon small>mdi-palette</v-icon>
-                                </v-btn>
-                            </template>
-                            <v-card class="color-picker pa-2">
-                                <div class="d-flex flex-wrap">
-                                    <v-btn
-                                        v-for="color in availableColors"
-                                        :key="color"
-                                        small
-                                        icon
-                                        class="ma-1"
-                                        @click="updateSubjectColor(index, color)"
-                                    >
-                                        <div class="color-sample" :style="{ backgroundColor: color }"></div>
-                                    </v-btn>
-                                </div>
-                            </v-card>
-                        </v-menu>
-                        <v-btn
-                            icon
-                            small
-                            class="ml-2"
-                            @click="deleteSubject(index)"
-                        >
-                            <v-icon small color="error">mdi-delete</v-icon>
-                        </v-btn>
-                  </div>
-                    <!-- Offset controls -->
-                    <div class="offset-controls mt-1">
-                        <v-text-field
-                            label="X Offset"
-                            type="number"
-                            :step="0.5"
-                            :value="animation.offset.x"
-                            dense
-                            @input="updateOffset(index, 'x', $event)"
-                            style="width: 100px"
-                        />
-                        <v-text-field
-                            label="Y Offset"
-                            type="number"
-                            :step="0.5"
-                            :value="animation.offset.y"
-                            dense
-                            @input="updateOffset(index, 'y', $event)"
-                            style="width: 100px"
-                        />
-                        <v-text-field
-                            label="Z Offset"
-                            type="number"
-                            :step="0.5"
-                            :value="animation.offset.z"
-                            dense
-                            @input="updateOffset(index, 'z', $event)"
-                            style="width: 100px"
-                        />
-              </div>
-            </div>
-            
-            <!-- Add credits at the bottom -->
-            <div class="credits mt-auto pt-2 text-center">
-                <div class="text-caption grey--text text--lighten-1">
-                    Developed by Selim Gilon<br>
-                    Based on OpenCap<br>
-                    <span class="text-caption grey--text text--darken-1">© 2025 PhD Research</span>
-                </div>
-            </div>
         </div>
-              <VideoNavigation :playing="playing" :value="frame" :maxFrame="frames.length - 1"
-                  :disabled="videoControlsDisabled" @play="togglePlay(true)" @pause="togglePlay(false)"
-                  @input="onNavigate" class="mb-2" />
+        <div v-else-if="trialLoading" class="flex-grow-1 d-flex align-center justify-center">
+          <v-progress-circular indeterminate color="grey" size="30" width="4" />
+        </div>
+        <div v-else class="flex-grow-1 d-flex flex-column align-center justify-center">
+          <div class="text-center drop-zone">
+            <v-icon size="64" color="grey darken-1">mdi-file-upload-outline</v-icon>
+            <div class="text-h6 grey--text text--darken-1 mt-4">
+              Drag & drop JSON files here<br>
+              or use the "Load JSON Files" button
+            </div>
           </div>
+          <v-btn color="grey darken-3" dark class="mt-6" @click="loadSampleFiles">
+            <v-icon left>mdi-play-circle</v-icon>
+            Try with Sample Files
+          </v-btn>
+        </div>
       </div>
+      <div class="right d-flex flex-column">
+        <!-- Add recording controls -->
+        <div class="recording-controls mb-4">
+          <v-btn v-if="!isRecording" color="red" dark @click="startRecording" :disabled="isRecording" class="mb-2">
+            <v-icon left>mdi-record</v-icon>
+            Record
+          </v-btn>
+          <v-btn v-else color="grey" dark @click="stopRecording" class="mb-2">
+            <v-icon left>mdi-stop</v-icon>
+            Stop Recording
+          </v-btn>
+          <!-- Add capture button -->
+          <v-btn color="teal" dark @click="captureScreenshot" class="mb-2" block>
+            <v-icon left>mdi-camera</v-icon>
+            Capture Image
+          </v-btn>
+        </div>
+        <!-- Add file controls -->
+        <div class="file-controls mb-4">
+          <input type="file" ref="fileInput" accept=".json" style="display: none" @change="handleFileUpload" multiple />
+          <v-btn color="grey darken-3" class="mb-2 white--text" block @click="$refs.fileInput.click()">
+            <v-icon left>mdi-file-upload</v-icon>
+            Load JSON Files
+          </v-btn>
+          <v-btn color="grey darken-3" class="white--text" block @click="loadSampleFiles">
+            <v-icon left>mdi-file-document-multiple</v-icon>
+            Use Sample Files
+          </v-btn>
+        </div>
+        <!-- Add sync controls -->
+        <div class="sync-controls mb-4">
+          <v-btn color="grey darken-3" class="mb-2 white--text" block @click="syncAllAnimations">
+            <v-icon left>mdi-sync</v-icon>
+            Sync All Subjects
+          </v-btn>
+        </div>
+        <!-- Add scene color controls -->
+        <div class="scene-controls mb-4">
+          <div class="d-flex align-center mb-2">
+            <div class="mr-2">Background:</div>
+            <v-menu offset-y>
+              <template v-slot:activator="{ on, attrs }">
+                <v-btn small v-bind="attrs" v-on="on" class="color-preview" :style="{ backgroundColor: backgroundColor }"></v-btn>
+              </template>
+              <v-card class="color-picker pa-2">
+                <div class="d-flex flex-wrap">
+                  <v-btn v-for="color in backgroundColors" :key="color" small icon class="ma-1" @click="updateBackgroundColor(color)">
+                    <div class="color-sample" :style="{ backgroundColor: color }"></div>
+                  </v-btn>
+                </div>
+              </v-card>
+            </v-menu>
+          </div>
+          <div class="d-flex align-center">
+            <div class="mr-2">Ground:</div>
+            <v-menu offset-y>
+              <template v-slot:activator="{ on, attrs }">
+                <v-btn small v-bind="attrs" v-on="on" class="color-preview" :style="{ backgroundColor: showGround ? groundColor : 'transparent', border: !showGround ? '1px dashed rgba(255,255,255,0.5)' : '1px solid rgba(255,255,255,0.3)' }"></v-btn>
+              </template>
+              <v-card class="color-picker pa-2">
+                <div class="d-flex flex-wrap">
+                  <v-btn v-for="color in groundColors" :key="color" small icon class="ma-1" @click="updateGroundColor(color)" :disabled="!showGround">
+                    <div class="color-sample" :style="{ backgroundColor: color }"></div>
+                  </v-btn>
+                </div>
+                <div class="mt-2 text-center">
+                  <v-btn small text @click="toggleGroundVisibility">
+                    {{ showGround ? 'Hide Ground' : 'Show Ground' }}
+                  </v-btn>
+                  <v-btn small text @click="toggleGroundTexture" :disabled="!showGround">
+                    {{ useGroundTexture ? 'Remove Texture' : 'Use Texture' }}
+                  </v-btn>
+                  <v-btn small text @click="toggleCheckerboard" :disabled="!showGround || !useGroundTexture">
+                    {{ useCheckerboard ? 'Use Grid' : 'Use Checkerboard' }}
+                  </v-btn>
+                </div>
+              </v-card>
+            </v-menu>
+          </div>
+        </div>
+        <!-- Legend -->
+        <div class="legend mb-4">
+          <div v-for="(animation, index) in animations" :key="index" class="legend-item mb-2">
+            <div class="d-flex align-center mb-2">
+              <div class="color-box" :style="{ backgroundColor: '#' + colors[index].getHexString() }"></div>
+              <div class="ml-2 flex-grow-1">
+                <v-text-field v-model="animation.trialName" dense hide-details class="trial-name-input" />
+                <div class="file-name text-caption">{{ getFileName(animation) }}</div>
+              </div>
+              <v-menu offset-y>
+                <template v-slot:activator="{ on, attrs }">
+                  <v-btn icon small v-bind="attrs" v-on="on" class="ml-2">
+                    <v-icon small>mdi-palette</v-icon>
+                  </v-btn>
+                </template>
+                <v-card class="color-picker pa-2">
+                  <div class="d-flex flex-wrap">
+                    <v-btn v-for="color in availableColors" :key="color" small icon class="ma-1" @click="updateSubjectColor(index, color)">
+                      <div class="color-sample" :style="{ backgroundColor: color }"></div>
+                    </v-btn>
+                  </div>
+                </v-card>
+              </v-menu>
+              <v-btn icon small class="ml-2" @click="deleteSubject(index)">
+                <v-icon small color="error">mdi-delete</v-icon>
+              </v-btn>
+              <!-- Add transparency button -->
+              <v-menu offset-y>
+                <template v-slot:activator="{ on, attrs }">
+                  <v-btn icon small v-bind="attrs" v-on="on" class="ml-2">
+                    <v-icon small>mdi-opacity</v-icon>
+                  </v-btn>
+                </template>
+                <v-card class="transparency-picker pa-3" width="250">
+                  <div class="text-subtitle-2 mb-2">Transparency</div>
+                  <v-slider v-model="alphaValues[index]" :min="0" :max="1" step="0.01" hide-details @input="updateAlpha(index, $event)">
+                    <template v-slot:prepend>
+                      <div class="text-caption grey--text">0%</div>
+                    </template>
+                    <template v-slot:append>
+                      <div class="text-caption grey--text">100%</div>
+                    </template>
+                  </v-slider>
+                </v-card>
+              </v-menu>
+            </div>
+            <!-- Offset controls -->
+            <div class="offset-controls mt-1">
+              <v-text-field label="X Offset" type="number" :step="0.5" :value="animation.offset.x" dense @input="updateOffset(index, 'x', $event)" style="width: 100px" />
+              <v-text-field label="Y Offset" type="number" :step="0.5" :value="animation.offset.y" dense @input="updateOffset(index, 'y', $event)" style="width: 100px" />
+              <v-text-field label="Z Offset" type="number" :step="0.5" :value="animation.offset.z" dense @input="updateOffset(index, 'z', $event)" style="width: 100px" />
+            </div>
+          </div>
+        </div>
+        <!-- Add credits at the bottom -->
+        <div class="credits mt-auto pt-2 text-center">
+          <div class="text-caption grey--text text--lighten-1">
+            Developed by Selim Gilon<br>
+            Based on OpenCap<br>
+            <span class="text-caption grey--text text--darken-1">© 2025 PhD Research</span>
+          </div>
+        </div>
+      </div>
+    </div>
   </template>
   
   <script>
@@ -406,6 +292,7 @@ const axiosInstance = axios.create();
               useCheckerboard: true,
               gridTexture: null,
               showGround: true,
+              alphaValues: [], // Array to store alpha values for each animation
           }
       },
       computed: {
@@ -1788,6 +1675,29 @@ const axiosInstance = axios.create();
             // If you have a notification system, you could use that instead
             alert('Image captured and downloaded!');
         });
+    },
+    updateAlpha(animationIndex, value) {
+        // Update the alpha value for the specified animation
+        this.alphaValues[animationIndex] = value;
+
+        // Update all meshes for this animation
+        Object.keys(this.meshes).forEach(key => {
+            if (key.startsWith(`anim${animationIndex}_`)) {
+                const mesh = this.meshes[key];
+                mesh.traverse((child) => {
+                    if (child instanceof THREE.Mesh) {
+                        child.material.opacity = value; // Set the new alpha value
+                        child.material.transparent = true; // Ensure transparency is enabled
+                        child.material.needsUpdate = true; // Update the material
+                    }
+                });
+            }
+        });
+
+        // Render the scene with updated transparency
+        if (this.renderer) {
+            this.renderer.render(this.scene, this.camera);
+        }
     }
     }
   }
@@ -1796,6 +1706,7 @@ const axiosInstance = axios.create();
   <style lang="scss">
 .viewer-container {
   height: 100vh;
+  position: relative;
   
     .viewer {
       height: 100%;
@@ -1922,6 +1833,13 @@ const axiosInstance = axios.create();
         }
       }
     }
+
+    .controls-container {
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 4px;
+      margin: 5px;
+      padding: 8px;
+    }
   }
 
 .trial-name-input {
@@ -1979,6 +1897,10 @@ const axiosInstance = axios.create();
         background: rgba(255, 255, 255, 0.05);
     }
   }
+
+.transparency-picker {
+    background: #424242 !important;
+}
   </style>
   
   
