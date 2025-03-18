@@ -148,7 +148,7 @@
               <!-- Add transparency button -->
               <v-menu offset-y>
                 <template v-slot:activator="{ on, attrs }">
-                  <v-btn icon small v-bind="attrs" v-on="on" class="ml-2">
+                  <v-btn icon small v-bind="attrs" v-on="on" class="ml-2" @click="prepareTransparencyMenu(index)">
                     <v-icon small>mdi-opacity</v-icon>
                   </v-btn>
                 </template>
@@ -392,6 +392,9 @@ const axiosInstance = axios.create();
                 }
             ]
             
+            // Initialize alpha values
+            this.initializeAlphaValue(0);
+            
             // Add second animation if available
             if (res2 && res2.data) {
                 this.animations.push({ 
@@ -399,7 +402,8 @@ const axiosInstance = axios.create();
                     offset: new THREE.Vector3(0, 0, -1),
                     fileName: 'test2.json',
                     trialName: 'Subject 2'
-                })
+                });
+                this.initializeAlphaValue(1);
             }
 
               this.$nextTick(() => {
@@ -834,6 +838,9 @@ const axiosInstance = axios.create();
                     // Calculate and set frame rate from first animation
                     this.frameRate = this.calculateFrameRate(data.time);
                 }
+
+                // Initialize the alpha value for the new animation
+                this.initializeAlphaValue(startIndex + index);
             });
 
             // Keep track of loaded geometries
@@ -1408,6 +1415,9 @@ const axiosInstance = axios.create();
         }
         
         this.animations.forEach((animation, index) => {
+            // Initialize the alpha value for each sample animation
+            this.initializeAlphaValue(index);
+            
             for (let body in animation.data.bodies) {
                 let bd = animation.data.bodies[body];
                 bd.attachedGeometries.forEach((geom) => {
@@ -1697,6 +1707,36 @@ const axiosInstance = axios.create();
         // Render the scene with updated transparency
         if (this.renderer) {
             this.renderer.render(this.scene, this.camera);
+        }
+    },
+    initializeAlphaValue(index) {
+        // Set default opacity to 0.8, which matches what we set when creating materials
+        if (!this.alphaValues[index] && this.alphaValues[index] !== 0) {
+            this.$set(this.alphaValues, index, 0.8);
+        }
+    },
+    prepareTransparencyMenu(index) {
+        // Get the current opacity from the first mesh we find for this animation
+        let currentOpacity = null;
+        
+        Object.keys(this.meshes).forEach(key => {
+            if (key.startsWith(`anim${index}_`) && currentOpacity === null) {
+                const mesh = this.meshes[key];
+                mesh.traverse((child) => {
+                    if (child instanceof THREE.Mesh && currentOpacity === null) {
+                        currentOpacity = child.material.opacity;
+                    }
+                });
+            }
+        });
+        
+        // If we found an opacity value, update the alphaValues array
+        if (currentOpacity !== null) {
+            this.$set(this.alphaValues, index, currentOpacity);
+        }
+        // If not found, initialize with default
+        else {
+            this.initializeAlphaValue(index);
         }
     }
     }
