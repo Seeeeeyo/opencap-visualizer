@@ -63,6 +63,43 @@
             <v-icon left>mdi-file-upload</v-icon>
             Load JSON Files
           </v-btn>
+
+          <!-- Replace the separate osim and mot inputs with a single multi-file input -->
+          <input type="file" ref="osimMotFileInput" accept=".osim,.mot" style="display: none" @change="handleOpenSimFiles" multiple />
+
+          <v-btn color="indigo darken-1" class="mb-2 white--text" block @click="$refs.osimMotFileInput.click()">
+            <v-icon left>mdi-file-upload-outline</v-icon>
+            OpenSim Files
+          </v-btn>
+          
+          <div v-if="osimFile" class="selected-files-info mt-1 mb-2">
+            <v-chip small class="mr-1">{{ osimFile.name }}</v-chip>
+            <v-btn x-small icon @click="osimFile = null"><v-icon small>mdi-close</v-icon></v-btn>
+            <div v-if="!motFile" class="mt-1">
+              <v-btn text x-small color="indigo lighten-3" @click="$refs.motFileInput.click()">
+                Select .mot file
+              </v-btn>
+            </div>
+          </div>
+          
+          <div v-if="motFile" class="selected-files-info mt-1 mb-2">
+            <v-chip small class="mr-1">{{ motFile.name }}</v-chip>
+            <v-btn x-small icon @click="motFile = null"><v-icon small>mdi-close</v-icon></v-btn>
+          </div>
+          
+          <v-btn 
+            v-if="osimFile && motFile" 
+            color="indigo" 
+            dark 
+            class="mb-2" 
+            block 
+            @click="convertAndLoadOpenSimFiles"
+            :loading="converting"
+          >
+            <v-icon left>mdi-sync</v-icon>
+            Convert and Load
+          </v-btn>
+          
           <v-btn color="grey darken-3" class="white--text" block @click="loadSampleFiles">
             <v-icon left>mdi-file-document-multiple</v-icon>
             Use Sample Files
@@ -293,6 +330,11 @@ const axiosInstance = axios.create();
               gridTexture: null,
               showGround: true,
               alphaValues: [], // Array to store alpha values for each animation
+              osimFile: null,
+              motFile: null,
+              converting: false,
+              // apiUrl: 'http://localhost:8000/convert-opensim-to-visualizer-json',
+              apiUrl: 'https://opensim-to-visualizer-api.onrender.com/convert-opensim-to-visualizer-json',
           }
       },
       computed: {
@@ -1174,30 +1216,54 @@ const axiosInstance = axios.create();
         this.renderer.render(this.scene, this.camera);
     },
     handleDrop(event) {
-        const files = Array.from(event.dataTransfer.files).filter(file => 
-            file.name.toLowerCase().endsWith('.json')
-        );
+        const files = Array.from(event.dataTransfer.files);
         
-        if (files.length === 0) {
-            // Optional: show error message for non-JSON files
-            console.warn('Please drop only JSON files');
-            return;
+        // Separate files by type
+        const jsonFiles = files.filter(file => file.name.toLowerCase().endsWith('.json'));
+        const osimFiles = files.filter(file => file.name.toLowerCase().endsWith('.osim'));
+        const motFiles = files.filter(file => file.name.toLowerCase().endsWith('.mot'));
+        
+        // Handle JSON files directly
+        if (jsonFiles.length > 0) {
+            const dataTransfer = new DataTransfer();
+            jsonFiles.forEach(file => dataTransfer.items.add(file));
+            
+            const fakeEvent = {
+                target: {
+                    files: dataTransfer.files,
+                    value: ''
+                }
+            };
+            
+            this.handleFileUpload(fakeEvent);
         }
-
-        // Create a new FileList-like object
-        const dataTransfer = new DataTransfer();
-        files.forEach(file => dataTransfer.items.add(file));
         
-        // Create a fake event object
-        const fakeEvent = {
-            target: {
-                files: dataTransfer.files,
-                value: ''
+        // Handle OpenSim files
+        if (osimFiles.length > 0 || motFiles.length > 0) {
+            // If we have exactly one of each type, process them
+            if (osimFiles.length === 1 && motFiles.length === 1) {
+                this.osimFile = osimFiles[0];
+                this.motFile = motFiles[0];
+                this.convertAndLoadOpenSimFiles();
+            } 
+            // Otherwise, just store what we got and wait for the user to provide the missing file
+            else {
+                if (osimFiles.length === 1) {
+                    this.osimFile = osimFiles[0];
+                }
+                if (motFiles.length === 1) {
+                    this.motFile = motFiles[0];
+                }
+                
+                if (osimFiles.length > 1 || motFiles.length > 1) {
+                    alert('Please drop exactly one .osim file and one .mot file');
+                }
             }
-        };
-
-        // Use the existing file handler
-        this.handleFileUpload(fakeEvent);
+        }
+        
+        if (files.length === 0 || (jsonFiles.length === 0 && osimFiles.length === 0 && motFiles.length === 0)) {
+            console.warn('Please drop JSON, OSIM, or MOT files');
+        }
     },
     deleteSubject(index) {
         // Remove meshes for this animation
@@ -1738,6 +1804,128 @@ const axiosInstance = axios.create();
         else {
             this.initializeAlphaValue(index);
         }
+    },
+    selectOsimFile(event) {
+        const file = event.target.files[0];
+        if (file && file.name.endsWith('.osim')) {
+            this.osimFile = file;
+            // If we already have a .mot file, prompt to convert
+            if (this.motFile) {
+                // You could auto-convert here if desired
+                // this.convertAndLoadOpenSimFiles();
+            }
+        }
+        // Clear the input so the same file can be selected again
+        event.target.value = '';
+    },
+    selectMotFile(event) {
+        const file = event.target.files[0];
+        if (file && file.name.endsWith('.mot')) {
+            this.motFile = file;
+            // If we already have an .osim file, prompt to convert
+            if (this.osimFile) {
+                // You could auto-convert here if desired
+                // this.convertAndLoadOpenSimFiles();
+            }
+        }
+        // Clear the input so the same file can be selected again
+        event.target.value = '';
+    },
+    async convertAndLoadOpenSimFiles() {
+        if (!this.osimFile || !this.motFile) {
+            alert('Please select both .osim and .mot files');
+            return;
+        }
+        
+        this.converting = true;
+        
+        try {
+            console.log('Converting files using API:', this.apiUrl);
+            
+            // Create a FormData object to send the files
+            const formData = new FormData();
+            formData.append('osim_file', this.osimFile);
+            formData.append('mot_file', this.motFile);
+            
+            // Call the API to convert the files
+            const response = await fetch(this.apiUrl, {
+                method: 'POST',
+                body: formData,
+            });
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`API error: ${response.status} ${response.statusText}\n${errorText}`);
+            }
+            
+            // Parse the JSON response
+            const jsonData = await response.json();
+            
+            // Create a "virtual" File object with the JSON data
+            const jsonBlob = new Blob([JSON.stringify(jsonData)], { type: 'application/json' });
+            const jsonFile = new File([jsonBlob], `${this.osimFile.name.replace('.osim', '')}.json`, { type: 'application/json' });
+            
+            // Use our existing file handler with a fake event
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(jsonFile);
+            
+            const fakeEvent = {
+                target: {
+                    files: dataTransfer.files,
+                    value: ''
+                }
+            };
+            
+            // Process the converted JSON
+            this.handleFileUpload(fakeEvent);
+            
+            // Clear the selected files after successful conversion
+            this.osimFile = null;
+            this.motFile = null;
+            
+        } catch (error) {
+            console.error('Error converting OpenSim files:', error);
+            alert(`Error converting files: ${error.message}\n\nMake sure the API server is running at ${this.apiUrl}`);
+        } finally {
+            this.converting = false;
+        }
+    },
+    handleOpenSimFiles(event) {
+        const files = Array.from(event.target.files);
+        
+        // Filter for osim and mot files
+        const osimFiles = files.filter(file => file.name.toLowerCase().endsWith('.osim'));
+        const motFiles = files.filter(file => file.name.toLowerCase().endsWith('.mot'));
+        
+        // Clear existing selections
+        this.osimFile = null;
+        this.motFile = null;
+        
+        // Check if we have valid pairs
+        if (osimFiles.length === 1 && motFiles.length === 1) {
+            // Perfect case - one of each
+            this.osimFile = osimFiles[0];
+            this.motFile = motFiles[0];
+            // Auto-convert since we have a matching pair
+            this.convertAndLoadOpenSimFiles();
+        } else if (osimFiles.length === 1 && motFiles.length === 0) {
+            // Only OSIM file - store it and wait for MOT
+            this.osimFile = osimFiles[0];
+            alert('Please also select a .mot file');
+        } else if (osimFiles.length === 0 && motFiles.length === 1) {
+            // Only MOT file - store it and wait for OSIM
+            this.motFile = motFiles[0];
+            alert('Please also select an .osim file');
+        } else if (osimFiles.length > 1 || motFiles.length > 1) {
+            // Too many files
+            alert('Please select exactly one .osim file and one .mot file');
+        } else {
+            // No valid files
+            alert('No valid .osim or .mot files selected');
+        }
+        
+        // Clear input value so same files can be selected again
+        event.target.value = '';
     }
     }
   }
@@ -1940,6 +2128,15 @@ const axiosInstance = axios.create();
 
 .transparency-picker {
     background: #424242 !important;
+}
+
+.selected-files-info {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  padding: 4px 8px;
+  display: flex;
+  align-items: center;
+  font-size: 12px;
 }
   </style>
   
