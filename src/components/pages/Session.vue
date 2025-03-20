@@ -2129,20 +2129,21 @@ const axiosInstance = axios.create();
   }
 
 .drop-zone {
-    width: 100%;
-    height: 100%;
+    width: 90%;
+    height: 80%;
+    min-height: 350px;
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    border: 2px dashed rgba(255, 255, 255, 0.1);
-    border-radius: 8px;
+    border: 3px dashed rgba(255, 255, 255, 0.2);
+    border-radius: 12px;
     margin: 20px;
     transition: all 0.3s ease;
     
     &:hover {
-        border-color: rgba(255, 255, 255, 0.3);
-        background: rgba(255, 255, 255, 0.05);
+        border-color: rgba(255, 255, 255, 0.4);
+        background: rgba(255, 255, 255, 0.08);
     }
   }
 
