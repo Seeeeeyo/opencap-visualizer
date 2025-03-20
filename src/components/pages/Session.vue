@@ -26,14 +26,41 @@
           <v-progress-circular indeterminate color="grey" size="30" width="4" />
         </div>
         <div v-else class="flex-grow-1 d-flex flex-column align-center justify-center">
-          <div class="text-center drop-zone">
-            <v-icon size="64" color="grey darken-1">mdi-file-upload-outline</v-icon>
-            <div class="text-h6 grey--text text--darken-1 mt-4">
-              Drag & drop JSON files here<br>
-              or use the "Load JSON Files" button
+          <!-- Loading overlay -->
+          <div v-if="converting" class="conversion-overlay">
+            <v-progress-circular indeterminate color="indigo" size="64" width="6" />
+            <div class="mt-4 text-h6 text-center">
+              Converting OpenSim Files<br>
+              <span class="text-subtitle-1">This may take a moment...</span>
             </div>
           </div>
-          <v-btn color="grey darken-3" dark class="mt-6" @click="loadSampleFiles">
+          
+          <div class="text-center drop-zone" :class="{ 'opacity-reduced': converting }">
+            <!-- Existing drop zone content -->
+            <v-icon size="64" color="grey darken-1">mdi-file-upload-outline</v-icon>
+            
+            <!-- Show selected files if any, otherwise show the default prompt -->
+            <div v-if="osimFile || motFile" class="text-h6 grey--text text--darken-1 mt-4">
+              <div v-if="osimFile" class="selected-file mb-2">
+                <v-chip small color="indigo" dark>{{ osimFile.name }}</v-chip>
+              </div>
+              <div v-if="motFile" class="selected-file mb-2">
+                <v-chip small color="indigo" dark>{{ motFile.name }}</v-chip>
+              </div>
+              <div v-if="osimFile && !motFile" class="missing-file-prompt">
+                Please add a .mot file to complete the pair
+              </div>
+              <div v-if="!osimFile && motFile" class="missing-file-prompt">
+                Please add an .osim file to complete the pair
+              </div>
+            </div>
+            <div v-else class="text-h6 grey--text text--darken-1 mt-4">
+              Drag & drop files here<br>
+              .json, or .osim + .mot files accepted
+            </div>
+          </div>
+          
+          <v-btn color="grey darken-3" dark class="mt-6" @click="loadSampleFiles" :disabled="converting">
             <v-icon left>mdi-play-circle</v-icon>
             Try with Sample Files
           </v-btn>
@@ -57,53 +84,30 @@
           </v-btn>
         </div>
         <!-- Add file controls -->
-        <div class="file-controls mb-4">
-          <input type="file" ref="fileInput" accept=".json" style="display: none" @change="handleFileUpload" multiple />
-          <v-btn color="grey darken-3" class="mb-2 white--text" block @click="$refs.fileInput.click()">
-            <v-icon left>mdi-file-upload</v-icon>
-            Load JSON Files
-          </v-btn>
-
-          <!-- Replace the separate osim and mot inputs with a single multi-file input -->
-          <input type="file" ref="osimMotFileInput" accept=".osim,.mot" style="display: none" @change="handleOpenSimFiles" multiple />
-
-          <v-btn color="indigo darken-1" class="mb-2 white--text" block @click="$refs.osimMotFileInput.click()">
-            <v-icon left>mdi-file-upload-outline</v-icon>
-            OpenSim Files
-          </v-btn>
-          
-          <div v-if="osimFile" class="selected-files-info mt-1 mb-2">
-            <v-chip small class="mr-1">{{ osimFile.name }}</v-chip>
-            <v-btn x-small icon @click="osimFile = null"><v-icon small>mdi-close</v-icon></v-btn>
-            <div v-if="!motFile" class="mt-1">
-              <v-btn text x-small color="indigo lighten-3" @click="$refs.motFileInput.click()">
-                Select .mot file
-              </v-btn>
-            </div>
+        <div class="file-controls mb-4 position-relative">
+          <!-- Show loading overlay when converting -->
+          <div v-if="converting" class="conversion-overlay-small">
+            <v-progress-circular indeterminate color="indigo" size="24" width="3" />
+            <div class="ml-2">Converting files...</div>
           </div>
           
-          <div v-if="motFile" class="selected-files-info mt-1 mb-2">
-            <v-chip small class="mr-1">{{ motFile.name }}</v-chip>
-            <v-btn x-small icon @click="motFile = null"><v-icon small>mdi-close</v-icon></v-btn>
+          <!-- Make controls slightly transparent when loading -->
+          <div :class="{ 'opacity-reduced': converting }">
+            <!-- Existing file inputs and buttons -->
+            <input type="file" ref="fileInput" accept=".json" style="display: none" @change="handleFileUpload" multiple />
+            <v-btn color="grey darken-3" class="mb-2 white--text" block @click="$refs.fileInput.click()" :disabled="converting">
+              <v-icon left>mdi-file-upload</v-icon>
+              Load JSON Files
+            </v-btn>
+            
+            <input type="file" ref="osimMotFileInput" accept=".osim,.mot" style="display: none" @change="handleOpenSimFiles" multiple />
+            <v-btn color="indigo darken-1" class="mb-2 white--text" block @click="$refs.osimMotFileInput.click()" :disabled="converting">
+              <v-icon left>mdi-file-upload-outline</v-icon>
+              Load OpenSim (.mot+.osim)
+            </v-btn>
+            
+            <!-- Existing file chips etc. -->
           </div>
-          
-          <v-btn 
-            v-if="osimFile && motFile" 
-            color="indigo" 
-            dark 
-            class="mb-2" 
-            block 
-            @click="convertAndLoadOpenSimFiles"
-            :loading="converting"
-          >
-            <v-icon left>mdi-sync</v-icon>
-            Convert and Load
-          </v-btn>
-          
-          <v-btn color="grey darken-3" class="white--text" block @click="loadSampleFiles">
-            <v-icon left>mdi-file-document-multiple</v-icon>
-            Use Sample Files
-          </v-btn>
         </div>
         <!-- Add sync controls -->
         <div class="sync-controls mb-4">
@@ -395,6 +399,20 @@ const axiosInstance = axios.create();
             }
         },
         deep: true
+    },
+    osimFile: {
+      handler(newVal) {
+        if (newVal && this.motFile && !this.converting) {
+          this.convertAndLoadOpenSimFiles();
+        }
+      }
+    },
+    motFile: {
+      handler(newVal) {
+        if (newVal && this.osimFile && !this.converting) {
+          this.convertAndLoadOpenSimFiles();
+        }
+      }
     }
     },
     methods: {
@@ -1809,10 +1827,9 @@ const axiosInstance = axios.create();
         const file = event.target.files[0];
         if (file && file.name.endsWith('.osim')) {
             this.osimFile = file;
-            // If we already have a .mot file, prompt to convert
+            // If we already have a .mot file, auto-convert
             if (this.motFile) {
-                // You could auto-convert here if desired
-                // this.convertAndLoadOpenSimFiles();
+                this.convertAndLoadOpenSimFiles();
             }
         }
         // Clear the input so the same file can be selected again
@@ -1822,10 +1839,9 @@ const axiosInstance = axios.create();
         const file = event.target.files[0];
         if (file && file.name.endsWith('.mot')) {
             this.motFile = file;
-            // If we already have an .osim file, prompt to convert
+            // If we already have an .osim file, auto-convert
             if (this.osimFile) {
-                // You could auto-convert here if desired
-                // this.convertAndLoadOpenSimFiles();
+                this.convertAndLoadOpenSimFiles();
             }
         }
         // Clear the input so the same file can be selected again
@@ -1897,31 +1913,35 @@ const axiosInstance = axios.create();
         const osimFiles = files.filter(file => file.name.toLowerCase().endsWith('.osim'));
         const motFiles = files.filter(file => file.name.toLowerCase().endsWith('.mot'));
         
-        // Clear existing selections
-        this.osimFile = null;
-        this.motFile = null;
+        // Only update the files that the user is explicitly selecting now
+        // Don't clear existing selections unless we're replacing them
         
-        // Check if we have valid pairs
-        if (osimFiles.length === 1 && motFiles.length === 1) {
-            // Perfect case - one of each
+        // Handle .osim files
+        if (osimFiles.length === 1) {
             this.osimFile = osimFiles[0];
+        } else if (osimFiles.length > 1) {
+            alert('Please select only one .osim file at a time');
+            // Don't change existing selection if multiple files were selected
+        }
+        
+        // Handle .mot files
+        if (motFiles.length === 1) {
             this.motFile = motFiles[0];
-            // Auto-convert since we have a matching pair
+        } else if (motFiles.length > 1) {
+            alert('Please select only one .mot file at a time');
+            // Don't change existing selection if multiple files were selected
+        }
+        
+        // If we now have a complete pair, process them
+        if (this.osimFile && this.motFile) {
             this.convertAndLoadOpenSimFiles();
-        } else if (osimFiles.length === 1 && motFiles.length === 0) {
-            // Only OSIM file - store it and wait for MOT
-            this.osimFile = osimFiles[0];
-            alert('Please also select a .mot file');
-        } else if (osimFiles.length === 0 && motFiles.length === 1) {
-            // Only MOT file - store it and wait for OSIM
-            this.motFile = motFiles[0];
-            alert('Please also select an .osim file');
-        } else if (osimFiles.length > 1 || motFiles.length > 1) {
-            // Too many files
-            alert('Please select exactly one .osim file and one .mot file');
         } else {
-            // No valid files
-            alert('No valid .osim or .mot files selected');
+            // Otherwise provide guidance on what's still needed
+            if (this.osimFile && !this.motFile) {
+                alert('Please also select a .mot file');
+            } else if (!this.osimFile && this.motFile) {
+                alert('Please also select an .osim file');
+            }
         }
         
         // Clear input value so same files can be selected again
@@ -2137,6 +2157,48 @@ const axiosInstance = axios.create();
   display: flex;
   align-items: center;
   font-size: 12px;
+}
+
+.conversion-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background-color: rgba(0, 0, 0, 0.7);
+  z-index: 10;
+  border-radius: 8px;
+  padding: 20px;
+  color: white;
+}
+
+.conversion-overlay-small {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: rgba(0, 0, 0, 0.7);
+  z-index: 10;
+  border-radius: 4px;
+  padding: 10px;
+  color: white;
+}
+
+.opacity-reduced {
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+.position-relative {
+  position: relative;
 }
   </style>
   
