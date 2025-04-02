@@ -1730,9 +1730,11 @@ const axiosInstance = axios.create();
     captureScreenshot() {
         if (!this.renderer) return;
         
-        // Store original size
+        // Store original states
         const originalWidth = this.renderer.domElement.width;
         const originalHeight = this.renderer.domElement.height;
+        const originalBackground = this.scene.background;
+        const originalGroundVisibility = this.groundMesh ? this.groundMesh.visible : false;
         
         // Set to high resolution for screenshot (4x)
         const scale = 4;
@@ -1742,32 +1744,67 @@ const axiosInstance = axios.create();
         this.camera.aspect = (originalWidth * scale) / (originalHeight * scale);
         this.camera.updateProjectionMatrix();
         
-        // Render the high-res scene
-        this.renderer.render(this.scene, this.camera);
+        // Create versions with different background/ground combinations
+        const captures = [
+            { 
+                name: 'mocap-capture.png', 
+                background: originalBackground,
+                showGround: originalGroundVisibility
+            },
+            { 
+                name: 'mocap-capture-transparent.png', 
+                background: null,
+                showGround: false
+            }
+        ];
         
-        // Capture the image
-        const dataURL = this.renderer.domElement.toDataURL('image/png');
+        // Create download links for both versions
+        captures.forEach(capture => {
+            // Set background (null for transparent)
+            this.scene.background = capture.background;
+            
+            // Set ground visibility
+            if (this.groundMesh) {
+                this.groundMesh.visible = capture.showGround;
+            }
+            
+            // Set renderer properties for transparency
+            if (!capture.background) {
+                this.renderer.setClearColor(0x000000, 0);
+                this.renderer.setClearAlpha(0);
+            }
+            
+            // Render the scene
+            this.renderer.render(this.scene, this.camera);
+            
+            // Capture the image
+            const dataURL = this.renderer.domElement.toDataURL('image/png');
+            
+            // Create and trigger download
+            const link = document.createElement('a');
+            link.href = dataURL;
+            link.download = capture.name;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        });
         
-        // Create a download link
-        const link = document.createElement('a');
-        link.href = dataURL;
-        link.download = 'mocap-capture.png';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        // Restore original size
+        // Restore original settings
         this.renderer.setSize(originalWidth, originalHeight);
         this.camera.aspect = originalWidth / originalHeight;
         this.camera.updateProjectionMatrix();
+        this.scene.background = originalBackground;
+        if (this.groundMesh) {
+            this.groundMesh.visible = originalGroundVisibility;
+        }
+        this.renderer.setClearAlpha(1);
         
         // Re-render at original size
         this.renderer.render(this.scene, this.camera);
         
         // Show a success message
         this.$nextTick(() => {
-            // If you have a notification system, you could use that instead
-            alert('Image captured and downloaded!');
+            alert('Images captured and downloaded!\nTwo versions saved: with background/ground and fully transparent.');
         });
     },
     updateAlpha(animationIndex, value) {
