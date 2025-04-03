@@ -342,7 +342,7 @@
         <!-- Add credits at the bottom -->
         <div class="credits mt-auto pt-2 text-center">
           <div class="text-caption grey--text text--lighten-1">
-            Developed by Selim Gilon<br>
+            Developed by <a href="https://www.linkedin.com/in/selim-gilon/" target="_blank" class="text-decoration-none">Selim Gilon</a><br>
             Based on OpenCap<br>
             <span class="text-caption grey--text text--darken-1">© 2025 PhD Research</span>
           </div>
