@@ -337,6 +337,37 @@
                 <v-text-field label="Z" type="number" :step="0.5" :value="animation.offset.z" dense @input="updateOffset(index, 'z', $event)" style="width: 70px" />
               </div>
             </div>
+            
+            <!-- Individual Mesh Controls -->
+            <div class="mesh-controls mt-1" v-if="animations[index].visible">
+              <v-expansion-panels>
+                <v-expansion-panel>
+                  <v-expansion-panel-header>
+                    <div class="text-subtitle-2">Mesh Objects</div>
+                  </v-expansion-panel-header>
+                  <v-expansion-panel-content>
+                    <div class="mesh-groups">
+                      <div v-for="(items, groupName) in getGroupedMeshes(index)" :key="groupName" class="mb-3">
+                        <div class="group-header pa-1 mb-1 d-flex align-center">
+                          <v-btn icon small class="mr-2" @click="toggleGroupVisibility(index, groupName, items)">
+                            <v-icon small>{{ isGroupVisible(items) ? 'mdi-eye' : 'mdi-eye-off' }}</v-icon>
+                          </v-btn>
+                          <strong class="text-subtitle-2">{{ groupName }}</strong>
+                        </div>
+                        <div v-for="item in items" :key="item.key" class="d-flex align-center pa-1 pl-3">
+                          <v-btn icon x-small @click="toggleMeshVisibility(item.key)">
+                            <v-icon x-small :color="meshes[item.key] && meshes[item.key].visible !== false ? 'white' : 'grey'">
+                              {{ meshes[item.key] && meshes[item.key].visible !== false ? 'mdi-eye' : 'mdi-eye-off' }}
+                            </v-icon>
+                          </v-btn>
+                          <span class="ml-2 text-caption">{{ item.name }}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </v-expansion-panel-content>
+                </v-expansion-panel>
+              </v-expansion-panels>
+            </div>
           </div>
         </div>
         <!-- Add credits at the bottom -->
@@ -2421,7 +2452,116 @@ const axiosInstance = axios.create();
         });
         
         return mesh ? mesh.id : 'N/A';
-      }
+      },
+      getMeshKeysForAnimation(index) {
+        return Object.keys(this.meshes).filter(key => key.startsWith(`anim${index}_`));
+      },
+      getMeshName(meshKey) {
+        // Format of key is anim{index}_{body}{geom}
+        const parts = meshKey.split('_');
+        if (parts.length < 2) return meshKey;
+        
+        // Get the part after the first underscore (body+geom)
+        const bodyAndGeom = parts[1];
+        
+        // Extract the geom part which is the filename
+        // Typically these are named like 'lunate_lvs.vtp' or 'triquetrum_rvs.vtp'
+        // We want to display just the bone name like 'lunate' or 'triquetrum'
+        
+        // First look for _lvs or _rvs pattern to extract the bone name
+        if (bodyAndGeom.includes('_lvs') || bodyAndGeom.includes('_rvs')) {
+          const boneName = bodyAndGeom.split('_')[0];
+          return boneName; 
+        }
+        
+        // Fallback to the original bodyAndGeom
+        return bodyAndGeom;
+      },
+      toggleMeshVisibility(meshKey) {
+        const mesh = this.meshes[meshKey];
+        if (mesh) {
+          mesh.visible = !mesh.visible;
+          this.renderer.render(this.scene, this.camera);
+        }
+      },
+      getGroupedMeshes(index) {
+        // Get all mesh keys for this animation
+        const meshKeys = this.getMeshKeysForAnimation(index);
+        
+        // Group object to organize meshes
+        const groups = {
+          'Hands': [],
+          'Arms': [],
+          'Other': []
+        };
+        
+        // Categorize each mesh
+        meshKeys.forEach(key => {
+          const name = this.getMeshName(key);
+          
+          // Check if it's a hand-related mesh
+          if (name.includes('hand') || 
+              name.includes('lunate') || 
+              name.includes('pisiform') || 
+              name.includes('triquetrum') || 
+              name.includes('thumb') || 
+              name.includes('index') || 
+              name.includes('middle') || 
+              name.includes('ring') || 
+              name.includes('little')) {
+            groups['Hands'].push({key, name});
+          }
+          // Check if it's an arm-related mesh
+          else if (name.includes('humerus') || 
+                  name.includes('ulna') || 
+                  name.includes('radius')) {
+            groups['Arms'].push({key, name});
+          }
+          // Everything else
+          else {
+            groups['Other'].push({key, name});
+          }
+        });
+        
+        // Remove empty groups
+        Object.keys(groups).forEach(key => {
+          if (groups[key].length === 0) {
+            delete groups[key];
+          }
+        });
+        
+        return groups;
+      },
+      toggleGroupVisibility(animIndex, groupName, items) {
+        // Check the current visibility state of meshes in this group
+        // If all are visible, hide all. If some or all are hidden, show all.
+        
+        // Check if at least one mesh is visible
+        const hasVisibleMesh = items.some(item => 
+          this.meshes[item.key] && this.meshes[item.key].visible !== false
+        );
+        
+        // Set all to the opposite state
+        const newVisibility = !hasVisibleMesh;
+        
+        // Update all meshes in this group
+        items.forEach(item => {
+          if (this.meshes[item.key]) {
+            this.meshes[item.key].visible = newVisibility;
+          }
+        });
+        
+        // Re-render the scene
+        if (this.renderer) {
+          this.renderer.render(this.scene, this.camera);
+        }
+      },
+      isGroupVisible(items) {
+        // Check if any mesh in this group is visible
+        return items.some(item => 
+          this.meshes[item.key] && this.meshes[item.key].visible !== false
+        );
+      },
     }
   }
   </script>
