@@ -160,6 +160,40 @@
             </v-menu>
           </div>
         </div>
+        <!-- Add Timelapse Controls -->
+        <div class="timelapse-controls mb-4">
+          <v-switch
+            v-model="timelapseMode"
+            label="Timelapse Mode"
+            color="indigo"
+            @change="toggleTimelapseMode"
+          ></v-switch>
+          <div v-if="timelapseMode" class="mt-2">
+            <v-slider
+              v-model="timelapseInterval"
+              label="Frame Interval"
+              min="1"
+              max="30"
+              step="1"
+              thumb-label
+              :disabled="!timelapseMode"
+              @input="updateTimelapse"
+            ></v-slider>
+            <v-slider
+              v-model="timelapseOpacity"
+              label="Model Transparency"
+              min="0"
+              max="1"
+              step="0.05"
+              thumb-label
+              :disabled="!timelapseMode"
+              @input="updateTimelapseOpacity"
+            ></v-slider>
+            <v-btn small text @click="clearTimelapse" class="mt-1">
+              Clear Timelapse
+            </v-btn>
+          </div>
+        </div>
         <!-- Legend -->
         <div class="legend mb-4">
           <div v-for="(animation, index) in animations" :key="index" class="legend-item mb-2">
@@ -386,6 +420,12 @@ const axiosInstance = axios.create();
               apiUrl: 'https://opensim-to-visualizer-api.onrender.com/convert-opensim-to-visualizer-json',
               showRgbPicker: false,
               rgbValues: [],
+              // Add new timelapse properties
+              timelapseMode: false,
+              timelapseInterval: 5,
+              timelapseMeshes: {}, // Store timelapse meshes
+              timelapseFrameCount: 0, // Track number of frames in timelapse
+              timelapseOpacity: 0.3, // Default opacity for timelapse models
           }
       },
       computed: {
@@ -722,48 +762,73 @@ const axiosInstance = axios.create();
         }
       },
       animateOneFrame() {
-          let cframe = this.frame
+        let cframe = this.frame;
   
-          if (cframe < this.frames.length) {
-              // Update each animation
-              this.animations.forEach((animation, animIndex) => {
-                  let json = animation.data;
+        if (cframe < this.frames.length) {
+          // Update each animation
+          this.animations.forEach((animation, animIndex) => {
+            let json = animation.data;
             for (let body in json.bodies) {
               json.bodies[body].attachedGeometries.forEach((geom) => {
-                          const meshKey = `anim${animIndex}_${body}${geom}`;
-                          if (this.meshes[meshKey]) {
-                              // Get base position from animation data
-                              const position = new THREE.Vector3(
-                      json.bodies[body].translation[cframe][0],
-                      json.bodies[body].translation[cframe][1],
-                                  json.bodies[body].translation[cframe][2]
-                              );
-                              
-                              // Add animation offset
-                              position.add(animation.offset);
-                              
-                              // Set final position
-                              this.meshes[meshKey].position.copy(position);
-                              
-                              // Set rotation
+                const meshKey = `anim${animIndex}_${body}${geom}`;
+                if (this.meshes[meshKey]) {
+                  // Get base position from animation data
+                  const position = new THREE.Vector3(
+                    json.bodies[body].translation[cframe][0],
+                    json.bodies[body].translation[cframe][1],
+                    json.bodies[body].translation[cframe][2]
+                  );
+                  
+                  // Add animation offset
+                  position.add(animation.offset);
+                  
+                  // Set final position
+                  this.meshes[meshKey].position.copy(position);
+                  
+                  // Set rotation
                   var euler = new THREE.Euler(
-                      json.bodies[body].rotation[cframe][0],
-                      json.bodies[body].rotation[cframe][1],
-                                  json.bodies[body].rotation[cframe][2]
-                              );
-                              this.meshes[meshKey].quaternion.setFromEuler(euler);
-                          }
-                      });
+                    json.bodies[body].rotation[cframe][0],
+                    json.bodies[body].rotation[cframe][1],
+                    json.bodies[body].rotation[cframe][2]
+                  );
+                  this.meshes[meshKey].quaternion.setFromEuler(euler);
+
+                  // Handle timelapse if enabled
+                  if (this.timelapseMode && this.playing && cframe % this.timelapseInterval === 0) {
+                    const scale = new THREE.Vector3(
+                      json.bodies[body].scaleFactors[0],
+                      json.bodies[body].scaleFactors[1],
+                      json.bodies[body].scaleFactors[2]
+                    );
+                    this.createTimelapseMesh(
+                      animIndex,
+                      body,
+                      geom,
+                      position.clone(),
+                      this.meshes[meshKey].quaternion.clone(),
+                      scale
+                    );
+                    this.timelapseFrameCount++;
                   }
+                }
               });
-          }
+            }
+          });
   
           this.renderer.render(this.scene, this.camera);
-
+  
           if (this.playing) {
+            // Check if we're at the last frame and in timelapse mode
+            if (this.timelapseMode && cframe === this.frames.length - 1) {
+              // Stop playback at the end of sequence in timelapse mode
+              this.togglePlay(false);
+            } else {
+              // Normal frame advancement
               this.frame = (this.frame + 1) % this.frames.length;
               this.time = this.frame / this.frameRate;
+            }
           }
+        }
       },
       togglePlay(value) {
         this.playing = value
@@ -2045,7 +2110,101 @@ const axiosInstance = axios.create();
         if (this.renderer) {
             this.renderer.render(this.scene, this.camera);
         }
-    }
+    },
+    toggleTimelapseMode() {
+        if (!this.timelapseMode) {
+          // Clear existing timelapse meshes when turning off
+          this.clearTimelapse();
+        } else {
+          // Reset frame count when turning on
+          this.timelapseFrameCount = 0;
+        }
+      },
+
+      updateTimelapse() {
+        // Clear existing timelapse and start fresh with new interval
+        this.clearTimelapse();
+        this.timelapseFrameCount = 0;
+      },
+
+      clearTimelapse() {
+        // Remove all timelapse meshes from scene
+        Object.values(this.timelapseMeshes).forEach(mesh => {
+          if (mesh) {
+            this.scene.remove(mesh);
+            mesh.traverse((child) => {
+              if (child instanceof THREE.Mesh) {
+                if (child.geometry) child.geometry.dispose();
+                if (child.material) {
+                  if (Array.isArray(child.material)) {
+                    child.material.forEach(material => material.dispose());
+                  } else {
+                    child.material.dispose();
+                  }
+                }
+              }
+            });
+          }
+        });
+        this.timelapseMeshes = {};
+        this.timelapseFrameCount = 0;
+        
+        // Re-render the scene
+        if (this.renderer) {
+          this.renderer.render(this.scene, this.camera);
+        }
+      },
+
+      createTimelapseMesh(animationIndex, body, geom, position, rotation, scale) {
+        // Create a unique key for this timelapse mesh
+        const key = `timelapse_${animationIndex}_${body}_${geom}_${this.timelapseFrameCount}`;
+        
+        // Clone the original mesh
+        const originalMesh = this.meshes[`anim${animationIndex}_${body}${geom}`];
+        if (!originalMesh) return;
+
+        const clone = originalMesh.clone();
+        
+        // Set position and rotation
+        clone.position.copy(position);
+        clone.quaternion.copy(rotation);
+        
+        // Apply scale
+        clone.scale.copy(scale);
+        
+        // Make material more transparent for timelapse
+        clone.traverse((child) => {
+          if (child instanceof THREE.Mesh) {
+            const material = child.material.clone();
+            material.transparent = true;
+            material.opacity = this.timelapseOpacity; // Use the current opacity value
+            child.material = material;
+          }
+        });
+        
+        // Add to scene and store reference
+        this.scene.add(clone);
+        this.timelapseMeshes[key] = clone;
+      },
+
+      updateTimelapseOpacity() {
+        // Update opacity for all existing timelapse meshes
+        Object.values(this.timelapseMeshes).forEach(mesh => {
+          if (mesh) {
+            mesh.traverse((child) => {
+              if (child instanceof THREE.Mesh) {
+                child.material.opacity = this.timelapseOpacity;
+                child.material.needsUpdate = true;
+              }
+            });
+          }
+        });
+        
+        // Re-render the scene
+        if (this.renderer) {
+          this.renderer.render(this.scene, this.camera);
+        }
+      }
     }
   }
   </script>
