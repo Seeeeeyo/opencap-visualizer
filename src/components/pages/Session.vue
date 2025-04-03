@@ -630,7 +630,6 @@ const axiosInstance = axios.create();
   
                   // add the plane
                   {
-                console.log('Adding plane')
                     const planeSize = 20;
   
                     const loader = new THREE.TextureLoader();
@@ -664,7 +663,6 @@ const axiosInstance = axios.create();
   
                   // add sun
                   {
-                console.log('Adding lights')
                     const skyColor = 0xB1E1FF;  // light blue
                     const groundColor = 0xB97A20;  // brownish orange
                     const intensity = 0.5
@@ -689,7 +687,6 @@ const axiosInstance = axios.create();
                           let bd = animation.data.bodies[body]
                     bd.attachedGeometries.forEach((geom) => {
                       let path = 'https://mc-opencap-public.s3.us-west-2.amazonaws.com/geometries/' + geom.substr(0, geom.length - 4) + ".obj";
-                              console.log('Loading geometry from:', path)
                       objLoader.load(path, (root) => {
                         root.castShadow = false;
                         root.receiveShadow = false;
@@ -715,7 +712,6 @@ const axiosInstance = axios.create();
                                   root.position.add(animation.offset);
                                   
                         this.scene.add(root);
-                                  console.log('Added geometry to scene:', meshKey);
                               });
                           });
                   }
@@ -769,7 +765,6 @@ const axiosInstance = axios.create();
 
                 let timeout = 2000
                 if (navigator.connection) {
-                  console.log('supported: connection', navigator.connection.downlink)
                   timeout = Math.trunc(10000 / navigator.connection.downlink)
                 }
 
@@ -1129,24 +1124,6 @@ const axiosInstance = axios.create();
         this.onResize();
         container.appendChild(this.renderer.domElement);
         this.controls = new THREE_OC.OrbitControls(this.camera, this.renderer.domElement);
-
-        // Add control event listener
-        this.controls.addEventListener('change', () => {
-            console.log('Camera Position:', {
-                x: this.camera.position.x.toFixed(2),
-                y: this.camera.position.y.toFixed(2),
-                z: this.camera.position.z.toFixed(2)
-            });
-            console.log('Camera FOV:', this.camera.fov);
-        });
-
-        // Also log initial position
-        console.log('Initial Camera Position:', {
-            x: this.camera.position.x.toFixed(2),
-            y: this.camera.position.y.toFixed(2),
-            z: this.camera.position.z.toFixed(2)
-        });
-        console.log('Initial Camera FOV:', this.camera.fov);
 
         // Add plane
         const planeSize = 20;

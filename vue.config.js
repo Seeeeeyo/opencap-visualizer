@@ -25,5 +25,13 @@ module.exports = {
   },
   devServer: {
     port: 3000
+  },
+  chainWebpack: config => {
+    config
+      .plugin('html')
+      .tap(args => {
+        args[0].title = 'OpenCap Visualizer'
+        return args
+      })
   }
 } 
