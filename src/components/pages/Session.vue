@@ -169,7 +169,7 @@
                 <v-text-field v-model="animation.trialName" dense hide-details class="trial-name-input" />
                 <div class="file-name text-caption">{{ getFileName(animation) }}</div>
               </div>
-              <v-menu offset-y>
+              <v-menu offset-y :close-on-content-click="false">
                 <template v-slot:activator="{ on, attrs }">
                   <v-btn icon small v-bind="attrs" v-on="on" class="ml-2">
                     <v-icon small>mdi-palette</v-icon>
@@ -180,6 +180,43 @@
                     <v-btn v-for="color in availableColors" :key="color" small icon class="ma-1" @click="updateSubjectColor(index, color)">
                       <div class="color-sample" :style="{ backgroundColor: color }"></div>
                     </v-btn>
+                  </div>
+                  <div class="mt-2 text-center">
+                    <v-btn small text @click.stop="showRgbPicker = !showRgbPicker">
+                      {{ showRgbPicker ? 'Use Preset Colors' : 'Use RGB Picker' }}
+                    </v-btn>
+                  </div>
+                  <div v-if="showRgbPicker" class="rgb-picker mt-2" @click.stop>
+                    <v-slider
+                      v-model="rgbValues[index].r"
+                      :min="0"
+                      :max="255"
+                      label="Red"
+                      hide-details
+                      @input="updateRgbColor(index)"
+                      @click.stop
+                    ></v-slider>
+                    <v-slider
+                      v-model="rgbValues[index].g"
+                      :min="0"
+                      :max="255"
+                      label="Green"
+                      hide-details
+                      @input="updateRgbColor(index)"
+                      @click.stop
+                    ></v-slider>
+                    <v-slider
+                      v-model="rgbValues[index].b"
+                      :min="0"
+                      :max="255"
+                      label="Blue"
+                      hide-details
+                      @input="updateRgbColor(index)"
+                      @click.stop
+                    ></v-slider>
+                    <div class="d-flex justify-center mt-2">
+                      <div class="color-preview" :style="{ backgroundColor: `rgb(${rgbValues[index].r}, ${rgbValues[index].g}, ${rgbValues[index].b})` }"></div>
+                    </div>
                   </div>
                 </v-card>
               </v-menu>
@@ -339,6 +376,8 @@ const axiosInstance = axios.create();
               converting: false,
               // apiUrl: 'http://localhost:8000/convert-opensim-to-visualizer-json',
               apiUrl: 'https://opensim-to-visualizer-api.onrender.com/convert-opensim-to-visualizer-json',
+              showRgbPicker: false,
+              rgbValues: [],
           }
       },
       computed: {
@@ -1835,6 +1874,18 @@ const axiosInstance = axios.create();
         if (!this.alphaValues[index] && this.alphaValues[index] !== 0) {
             this.$set(this.alphaValues, index, 0.8);
         }
+        // Initialize RGB values
+        this.initializeRgbValues(index);
+    },
+    initializeRgbValues(index) {
+      if (!this.rgbValues[index]) {
+        this.$set(this.rgbValues, index, { r: 128, g: 128, b: 128 });
+      }
+    },
+    updateRgbColor(index) {
+      const { r, g, b } = this.rgbValues[index];
+      const colorHex = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+      this.updateSubjectColor(index, colorHex);
     },
     prepareTransparencyMenu(index) {
         // Get the current opacity from the first mesh we find for this animation
@@ -2237,6 +2288,12 @@ const axiosInstance = axios.create();
 
 .position-relative {
   position: relative;
+}
+
+.rgb-picker {
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
 }
   </style>
   
