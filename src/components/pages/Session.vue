@@ -189,10 +189,56 @@
               :disabled="!timelapseMode"
               @input="updateTimelapseOpacity"
             ></v-slider>
-            <v-btn small text @click="clearTimelapse" class="mt-1">
-              Clear Timelapse
-            </v-btn>
+            <div class="d-flex justify-space-between align-center">
+              <v-btn small text @click="clearTimelapse" class="mt-1">
+                Clear All
+              </v-btn>
+              <v-btn small text @click="showTimelapseManager = true" class="mt-1">
+                Manage Models
+              </v-btn>
+            </div>
           </div>
+
+          <!-- Add Timelapse Manager Dialog -->
+          <v-dialog v-model="showTimelapseManager" max-width="500">
+            <v-card>
+              <v-card-title>Manage Timelapse Models</v-card-title>
+              <v-card-text>
+                <div v-for="(group, animIndex) in timelapseGroups" :key="animIndex" class="mb-4">
+                  <div class="d-flex align-center justify-space-between mb-2">
+                    <div class="subtitle-1">{{ animations[animIndex]?.trialName || `Subject ${animIndex + 1}` }}</div>
+                    <v-btn small text color="error" @click="deleteTimelapseGroup(animIndex)">
+                      Delete All
+                    </v-btn>
+                  </div>
+                  <v-list dense>
+                    <v-list-item v-for="frame in group" :key="frame" class="mb-1">
+                      <v-list-item-content>
+                        <v-list-item-title>
+                          Frame {{ frame }}
+                          <span class="text-caption grey--text ml-2">
+                            (Mesh ID: {{ getMeshIdForFrame(animIndex, frame) }})
+                          </span>
+                        </v-list-item-title>
+                      </v-list-item-content>
+                      <v-list-item-action>
+                        <v-btn small icon color="error" @click="deleteTimelapseFrame(animIndex, frame)">
+                          <v-icon small>mdi-delete</v-icon>
+                        </v-btn>
+                      </v-list-item-action>
+                    </v-list-item>
+                  </v-list>
+                </div>
+                <div v-if="Object.keys(timelapseGroups).length === 0" class="text-center grey--text">
+                  No timelapse models created yet
+                </div>
+              </v-card-text>
+              <v-card-actions>
+                <v-spacer></v-spacer>
+                <v-btn text @click="showTimelapseManager = false">Close</v-btn>
+              </v-card-actions>
+            </v-card>
+          </v-dialog>
         </div>
         <!-- Legend -->
         <div class="legend mb-4">
@@ -426,6 +472,9 @@ const axiosInstance = axios.create();
               timelapseMeshes: {}, // Store timelapse meshes
               timelapseFrameCount: 0, // Track number of frames in timelapse
               timelapseOpacity: 0.3, // Default opacity for timelapse models
+              showTimelapseManager: false,
+              timelapseGroups: {}, // Organized by animation index and frame numbers
+              timelapseCounter: null, // Use sequential counter for mesh IDs
           }
       },
       computed: {
@@ -808,7 +857,6 @@ const axiosInstance = axios.create();
                       this.meshes[meshKey].quaternion.clone(),
                       scale
                     );
-                    this.timelapseFrameCount++;
                   }
                 }
               });
@@ -1827,28 +1875,45 @@ const axiosInstance = axios.create();
         const originalHeight = this.renderer.domElement.height;
         const originalBackground = this.scene.background;
         const originalGroundVisibility = this.groundMesh ? this.groundMesh.visible : false;
+        const originalClearColor = this.renderer.getClearColor();
+        const originalClearAlpha = this.renderer.getClearAlpha();
+        const originalPreserveDrawingBuffer = this.renderer.preserveDrawingBuffer;
         
         // Set to high resolution for screenshot (4x)
         const scale = 4;
-        this.renderer.setSize(originalWidth * scale, originalHeight * scale);
         
-        // Force camera aspect ratio update
-        this.camera.aspect = (originalWidth * scale) / (originalHeight * scale);
-        this.camera.updateProjectionMatrix();
+        // Create a new renderer for the transparent version
+        const transparentRenderer = new THREE.WebGLRenderer({
+            antialias: true,
+            alpha: true,
+            preserveDrawingBuffer: true
+        });
+        transparentRenderer.setSize(originalWidth * scale, originalHeight * scale);
         
         // Create versions with different background/ground combinations
         const captures = [
             { 
                 name: 'mocap-capture.png', 
                 background: originalBackground,
-                showGround: originalGroundVisibility
+                showGround: originalGroundVisibility,
+                transparent: false,
+                useMainRenderer: true
             },
             { 
                 name: 'mocap-capture-transparent.png', 
                 background: null,
-                showGround: false
+                showGround: false,
+                transparent: true,
+                useMainRenderer: false
             }
         ];
+        
+        // Set main renderer to high resolution
+        this.renderer.setSize(originalWidth * scale, originalHeight * scale);
+        
+        // Force camera aspect ratio update
+        this.camera.aspect = (originalWidth * scale) / (originalHeight * scale);
+        this.camera.updateProjectionMatrix();
         
         // Create download links for both versions
         captures.forEach(capture => {
@@ -1860,17 +1925,21 @@ const axiosInstance = axios.create();
                 this.groundMesh.visible = capture.showGround;
             }
             
+            const currentRenderer = capture.useMainRenderer ? this.renderer : transparentRenderer;
+            
             // Set renderer properties for transparency
-            if (!capture.background) {
-                this.renderer.setClearColor(0x000000, 0);
-                this.renderer.setClearAlpha(0);
+            if (capture.transparent) {
+                currentRenderer.setClearColor(0x000000, 0);
+                currentRenderer.setClearAlpha(0);
+            } else {
+                currentRenderer.setClearColor(originalClearColor, originalClearAlpha);
             }
             
             // Render the scene
-            this.renderer.render(this.scene, this.camera);
+            currentRenderer.render(this.scene, this.camera);
             
             // Capture the image
-            const dataURL = this.renderer.domElement.toDataURL('image/png');
+            const dataURL = currentRenderer.domElement.toDataURL('image/png');
             
             // Create and trigger download
             const link = document.createElement('a');
@@ -1881,6 +1950,9 @@ const axiosInstance = axios.create();
             document.body.removeChild(link);
         });
         
+        // Clean up transparent renderer
+        transparentRenderer.dispose();
+        
         // Restore original settings
         this.renderer.setSize(originalWidth, originalHeight);
         this.camera.aspect = originalWidth / originalHeight;
@@ -1889,7 +1961,7 @@ const axiosInstance = axios.create();
         if (this.groundMesh) {
             this.groundMesh.visible = originalGroundVisibility;
         }
-        this.renderer.setClearAlpha(1);
+        this.renderer.setClearColor(originalClearColor, originalClearAlpha);
         
         // Re-render at original size
         this.renderer.render(this.scene, this.camera);
@@ -2129,7 +2201,7 @@ const axiosInstance = axios.create();
 
       clearTimelapse() {
         // Remove all timelapse meshes from scene
-        Object.values(this.timelapseMeshes).forEach(mesh => {
+        Object.values(this.timelapseMeshes).forEach(({mesh}) => {
           if (mesh) {
             this.scene.remove(mesh);
             mesh.traverse((child) => {
@@ -2147,6 +2219,7 @@ const axiosInstance = axios.create();
           }
         });
         this.timelapseMeshes = {};
+        this.timelapseGroups = {};
         this.timelapseFrameCount = 0;
         
         // Re-render the scene
@@ -2156,8 +2229,12 @@ const axiosInstance = axios.create();
       },
 
       createTimelapseMesh(animationIndex, body, geom, position, rotation, scale) {
-        // Create a unique key for this timelapse mesh
-        const key = `timelapse_${animationIndex}_${body}_${geom}_${this.timelapseFrameCount}`;
+        // Use sequential counter for mesh ID
+        if (!this.timelapseCounter) {
+          this.timelapseCounter = 1;
+        }
+        const meshId = this.timelapseCounter++;
+        const meshKey = `timelapse_${meshId}`;
         
         // Clone the original mesh
         const originalMesh = this.meshes[`anim${animationIndex}_${body}${geom}`];
@@ -2177,14 +2254,35 @@ const axiosInstance = axios.create();
           if (child instanceof THREE.Mesh) {
             const material = child.material.clone();
             material.transparent = true;
-            material.opacity = this.timelapseOpacity; // Use the current opacity value
+            material.opacity = this.timelapseOpacity;
             child.material = material;
           }
         });
         
         // Add to scene and store reference
         this.scene.add(clone);
-        this.timelapseMeshes[key] = clone;
+        
+        // Store metadata with the mesh
+        this.timelapseMeshes[meshKey] = {
+          mesh: clone,
+          frame: this.frame,
+          animIndex: animationIndex,
+          body: body,
+          geom: geom,
+          id: meshId
+        };
+
+        // Update timelapse groups for management
+        if (!this.timelapseGroups[animationIndex]) {
+          this.$set(this.timelapseGroups, animationIndex, []);
+        }
+        if (!this.timelapseGroups[animationIndex].includes(this.frame)) {
+          this.timelapseGroups[animationIndex].push(this.frame);
+          // Sort frames in ascending order
+          this.timelapseGroups[animationIndex].sort((a, b) => a - b);
+        }
+        
+        this.timelapseFrameCount++;
       },
 
       updateTimelapseOpacity() {
@@ -2204,6 +2302,134 @@ const axiosInstance = axios.create();
         if (this.renderer) {
           this.renderer.render(this.scene, this.camera);
         }
+      },
+
+      deleteTimelapseGroup(animIndex) {
+        // Count meshes before deletion
+        const beforeCount = Object.keys(this.timelapseMeshes).length;
+        const toDelete = [];
+        
+        // First collect all keys to delete (without modifying during iteration)
+        Object.entries(this.timelapseMeshes).forEach(([key, value]) => {
+          if (value.animIndex === animIndex) {
+            toDelete.push(key);
+          }
+        });
+        
+        // Now delete and remove meshes
+        toDelete.forEach(key => {
+          const data = this.timelapseMeshes[key];
+          
+          if (data && data.mesh) {
+            // First check if the mesh is actually in the scene
+            if (this.scene.children.includes(data.mesh)) {
+              this.scene.remove(data.mesh);
+            }
+            
+            // Dispose resources
+            data.mesh.traverse((child) => {
+              if (child instanceof THREE.Mesh) {
+                if (child.geometry) child.geometry.dispose();
+                if (child.material) {
+                  if (Array.isArray(child.material)) {
+                    child.material.forEach(material => material.dispose());
+                  } else {
+                    child.material.dispose();
+                  }
+                }
+              }
+            });
+          }
+          
+          // Remove from timelapseMeshes
+          delete this.timelapseMeshes[key];
+        });
+
+        // Remove the group from timelapseGroups
+        this.$delete(this.timelapseGroups, animIndex);
+        
+        // Force re-render
+        if (this.renderer) {
+          this.renderer.render(this.scene, this.camera);
+        }
+      },
+
+      deleteTimelapseFrame(animIndex, frame) {
+        // Count meshes before deletion
+        const beforeCount = Object.keys(this.timelapseMeshes).length;
+        const toDelete = [];
+        
+        // First collect all keys to delete
+        Object.entries(this.timelapseMeshes).forEach(([key, value]) => {
+          // Convert to numbers for comparison
+          const dataFrame = Number(value.frame);
+          const targetFrame = Number(frame);
+          const dataAnimIndex = Number(value.animIndex);
+          const targetAnimIndex = Number(animIndex);
+          
+          if (dataAnimIndex === targetAnimIndex && dataFrame === targetFrame) {
+            toDelete.push(key);
+          }
+        });
+        
+        // Now delete and remove meshes
+        toDelete.forEach(key => {
+          const data = this.timelapseMeshes[key];
+          
+          if (data && data.mesh) {
+            // Check if mesh is in scene
+            if (this.scene.children.includes(data.mesh)) {
+              this.scene.remove(data.mesh);
+            }
+            
+            // Dispose resources
+            data.mesh.traverse((child) => {
+              if (child instanceof THREE.Mesh) {
+                if (child.geometry) child.geometry.dispose();
+                if (child.material) {
+                  if (Array.isArray(child.material)) {
+                    child.material.forEach(material => material.dispose());
+                  } else {
+                    child.material.dispose();
+                  }
+                }
+              }
+            });
+          }
+          
+          // Remove from timelapseMeshes
+          delete this.timelapseMeshes[key];
+        });
+
+        // Remove the frame from the group
+        const frameIndex = this.timelapseGroups[animIndex].indexOf(Number(frame));
+        if (frameIndex !== -1) {
+          this.timelapseGroups[animIndex].splice(frameIndex, 1);
+        }
+
+        // If no more frames in this group, remove the group
+        if (this.timelapseGroups[animIndex].length === 0) {
+          this.$delete(this.timelapseGroups, animIndex);
+        }
+
+        // Force re-render
+        if (this.renderer) {
+          this.renderer.render(this.scene, this.camera);
+        }
+      },
+      getMeshIdForFrame(animIndex, frame) {
+        // Find the mesh ID for this frame and animation
+        const mesh = Object.values(this.timelapseMeshes).find(m => {
+          // Convert to numbers to ensure exact comparison
+          const dataFrame = Number(m.frame);
+          const targetFrame = Number(frame);
+          const dataAnimIndex = Number(m.animIndex);
+          const targetAnimIndex = Number(animIndex);
+          
+          return dataAnimIndex === targetAnimIndex && dataFrame === targetFrame;
+        });
+        
+        return mesh ? mesh.id : 'N/A';
       }
     }
   }
