@@ -520,33 +520,16 @@ const axiosInstance = axios.create();
                   this.camera = new THREE.PerspectiveCamera(35, ratio, 0.1, 125)
                   this.camera.position.x = 3.33
                   this.camera.position.z = -2.30
-                  this.camera.position.y = 3.5
-  
+                  this.camera.position.y = 3.5; 
+
                   this.scene = new THREE.Scene()
                   this.scene.background = new THREE.Color(0x808080)
                   this.renderer = new THREE.WebGLRenderer({antialias: true})
-                  this.renderer.shadowMap.enabled = true;
                   this.onResize()
                   container.appendChild(this.renderer.domElement)
                   this.controls = new THREE_OC.OrbitControls(this.camera, this.renderer.domElement)
   
-                  // Add control event listener
-                  this.controls.addEventListener('change', () => {
-                      console.log('Camera Position:', {
-                          x: this.camera.position.x.toFixed(2),
-                          y: this.camera.position.y.toFixed(2),
-                          z: this.camera.position.z.toFixed(2)
-                      });
-                      console.log('Camera FOV:', this.camera.fov);
-                  });
-  
-                  // Also log initial position
-                  console.log('Initial Camera Position:', {
-                      x: this.camera.position.x.toFixed(2),
-                      y: this.camera.position.y.toFixed(2),
-                      z: this.camera.position.z.toFixed(2)
-                  });
-                  console.log('Initial Camera FOV:', this.camera.fov);
+
   
                   // add the plane
                   {
@@ -573,7 +556,6 @@ const axiosInstance = axios.create();
                     const groundMesh = new THREE.Mesh(planeGeo, planeMat);
                     groundMesh.rotation.x = Math.PI * -.5;
                     groundMesh.position.y = .0
-                    groundMesh.receiveShadow = true;
                     this.scene.add(groundMesh);
                     
                     // Store the mesh reference inside the block where groundMesh is defined
@@ -600,14 +582,6 @@ const axiosInstance = axios.create();
                     const light = new THREE.DirectionalLight(color, intensity);
                     light.position.set(2, 3, 1.5);
                     light.target.position.set(0, 0, 0);
-                    light.castShadow = true;
-                    light.shadow.camera.left = -10
-                    light.shadow.camera.right = 10
-                    light.shadow.camera.top = -10
-                    light.shadow.camera.bottom = 10
-                    light.shadow.camera.near = 0
-                    light.shadow.camera.far = 50
-                    light.shadow.camera.zoom = 8
                     this.scene.add(light);
                     this.scene.add(light.target);
                   }
@@ -620,13 +594,13 @@ const axiosInstance = axios.create();
                       let path = 'https://mc-opencap-public.s3.us-west-2.amazonaws.com/geometries/' + geom.substr(0, geom.length - 4) + ".obj";
                               console.log('Loading geometry from:', path)
                       objLoader.load(path, (root) => {
-                        root.castShadow = true;
-                        root.receiveShadow = true;
+                        root.castShadow = false;
+                        root.receiveShadow = false;
                                   
                                   // Apply color to all meshes in the geometry
                                   root.traverse((child) => {
                           if (child instanceof THREE.Mesh) {
-                            child.castShadow = true;
+                            child.castShadow = false;
                                           child.material = new THREE.MeshPhongMaterial({ 
                                               color: this.colors[index],
                                               transparent: true,
@@ -965,12 +939,12 @@ const axiosInstance = axios.create();
                             objLoader.load(path, (root) => {
                                 if (!this.scene) return;
                                 
-                                root.castShadow = true;
-                                root.receiveShadow = true;
+                                root.castShadow = false;
+                                root.receiveShadow = false;
                                 
                                 root.traverse((child) => {
                                     if (child instanceof THREE.Mesh) {
-                                        child.castShadow = true;
+                                        child.castShadow = false;
                                         child.material = new THREE.MeshPhongMaterial({ 
                                             color: this.colors[animIndex % this.colors.length],
                                             transparent: true,
@@ -1003,6 +977,8 @@ const axiosInstance = axios.create();
                                     this.animate();
                                     this.frame = 0;
                                     this.animateOneFrame();
+                                    // Start playing automatically
+                                    this.togglePlay(true);
                                 }
                             });
                         });
@@ -1072,11 +1048,11 @@ const axiosInstance = axios.create();
         const groundMesh = new THREE.Mesh(planeGeo, planeMat);
         groundMesh.rotation.x = Math.PI * -.5;
         groundMesh.position.y = 0;
-        groundMesh.receiveShadow = true;
         this.scene.add(groundMesh);
         
         // Store the mesh reference inside the block where groundMesh is defined
         this.groundMesh = groundMesh;
+        
         
         // Set initial background color
         this.scene.background = new THREE.Color(this.backgroundColor);
@@ -1633,6 +1609,8 @@ const axiosInstance = axios.create();
         this.animate();
         this.frame = 0;
         this.animateOneFrame();
+        // Start playing automatically
+        this.togglePlay(true);
         
         // Hide loading indicator
         this.trialLoading = false;
