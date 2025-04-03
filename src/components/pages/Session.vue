@@ -223,6 +223,12 @@
               <v-btn icon small class="ml-2" @click="deleteSubject(index)">
                 <v-icon small color="error">mdi-delete</v-icon>
               </v-btn>
+              <!-- Add visibility toggle button -->
+              <v-btn icon small class="ml-2" @click="toggleSubjectVisibility(index)">
+                <v-icon small :color="animations[index].visible ? 'white' : 'grey'">
+                  {{ animations[index].visible ? 'mdi-eye' : 'mdi-eye-off' }}
+                </v-icon>
+              </v-btn>
               <!-- Add transparency button -->
               <v-menu offset-y>
                 <template v-slot:activator="{ on, attrs }">
@@ -904,7 +910,8 @@ const axiosInstance = axios.create();
                     data: data,
                     offset: offset,
                     fileName: file.name,
-                    trialName: `Subject ${startIndex + index + 1}`
+                    trialName: `Subject ${startIndex + index + 1}`,
+                    visible: true  // Add this line
                 });
 
                 if (this.animations.length === 1) {
@@ -1426,7 +1433,8 @@ const axiosInstance = axios.create();
                     data: data,
                     offset: new THREE.Vector3(0, 0, 0),
                     fileName: fileName,
-                    trialName: fileName.replace('sample_', '').replace('.json', '')
+                    trialName: fileName.replace('sample_', '').replace('.json', ''),
+                    visible: true  // Add this line
                 });
             });
             
@@ -2014,6 +2022,29 @@ const axiosInstance = axios.create();
         
         // Clear input value so same files can be selected again
         event.target.value = '';
+    },
+    toggleSubjectVisibility(index) {
+        // Toggle the visibility state
+        this.animations[index].visible = !this.animations[index].visible;
+        
+        // Update all meshes for this animation
+        Object.keys(this.meshes).forEach(key => {
+            if (key.startsWith(`anim${index}_`)) {
+                const mesh = this.meshes[key];
+                mesh.visible = this.animations[index].visible;
+            }
+        });
+        
+        // Update text sprite visibility
+        const sprite = this.textSprites[`text_${index}`];
+        if (sprite) {
+            sprite.visible = this.animations[index].visible;
+        }
+        
+        // Render the scene with updated visibility
+        if (this.renderer) {
+            this.renderer.render(this.scene, this.camera);
+        }
     }
     }
   }
@@ -2038,7 +2069,7 @@ const axiosInstance = axios.create();
     }
   
     .right {
-      flex: 0 0 300px;
+      flex: 0 0 350px;
       height: 100%;
       padding: 10px;
       overflow-y: auto;
@@ -2145,6 +2176,15 @@ const axiosInstance = axios.create();
             gap: 10px;
             width: 100%;
             flex-wrap: wrap;
+          }
+
+          // Add new styles for button spacing
+          .v-btn {
+            margin-left: 4px !important;
+            min-width: 32px !important;
+            width: 32px !important;
+            height: 32px !important;
+            padding: 0 !important;
           }
         }
       }
