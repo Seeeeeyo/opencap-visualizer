@@ -245,9 +245,11 @@
             </div>
             <!-- Offset controls -->
             <div class="offset-controls mt-1">
-              <v-text-field label="X Offset" type="number" :step="0.5" :value="animation.offset.x" dense @input="updateOffset(index, 'x', $event)" style="width: 100px" />
-              <v-text-field label="Y Offset" type="number" :step="0.5" :value="animation.offset.y" dense @input="updateOffset(index, 'y', $event)" style="width: 100px" />
-              <v-text-field label="Z Offset" type="number" :step="0.5" :value="animation.offset.z" dense @input="updateOffset(index, 'z', $event)" style="width: 100px" />
+              <div class="d-flex align-center">
+                <v-text-field label="X" type="number" :step="0.5" :value="animation.offset.x" dense @input="updateOffset(index, 'x', $event)" style="width: 70px" />
+                <v-text-field label="Y" type="number" :step="0.5" :value="animation.offset.y" dense @input="updateOffset(index, 'y', $event)" style="width: 70px" />
+                <v-text-field label="Z" type="number" :step="0.5" :value="animation.offset.z" dense @input="updateOffset(index, 'z', $event)" style="width: 70px" />
+              </div>
             </div>
           </div>
         </div>
