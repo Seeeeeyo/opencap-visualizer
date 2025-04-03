@@ -483,7 +483,14 @@ const axiosInstance = axios.create();
     }
       },
     async mounted() {
+        console.log('Session component mounted');
+        console.log('Current route:', this.$route.path);
         this.initScene();
+        // Check if we're on the samples route when component is mounted
+        if (this.$route.path === '/samples' || this.$route.path === '/samples/') {
+            console.log('Loading sample files from mounted hook');
+            this.loadSampleFiles();
+        }
     },
     beforeDestroy() {
       if (this.resizeObserver) {
@@ -504,52 +511,59 @@ const axiosInstance = axios.create();
             this.resizeObserver.observe(this.$refs.mocap)
           })
         } else {
-        this.resizeObserver?.unobserve(this.$refs.mocap)
-      }
-    },
-    animations: {
+          this.resizeObserver?.unobserve(this.$refs.mocap)
+        }
+      },
+      animations: {
         handler(newAnimations) {
-            newAnimations.forEach((animation, index) => {
-                const sprite = this.textSprites[`text_${index}`];
-                if (sprite) {
-                    const canvas = document.createElement('canvas');
-                    const context = canvas.getContext('2d');
-                    canvas.width = 256;
-                    canvas.height = 64;
-                    
-                    context.font = 'bold 40px Arial';
-                    context.textAlign = 'center';
-                    context.fillStyle = '#' + this.colors[index].getHexString();
-                    context.fillText(animation.trialName, canvas.width/2, canvas.height/2);
-                    
-                    const texture = new THREE.CanvasTexture(canvas);
-                    if (sprite.material.map) sprite.material.map.dispose();
-                    sprite.material.map = texture;
-                    sprite.material.needsUpdate = true;
-                }
-            });
-            
-            // Render the scene with updated text
-            if (this.renderer) {
-                this.renderer.render(this.scene, this.camera);
+          newAnimations.forEach((animation, index) => {
+            const sprite = this.textSprites[`text_${index}`];
+            if (sprite) {
+              const canvas = document.createElement('canvas');
+              const context = canvas.getContext('2d');
+              canvas.width = 256;
+              canvas.height = 64;
+              
+              context.font = 'bold 40px Arial';
+              context.textAlign = 'center';
+              context.fillStyle = '#' + this.colors[index].getHexString();
+              context.fillText(animation.trialName, canvas.width/2, canvas.height/2);
+              
+              const texture = new THREE.CanvasTexture(canvas);
+              if (sprite.material.map) sprite.material.map.dispose();
+              sprite.material.map = texture;
+              sprite.material.needsUpdate = true;
             }
+          });
+          
+          // Render the scene with updated text
+          if (this.renderer) {
+            this.renderer.render(this.scene, this.camera);
+          }
         },
         deep: true
-    },
-    osimFile: {
-      handler(newVal) {
-        if (newVal && this.motFile && !this.converting) {
-          this.convertAndLoadOpenSimFiles();
+      },
+      osimFile: {
+        handler(newVal) {
+          if (newVal && this.motFile && !this.converting) {
+            this.convertAndLoadOpenSimFiles();
+          }
+        }
+      },
+      motFile: {
+        handler(newVal) {
+          if (newVal && this.osimFile && !this.converting) {
+            this.convertAndLoadOpenSimFiles();
+          }
+        }
+      },
+      $route(to) {
+        console.log('Route changed to:', to.path);
+        if (to.path === '/samples' || to.path === '/samples/') {
+          console.log('Loading sample files from route watcher');
+          this.loadSampleFiles();
         }
       }
-    },
-    motFile: {
-      handler(newVal) {
-        if (newVal && this.osimFile && !this.converting) {
-          this.convertAndLoadOpenSimFiles();
-        }
-      }
-    }
     },
     methods: {
     async loadTrial() {
