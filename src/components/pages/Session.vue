@@ -15,6 +15,10 @@
               @input="onNavigate" 
               class="mr-3" 
             />
+            <!-- Playback speed control -->
+            <div class="mr-3">
+              <SpeedControl v-model="playSpeed" />
+            </div>
             <!-- Time and slider on the right -->
             <div style="flex: 1; display: flex; flex-wrap: wrap; align-items: center;">
               <v-text-field label="Time (s)" type="number" :step="0.01" :value="formattedTime" dark style="flex: 0.1; min-width: 80px; margin-right: 5px;" @input="onChangeTime" />
@@ -387,6 +391,7 @@
   import * as THREE from 'three'
   import * as THREE_OC from '@/orbitControls'
   import VideoNavigation from '@/components/ui/VideoNavigation'
+  import SpeedControl from '@/components/ui/SpeedControl'
   import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js'
   
 // Create a new axios instance without a base URL
@@ -398,6 +403,7 @@ const axiosInstance = axios.create();
       name: 'Session',
       components: {
           VideoNavigation,
+          SpeedControl
       },
       data() {
           return {
@@ -417,6 +423,7 @@ const axiosInstance = axios.create();
               animations: [], // Array to store multiple animations
               frameRate: 60,
               lastFrameTime: 0,
+              playSpeed: 1, // Playback speed multiplier
               colors: [
                   new THREE.Color(0x00ff00),  // Green (first subject)
                   new THREE.Color(0xff8000),  // Orange (second subject)
@@ -851,7 +858,8 @@ const axiosInstance = axios.create();
           
         if (this.playing && deltaTime >= (1 / this.frameRate)) { // Only update time if playing
             // Calculate how many frames should have advanced based on elapsed time
-            const framesToAdvance = Math.floor(deltaTime * this.frameRate);
+            // Apply playback speed multiplier
+            const framesToAdvance = Math.floor(deltaTime * this.frameRate * this.playSpeed);
             
             if (framesToAdvance > 0) {
                 // Advance the frame
@@ -859,7 +867,7 @@ const axiosInstance = axios.create();
                 
                 // Update lastFrameTime based on the exact frames we advanced
                 // This prevents timing drift by keeping track of actual time used
-                this.lastFrameTime = currentTime - (deltaTime - (framesToAdvance / this.frameRate)) * 1000;
+                this.lastFrameTime = currentTime - (deltaTime - (framesToAdvance / (this.frameRate * this.playSpeed))) * 1000;
                 
                 // Update displayed time based on actual frames in the JSON
                 // If time data is available in frames array, use that, otherwise calculate from frame number
