@@ -97,11 +97,28 @@
             ></v-select>
           </div>
           
-          <!-- Add capture button -->
-          <v-btn color="teal" dark @click="captureScreenshot" block>
-            <v-icon left>mdi-camera</v-icon>
-            Capture Image
-          </v-btn>
+          <!-- Add capture button row -->
+          <div class="d-flex align-center mb-2">
+            <v-btn color="teal" dark @click="captureScreenshot" style="flex: 3;" class="mr-2">
+              <v-icon left>mdi-camera</v-icon>
+              Capture Image
+            </v-btn>
+            
+            <v-select
+              v-model="captureMode"
+              :items="[
+                {text: 'Both Types', value: 'both'},
+                {text: 'Normal', value: 'normal'},
+                {text: 'Transparent', value: 'transparent'}
+              ]"
+              label="Background"
+              dense
+              dark
+              class="format-selector"
+              hide-details
+              style="flex: 1; max-width: 120px;"
+            ></v-select>
+          </div>
         </div>
         <!-- Add file controls -->
         <div class="file-controls mb-4 position-relative">
@@ -530,6 +547,7 @@ const axiosInstance = axios.create();
               showTimelapseManager: false,
               timelapseGroups: {}, // Organized by animation index and frame numbers
               timelapseCounter: null, // Use sequential counter for mesh IDs
+              captureMode: 'both', // Options: 'both', 'normal', 'transparent'
           }
       },
       computed: {
@@ -2101,23 +2119,28 @@ const axiosInstance = axios.create();
         });
         transparentRenderer.setSize(originalWidth * scale, originalHeight * scale);
         
-        // Create versions with different background/ground combinations
-        const captures = [
-            { 
+        // Determine which captures to create based on user selection
+        let captures = [];
+        
+        if (this.captureMode === 'both' || this.captureMode === 'normal') {
+            captures.push({ 
                 name: 'mocap-capture.png', 
                 background: originalBackground,
                 showGround: originalGroundVisibility,
                 transparent: false,
                 useMainRenderer: true
-            },
-            { 
+            });
+        }
+        
+        if (this.captureMode === 'both' || this.captureMode === 'transparent') {
+            captures.push({ 
                 name: 'mocap-capture-transparent.png', 
                 background: null,
                 showGround: false,
                 transparent: true,
                 useMainRenderer: false
-            }
-        ];
+            });
+        }
         
         // Set main renderer to high resolution
         this.renderer.setSize(originalWidth * scale, originalHeight * scale);
@@ -2126,7 +2149,7 @@ const axiosInstance = axios.create();
         this.camera.aspect = (originalWidth * scale) / (originalHeight * scale);
         this.camera.updateProjectionMatrix();
         
-        // Create download links for both versions
+        // Create download links for the selected version(s)
         captures.forEach(capture => {
             // Set background (null for transparent)
             this.scene.background = capture.background;
@@ -2177,9 +2200,17 @@ const axiosInstance = axios.create();
         // Re-render at original size
         this.renderer.render(this.scene, this.camera);
         
-        // Show a success message
+        // Show a success message with appropriate text based on capture mode
         this.$nextTick(() => {
-            alert('Images captured and downloaded!\nTwo versions saved: with background/ground and fully transparent.');
+            let message = '';
+            if (this.captureMode === 'both') {
+                message = 'Images captured and downloaded!\nTwo versions saved: with background/ground and fully transparent.';
+            } else if (this.captureMode === 'normal') {
+                message = 'Image captured and downloaded with background/ground.';
+            } else {
+                message = 'Transparent image captured and downloaded.';
+            }
+            alert(message);
         });
     },
     updateAlpha(animationIndex, value) {
