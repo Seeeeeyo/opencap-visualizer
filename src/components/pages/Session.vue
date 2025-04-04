@@ -95,6 +95,29 @@
               :disabled="isRecording"
               style="flex: 1; max-width: 100px;"
             ></v-select>
+            
+            <!-- Add info icon with tooltip -->
+            <v-tooltip bottom max-width="300">
+              <template v-slot:activator="{ on, attrs }">
+                <v-btn
+                  icon
+                  x-small
+                  v-bind="attrs"
+                  v-on="on"
+                  class="ml-1 mt-1"
+                  color="grey lighten-1"
+                >
+                  <v-icon x-small>mdi-information-outline</v-icon>
+                </v-btn>
+              </template>
+              <div class="pa-2">
+                <p class="mb-1"><strong>For best recording quality:</strong></p>
+                <ul class="pl-4 mb-0">
+                  <li class="text-left">Maximize your browser window and the application view before recording</li>
+                  <li class="text-left">Use WebM format with VP9 codec for better quality than MP4 at the same bitrate</li>
+                </ul>
+              </div>
+            </v-tooltip>
           </div>
           
           <!-- Add capture button row -->
