@@ -17,7 +17,7 @@
             />
             <!-- Time and slider on the right -->
             <div style="flex: 1; display: flex; flex-wrap: wrap; align-items: center;">
-              <v-text-field label="Time (s)" type="number" :step="0.01" :value="time" dark style="flex: 0.1; min-width: 80px; margin-right: 5px;" @input="onChangeTime" />
+              <v-text-field label="Time (s)" type="number" :step="0.01" :value="formattedTime" dark style="flex: 0.1; min-width: 80px; margin-right: 5px;" @input="onChangeTime" />
               <v-slider :value="frame" :min="0" :max="frames.length - 1" @input="onNavigate" hide-details class="mb-2" style="flex: 1;" />
             </div>
           </div>
@@ -511,7 +511,11 @@ const axiosInstance = axios.create();
       computed: {
         videoControlsDisabled() {
           return !this.trial || this.frames.length === 0
-    }
+        },
+        formattedTime() {
+          // Round time to 2 decimal places for display
+          return parseFloat(this.time).toFixed(2);
+        }
       },
     async mounted() {
         console.log('Session component mounted');
@@ -599,7 +603,7 @@ const axiosInstance = axios.create();
     methods: {
     async loadTrial() {
       console.log('loadTrial started')
-        this.time = 0
+        this.time = "0.00"
 
         if (!this.trialLoading) {
           this.frame = 0
@@ -860,9 +864,9 @@ const axiosInstance = axios.create();
                 // Update displayed time based on actual frames in the JSON
                 // If time data is available in frames array, use that, otherwise calculate from frame number
                 if (this.frames[this.frame] !== undefined) {
-                    this.time = this.frames[this.frame];
+                    this.time = parseFloat(this.frames[this.frame]).toFixed(2);
                 } else {
-                    this.time = this.frame / this.frameRate;
+                    this.time = parseFloat(this.frame / this.frameRate).toFixed(2);
                 }
                 
                 // Render the current frame
@@ -952,9 +956,9 @@ const axiosInstance = axios.create();
         this.frame = frame;
         // Use the actual time from the frames array if available, otherwise calculate it
         if (this.frames[frame] !== undefined) {
-            this.time = this.frames[frame];
+            this.time = parseFloat(this.frames[frame]).toFixed(2);
         } else {
-            this.time = frame / this.frameRate;
+            this.time = parseFloat(frame / this.frameRate).toFixed(2);
         }
         // Render the frame without advancing
         this.animateOneFrame();
@@ -1285,7 +1289,8 @@ const axiosInstance = axios.create();
         this.renderer.render(this.scene, this.camera);
     },
     onChangeTime(time) {
-        this.time = time;
+        // Round the time value to 2 decimal places
+        this.time = parseFloat(time).toFixed(2);
         this.frame = Math.floor(time * this.frameRate);
         this.animateOneFrame();
     },
@@ -1359,7 +1364,7 @@ const axiosInstance = axios.create();
         // Update frames array to match the new common time array
         this.frames = commonTimeArray;
         this.frame = 0;
-        this.time = this.frames[0];
+        this.time = parseFloat(this.frames[0]).toFixed(2);
         
         // Update frame rate based on new time steps
         this.frameRate = this.calculateFrameRate(commonTimeArray);
@@ -1875,9 +1880,9 @@ const axiosInstance = axios.create();
         this.frame = 0;
         // Use the actual time from the frames array if available
         if (this.frames[0] !== undefined) {
-            this.time = this.frames[0];
+            this.time = parseFloat(this.frames[0]).toFixed(2);
         } else {
-            this.time = 0;
+            this.time = "0.00";
         }
         
         // Start animation loop and render first frame
@@ -1972,6 +1977,7 @@ const axiosInstance = axios.create();
                 // Draw grid lines
                 context.strokeStyle = '#000000';
                 context.lineWidth = 1;
+                
                 
                 const gridSize = 32; // Size of grid cells
                 
