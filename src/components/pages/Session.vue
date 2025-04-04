@@ -2399,6 +2399,9 @@ const axiosInstance = axios.create();
                 
                 this.conversionError = errorText;
                 apiError(errorText);
+                // Clear the files on error
+                this.osimFile = null;
+                this.motFile = null;
                 throw new Error(errorText);
             }
             
@@ -2409,6 +2412,9 @@ const axiosInstance = axios.create();
             if (data.error) {
                 this.conversionError = data.error;
                 apiError(data.error);
+                // Clear the files on error
+                this.osimFile = null;
+                this.motFile = null;
                 throw new Error(data.error);
             }
             
@@ -2439,7 +2445,11 @@ const axiosInstance = axios.create();
             // Only show alert if apiError wasn't already called
             if (!this.conversionError) {
                 apiError(`Error converting files: ${error.message}`);
+                this.conversionError = `Error converting files: ${error.message}`;
             }
+            // Clear the files on any error
+            this.osimFile = null;
+            this.motFile = null;
         } finally {
             this.converting = false;
         }
@@ -2912,6 +2922,9 @@ const axiosInstance = axios.create();
     },
     clearConversionError() {
         this.conversionError = null;
+        // Also make sure files are cleared when error is dismissed
+        this.osimFile = null;
+        this.motFile = null;
     },
     }
   }
