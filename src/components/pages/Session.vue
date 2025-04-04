@@ -401,6 +401,17 @@
               <div class="mt-3 subtitle-2">Markers: {{ Object.keys(markers).length }}</div>
               <div class="text-caption">Current positions shown for frame: {{ frame }}</div>
               
+              <!-- Add marker sync button when animations are present -->
+              <div v-if="animations.length > 0" class="marker-sync-controls mt-3">
+                <v-btn color="red lighten-2" small block @click="syncMarkersWithAnimations">
+                  <v-icon left small>mdi-sync</v-icon>
+                  Sync Markers with Animations
+                </v-btn>
+                <div class="text-caption mt-1">
+                  This will interpolate marker data to match the animation timeline.
+                </div>
+              </div>
+              
               <!-- Add marker legend -->
               <v-expansion-panels flat class="mt-2">
                 <v-expansion-panel>
@@ -724,6 +735,7 @@ const axiosInstance = axios.create();
               showMarkers: true, // Toggle to show/hide markers
               markerScale: 1.0, // Scale factor for marker positions
               markerLight: null, // Remove this line
+              markerTimeData: null, // Store marker time data
           }
       },
       computed: {
@@ -1585,14 +1597,14 @@ const axiosInstance = axios.create();
         this.animateOneFrame();
     },
     syncAllAnimations() {
-        if (this.animations.length <= 1) return;
+        if (this.animations.length <= 1 && !this.markerTimeData) return;
 
-        // Find the latest start time and earliest end time across all animations
+        // Find the latest start time and earliest end time across all animations and markers
         let latestStart = -Infinity;
         let earliestEnd = Infinity;
         let smallestTimeStep = Infinity;
 
-        // First pass: find time boundaries and smallest time step
+        // First pass: find time boundaries and smallest time step from animations
         this.animations.forEach(animation => {
             const startTime = animation.data.time[0];
             const endTime = animation.data.time[animation.data.time.length - 1];
@@ -1605,6 +1617,26 @@ const axiosInstance = axios.create();
                 smallestTimeStep = Math.min(smallestTimeStep, timeStep);
             }
         });
+        
+        // Also consider marker time data if available
+        if (this.markerTimeData && this.markerTimeData.times.length > 0) {
+            const markerTimes = this.markerTimeData.times;
+            const markerStartTime = markerTimes[0];
+            const markerEndTime = markerTimes[markerTimes.length - 1];
+            
+            latestStart = Math.max(latestStart, markerStartTime);
+            earliestEnd = Math.min(earliestEnd, markerEndTime);
+            
+            // Find smallest time step in marker data
+            for (let i = 1; i < markerTimes.length; i++) {
+                const timeStep = markerTimes[i] - markerTimes[i-1];
+                if (timeStep > 0) {
+                    smallestTimeStep = Math.min(smallestTimeStep, timeStep);
+                }
+            }
+            
+            console.log(`Including marker data in sync - Marker times: ${markerTimes.length}`);
+        }
 
         // Create a common time array with consistent step size
         const commonTimeArray = [];
@@ -1650,6 +1682,12 @@ const axiosInstance = axios.create();
             // Update the animation data
             this.animations[index].data = newData;
         });
+        
+        // Sync marker data if available
+        if (this.markerTimeData && Object.keys(this.markers).length > 0) {
+            console.log('Resampling marker data to common timeline');
+            this.syncMarkerDataToTimeline(this.markerTimeData.times);
+        }
 
         // Update frames array to match the new common time array
         this.frames = commonTimeArray;
@@ -3218,6 +3256,12 @@ const axiosInstance = axios.create();
         // Process the marker data to create marker objects
         this.markers = {};
         
+        // Store the original time array for marker data
+        this.markerTimeData = {
+            times: frameTimes,
+            fileName: this.trcFile ? this.trcFile.name : 'markers.trc'
+        };
+        
         // Determine marker columns and their X,Y,Z patterns
         // Skip Frame# and Time columns (first two)
         const markerCount = Math.floor((columnNames.length - 2) / 3);
@@ -3244,7 +3288,10 @@ const axiosInstance = axios.create();
             console.log(`Processing marker: ${markerName} (columns ${xCol},${yCol},${zCol})`);
             
             // Initialize marker data structure
-            this.markers[markerName] = { positions: [] };
+            this.markers[markerName] = { 
+                positions: [],
+                originalPositions: [] // Store the original positions for resampling
+            };
             
             // Extract positions for this marker across all frames
             for (let rowIndex = 0; rowIndex < dataRows.length; rowIndex++) {
@@ -3257,17 +3304,22 @@ const axiosInstance = axios.create();
                     const y = parseFloat(row[yCol]);
                     const z = parseFloat(row[zCol]);
                     
-                    // Add to marker positions, checking for NaN values
-                    this.markers[markerName].positions.push({
+                    // Create position object
+                    const pos = {
                         x: isNaN(x) ? null : x,
                         y: isNaN(y) ? null : y,
                         z: isNaN(z) ? null : z
-                    });
+                    };
+                    
+                    // Add to marker positions, checking for NaN values
+                    this.markers[markerName].positions.push({...pos});
+                    // Also store in original positions
+                    this.markers[markerName].originalPositions.push({...pos});
                 } else {
                     // Add null position if row doesn't have enough data
-                    this.markers[markerName].positions.push({
-                        x: null, y: null, z: null
-                    });
+                    const nullPos = { x: null, y: null, z: null };
+                    this.markers[markerName].positions.push({...nullPos});
+                    this.markers[markerName].originalPositions.push({...nullPos});
                 }
             }
         }
@@ -3280,34 +3332,44 @@ const axiosInstance = axios.create();
             return;
         }
         
-        // If this is our first animation or we have no trial, use the timestamps from the TRC file
+        // Handle different scenarios for timeline integration
         if (!this.trial || !this.frames.length) {
+            // Case 1: First data loaded - use the TRC file's timeline
             console.log('Setting up animation timing from TRC file');
             this.frames = frameTimes;
             this.trial = { results: [] };
             this.frameRate = this.calculateFrameRate(frameTimes);
-            
-            // Make sure the scene is initialized properly
-            if (!this.scene) {
-                console.log('Initializing scene for markers');
-                this.initScene();
-            } else if (!this.groundMesh && this.scene) {
-                // Ensure a ground plane exists if it doesn't already
-                console.log('Adding ground plane for markers-only view');
-                const planeSize = 20;
-                const planeGeo = new THREE.PlaneGeometry(planeSize, planeSize);
-                const planeMat = new THREE.MeshPhongMaterial({
-                    side: THREE.DoubleSide,
-                    color: new THREE.Color(this.groundColor)
-                });
-                this.groundMesh = new THREE.Mesh(planeGeo, planeMat);
-                this.groundMesh.rotation.x = Math.PI * -.5;
-                this.groundMesh.position.y = 0;
-                this.scene.add(this.groundMesh);
+        } else if (this.animations.length > 0) {
+            // Case 2: Animation data already exists - sync the markers to it
+            console.log('Syncing marker data with existing animation timeline');
+            this.syncMarkerDataToTimeline(frameTimes);
+        } else {
+            // Case 3: We have a timeline but no animations - just add marker data
+            console.log('Adding marker data to existing timeline');
+            // Handle case where we want to merge with existing frames
+            // This would happen if loading multiple TRC files
+            if (this.frames.length > 0 && this.frames[0] !== frameTimes[0]) {
+                this.syncMarkerDataToTimeline(frameTimes);
             }
-            
-            this.animate();
-            this.frame = 0;
+        }
+        
+        // Make sure the scene is initialized properly
+        if (!this.scene) {
+            console.log('Initializing scene for markers');
+            this.initScene();
+        } else if (!this.groundMesh && this.scene) {
+            // Ensure a ground plane exists if it doesn't already
+            console.log('Adding ground plane for markers-only view');
+            const planeSize = 20;
+            const planeGeo = new THREE.PlaneGeometry(planeSize, planeSize);
+            const planeMat = new THREE.MeshPhongMaterial({
+                side: THREE.DoubleSide,
+                color: new THREE.Color(this.groundColor)
+            });
+            this.groundMesh = new THREE.Mesh(planeGeo, planeMat);
+            this.groundMesh.rotation.x = Math.PI * -.5;
+            this.groundMesh.position.y = 0;
+            this.scene.add(this.groundMesh);
         }
         
         // Create marker meshes for the current frame
@@ -3318,6 +3380,83 @@ const axiosInstance = axios.create();
         this.togglePlay(true);
     },
     
+    // New method to sync marker data to the existing timeline
+    syncMarkerDataToTimeline(markerTimes) {
+        console.log('Synchronizing marker data with existing timeline');
+        console.log(`Marker frames: ${markerTimes.length}, Existing frames: ${this.frames.length}`);
+        
+        // Store a copy of the original positions for each marker
+        const originalMarkers = JSON.parse(JSON.stringify(this.markers));
+        
+        // For each marker, resample its positions to match the current timeline
+        Object.keys(this.markers).forEach(markerName => {
+            const marker = this.markers[markerName];
+            const original = originalMarkers[markerName];
+            
+            // Create new position array matching current timeline length
+            const newPositions = [];
+            
+            // For each frame in the current timeline
+            this.frames.forEach(time => {
+                // Find the closest frame in the marker timeline
+                const index = this.findClosestTimeIndex(markerTimes, time);
+                
+                // If exact match or only one frame available, use that frame's position
+                if (index >= markerTimes.length || markerTimes[index] === time || markerTimes.length === 1) {
+                    if (index < original.positions.length) {
+                        newPositions.push({...original.positions[index]});
+                    } else {
+                        // Handle case where index is out of bounds
+                        newPositions.push({ x: null, y: null, z: null });
+                    }
+                } else {
+                    // Otherwise, interpolate between the two closest frames
+                    const beforeIndex = index > 0 ? index - 1 : 0;
+                    const afterIndex = index;
+                    
+                    if (beforeIndex < original.positions.length && 
+                        afterIndex < original.positions.length) {
+                        
+                        const beforeTime = markerTimes[beforeIndex];
+                        const afterTime = markerTimes[afterIndex];
+                        const beforePos = original.positions[beforeIndex];
+                        const afterPos = original.positions[afterIndex];
+                        
+                        // Only interpolate if both positions have valid data
+                        if (beforePos.x !== null && beforePos.y !== null && beforePos.z !== null &&
+                            afterPos.x !== null && afterPos.y !== null && afterPos.z !== null) {
+                            
+                            // Calculate interpolation factor (0-1)
+                            const timeDiff = afterTime - beforeTime;
+                            const factor = timeDiff === 0 ? 0 : (time - beforeTime) / timeDiff;
+                            
+                            // Linear interpolation between positions
+                            newPositions.push({
+                                x: beforePos.x + factor * (afterPos.x - beforePos.x),
+                                y: beforePos.y + factor * (afterPos.y - beforePos.y),
+                                z: beforePos.z + factor * (afterPos.z - beforePos.z)
+                            });
+                        } else {
+                            // If either position is invalid, use the valid one, or null
+                            newPositions.push({
+                                x: beforePos.x !== null ? beforePos.x : (afterPos.x !== null ? afterPos.x : null),
+                                y: beforePos.y !== null ? beforePos.y : (afterPos.y !== null ? afterPos.y : null),
+                                z: beforePos.z !== null ? beforePos.z : (afterPos.z !== null ? afterPos.z : null)
+                            });
+                        }
+                    } else {
+                        // Handle out of bounds
+                        newPositions.push({ x: null, y: null, z: null });
+                    }
+                }
+            });
+            
+            // Update marker's positions array
+            this.markers[markerName].positions = newPositions;
+        });
+        
+        console.log('Marker data synchronized with timeline');
+    },
     createMarkerMeshes() {
         // Remove any existing marker meshes
         this.clearMarkers();
@@ -3557,11 +3696,37 @@ const axiosInstance = axios.create();
             this.renderer.render(this.scene, this.camera);
         }
     },
+    syncMarkersWithAnimations() {
+        // Check if we have both marker data and animations
+        if (!this.markerTimeData || Object.keys(this.markers).length === 0) {
+            alert('No marker data to synchronize');
+            return;
+        }
+        
+        if (this.animations.length === 0) {
+            alert('No animations to synchronize with');
+            return;
+        }
+        
+        console.log('Syncing markers with animation timeline');
+        
+        // Use the existing sync mechanism
+        this.syncMarkerDataToTimeline(this.markerTimeData.times);
+        
+        // Update the view to reflect changes
+        this.animateOneFrame();
+        
+        // Show a success message
+        this.$nextTick(() => {
+            // Use a toast or some other non-blocking notification
+            console.log('Markers synchronized with animation timeline');
+        });
     }
   }
-  </script>
-  
-  <style lang="scss">
+}
+</script>
+
+<style lang="scss">
 .viewer-container {
   height: 100vh;
   position: relative;
@@ -3589,61 +3754,6 @@ const axiosInstance = axios.create();
 
       &::-webkit-scrollbar {
         width: 8px;
-      }
-
-      &::-webkit-scrollbar-track {
-        background: rgba(0, 0, 0, 0.1);
-        border-radius: 4px;
-      }
-
-      &::-webkit-scrollbar-thumb {
-        background: rgba(255, 255, 255, 0.3);
-        border-radius: 4px;
-        
-        &:hover {
-          background: rgba(255, 255, 255, 0.4);
-        }
-      }
-
-      .recording-controls {
-        text-align: center;
-        flex-shrink: 0;
-        
-        .v-btn {
-          width: 100%;
-        }
-        
-        .format-selector {
-          min-width: 80px;
-        }
-        
-        .d-flex {
-          width: 100%;
-        }
-        
-        // Override width for buttons inside flex container
-        .d-flex .v-btn {
-          width: auto;
-          flex: 1;
-        }
-      }
-
-      .file-controls {
-        text-align: center;
-        flex-shrink: 0;
-        
-        .v-btn {
-          width: 100%;
-        }
-      }
-
-      .sync-controls {
-        text-align: center;
-        flex-shrink: 0;
-        
-        .v-btn {
-          width: 100%;
-        }
       }
 
       .scene-controls {
