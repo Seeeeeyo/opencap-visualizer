@@ -341,7 +341,7 @@
           </v-dialog>
         </div>
         
-        <!-- Add Marker Controls -->
+        <!-- Add marker controls -->
         <div class="marker-controls mb-4" v-if="Object.keys(markers).length > 0">
           <v-card outlined class="pa-3">
             <v-card-title class="subtitle-1 px-0 pt-0">Marker Settings</v-card-title>
@@ -436,19 +436,6 @@
               </v-expansion-panels>
             </div>
           </v-card>
-        </div>
-        
-        <!-- Add sample TRC download button when no markers are loaded -->
-        <div class="marker-controls mb-4" v-if="Object.keys(markers).length === 0">
-          <v-btn 
-            color="teal lighten-1" 
-            class="mb-2 white--text" 
-            block 
-            @click="downloadSampleTrcFile"
-          >
-            <v-icon left>mdi-file-download</v-icon>
-            Download Sample TRC File
-          </v-btn>
         </div>
         
         <!-- Legend -->
@@ -1078,7 +1065,7 @@ const axiosInstance = axios.create();
         // Calculate time since last frame
         const currentTime = performance.now();
         const deltaTime = (currentTime - this.lastFrameTime) / 1000; // Convert to seconds
-        
+          
         // Check if we have markers or animations to animate
         const hasContent = this.animations.length > 0 || Object.keys(this.markers).length > 0;
           
@@ -3735,7 +3722,7 @@ const axiosInstance = axios.create();
       height: 100%;
   
       #mocap {
-        width: 100%;
+          width: 100%;
         overflow: hidden;
   
         canvas {
