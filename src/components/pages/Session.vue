@@ -39,6 +39,19 @@
             </div>
           </div>
           
+          <!-- Display API error message if it exists -->
+          <div v-if="conversionError" class="text-center my-3">
+            <v-alert type="error" dense dismissible @input="clearConversionError" prominent>
+              <div class="d-flex align-center">
+                <v-icon class="mr-2">mdi-alert-circle</v-icon>
+                <div>
+                  <div class="font-weight-bold mb-1">Conversion Error</div>
+                  <div>{{ conversionError }}</div>
+                </div>
+              </div>
+            </v-alert>
+          </div>
+          
           <div class="text-center drop-zone" :class="{ 'opacity-reduced': converting }">
             <!-- Existing drop zone content -->
             <v-icon size="64" color="grey darken-1">mdi-file-upload-outline</v-icon>
@@ -469,6 +482,8 @@
   import VideoNavigation from '@/components/ui/VideoNavigation'
   import SpeedControl from '@/components/ui/SpeedControl'
   import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js'
+  import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue';
+  import { apiError } from '@/util/ErrorMessage.js';
   
 // Create a new axios instance without a base URL
 const axiosInstance = axios.create();
@@ -592,6 +607,7 @@ const axiosInstance = axios.create();
               timelapseCounter: null, // Use sequential counter for mesh IDs
               captureMode: 'both', // Options: 'both', 'normal', 'transparent'
               videoBitrate: 5000000, // Video recording bitrate in bits per second (5 Mbps default)
+              conversionError: null, // Add this line to store API error message
           }
       },
       computed: {
@@ -2353,6 +2369,7 @@ const axiosInstance = axios.create();
         }
         
         this.converting = true;
+        this.conversionError = null; // Reset any previous error
         
         try {
             console.log('Converting files using API:', this.apiUrl);
@@ -2368,16 +2385,35 @@ const axiosInstance = axios.create();
                 body: formData,
             });
             
+            // Check if response is not ok before trying to parse JSON
             if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`API error: ${response.status} ${response.statusText}\n${errorText}`);
+                let errorText = '';
+                try {
+                    // Try to get detailed error from response body
+                    const errorData = await response.json();
+                    errorText = errorData.error || errorData.message || errorData.detail || JSON.stringify(errorData);
+                } catch (e) {
+                    // If can't parse JSON, use status text
+                    errorText = await response.text() || `${response.status} ${response.statusText}`;
+                }
+                
+                this.conversionError = errorText;
+                apiError(errorText);
+                throw new Error(errorText);
             }
             
-            // Parse the JSON response
-            const jsonData = await response.json();
+            // Parse the JSON response (only if response was ok)
+            const data = await response.json();
+            
+            // Check if the API returned an error in a successful response
+            if (data.error) {
+                this.conversionError = data.error;
+                apiError(data.error);
+                throw new Error(data.error);
+            }
             
             // Create a "virtual" File object with the JSON data
-            const jsonBlob = new Blob([JSON.stringify(jsonData)], { type: 'application/json' });
+            const jsonBlob = new Blob([JSON.stringify(data)], { type: 'application/json' });
             const jsonFile = new File([jsonBlob], `${this.osimFile.name.replace('.osim', '')}.json`, { type: 'application/json' });
             
             // Use our existing file handler with a fake event
@@ -2400,7 +2436,10 @@ const axiosInstance = axios.create();
             
         } catch (error) {
             console.error('Error converting OpenSim files:', error);
-            alert(`Error converting files: ${error.message}\n\nMake sure the API server is running at ${this.apiUrl}`);
+            // Only show alert if apiError wasn't already called
+            if (!this.conversionError) {
+                apiError(`Error converting files: ${error.message}`);
+            }
         } finally {
             this.converting = false;
         }
@@ -2870,6 +2909,9 @@ const axiosInstance = axios.create();
         this.textSprites = {};
         this.timelapseMeshes = {};
         this.timelapseGroups = {};
+    },
+    clearConversionError() {
+        this.conversionError = null;
     },
     }
   }
