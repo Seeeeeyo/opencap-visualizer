@@ -1568,6 +1568,50 @@ const axiosInstance = axios.create();
             this.time = 0;
             this.trial = null;
             this.playing = false;
+            
+            // Clear all timelapse meshes
+            this.clearTimelapse();
+            
+            // Clean up the scene completely
+            if (this.scene) {
+                // Remove all objects from the scene except camera and lights
+                const objectsToRemove = [];
+                this.scene.traverse((object) => {
+                    // Skip lights and camera
+                    if (object instanceof THREE.Light || object instanceof THREE.Camera || object === this.scene) {
+                        return;
+                    }
+                    objectsToRemove.push(object);
+                });
+                
+                // Remove collected objects
+                objectsToRemove.forEach(object => {
+                    if (object.parent) {
+                        object.parent.remove(object);
+                    }
+                });
+                
+                // Dispose of all geometries and materials
+                this.clearAllGeometries();
+                
+                // Render empty scene
+                if (this.renderer) {
+                    this.renderer.render(this.scene, this.camera);
+                }
+                
+                // Remove the WebGL canvas from the DOM to fully clean up
+                if (this.renderer && this.renderer.domElement) {
+                    const container = this.$refs.mocap;
+                    if (container && container.contains(this.renderer.domElement)) {
+                        container.removeChild(this.renderer.domElement);
+                    }
+                    
+                    // Dispose of the renderer itself
+                    this.renderer.dispose();
+                    this.renderer = null;
+                    this.scene = null;
+                }
+            }
         }
 
         // Force render update
@@ -2605,6 +2649,49 @@ const axiosInstance = axios.create();
           this.meshes[item.key] && this.meshes[item.key].visible !== false
         );
       },
+      clearAllGeometries() {
+        // Dispose of all geometries and materials for clean memory usage
+        THREE.Cache.clear();
+        
+        // Helper function to dispose material
+        const disposeMaterial = (material) => {
+            if (material.map) material.map.dispose();
+            if (material.lightMap) material.lightMap.dispose();
+            if (material.bumpMap) material.bumpMap.dispose();
+            if (material.normalMap) material.normalMap.dispose();
+            if (material.specularMap) material.specularMap.dispose();
+            if (material.envMap) material.envMap.dispose();
+            material.dispose();
+        };
+        
+        // Process all scene objects and dispose geometries and materials
+        this.scene.traverse(object => {
+            if (object instanceof THREE.Mesh) {
+                if (object.geometry) {
+                    object.geometry.dispose();
+                }
+                
+                if (object.material) {
+                    if (Array.isArray(object.material)) {
+                        object.material.forEach(material => disposeMaterial(material));
+                    } else {
+                        disposeMaterial(object.material);
+                    }
+                }
+            } else if (object instanceof THREE.Sprite) {
+                if (object.material && object.material.map) {
+                    object.material.map.dispose();
+                }
+                if (object.material) object.material.dispose();
+            }
+        });
+        
+        // Reset meshes and text sprites
+        this.meshes = {};
+        this.textSprites = {};
+        this.timelapseMeshes = {};
+        this.timelapseGroups = {};
+    },
     }
   }
   </script>
