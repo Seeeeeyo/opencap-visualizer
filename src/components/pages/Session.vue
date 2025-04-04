@@ -1477,13 +1477,54 @@ const axiosInstance = axios.create();
             delete this.textSprites[`text_${index}`];
         }
 
+        // Remove any timelapse meshes associated with this animation
+        if (this.timelapseGroups && this.timelapseGroups[index]) {
+            this.deleteTimelapseGroup(index);
+        }
+
         // Remove animation and color
         this.animations.splice(index, 1);
         this.colors.splice(index, 1);
 
+        // Update timelapse indices for remaining animations
+        if (this.timelapseGroups) {
+            const newTimelapseGroups = {};
+            Object.keys(this.timelapseGroups).forEach(key => {
+                const animIndex = parseInt(key);
+                if (animIndex > index) {
+                    // Move the group to one index lower
+                    newTimelapseGroups[animIndex - 1] = this.timelapseGroups[animIndex];
+                } else if (animIndex < index) {
+                    // Keep as is
+                    newTimelapseGroups[animIndex] = this.timelapseGroups[animIndex];
+                }
+                // If animIndex === index, we skip it (it's the one being deleted)
+            });
+            this.timelapseGroups = newTimelapseGroups;
+
+            // Update indices in timelapseMeshes
+            Object.keys(this.timelapseMeshes).forEach(key => {
+                const mesh = this.timelapseMeshes[key];
+                if (mesh.animIndex > index) {
+                    mesh.animIndex = mesh.animIndex - 1;
+                }
+            });
+        }
+
         if (this.animations.length > 0) {
             // Update remaining subjects if any
             this.animations.forEach((animation, i) => {
+                // Update mesh references to use the new animation indices
+                Object.keys(this.meshes).forEach(key => {
+                    if (key.startsWith(`anim${i + 1}_`)) {
+                        // This key needs to be updated
+                        const updatedKey = `anim${i}_${key.split('_').slice(1).join('_')}`;
+                        this.meshes[updatedKey] = this.meshes[key];
+                        delete this.meshes[key];
+                    }
+                });
+
+                // Update mesh colors based on the new indices
                 Object.keys(this.meshes).forEach(key => {
                     if (key.startsWith(`anim${i}_`)) {
                         const mesh = this.meshes[key];
@@ -2344,7 +2385,7 @@ const axiosInstance = axios.create();
           
           if (data && data.mesh) {
             // First check if the mesh is actually in the scene
-            if (this.scene.children.includes(data.mesh)) {
+            if (this.scene && this.scene.children && this.scene.children.includes(data.mesh)) {
               this.scene.remove(data.mesh);
             }
             
@@ -2368,7 +2409,9 @@ const axiosInstance = axios.create();
         });
 
         // Remove the group from timelapseGroups
-        this.$delete(this.timelapseGroups, animIndex);
+        if (this.timelapseGroups && this.timelapseGroups[animIndex] !== undefined) {
+          this.$delete(this.timelapseGroups, animIndex);
+        }
         
         // Force re-render
         if (this.renderer) {
