@@ -156,45 +156,47 @@
         <!-- Add scene color controls -->
         <div class="scene-controls mb-4">
           <div class="d-flex align-center mb-2">
-            <div class="mr-2">Background:</div>
-            <v-menu offset-y>
-              <template v-slot:activator="{ on, attrs }">
-                <v-btn small v-bind="attrs" v-on="on" class="color-preview" :style="{ backgroundColor: backgroundColor }"></v-btn>
-              </template>
-              <v-card class="color-picker pa-2">
-                <div class="d-flex flex-wrap">
-                  <v-btn v-for="color in backgroundColors" :key="color" small icon class="ma-1" @click="updateBackgroundColor(color)">
-                    <div class="color-sample" :style="{ backgroundColor: color }"></div>
-                  </v-btn>
-                </div>
-              </v-card>
-            </v-menu>
-          </div>
-          <div class="d-flex align-center">
-            <div class="mr-2">Ground:</div>
-            <v-menu offset-y>
-              <template v-slot:activator="{ on, attrs }">
-                <v-btn small v-bind="attrs" v-on="on" class="color-preview" :style="{ backgroundColor: showGround ? groundColor : 'transparent', border: !showGround ? '1px dashed rgba(255,255,255,0.5)' : '1px solid rgba(255,255,255,0.3)' }"></v-btn>
-              </template>
-              <v-card class="color-picker pa-2">
-                <div class="d-flex flex-wrap">
-                  <v-btn v-for="color in groundColors" :key="color" small icon class="ma-1" @click="updateGroundColor(color)" :disabled="!showGround">
-                    <div class="color-sample" :style="{ backgroundColor: color }"></div>
-                  </v-btn>
-                </div>
-                <div class="mt-2 text-center">
-                  <v-btn small text @click="toggleGroundVisibility">
-                    {{ showGround ? 'Hide Ground' : 'Show Ground' }}
-                  </v-btn>
-                  <v-btn small text @click="toggleGroundTexture" :disabled="!showGround">
-                    {{ useGroundTexture ? 'Remove Texture' : 'Use Texture' }}
-                  </v-btn>
-                  <v-btn small text @click="toggleCheckerboard" :disabled="!showGround || !useGroundTexture">
-                    {{ useCheckerboard ? 'Use Grid' : 'Use Checkerboard' }}
-                  </v-btn>
-                </div>
-              </v-card>
-            </v-menu>
+            <div class="mr-4 d-flex align-center">
+              <div class="mr-2">Background:</div>
+              <v-menu offset-y>
+                <template v-slot:activator="{ on, attrs }">
+                  <v-btn small v-bind="attrs" v-on="on" class="color-preview" :style="{ backgroundColor: backgroundColor }"></v-btn>
+                </template>
+                <v-card class="color-picker pa-2">
+                  <div class="d-flex flex-wrap">
+                    <v-btn v-for="color in backgroundColors" :key="color" small icon class="ma-1" @click="updateBackgroundColor(color)">
+                      <div class="color-sample" :style="{ backgroundColor: color }"></div>
+                    </v-btn>
+                  </div>
+                </v-card>
+              </v-menu>
+            </div>
+            <div class="d-flex align-center">
+              <div class="mr-2">Ground:</div>
+              <v-menu offset-y>
+                <template v-slot:activator="{ on, attrs }">
+                  <v-btn small v-bind="attrs" v-on="on" class="color-preview" :style="{ backgroundColor: showGround ? groundColor : 'transparent', border: !showGround ? '1px dashed rgba(255,255,255,0.5)' : '1px solid rgba(255,255,255,0.3)' }"></v-btn>
+                </template>
+                <v-card class="color-picker pa-2">
+                  <div class="d-flex flex-wrap">
+                    <v-btn v-for="color in groundColors" :key="color" small icon class="ma-1" @click="updateGroundColor(color)" :disabled="!showGround">
+                      <div class="color-sample" :style="{ backgroundColor: color }"></div>
+                    </v-btn>
+                  </div>
+                  <div class="mt-2 text-center">
+                    <v-btn small text @click="toggleGroundVisibility">
+                      {{ showGround ? 'Hide Ground' : 'Show Ground' }}
+                    </v-btn>
+                    <v-btn small text @click="toggleGroundTexture" :disabled="!showGround">
+                      {{ useGroundTexture ? 'Remove Texture' : 'Use Texture' }}
+                    </v-btn>
+                    <v-btn small text @click="toggleCheckerboard" :disabled="!showGround || !useGroundTexture">
+                      {{ useCheckerboard ? 'Use Grid' : 'Use Checkerboard' }}
+                    </v-btn>
+                  </div>
+                </v-card>
+              </v-menu>
+            </div>
           </div>
         </div>
         <!-- Add Timelapse Controls -->
