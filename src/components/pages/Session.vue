@@ -73,16 +73,32 @@
       <div class="right d-flex flex-column">
         <!-- Add recording controls -->
         <div class="recording-controls mb-4">
-          <v-btn v-if="!isRecording" color="red" dark @click="startRecording" :disabled="isRecording" class="mb-2">
-            <v-icon left>mdi-record</v-icon>
-            Record
-          </v-btn>
-          <v-btn v-else color="grey" dark @click="stopRecording" class="mb-2">
-            <v-icon left>mdi-stop</v-icon>
-            Stop Recording
-          </v-btn>
+          <!-- Control buttons row -->
+          <div class="d-flex align-center mb-2">
+            <v-btn v-if="!isRecording" color="red" dark @click="startRecording" :disabled="isRecording" class="mr-2" style="flex: 3;">
+              <v-icon left>mdi-record</v-icon>
+              Record
+            </v-btn>
+            <v-btn v-else color="grey" dark @click="stopRecording" class="mr-2" style="flex: 3;">
+              <v-icon left>mdi-stop</v-icon>
+              Stop Recording
+            </v-btn>
+            
+            <v-select
+              v-model="recordingFormat"
+              :items="[{text: 'WebM', value: 'webm'}, {text: 'MP4', value: 'mp4'}]"
+              label="Format"
+              dense
+              dark
+              class="format-selector"
+              hide-details
+              :disabled="isRecording"
+              style="flex: 1; max-width: 100px;"
+            ></v-select>
+          </div>
+          
           <!-- Add capture button -->
-          <v-btn color="teal" dark @click="captureScreenshot" class="mb-2" block>
+          <v-btn color="teal" dark @click="captureScreenshot" block>
             <v-icon left>mdi-camera</v-icon>
             Capture Image
           </v-btn>
@@ -439,6 +455,7 @@ const axiosInstance = axios.create();
               isRecording: false,
               textSprites: {}, // Store text sprites for each animation
               recordingFileName: 'animation-recording.webm', // Add default filename
+              recordingFormat: 'webm', // Default recording format
               availableColors: [
                   'original',  // Change 'transparent' to 'original'
                   '#00ff00', // Green
@@ -1018,10 +1035,36 @@ const axiosInstance = axios.create();
       const canvas = this.renderer.domElement;
       const stream = canvas.captureStream(this.frameRate); // Now using dynamic frame rate
       
-      this.mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'video/webm;codecs=vp9',
-        videoBitsPerSecond: 5000000 // 5 Mbps for good quality
-      });
+      // Set the appropriate MIME type and file extension based on the selected format
+      let mimeType, fileExtension;
+      
+      if (this.recordingFormat === 'mp4') {
+        mimeType = 'video/mp4';
+        fileExtension = '.mp4';
+      } else {
+        // Default to webm
+        mimeType = 'video/webm;codecs=vp9';
+        fileExtension = '.webm';
+      }
+      
+      // Update the file name based on the selected format
+      this.recordingFileName = `animation-recording${fileExtension}`;
+      
+      // Try to create MediaRecorder with preferred format, fallback to webm if not supported
+      try {
+        this.mediaRecorder = new MediaRecorder(stream, {
+          mimeType: mimeType,
+          videoBitsPerSecond: 5000000 // 5 Mbps for good quality
+        });
+      } catch (error) {
+        console.warn(`${mimeType} not supported, falling back to webm format`, error);
+        this.recordingFormat = 'webm';
+        this.recordingFileName = 'animation-recording.webm';
+        this.mediaRecorder = new MediaRecorder(stream, {
+          mimeType: 'video/webm;codecs=vp9',
+          videoBitsPerSecond: 5000000
+        });
+      }
       
       this.recordedChunks = [];
       this.mediaRecorder.ondataavailable = (event) => {
@@ -1031,7 +1074,7 @@ const axiosInstance = axios.create();
       };
       
       this.mediaRecorder.onstop = () => {
-        const blob = new Blob(this.recordedChunks, { type: 'video/webm' });
+        const blob = new Blob(this.recordedChunks, { type: mimeType });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         document.body.appendChild(a);
@@ -2807,6 +2850,20 @@ const axiosInstance = axios.create();
         
         .v-btn {
           width: 100%;
+        }
+        
+        .format-selector {
+          min-width: 80px;
+        }
+        
+        .d-flex {
+          width: 100%;
+        }
+        
+        // Override width for buttons inside flex container
+        .d-flex .v-btn {
+          width: auto;
+          flex: 1;
         }
       }
 
