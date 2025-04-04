@@ -191,6 +191,13 @@
               Load JSON Files
             </v-btn>
             
+            <!-- Add TRC file upload option -->
+            <input type="file" ref="trcFileInput" accept=".trc" style="display: none" @change="handleTrcFileUpload" multiple />
+            <v-btn color="teal darken-1" class="mb-2 white--text" block @click="$refs.trcFileInput.click()" :disabled="converting">
+              <v-icon left>mdi-file-upload-outline</v-icon>
+              Load Markers (.trc)
+            </v-btn>
+            
             <input type="file" ref="osimMotFileInput" accept=".osim,.mot" style="display: none" @change="handleOpenSimFiles" multiple />
             <v-btn color="indigo darken-1" class="mb-2 white--text" block @click="$refs.osimMotFileInput.click()" :disabled="converting">
               <v-icon left>mdi-file-upload-outline</v-icon>
@@ -333,6 +340,106 @@
             </v-card>
           </v-dialog>
         </div>
+        
+        <!-- Add Marker Controls -->
+        <div class="marker-controls mb-4" v-if="Object.keys(markers).length > 0">
+          <v-card outlined class="pa-3">
+            <v-card-title class="subtitle-1 px-0 pt-0">Marker Settings</v-card-title>
+            
+            <v-switch
+              v-model="showMarkers"
+              label="Show Markers"
+              color="red"
+              @change="toggleMarkerVisibility"
+              class="mt-0"
+            ></v-switch>
+            
+            <div v-if="showMarkers">
+              <div class="d-flex align-center mb-2">
+                <div class="mr-2">Color:</div>
+                <v-menu offset-y>
+                  <template v-slot:activator="{ on, attrs }">
+                    <v-btn 
+                      small 
+                      v-bind="attrs" 
+                      v-on="on" 
+                      class="color-preview" 
+                      :style="{ backgroundColor: markerColor }"
+                    ></v-btn>
+                  </template>
+                  <v-card class="color-picker pa-2">
+                    <v-color-picker
+                      v-model="markerColor"
+                      hide-inputs
+                      hide-mode-switch
+                      @input="updateMarkerColor"
+                    ></v-color-picker>
+                  </v-card>
+                </v-menu>
+              </div>
+              
+              <v-slider
+                v-model="markerSize"
+                label="Marker Size"
+                min="0.005"
+                max="0.05"
+                step="0.001"
+                thumb-label
+                @input="updateMarkerSize"
+              ></v-slider>
+              
+              <v-slider
+                v-model="markerScale"
+                label="Scale Factor"
+                min="0.01"
+                max="10"
+                step="0.01"
+                thumb-label
+                @input="updateMarkerScale"
+              ></v-slider>
+              
+              <div class="mt-3 subtitle-2">Markers: {{ Object.keys(markers).length }}</div>
+              <div class="text-caption">Current positions shown for frame: {{ frame }}</div>
+              
+              <!-- Add marker legend -->
+              <v-expansion-panels flat class="mt-2">
+                <v-expansion-panel>
+                  <v-expansion-panel-header>
+                    Show Marker List
+                  </v-expansion-panel-header>
+                  <v-expansion-panel-content>
+                    <div class="marker-list" style="max-height: 200px; overflow-y: auto;">
+                      <v-chip
+                        v-for="markerName in Object.keys(markers)"
+                        :key="markerName"
+                        small
+                        class="ma-1"
+                        :color="markerColor"
+                        text-color="white"
+                      >
+                        {{ markerName }}
+                      </v-chip>
+                    </div>
+                  </v-expansion-panel-content>
+                </v-expansion-panel>
+              </v-expansion-panels>
+            </div>
+          </v-card>
+        </div>
+        
+        <!-- Add sample TRC download button when no markers are loaded -->
+        <div class="marker-controls mb-4" v-if="Object.keys(markers).length === 0">
+          <v-btn 
+            color="teal lighten-1" 
+            class="mb-2 white--text" 
+            block 
+            @click="downloadSampleTrcFile"
+          >
+            <v-icon left>mdi-file-download</v-icon>
+            Download Sample TRC File
+          </v-btn>
+        </div>
+        
         <!-- Legend -->
         <div class="legend mb-4">
           <div v-for="(animation, index) in animations" :key="index" class="legend-item mb-2">
@@ -608,6 +715,15 @@ const axiosInstance = axios.create();
               captureMode: 'both', // Options: 'both', 'normal', 'transparent'
               videoBitrate: 5000000, // Video recording bitrate in bits per second (5 Mbps default)
               conversionError: null, // Add this line to store API error message
+              // Add TRC marker properties
+              trcFile: null,
+              markers: {},
+              markerMeshes: {},
+              markerSize: 0.02, // Default size for marker spheres (increased from 0.015)
+              markerColor: '#ff0000', // Default color for markers (red)
+              showMarkers: true, // Toggle to show/hide markers
+              markerScale: 1.0, // Scale factor for marker positions
+              markerLight: null, // Remove this line
           }
       },
       computed: {
@@ -950,8 +1066,11 @@ const axiosInstance = axios.create();
         // Calculate time since last frame
         const currentTime = performance.now();
         const deltaTime = (currentTime - this.lastFrameTime) / 1000; // Convert to seconds
+        
+        // Check if we have markers or animations to animate
+        const hasContent = this.animations.length > 0 || Object.keys(this.markers).length > 0;
           
-        if (this.playing && deltaTime >= (1 / this.frameRate)) { // Only update time if playing
+        if (this.playing && deltaTime >= (1 / this.frameRate) && hasContent) { // Only update time if playing
             // Calculate how many frames should have advanced based on elapsed time
             // Apply playback speed multiplier
             const framesToAdvance = Math.floor(deltaTime * this.frameRate * this.playSpeed);
@@ -975,7 +1094,7 @@ const axiosInstance = axios.create();
                 // Render the current frame
                 this.animateOneFrame();
             }
-        } else if (!this.playing) {
+        } else if (!this.playing || !hasContent) {
             // Still render the scene even when not playing
             this.renderer.render(this.scene, this.camera);
         }
@@ -1041,7 +1160,49 @@ const axiosInstance = axios.create();
             // Only stop playback at the end of sequence in timelapse mode
             this.togglePlay(false);
           }
+          
+          // Update marker positions if we have marker data
+          if (Object.keys(this.markers).length > 0 && this.showMarkers) {
+            this.updateMarkerPositions(cframe);
+          }
         }
+      },
+      
+      updateMarkerPositions(frame) {
+        // Only update if we have markers and they should be shown
+        if (!this.showMarkers || Object.keys(this.markers).length === 0) {
+          return;
+        }
+        
+        // Debug log the update
+        // console.log(`Updating marker positions for frame ${frame}`);
+        
+        // Update position of each marker for the current frame
+        Object.keys(this.markers).forEach(markerName => {
+          const marker = this.markers[markerName];
+          const mesh = this.markerMeshes[markerName];
+          
+          if (mesh && frame < marker.positions.length) {
+            const pos = marker.positions[frame];
+            
+            // Only update position if we have valid data for this frame
+            if (pos && pos.x !== null && pos.y !== null && pos.z !== null) {
+              // Apply scale factor to position
+              mesh.position.set(
+                pos.x * this.markerScale,
+                pos.y * this.markerScale,
+                pos.z * this.markerScale
+              );
+              mesh.visible = true;
+            } else {
+              // Hide marker if position data is invalid
+              mesh.visible = false;
+            }
+          } else if (mesh) {
+            // Hide marker if we don't have data for this frame
+            mesh.visible = false;
+          }
+        });
       },
       togglePlay(value) {
         this.playing = value
@@ -2892,8 +3053,17 @@ const axiosInstance = axios.create();
             material.dispose();
         };
         
+        // Save references to marker meshes before clearing
+        const markerKeys = Object.keys(this.markerMeshes);
+        console.log(`Preserving ${markerKeys.length} marker meshes during geometry cleanup`);
+        
         // Process all scene objects and dispose geometries and materials
         this.scene.traverse(object => {
+            // Skip marker meshes - we want to keep them
+            if (markerKeys.length > 0 && Object.values(this.markerMeshes).includes(object)) {
+                return;
+            }
+            
             if (object instanceof THREE.Mesh) {
                 if (object.geometry) {
                     object.geometry.dispose();
@@ -2914,7 +3084,7 @@ const axiosInstance = axios.create();
             }
         });
         
-        // Reset meshes and text sprites
+        // Reset meshes and text sprites but keep marker meshes
         this.meshes = {};
         this.textSprites = {};
         this.timelapseMeshes = {};
@@ -2925,6 +3095,467 @@ const axiosInstance = axios.create();
         // Also make sure files are cleared when error is dismissed
         this.osimFile = null;
         this.motFile = null;
+    },
+    handleTrcFileUpload(event) {
+        const files = event.target.files;
+        if (!files.length) return;
+
+        // Initialize scene if it doesn't exist or reinitialize it
+        if (!this.scene) {
+            console.log('Initializing scene for TRC file');
+            this.initScene();
+        }
+
+        // Only support one TRC file at a time for now
+        const trcFile = files[0];
+        this.trcFile = trcFile;
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            // Parse TRC file content
+            this.parseTrcFile(e.target.result);
+        };
+        reader.readAsText(trcFile);
+
+        // Clear the file input value so the same file can be selected again
+        event.target.value = '';
+    },
+
+    parseTrcFile(trcContent) {
+        console.log('Parsing TRC file...');
+        
+        // Clear any existing marker meshes
+        this.clearMarkers();
+
+        const lines = trcContent.split('\n');
+        let dataHeaderLineIndex = -1;
+        let columnNames = [];
+        let xyzLabelsLineIndex = -1;
+        let dataStartLineIndex = -1;
+        let frameTimeIndex = -1;
+        let dataRows = [];
+        let frameTimes = [];
+        
+        console.log(`TRC file contains ${lines.length} lines`);
+        
+        // First pass: find the data section marker lines (Frame# and coordinate labels)
+        for (let i = 0; i < Math.min(20, lines.length); i++) {
+            const line = lines[i].trim();
+            if (!line) continue;
+            
+            // Debug first few lines
+            console.log(`Line ${i}: ${line.substring(0, 100)}${line.length > 100 ? '...' : ''}`);
+            
+            // Look for the line with "Frame" and "Time" which indicates column headers
+            if (line.match(/Frame#?\s+Time/i)) {
+                dataHeaderLineIndex = i;
+                console.log(`Found column header line at index ${i}`);
+                
+                // The next line usually contains X1 Y1 Z1 etc.
+                if (i+1 < lines.length && lines[i+1].trim().match(/X\d*\s+Y\d*\s+Z\d*/i)) {
+                    xyzLabelsLineIndex = i+1;
+                    console.log(`Found XYZ labels line at index ${i+1}`);
+                    dataStartLineIndex = i+2; // Data starts after the XYZ labels
+                } else {
+                    dataStartLineIndex = i+1; // Data starts right after headers
+                }
+                
+                break;
+            }
+        }
+        
+        if (dataHeaderLineIndex === -1) {
+            console.error('Could not find data header line with Frame# and Time');
+            return;
+        }
+        
+        // Extract column names from the header line
+        columnNames = lines[dataHeaderLineIndex].split(/[\t\s]+/).filter(name => name.trim().length > 0);
+        console.log('Column headers found:', columnNames);
+        
+        // Find the index of the time column
+        frameTimeIndex = columnNames.indexOf('Time');
+        if (frameTimeIndex === -1) {
+            frameTimeIndex = columnNames.findIndex(col => 
+                ['time', 'TIME', 'Times', 'times', 't'].includes(col));
+        }
+        console.log('Time column index:', frameTimeIndex);
+        
+        // Process data rows
+        for (let i = dataStartLineIndex; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (!line || !line.match(/^\d/)) continue; // Skip empty lines or non-data lines
+            
+            // Split data by tabs or multiple spaces
+            const values = line.split(/[\t\s]+/).filter(val => val.trim().length > 0);
+            
+            // Extract time value if available
+            if (frameTimeIndex !== -1 && frameTimeIndex < values.length) {
+                frameTimes.push(parseFloat(values[frameTimeIndex]));
+            } else if (values.length > 1) {
+                // If we couldn't find a time column, use the second column (often time)
+                frameTimes.push(parseFloat(values[1]));
+            }
+            
+            dataRows.push(values);
+        }
+        
+        console.log(`Parsed ${dataRows.length} data rows`);
+        console.log(`Found ${columnNames.length} columns`);
+        
+        if (dataRows.length === 0) {
+            console.error('No data rows found in TRC file');
+            return;
+        }
+        
+        // Get XYZ coordinate labels if they exist
+        let xyzLabels = [];
+        if (xyzLabelsLineIndex !== -1) {
+            xyzLabels = lines[xyzLabelsLineIndex].split(/[\t\s]+/).filter(label => label.trim().length > 0);
+            console.log('XYZ labels:', xyzLabels);
+        }
+        
+        // Process the marker data to create marker objects
+        this.markers = {};
+        
+        // Determine marker columns and their X,Y,Z patterns
+        // Skip Frame# and Time columns (first two)
+        const markerCount = Math.floor((columnNames.length - 2) / 3);
+        console.log(`Expected marker count: ${markerCount}`);
+        
+        // Process each marker (by groups of 3 columns: X, Y, Z)
+        for (let i = 0; i < markerCount; i++) {
+            const xCol = 2 + (i * 3);       // X column index
+            const yCol = xCol + 1;           // Y column index 
+            const zCol = xCol + 2;           // Z column index
+            
+            // Make sure we have all three columns
+            if (zCol >= columnNames.length) {
+                console.log(`Not enough columns for marker ${i}`);
+                continue;
+            }
+            
+            // Get marker name from column headers
+            let markerName = columnNames[xCol];
+            
+            // Clean up marker name (remove .X, _X suffix, etc.)
+            markerName = markerName.replace(/\.X$|\.x$|_X$|_x$|X\d*$/, '');
+            
+            console.log(`Processing marker: ${markerName} (columns ${xCol},${yCol},${zCol})`);
+            
+            // Initialize marker data structure
+            this.markers[markerName] = { positions: [] };
+            
+            // Extract positions for this marker across all frames
+            for (let rowIndex = 0; rowIndex < dataRows.length; rowIndex++) {
+                const row = dataRows[rowIndex];
+                
+                // Make sure we have enough columns in this row
+                if (zCol < row.length) {
+                    // XYZ coordinates for this marker in this frame
+                    const x = parseFloat(row[xCol]);
+                    const y = parseFloat(row[yCol]);
+                    const z = parseFloat(row[zCol]);
+                    
+                    // Add to marker positions, checking for NaN values
+                    this.markers[markerName].positions.push({
+                        x: isNaN(x) ? null : x,
+                        y: isNaN(y) ? null : y,
+                        z: isNaN(z) ? null : z
+                    });
+                } else {
+                    // Add null position if row doesn't have enough data
+                    this.markers[markerName].positions.push({
+                        x: null, y: null, z: null
+                    });
+                }
+            }
+        }
+        
+        console.log(`Created ${Object.keys(this.markers).length} markers`);
+        
+        // If no markers were found, something went wrong
+        if (Object.keys(this.markers).length === 0) {
+            console.error('No valid markers found in TRC file');
+            return;
+        }
+        
+        // If this is our first animation or we have no trial, use the timestamps from the TRC file
+        if (!this.trial || !this.frames.length) {
+            console.log('Setting up animation timing from TRC file');
+            this.frames = frameTimes;
+            this.trial = { results: [] };
+            this.frameRate = this.calculateFrameRate(frameTimes);
+            
+            // Make sure the scene is initialized properly
+            if (!this.scene) {
+                console.log('Initializing scene for markers');
+                this.initScene();
+            } else if (!this.groundMesh && this.scene) {
+                // Ensure a ground plane exists if it doesn't already
+                console.log('Adding ground plane for markers-only view');
+                const planeSize = 20;
+                const planeGeo = new THREE.PlaneGeometry(planeSize, planeSize);
+                const planeMat = new THREE.MeshPhongMaterial({
+                    side: THREE.DoubleSide,
+                    color: new THREE.Color(this.groundColor)
+                });
+                this.groundMesh = new THREE.Mesh(planeGeo, planeMat);
+                this.groundMesh.rotation.x = Math.PI * -.5;
+                this.groundMesh.position.y = 0;
+                this.scene.add(this.groundMesh);
+            }
+            
+            this.animate();
+            this.frame = 0;
+        }
+        
+        // Create marker meshes for the current frame
+        this.createMarkerMeshes();
+        
+        // Ensure first frame is rendered and playback starts
+        this.animateOneFrame();
+        this.togglePlay(true);
+    },
+    
+    createMarkerMeshes() {
+        // Remove any existing marker meshes
+        this.clearMarkers();
+        
+        // Create geometry for marker spheres - shared by all markers
+        const geometry = new THREE.SphereGeometry(this.markerSize, 16, 16);
+        const material = new THREE.MeshPhongMaterial({ 
+            color: new THREE.Color(this.markerColor),
+            transparent: true,
+            opacity: 0.9,
+            emissive: new THREE.Color(this.markerColor).multiplyScalar(0.5), // Increased emissive for better visibility
+            specular: new THREE.Color(0xffffff),
+            shininess: 80
+        });
+        
+        console.log(`Creating ${Object.keys(this.markers).length} marker meshes`);
+        
+        // Create mesh for each marker
+        Object.keys(this.markers).forEach(markerName => {
+            const marker = this.markers[markerName];
+            const mesh = new THREE.Mesh(geometry, material.clone());
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            
+            // If we have position data for the current frame
+            if (this.frame < marker.positions.length) {
+                const pos = marker.positions[this.frame];
+                
+                // Only show marker if position is valid
+                if (pos && pos.x !== null && pos.y !== null && pos.z !== null) {
+                    mesh.position.set(
+                        pos.x * this.markerScale, 
+                        pos.y * this.markerScale, 
+                        pos.z * this.markerScale
+                    );
+                    mesh.visible = this.showMarkers;
+                    console.log(`Marker ${markerName} positioned at:`, pos);
+                } else {
+                    mesh.visible = false;
+                    console.log(`Marker ${markerName} has invalid position data for frame ${this.frame}`);
+                }
+            } else {
+                mesh.visible = false;
+                console.log(`Marker ${markerName} has no position data for frame ${this.frame}`);
+            }
+            
+            // Add mesh to scene
+            this.scene.add(mesh);
+            
+            // Store reference to mesh
+            this.markerMeshes[markerName] = mesh;
+        });
+        
+        // Render the scene to show the markers
+        if (this.renderer) {
+            this.renderer.render(this.scene, this.camera);
+        }
+    },
+    
+    clearMarkers() {
+        // Log marker clearing operation
+        console.log('Clearing marker meshes:', Object.keys(this.markerMeshes).length);
+        
+        // Remove all marker meshes from scene
+        Object.entries(this.markerMeshes).forEach(([name, mesh]) => {
+            if (mesh) {
+                this.scene.remove(mesh);
+                if (mesh.geometry) {
+                    mesh.geometry.dispose();
+                }
+                if (mesh.material) {
+                    if (Array.isArray(mesh.material)) {
+                        mesh.material.forEach(material => material.dispose());
+                    } else {
+                        mesh.material.dispose();
+                    }
+                }
+                console.log(`Removed marker: ${name}`);
+            }
+        });
+        
+        // Clear marker mesh references
+        this.markerMeshes = {};
+        
+        // Render the scene to reflect changes
+        if (this.renderer) {
+            this.renderer.render(this.scene, this.camera);
+        }
+    },
+    toggleMarkerVisibility() {
+        // Update the visibility of all marker meshes
+        Object.values(this.markerMeshes).forEach(mesh => {
+            if (mesh) {
+                mesh.visible = this.showMarkers;
+            }
+        });
+        
+        // Render the scene with updated visibility
+        if (this.renderer) {
+            this.renderer.render(this.scene, this.camera);
+        }
+    },
+    updateMarkerColor() {
+        // Update color for all marker meshes
+        Object.values(this.markerMeshes).forEach(mesh => {
+            if (mesh && mesh.material) {
+                mesh.material.color = new THREE.Color(this.markerColor);
+                mesh.material.needsUpdate = true;
+            }
+        });
+        
+        // Render the scene with updated colors
+        if (this.renderer) {
+            this.renderer.render(this.scene, this.camera);
+        }
+    },
+    updateMarkerSize() {
+        // Create a new sphere geometry with the updated size
+        const newGeometry = new THREE.SphereGeometry(this.markerSize, 16, 16);
+        
+        // Update geometry for all marker meshes
+        Object.values(this.markerMeshes).forEach(mesh => {
+            if (mesh) {
+                // Store the old position and material
+                const position = mesh.position.clone();
+                const material = mesh.material;
+                
+                // Dispose the old geometry
+                if (mesh.geometry) {
+                    mesh.geometry.dispose();
+                }
+                
+                // Update with new geometry
+                mesh.geometry = newGeometry;
+                mesh.position.copy(position);
+            }
+        });
+        
+        // Render the scene with updated marker sizes
+        if (this.renderer) {
+            this.renderer.render(this.scene, this.camera);
+        }
+    },
+    downloadSampleTrcFile() {
+        // Create a sample TRC file with some basic markers
+        console.log('Generating sample TRC file');
+        
+        // Generate TRC content
+        let trcContent = '';
+        
+        // Add header information
+        trcContent += 'PathFileType\t4\t(X/Y/Z)\tmarkers.trc\n';
+        trcContent += 'DataRate\tCameraRate\tNumFrames\tNumMarkers\tUnits\tOrigDataRate\tOrigDataStartFrame\tOrigNumFrames\n';
+        trcContent += '60\t60\t100\t10\tmm\t60\t1\t100\n';
+        trcContent += 'Frame#\tTime\tRHand1\t\t\tRHand2\t\t\tLHand1\t\t\tLHand2\t\t\tHead\t\t\tShoulderR\t\t\tShoulderL\t\t\tHipR\t\t\tHipL\t\t\tFootR\t\t\t\n';
+        trcContent += '\t\tX\tY\tZ\tX\tY\tZ\tX\tY\tZ\tX\tY\tZ\tX\tY\tZ\tX\tY\tZ\tX\tY\tZ\tX\tY\tZ\tX\tY\tZ\tX\tY\tZ\n';
+        
+        // Generate sample data for 100 frames (simple oscillating pattern)
+        for (let frame = 1; frame <= 100; frame++) {
+            const time = (frame - 1) / 60; // 60 Hz
+            
+            // Start a new row with frame number and time
+            let row = `${frame}\t${time.toFixed(6)}`;
+            
+            // Add marker positions
+            // Right hand markers oscillate around (0.3, 1.5, 0)
+            const handROffset1 = 0.1 * Math.sin(frame / 10);
+            row += `\t${(0.3 + handROffset1).toFixed(6)}\t${(1.5 + 0.05 * Math.sin(frame / 5)).toFixed(6)}\t${(0.0 + 0.05 * Math.cos(frame / 7)).toFixed(6)}`;
+            row += `\t${(0.35 + handROffset1).toFixed(6)}\t${(1.53 + 0.05 * Math.sin(frame / 5)).toFixed(6)}\t${(0.03 + 0.05 * Math.cos(frame / 7)).toFixed(6)}`;
+            
+            // Left hand markers oscillate around (-0.3, 1.5, 0)
+            const handLOffset1 = 0.1 * Math.sin(frame / 10 + Math.PI); // Out of phase with right hand
+            row += `\t${(-0.3 + handLOffset1).toFixed(6)}\t${(1.5 + 0.05 * Math.sin(frame / 5 + Math.PI)).toFixed(6)}\t${(0.0 + 0.05 * Math.cos(frame / 7 + Math.PI)).toFixed(6)}`;
+            row += `\t${(-0.35 + handLOffset1).toFixed(6)}\t${(1.53 + 0.05 * Math.sin(frame / 5 + Math.PI)).toFixed(6)}\t${(0.03 + 0.05 * Math.cos(frame / 7 + Math.PI)).toFixed(6)}`;
+            
+            // Head marker oscillates around (0, 1.8, 0) with small movements
+            row += `\t${(0.0 + 0.02 * Math.sin(frame / 12)).toFixed(6)}\t${(1.8 + 0.01 * Math.sin(frame / 8)).toFixed(6)}\t${(0.0 + 0.01 * Math.cos(frame / 9)).toFixed(6)}`;
+            
+            // Shoulder markers
+            row += `\t${(0.2 + 0.01 * Math.sin(frame / 15)).toFixed(6)}\t${(1.6 + 0.02 * Math.sin(frame / 10)).toFixed(6)}\t${(0.0 + 0.02 * Math.cos(frame / 11)).toFixed(6)}`;
+            row += `\t${(-0.2 + 0.01 * Math.sin(frame / 15 + Math.PI)).toFixed(6)}\t${(1.6 + 0.02 * Math.sin(frame / 10 + Math.PI)).toFixed(6)}\t${(0.0 + 0.02 * Math.cos(frame / 11 + Math.PI)).toFixed(6)}`;
+            
+            // Hip markers
+            row += `\t${(0.15 + 0.01 * Math.sin(frame / 20)).toFixed(6)}\t${(1.0 + 0.01 * Math.sin(frame / 18)).toFixed(6)}\t${(0.0 + 0.01 * Math.cos(frame / 19)).toFixed(6)}`;
+            row += `\t${(-0.15 + 0.01 * Math.sin(frame / 20 + Math.PI)).toFixed(6)}\t${(1.0 + 0.01 * Math.sin(frame / 18 + Math.PI)).toFixed(6)}\t${(0.0 + 0.01 * Math.cos(frame / 19 + Math.PI)).toFixed(6)}`;
+            
+            // Right foot marker (more movement to simulate walking)
+            const footPhase = frame / 5;
+            const footX = 0.15 + 0.1 * Math.sin(footPhase);
+            const footY = 0.1 + 0.05 * Math.abs(Math.sin(footPhase)); // Y is height off ground
+            const footZ = -0.3 - 0.2 * Math.cos(footPhase); // Z is forward/backward
+            row += `\t${footX.toFixed(6)}\t${footY.toFixed(6)}\t${footZ.toFixed(6)}`;
+            
+            // Add the row to the TRC content
+            trcContent += row + '\n';
+        }
+        
+        // Create a blob and download the file
+        const blob = new Blob([trcContent], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        document.body.appendChild(a);
+        a.style = 'display: none';
+        a.href = url;
+        a.download = 'sample_markers.trc';
+        a.click();
+        window.URL.revokeObjectURL(url);
+    },
+    updateMarkerScale() {
+        console.log(`Updating marker scale factor to: ${this.markerScale}`);
+        
+        // Get current frame
+        const frame = this.frame;
+        
+        // Update each marker position with the new scale factor
+        Object.keys(this.markers).forEach(markerName => {
+            const marker = this.markers[markerName];
+            const mesh = this.markerMeshes[markerName];
+            
+            if (mesh && frame < marker.positions.length) {
+                const pos = marker.positions[frame];
+                
+                // Only update position if we have valid data for this frame
+                if (pos && pos.x !== null && pos.y !== null && pos.z !== null) {
+                    // Apply scale factor
+                    mesh.position.set(
+                        pos.x * this.markerScale,
+                        pos.y * this.markerScale,
+                        pos.z * this.markerScale
+                    );
+                }
+            }
+        });
+        
+        // Render the scene with updated positions
+        if (this.renderer) {
+            this.renderer.render(this.scene, this.camera);
+        }
     },
     }
   }
