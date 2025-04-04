@@ -646,6 +646,9 @@ const axiosInstance = axios.create();
                 });
                 this.initializeAlphaValue(1);
             }
+            
+            // Calculate and set frame rate from the JSON file's time data
+            this.frameRate = this.calculateFrameRate(res1.data.time);
 
               this.$nextTick(() => {
                 try {
@@ -838,13 +841,33 @@ const axiosInstance = axios.create();
       animate() {
         requestAnimationFrame(this.animate);
           
-          // Calculate time since last frame
-          const currentTime = performance.now();
-          const deltaTime = (currentTime - this.lastFrameTime) / 1000; // Convert to seconds
+        // Calculate time since last frame
+        const currentTime = performance.now();
+        const deltaTime = (currentTime - this.lastFrameTime) / 1000; // Convert to seconds
           
         if (this.playing && deltaTime >= (1 / this.frameRate)) { // Only update time if playing
-            this.lastFrameTime = currentTime;
-            this.animateOneFrame();
+            // Calculate how many frames should have advanced based on elapsed time
+            const framesToAdvance = Math.floor(deltaTime * this.frameRate);
+            
+            if (framesToAdvance > 0) {
+                // Advance the frame
+                this.frame = (this.frame + framesToAdvance) % this.frames.length;
+                
+                // Update lastFrameTime based on the exact frames we advanced
+                // This prevents timing drift by keeping track of actual time used
+                this.lastFrameTime = currentTime - (deltaTime - (framesToAdvance / this.frameRate)) * 1000;
+                
+                // Update displayed time based on actual frames in the JSON
+                // If time data is available in frames array, use that, otherwise calculate from frame number
+                if (this.frames[this.frame] !== undefined) {
+                    this.time = this.frames[this.frame];
+                } else {
+                    this.time = this.frame / this.frameRate;
+                }
+                
+                // Render the current frame
+                this.animateOneFrame();
+            }
         } else if (!this.playing) {
             // Still render the scene even when not playing
             this.renderer.render(this.scene, this.camera);
@@ -905,32 +928,36 @@ const axiosInstance = axios.create();
   
           this.renderer.render(this.scene, this.camera);
   
-          if (this.playing) {
-            // Check if we're at the last frame and in timelapse mode
-            if (this.timelapseMode && cframe === this.frames.length - 1) {
-              // Stop playback at the end of sequence in timelapse mode
-              this.togglePlay(false);
-            } else {
-              // Normal frame advancement
-              this.frame = (this.frame + 1) % this.frames.length;
-              this.time = this.frame / this.frameRate;
-            }
+          // Frame advancement is now handled in the animate method
+          // We're no longer advancing frames here
+          if (this.playing && this.timelapseMode && cframe === this.frames.length - 1) {
+            // Only stop playback at the end of sequence in timelapse mode
+            this.togglePlay(false);
           }
         }
       },
       togglePlay(value) {
         this.playing = value
         if (this.playing) {
-          this.lastFrameTime = performance.now() // Reset timing when starting playback
-          this.animate()
+          // Reset timing references when starting playback
+          this.lastFrameTime = performance.now();
+          
+          // Make sure first frame gets displayed immediately
+          this.animateOneFrame();
         } else if (this.isRecording) {
           this.playing = true;
         }
       },
       onNavigate(frame) {
-      this.frame = frame
-      this.time = frame / this.frameRate
-        this.animateOneFrame()
+        this.frame = frame;
+        // Use the actual time from the frames array if available, otherwise calculate it
+        if (this.frames[frame] !== undefined) {
+            this.time = this.frames[frame];
+        } else {
+            this.time = frame / this.frameRate;
+        }
+        // Render the frame without advancing
+        this.animateOneFrame();
       },
     getFileName(animation) {
         // Extract filename from the URL used to load the animation
@@ -1022,12 +1049,44 @@ const axiosInstance = axios.create();
     calculateFrameRate(timeArray) {
         if (timeArray.length < 2) return 60; // Default to 60 if not enough data
         
-        // Calculate average time step
+        // Calculate total duration
         const totalTime = timeArray[timeArray.length - 1] - timeArray[0];
-        const averageTimeStep = totalTime / (timeArray.length - 1);
         
-        // Convert to frames per second
-        return Math.round(1 / averageTimeStep);
+        // For more accurate frame rate calculation, we need to analyze the time step distribution
+        // This handles cases where time steps are not uniform
+        const timeSteps = [];
+        for (let i = 1; i < timeArray.length; i++) {
+            const step = timeArray[i] - timeArray[i-1];
+            if (step > 0) {  // Ignore zero or negative steps
+                timeSteps.push(step);
+            }
+        }
+        
+        // Sort time steps to find the most common ones (mode)
+        timeSteps.sort((a, b) => a - b);
+        
+        // Find the median time step for more stability
+        const medianTimeStep = timeSteps[Math.floor(timeSteps.length / 2)];
+        
+        // Use frames per total duration as a fallback
+        const averageFrameRate = (timeArray.length - 1) / totalTime;
+        
+        // Use the median-based frame rate if it's reasonable, otherwise use the average
+        const medianFrameRate = medianTimeStep > 0 ? 1 / medianTimeStep : averageFrameRate;
+        
+        // Determine the final frame rate - prefer median for stability unless it's very different
+        const finalFrameRate = Math.abs(medianFrameRate - averageFrameRate) < 10 ? 
+            medianFrameRate : averageFrameRate;
+        
+        // Round and constrain to reasonable values
+        const calculatedFps = Math.round(finalFrameRate);
+        
+        // Log the calculated frame rate for debugging
+        console.log(`Frame rate calculation: Median=${medianFrameRate.toFixed(2)}, Average=${averageFrameRate.toFixed(2)}, Final=${calculatedFps}`);
+        
+        // Ensure we have a reasonable fps value (between 24 and 120)
+        // Most mocap systems operate between 30-120 fps
+        return Math.min(Math.max(calculatedFps, 24), 120);
     },
     handleFileUpload(event) {
         const files = event.target.files;
@@ -1252,12 +1311,19 @@ const axiosInstance = axios.create();
             }
         });
 
-        // Create a common time array
+        // Create a common time array with consistent step size
         const commonTimeArray = [];
+        const totalDuration = earliestEnd - latestStart;
+        // Calculate a fixed frame rate based on the time array
+        const frameRate = this.calculateFrameRate([latestStart, earliestEnd]);
+        // Use exact step size for consistent timing
+        const timeStep = 1 / frameRate;
+        
+        // Create evenly spaced time points
         let currentTime = latestStart;
         while (currentTime <= earliestEnd) {
             commonTimeArray.push(currentTime);
-            currentTime += smallestTimeStep;
+            currentTime += timeStep;
         }
 
         // Sync each animation to the common time array
@@ -1800,50 +1866,31 @@ const axiosInstance = axios.create();
         });
     },
     finishSampleLoading() {
-        // Comment out or remove the text sprite creation code
-        /*
-        this.animations.forEach((anim, i) => {
-            const canvas = document.createElement('canvas');
-            const context = canvas.getContext('2d');
-            canvas.width = 256;
-            canvas.height = 64;
-            
-            context.font = 'bold 40px Arial';
-            context.textAlign = 'center';
-            context.fillStyle = '#' + this.colors[i].getHexString();
-            context.fillText(anim.trialName, canvas.width/2, canvas.height/2);
-            
-            const texture = new THREE.CanvasTexture(canvas);
-            const spriteMaterial = new THREE.SpriteMaterial({ 
-                map: texture,
-                transparent: true,
-                opacity: 0.4
-            });
-            
-            const sprite = new THREE.Sprite(spriteMaterial);
-            sprite.scale.set(1, 0.25, 1);
-            sprite.position.copy(anim.offset);
-            sprite.position.y += 2;
-            
-            this.textSprites[`text_${i}`] = sprite;
-            this.scene.add(sprite);
-        });
-        */
-        
         // After loading everything, sync the animations if we have more than one
         if (this.animations.length > 1) {
             this.syncAllAnimations();
         }
         
+        // Initialize timing
+        this.frame = 0;
+        // Use the actual time from the frames array if available
+        if (this.frames[0] !== undefined) {
+            this.time = this.frames[0];
+        } else {
+            this.time = 0;
+        }
+        
         // Start animation loop and render first frame
         this.animate();
-        this.frame = 0;
         this.animateOneFrame();
-        // Start playing automatically
-        this.togglePlay(true);
         
         // Hide loading indicator
         this.trialLoading = false;
+        
+        // Start playing automatically after a short delay to ensure everything is ready
+        setTimeout(() => {
+            this.togglePlay(true);
+        }, 100);
     },
     updateBackgroundColor(color) {
         this.backgroundColor = color;
