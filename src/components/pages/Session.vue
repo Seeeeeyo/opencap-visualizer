@@ -75,13 +75,13 @@
         <div class="recording-controls mb-4">
           <!-- Control buttons row -->
           <div class="d-flex align-center mb-2">
-            <v-btn v-if="!isRecording" color="red" dark @click="startRecording" :disabled="isRecording" class="mr-2" style="flex: 3;">
+            <v-btn v-if="!isRecording" color="red" dark @click="startRecording" :disabled="isRecording" class="mr-2" style="flex: 2;">
               <v-icon left>mdi-record</v-icon>
               Record
             </v-btn>
-            <v-btn v-else color="grey" dark @click="stopRecording" class="mr-2" style="flex: 3;">
+            <v-btn v-else color="grey" dark @click="stopRecording" class="mr-2" style="flex: 2;">
               <v-icon left>mdi-stop</v-icon>
-              Stop Recording
+              Stop
             </v-btn>
             
             <v-select
@@ -90,10 +90,28 @@
               label="Format"
               dense
               dark
-              class="format-selector"
+              class="format-selector mr-2"
               hide-details
               :disabled="isRecording"
-              style="flex: 1; max-width: 100px;"
+              style="flex: 1; min-width: 70px;"
+            ></v-select>
+            
+            <v-select
+              v-model="videoBitrate"
+              :items="[
+                {text: '2 Mbps', value: 2000000},
+                {text: '5 Mbps', value: 5000000},
+                {text: '8 Mbps', value: 8000000},
+                {text: '12 Mbps', value: 12000000},
+                {text: '15 Mbps', value: 15000000},
+                {text: '20 Mbps', value: 20000000}
+              ]"
+              label="Bitrate"
+              dense
+              dark
+              hide-details
+              :disabled="isRecording"
+              style="flex: 1; min-width: 90px;"
             ></v-select>
             
             <!-- Add info icon with tooltip -->
@@ -573,6 +591,7 @@ const axiosInstance = axios.create();
               timelapseGroups: {}, // Organized by animation index and frame numbers
               timelapseCounter: null, // Use sequential counter for mesh IDs
               captureMode: 'both', // Options: 'both', 'normal', 'transparent'
+              videoBitrate: 5000000, // Video recording bitrate in bits per second (5 Mbps default)
           }
       },
       computed: {
@@ -1097,7 +1116,7 @@ const axiosInstance = axios.create();
       try {
         this.mediaRecorder = new MediaRecorder(stream, {
           mimeType: mimeType,
-          videoBitsPerSecond: 5000000 // 5 Mbps for good quality
+          videoBitsPerSecond: this.videoBitrate // Use the selected bitrate
         });
       } catch (error) {
         console.warn(`${mimeType} not supported, falling back to webm format`, error);
@@ -1105,7 +1124,7 @@ const axiosInstance = axios.create();
         this.recordingFileName = 'animation-recording.webm';
         this.mediaRecorder = new MediaRecorder(stream, {
           mimeType: 'video/webm;codecs=vp9',
-          videoBitsPerSecond: 5000000
+          videoBitsPerSecond: this.videoBitrate // Use the selected bitrate
         });
       }
       
