@@ -85,9 +85,6 @@ Vue.toasted.register('warning', (message) => {
 
 Vue.config.productionTip = false
 
-// Set default axios base URL
-axios.defaults.baseURL = "http://localhost:8000/"
-
 new Vue({
   router,
   vuetify,

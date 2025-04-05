@@ -2006,7 +2006,7 @@ const axiosInstance = axios.create();
         }
     },
     loadSampleFiles() {
-        // Define the URLs for the sample files
+        // Define the URLs for the sample files with simple relative paths
         const sampleFiles = [
             '/samples/sample_mocap.json',
             '/samples/sample_mono.json',
