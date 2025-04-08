@@ -309,6 +309,12 @@
                       <div class="color-sample" :style="{ backgroundColor: color }"></div>
                     </v-btn>
                   </div>
+                  <!-- Add Eyedropper button -->
+                  <div class="mt-2 text-center">
+                    <v-btn small icon @click.stop="openBackgroundEyedropper" title="Pick color from screen">
+                      <v-icon small>mdi-eyedropper-variant</v-icon>
+                    </v-btn>
+                  </div>
                 </v-card>
               </v-menu>
             </div>
@@ -322,6 +328,12 @@
                   <div class="d-flex flex-wrap">
                     <v-btn v-for="color in groundColors" :key="color" small icon class="ma-1" @click="updateGroundColor(color)" :disabled="!showGround">
                       <div class="color-sample" :style="{ backgroundColor: color }"></div>
+                    </v-btn>
+                  </div>
+                  <!-- Add Eyedropper button -->
+                  <div class="mt-2 text-center">
+                    <v-btn small icon @click.stop="openGroundEyedropper" title="Pick color from screen" :disabled="!showGround">
+                      <v-icon small>mdi-eyedropper-variant</v-icon>
                     </v-btn>
                   </div>
                   <div class="mt-2 text-center">
@@ -575,6 +587,12 @@
                     <div class="d-flex justify-center mt-2">
                       <div class="color-preview" :style="{ backgroundColor: `rgb(${rgbValues[index].r}, ${rgbValues[index].g}, ${rgbValues[index].b})` }"></div>
                     </div>
+                  </div>
+                  <!-- Add Eyedropper button -->
+                  <div class="mt-2 text-center">
+                    <v-btn small icon @click.stop="openEyedropper(index)" title="Pick color from screen">
+                      <v-icon small>mdi-eyedropper-variant</v-icon>
+                    </v-btn>
                   </div>
                 </v-card>
               </v-menu>
@@ -4103,6 +4121,57 @@ const axiosInstance = axios.create();
       window.removeEventListener('mouseup', this.stopResize);
       window.removeEventListener('touchmove', this.doResize);
       window.removeEventListener('touchend', this.stopResize);
+    },
+    async openEyedropper(index) {
+      if (!window.EyeDropper) {
+        alert("Your browser doesn't support the Eyedropper API.");
+        return;
+      }
+
+      const eyedropper = new window.EyeDropper(); // Use window.EyeDropper
+      try {
+        const result = await eyedropper.open();
+        // result.sRGBHex contains the selected color
+        console.log(`Eyedropper selected color: ${result.sRGBHex} for subject ${index}`);
+        this.updateSubjectColor(index, result.sRGBHex);
+      } catch (e) {
+        console.log('Eyedropper cancelled or failed:', e);
+        // Handle cancellation or error (e.g., user presses Esc)
+      }
+    },
+    async openBackgroundEyedropper() {
+      if (!window.EyeDropper) {
+        alert("Your browser doesn't support the Eyedropper API.");
+        return;
+      }
+
+      const eyedropper = new window.EyeDropper();
+      try {
+        const result = await eyedropper.open();
+        // result.sRGBHex contains the selected color
+        console.log(`Eyedropper selected color for background: ${result.sRGBHex}`);
+        this.updateBackgroundColor(result.sRGBHex);
+      } catch (e) {
+        console.log('Eyedropper cancelled or failed:', e);
+      }
+    },
+    async openGroundEyedropper() {
+      if (!this.showGround) return;
+      
+      if (!window.EyeDropper) {
+        alert("Your browser doesn't support the Eyedropper API.");
+        return;
+      }
+
+      const eyedropper = new window.EyeDropper();
+      try {
+        const result = await eyedropper.open();
+        // result.sRGBHex contains the selected color
+        console.log(`Eyedropper selected color for ground: ${result.sRGBHex}`);
+        this.updateGroundColor(result.sRGBHex);
+      } catch (e) {
+        console.log('Eyedropper cancelled or failed:', e);
+      }
     },
   }
 }
