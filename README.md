@@ -6,6 +6,14 @@ A web-based 3D viewer for OpenCap motion capture data and OpenSim simulations wi
 
 [Live website](https://opencap-visualizer.onrender.com)
 
+### Sample Sets via URL
+
+You can directly load specific sample motion sets using query parameters:
+
+-   **Sit-to-Stand (STS):** [https://opencap-visualizer.onrender.com/?sample_set=STS](https://opencap-visualizer.onrender.com/?sample_set=STS)
+-   **Walking:** [https://opencap-visualizer.onrender.com/?sample_set=walk](https://opencap-visualizer.onrender.com/?sample_set=walk)
+-   **Squat:** [https://opencap-visualizer.onrender.com/?sample_set=squat](https://opencap-visualizer.onrender.com/?sample_set=squat)
+
 This demo shows:
 - Side-by-side comparison of multiple animations
 - Customizable scene appearance
@@ -66,7 +74,8 @@ npm run serve
    - Using the "Load JSON Files" button for OpenCap files
    - Using the "Load OpenSim (.mot+.osim)" button for OpenSim files
    - Dragging and dropping files onto the viewer (supports JSON, OSIM, and MOT files)
-   - Using the "Try with Sample Files" button
+   - Using the "Try with Sample Files" button (loads the default STS set)
+   - Navigating directly via URL with a `sample_set` query parameter (see [Demo](#demo) section above)
 3. For OpenSim files:
    - You need to provide both a .osim model file and a .mot motion file
    - Files can be uploaded together or separately
