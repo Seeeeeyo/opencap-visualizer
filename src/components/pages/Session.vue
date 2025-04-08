@@ -838,7 +838,7 @@ const axiosInstance = axios.create();
             console.log('Loading sample files from mounted hook');
             // Add a small delay to ensure scene is fully initialized
             setTimeout(() => {
-                this.loadSampleFiles();
+            this.loadSampleFiles();
             }, 100);
         }
     },
@@ -918,7 +918,7 @@ const axiosInstance = axios.create();
           console.log('Loading sample files from route watcher');
           // Add a small delay to ensure scene is ready
           setTimeout(() => {
-            this.loadSampleFiles();
+          this.loadSampleFiles();
           }, 100);
         }
       }
@@ -2154,11 +2154,11 @@ const axiosInstance = axios.create();
     },
     loadSampleFiles() {
         console.log('loadSampleFiles called');
-        // Define the URLs for the sample files with correct paths
+        // Define the URLs for the sample files relative to the root
         const sampleFiles = [
-            'samples/sample_mocap.json',
-            'samples/sample_mono.json',
-            'samples/sample_wham.json'
+            '/samples/sample_mocap.json',
+            '/samples/sample_mono.json',
+            '/samples/sample_wham.json'
         ];
         
         // Show loading indicator
