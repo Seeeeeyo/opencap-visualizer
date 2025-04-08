@@ -4184,7 +4184,7 @@ const axiosInstance = axios.create();
     flex: 0 0 400px;
     width: 400px;
     height: 100%;
-    padding: 5px;
+    padding: 15px;  // Increased from 5px
     overflow-y: auto;
     display: flex;
     flex-direction: column;
@@ -4211,7 +4211,11 @@ const axiosInstance = axios.create();
     .scene-controls {
       background: rgba(0, 0, 0, 0.2);
       border-radius: 4px;
-      padding: 5px;
+      padding: 10px;  // Increased from 5px
+    }
+
+    .format-selector {
+      margin-top: 8px !important;  // Add top margin to Format and Bitrate selectors
     }
 
     .color-preview {
