@@ -982,6 +982,9 @@ const axiosInstance = axios.create();
                 this.loadSampleFiles(sampleSetToLoad);
             }, 100);
         }
+        
+        // Add message listener for iframe communication
+        window.addEventListener('message', this.handleIframeMessage);
     },
     beforeDestroy() {
       // Clean up video URL
@@ -998,6 +1001,9 @@ const axiosInstance = axios.create();
           if (sprite.material.map) sprite.material.map.dispose();
           if (sprite.material) sprite.material.dispose();
       });
+      
+      // Remove message listener
+      window.removeEventListener('message', this.handleIframeMessage);
     },
     watch: {
       trial() {
@@ -4247,6 +4253,35 @@ const axiosInstance = axios.create();
     openMeshDialog(index) {
       this.meshDialogs[index] = true;
     },
+    // Add method to handle incoming messages from parent window
+    handleIframeMessage(event) {
+      // Optional: Check origin for security
+      // const trustedOrigin = 'YOUR_PARENT_DOMAIN_HERE'; // e.g., 'http://localhost:8080'
+      // if (event.origin !== trustedOrigin) {
+      //   console.warn('Message received from untrusted origin:', event.origin);
+      //   return;
+      // }
+
+      // Check if data is a number (video time)
+      if (typeof event.data === 'number' && isFinite(event.data)) {
+        const receivedTime = event.data;
+        
+        // Check if animation is loaded
+        if (!this.trial || this.frames.length === 0) {
+          return; // Cannot sync if no animation is loaded
+        }
+
+        // Calculate target frame (clamp within bounds)
+        let targetFrame = Math.round(receivedTime * this.frameRate);
+        targetFrame = Math.max(0, Math.min(targetFrame, this.frames.length - 1));
+
+        // Only update if the frame is different from the current one
+        if (targetFrame !== this.frame) {
+          // Use onNavigate to update frame, time, and render
+          this.onNavigate(targetFrame);
+        }
+      }
+    }
   }
 }
 </script>
