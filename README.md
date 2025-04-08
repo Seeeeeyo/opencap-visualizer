@@ -26,6 +26,8 @@ This demo shows:
 - Load and visualize motion data in 3D:
   - OpenCap JSON files directly
   - OpenSim (.osim) + motion (.mot) file pairs via conversion API
+- **Marker Data Visualization:** Load and display marker trajectories from TRC files.
+- **Video Overlay:** Load and display a synchronized video alongside the 3D animation.
 - Compare multiple animations simultaneously
 - Adjustable offsets in X, Y, and Z directions
 - Color-coded models with customizable colors
@@ -73,7 +75,9 @@ npm run serve
 2. Load your files by:
    - Using the "Load JSON Files" button for OpenCap files
    - Using the "Load OpenSim (.mot+.osim)" button for OpenSim files
-   - Dragging and dropping files onto the viewer (supports JSON, OSIM, and MOT files)
+   - Using the "Load Markers (.trc)" button for TRC marker files.
+   - Using the "Load Video (mp4/webm)" button for video files.
+   - Dragging and dropping files onto the viewer (supports JSON, OSIM, MOT, TRC, MP4, WEBM files)
    - Using the "Try with Sample Files" button (loads the default STS set)
    - Navigating directly via URL with a `sample_set` query parameter (see [Demo](#demo) section above)
 3. For OpenSim files:
@@ -87,6 +91,21 @@ npm run serve
    - Modify scene appearance (background and ground)
    - Capture high-resolution screenshots
    - Record videos
+
+### Marker Data Visualization (.trc)
+
+- **Loading**: Use the "Load Markers (.trc)" button or drag & drop a TRC file.
+- **Display**: Markers are visualized as small spheres in the 3D scene.
+- **Synchronization**: If loaded alongside animation data (JSON/OpenSim), the marker data can be synchronized to the animation timeline using the "Sync Markers with Animations" button.
+- **Controls**: Adjust marker size, color, and visibility in the right-hand panel.
+- **Scaling**: Apply a scale factor if marker units (e.g., mm) differ from the model units (e.g., m).
+
+### Video Overlay
+
+- **Loading**: Use the "Load Video (mp4/webm)" button or drag & drop a compatible video file.
+- **Display**: The video appears in a draggable, resizable overlay window.
+- **Synchronization**: Video playback is automatically synchronized with the 3D animation timeline.
+- **Controls**: Use the standard video controls within the overlay. The overlay can be minimized or closed.
 
 ### OpenSim File Support
 
