@@ -64,7 +64,7 @@
         ></div>
       </div>
       
-      <div class="viewer flex-grow-1" :class="{ 'sidebar-hidden': !showSidebar }" @dragover.prevent @drop.prevent="handleDrop">
+      <div class="viewer flex-grow-1" :class="{ 'sidebar-hidden': !showSidebar, 'is-embedded': $route.query.embed === 'true' }" @dragover.prevent @drop.prevent="handleDrop">
         <div v-if="trial" class="d-flex flex-column h-100">
           <div id="mocap" ref="mocap" class="flex-grow-1 position-relative">
             <!-- Debug info -->
@@ -4241,7 +4241,7 @@ const axiosInstance = axios.create();
     position: relative;
     transition: margin-right 0.3s ease;
   
-    &:not(.sidebar-hidden) {
+    &:not(.sidebar-hidden):not(.is-embedded) {
       margin-right: 50px;
     }
   
