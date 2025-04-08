@@ -393,26 +393,58 @@
             @change="toggleTimelapseMode"
           ></v-switch>
           <div v-if="timelapseMode" class="mt-2">
+            <div class="d-flex align-center mb-2">
+              <div class="text-subtitle-2">Frame Interval <span class="text-caption ml-2">({{ timelapseInterval }} frames)</span></div>
+            </div>
             <v-slider
               v-model="timelapseInterval"
-              label="Frame Interval"
               min="1"
               max="30"
               step="1"
               thumb-label
+              thumb-size="24"
               :disabled="!timelapseMode"
               @input="updateTimelapse"
-            ></v-slider>
+              hide-details
+              class="mb-4"
+            >
+              <template v-slot:thumb-label="{ value }">
+                {{ value }}
+              </template>
+              <template v-slot:prepend>
+                <div class="text-caption grey--text">1</div>
+              </template>
+              <template v-slot:append>
+                <div class="text-caption grey--text">30</div>
+              </template>
+            </v-slider>
+
+            <div class="d-flex align-center mb-2">
+              <div class="text-subtitle-2">Model Transparency <span class="text-caption ml-2">({{ Math.round(timelapseOpacity * 100) }}%)</span></div>
+            </div>
             <v-slider
-              v-model="timelapseOpacity"
-              label="Model Transparency"
+              :value="timelapseOpacity * 100"
+              @input="value => timelapseOpacity = value / 100"
               min="0"
-              max="1"
-              step="0.05"
+              max="100"
+              step="1"
               thumb-label
+              thumb-size="24"
               :disabled="!timelapseMode"
-              @input="updateTimelapseOpacity"
-            ></v-slider>
+              @change="updateTimelapseOpacity"
+              hide-details
+              class="mb-4"
+            >
+              <template v-slot:thumb-label="{ value }">
+                {{ Math.round(value) }}%
+              </template>
+              <template v-slot:prepend>
+                <div class="text-caption grey--text">0%</div>
+              </template>
+              <template v-slot:append>
+                <div class="text-caption grey--text">100%</div>
+              </template>
+            </v-slider>
             <div class="d-flex justify-space-between align-center">
               <v-btn small text @click="clearTimelapse" class="mt-1">
                 Clear All
