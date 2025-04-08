@@ -351,6 +351,21 @@
               </v-menu>
             </div>
           </div>
+          <!-- Add Light Intensity Slider -->
+          <div class="d-flex align-center mt-2">
+            <div class="mr-2">Light Intensity:</div>
+            <v-slider
+              v-model="globalLightIntensity"
+              min="0"
+              max="3"
+              step="0.1"
+              thumb-label
+              dense
+              hide-details
+              @input="updateGlobalLightIntensity"
+              class="flex-grow-1"
+            ></v-slider>
+          </div>
         </div>
         <!-- Add Timelapse Controls -->
         <div class="timelapse-controls mb-4">
@@ -792,6 +807,8 @@ const axiosInstance = axios.create();
               gridTexture: null,
               showGround: true,
               alphaValues: [], // Array to store alpha values for each animation
+              globalLightIntensity: 1.0, // Add global light intensity control
+              lights: { hemisphere: null, directionals: [] }, // Store light references
               osimFile: null,
               motFile: null,
               converting: false,
@@ -1012,82 +1029,10 @@ const axiosInstance = axios.create();
               this.$nextTick(() => {
                 try {
                   console.log('Setting up 3D scene')
-                  while (this.$refs.mocap.lastChild) {
-                    this.$refs.mocap.removeChild(this.$refs.mocap.lastChild)
-                  }
-  
-                  // setup3d
-                  const container = this.$refs.mocap
-                  console.log('Container:', container)
-  
-                  let ratio = container.clientWidth / container.clientHeight
-                  this.camera = new THREE.PerspectiveCamera(35, ratio, 0.1, 125)
-                  this.camera.position.x = 3.33
-                  this.camera.position.z = -2.30
-                  this.camera.position.y = 3.5; 
-
-                  this.scene = new THREE.Scene()
-                  this.scene.background = new THREE.Color(0x808080)
-                  this.renderer = new THREE.WebGLRenderer({antialias: true})
-                  this.onResize()
-                  container.appendChild(this.renderer.domElement)
-                  this.controls = new THREE_OC.OrbitControls(this.camera, this.renderer.domElement)
-  
-
-  
-                  // add the plane
-                  {
-                    const planeSize = 20;
-  
-                    const loader = new THREE.TextureLoader();
-                    const texture = loader.load('https://threejsfundamentals.org/threejs/resources/images/checker.png');
-                    texture.wrapS = THREE.RepeatWrapping;
-                    texture.wrapT = THREE.RepeatWrapping;
-                    texture.magFilter = THREE.NearestFilter;
-                    const repeats = planeSize;
-                    texture.repeat.set(repeats, repeats);
-  
-                    // Store the texture reference
-                    this.groundTexture = texture;
-
-                    const planeGeo = new THREE.PlaneGeometry(planeSize, planeSize);
-                    const planeMat = new THREE.MeshPhongMaterial({
-                      map: this.useGroundTexture ? texture : null,
-                      side: THREE.DoubleSide,
-                      color: new THREE.Color(this.groundColor)
-                    });
-                    const groundMesh = new THREE.Mesh(planeGeo, planeMat);
-                    groundMesh.rotation.x = Math.PI * -.5;
-                    groundMesh.position.y = .0
-                    this.scene.add(groundMesh);
-                    
-                    // Store the mesh reference inside the block where groundMesh is defined
-                    this.groundMesh = groundMesh;
-                    
-                    // Set initial background color
-                    this.scene.background = new THREE.Color(this.backgroundColor);
-                  }
-  
-                  // add sun
-                  {
-                    const skyColor = 0xB1E1FF;  // light blue
-                    const groundColor = 0xB97A20;  // brownish orange
-                    const intensity = 0.5
-                    const light = new THREE.HemisphereLight(skyColor, groundColor, intensity);
-                    this.scene.add(light);
-                  }
-  
-                  // add directional light
-                  {
-                    const color = 0xFFFFFF;
-                    const intensity = 0.8;
-                    const light = new THREE.DirectionalLight(color, intensity);
-                    light.position.set(2, 3, 1.5);
-                    light.target.position.set(0, 0, 0);
-                    this.scene.add(light);
-                    this.scene.add(light.target);
-                  }
-  
+                  // while (this.$refs.mocap.lastChild) { // Keep this if needed for clearing, or remove if initScene handles it
+                  //   this.$refs.mocap.removeChild(this.$refs.mocap.lastChild)
+                  // }
+                  
                   // Load geometries for each animation
                   this.animations.forEach((animation, index) => {
                       for (let body in animation.data.bodies) {
@@ -1158,8 +1103,6 @@ const axiosInstance = axios.create();
                       this.scene.add(sprite);
                   });
 
-                  // Initial render
-                  this.renderer.render(this.scene, this.camera);
                 } finally {
                   this.trialLoading = false
                 }
@@ -1726,23 +1669,30 @@ const axiosInstance = axios.create();
         // Add lights
         const skyColor = 0xB1E1FF;
         const groundColor = 0xB97A20;
-        const intensity = 0.5;
-        const hemisphereLight = new THREE.HemisphereLight(skyColor, groundColor, intensity);
+        const intensity = 0.1; // Base intensity for hemisphere light
+        const hemisphereLight = new THREE.HemisphereLight(skyColor, groundColor, intensity * this.globalLightIntensity);
         this.scene.add(hemisphereLight);
+        this.lights.hemisphere = hemisphereLight; // Store reference
 
-        const directionalLight = new THREE.DirectionalLight(0xFFFFFF, 0.8);
-        directionalLight.position.set(2, 3, 1.5);
-        directionalLight.target.position.set(0, 0, 0);
-        directionalLight.castShadow = true;
-        directionalLight.shadow.camera.left = -10;
-        directionalLight.shadow.camera.right = 10;
-        directionalLight.shadow.camera.top = -10;
-        directionalLight.shadow.camera.bottom = 10;
-        directionalLight.shadow.camera.near = 0;
-        directionalLight.shadow.camera.far = 50;
-        directionalLight.shadow.camera.zoom = 8;
-        this.scene.add(directionalLight);
-        this.scene.add(directionalLight.target);
+        // Add four directional lights from corners
+        const cornerPositions = [
+            { x: 10, y: 10, z: 10 },
+            { x: -10, y: 10, z: 10 },
+            { x: 10, y: 10, z: -10 },
+            { x: -10, y: 10, z: -10 }
+        ];
+        const lightIntensity = 0.5; // Base intensity for directional lights
+        const lightColor = 0xFFFFFF;
+
+        this.lights.directionals = []; // Clear previous references
+        cornerPositions.forEach(pos => {
+            const directionalLight = new THREE.DirectionalLight(lightColor, lightIntensity * this.globalLightIntensity);
+            directionalLight.position.set(pos.x, pos.y, pos.z);
+            directionalLight.target.position.set(0, 0, 0);
+            directionalLight.castShadow = false; // Disable shadows for performance initially
+            this.scene.add(directionalLight);
+            this.scene.add(directionalLight.target);
+        });
 
         // Initial render
         this.renderer.render(this.scene, this.camera);
@@ -4171,6 +4121,18 @@ const axiosInstance = axios.create();
         this.updateGroundColor(result.sRGBHex);
       } catch (e) {
         console.log('Eyedropper cancelled or failed:', e);
+      }
+    },
+    updateGlobalLightIntensity(value) {
+      if (this.lights.hemisphere) {
+        this.lights.hemisphere.intensity = 0.1 * value; // Use base intensity 0.1
+      }
+      this.lights.directionals.forEach(light => {
+        light.intensity = 0.5 * value; // Use base intensity 0.5
+      });
+      // Re-render the scene with updated light intensity
+      if (this.renderer) {
+        this.renderer.render(this.scene, this.camera);
       }
     },
   }
