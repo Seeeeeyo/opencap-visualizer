@@ -506,6 +506,10 @@
               <div class="ml-2" style="width: 120px; min-width: 120px;">
                 <v-text-field v-model="animation.trialName" dense hide-details class="trial-name-input" />
                 <div class="file-name text-caption">{{ getFileName(animation) }}</div>
+                <!-- Add FPS display here -->
+                <div v-if="animation.calculatedFps" class="fps-info text-caption grey--text">
+                  {{ animation.calculatedFps }} FPS
+                </div>
               </div>
               <div class="d-flex align-center flex-grow-1">
                 <v-menu offset-y :close-on-content-click="false">
@@ -1093,7 +1097,8 @@ const axiosInstance = axios.create();
                     data: res1.data, 
                     offset: new THREE.Vector3(0, 0, 0),
                     fileName: 'test.json',
-                    trialName: 'Subject 1'
+                    trialName: 'Subject 1',
+                    calculatedFps: 0 // Add this line
                 }
             ]
             
@@ -1106,13 +1111,20 @@ const axiosInstance = axios.create();
                     data: res2.data, 
                     offset: new THREE.Vector3(0, 0, -1),
                     fileName: 'test2.json',
-                    trialName: 'Subject 2'
+                    trialName: 'Subject 2',
+                    calculatedFps: 0 // Add this line
                 });
                 this.initializeAlphaValue(1);
             }
             
             // Calculate and set frame rate from the JSON file's time data
             this.frameRate = this.calculateFrameRate(res1.data.time);
+            // Store FPS for the first animation
+            this.animations[0].calculatedFps = this.frameRate;
+            // Calculate and store FPS for the second animation if it exists
+            if (this.animations.length > 1) {
+              this.animations[1].calculatedFps = this.calculateFrameRate(this.animations[1].data.time);
+            }
 
               this.$nextTick(() => {
                 try {
@@ -1612,19 +1624,23 @@ const axiosInstance = axios.create();
                     0     // Z: no offset (changed from startIndex + index)
                 );
 
+                // Calculate FPS for this specific file
+                const fileFps = this.calculateFrameRate(data.time);
+
                 this.animations.push({
                     data: data,
                     offset: offset,
                     fileName: file.name,
                     trialName: `Subject ${startIndex + index + 1}`,
-                    visible: true  // Add this line
+                    visible: true,  // Add this line
+                    calculatedFps: fileFps // Store calculated FPS
                 });
 
                 if (this.animations.length === 1) {
                     this.frames = data.time;
                     this.trial = { results: [] };
-                    // Calculate and set frame rate from first animation
-                    this.frameRate = this.calculateFrameRate(data.time);
+                    // Set the global frameRate based on the first file loaded
+                    this.frameRate = fileFps;
                 }
 
                 // Initialize the alpha value for the new animation
@@ -2284,13 +2300,17 @@ const axiosInstance = axios.create();
                 // Get the filename from the URL
                 const fileName = sampleFiles[index].split('/').pop();
                 
+                // Calculate FPS for this specific file
+                const fileFps = this.calculateFrameRate(data.time);
+
                 // Create animation data with better names
                 this.animations.push({
                     data: data,
                     offset: new THREE.Vector3(0, 0, 0),
                     fileName: fileName,
                     trialName: fileName.replace('sample_', '').replace('.json', ''),
-                    visible: true  // Add this line
+                    visible: true,  // Add this line
+                    calculatedFps: fileFps // Store calculated FPS
                 });
             });
             
@@ -2298,7 +2318,8 @@ const axiosInstance = axios.create();
             if (this.animations.length > 0) {
                 this.frames = this.animations[0].data.time;
                 this.trial = { results: [] };
-                this.frameRate = this.calculateFrameRate(this.animations[0].data.time);
+                // Set the global frameRate based on the first sample file loaded
+                this.frameRate = this.animations[0].calculatedFps;
             }
             
             // Force Vue to update the DOM before proceeding
@@ -4595,6 +4616,31 @@ const axiosInstance = axios.create();
 }
 
 // ... existing code ...
+
+.fps-info {
+  font-size: 10px;
+  margin-top: 1px;
+  text-align: left; // Align text to the left
+}
+
+.drop-zone {
+    width: 90%;
+    height: 80%;
+    min-height: 350px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    border: 3px dashed rgba(255, 255, 255, 0.2);
+    border-radius: 12px;
+    margin: 20px;
+    transition: all 0.3s ease;
+    
+    &:hover {
+        border-color: rgba(255, 255, 255, 0.4);
+        background: rgba(255, 255, 255, 0.08);
+    }
+  }
 </style>
   
   
