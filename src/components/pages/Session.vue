@@ -829,11 +829,17 @@ const axiosInstance = axios.create();
     async mounted() {
         console.log('Session component mounted');
         console.log('Current route:', this.$route.path);
+        
+        // Initialize the scene first
         this.initScene();
-        // Check if we're on the samples route when component is mounted
+        
+        // Check if we're on the samples route
         if (this.$route.path === '/samples' || this.$route.path === '/samples/') {
             console.log('Loading sample files from mounted hook');
-            this.loadSampleFiles();
+            // Add a small delay to ensure scene is fully initialized
+            setTimeout(() => {
+                this.loadSampleFiles();
+            }, 100);
         }
     },
     beforeDestroy() {
@@ -910,7 +916,10 @@ const axiosInstance = axios.create();
         console.log('Route changed to:', to.path);
         if (to.path === '/samples' || to.path === '/samples/') {
           console.log('Loading sample files from route watcher');
-          this.loadSampleFiles();
+          // Add a small delay to ensure scene is ready
+          setTimeout(() => {
+            this.loadSampleFiles();
+          }, 100);
         }
       }
     },
@@ -1910,12 +1919,12 @@ const axiosInstance = axios.create();
     handleDrop(event) {
       event.preventDefault();
       
-      const files = Array.from(event.dataTransfer.files);
-      
-      // Separate files by type
-      const jsonFiles = files.filter(file => file.name.toLowerCase().endsWith('.json'));
-      const osimFiles = files.filter(file => file.name.toLowerCase().endsWith('.osim'));
-      const motFiles = files.filter(file => file.name.toLowerCase().endsWith('.mot'));
+        const files = Array.from(event.dataTransfer.files);
+        
+        // Separate files by type
+        const jsonFiles = files.filter(file => file.name.toLowerCase().endsWith('.json'));
+        const osimFiles = files.filter(file => file.name.toLowerCase().endsWith('.osim'));
+        const motFiles = files.filter(file => file.name.toLowerCase().endsWith('.mot'));
       const videoFiles = files.filter(file => file.type === 'video/mp4' || file.type === 'video/webm');
       
       // Handle video files
@@ -1923,48 +1932,48 @@ const axiosInstance = axios.create();
         this.videoFile = videoFiles[0];
         this.videoUrl = URL.createObjectURL(this.videoFile);
       }
-      
-      // Handle JSON files directly
-      if (jsonFiles.length > 0) {
-        const dataTransfer = new DataTransfer();
-        jsonFiles.forEach(file => dataTransfer.items.add(file));
         
-        const fakeEvent = {
-          target: {
-            files: dataTransfer.files,
-            value: ''
-          }
-        };
-        
-        this.handleFileUpload(fakeEvent);
-      }
-      
-      // Handle OpenSim files
-      if (osimFiles.length > 0 || motFiles.length > 0) {
-        // If we have exactly one of each type, process them
-        if (osimFiles.length === 1 && motFiles.length === 1) {
-          this.osimFile = osimFiles[0];
-          this.motFile = motFiles[0];
-          this.convertAndLoadOpenSimFiles();
-        } 
-        // Otherwise, just store what we got and wait for the user to provide the missing file
-        else {
-          if (osimFiles.length === 1) {
-            this.osimFile = osimFiles[0];
-          }
-          if (motFiles.length === 1) {
-            this.motFile = motFiles[0];
-          }
-          
-          if (osimFiles.length > 1 || motFiles.length > 1) {
-            alert('Please drop exactly one .osim file and one .mot file');
-          }
+        // Handle JSON files directly
+        if (jsonFiles.length > 0) {
+            const dataTransfer = new DataTransfer();
+            jsonFiles.forEach(file => dataTransfer.items.add(file));
+            
+            const fakeEvent = {
+                target: {
+                    files: dataTransfer.files,
+                    value: ''
+                }
+            };
+            
+            this.handleFileUpload(fakeEvent);
         }
-      }
-      
+        
+        // Handle OpenSim files
+        if (osimFiles.length > 0 || motFiles.length > 0) {
+            // If we have exactly one of each type, process them
+            if (osimFiles.length === 1 && motFiles.length === 1) {
+                this.osimFile = osimFiles[0];
+                this.motFile = motFiles[0];
+                this.convertAndLoadOpenSimFiles();
+            } 
+            // Otherwise, just store what we got and wait for the user to provide the missing file
+            else {
+                if (osimFiles.length === 1) {
+                    this.osimFile = osimFiles[0];
+                }
+                if (motFiles.length === 1) {
+                    this.motFile = motFiles[0];
+                }
+                
+                if (osimFiles.length > 1 || motFiles.length > 1) {
+                    alert('Please drop exactly one .osim file and one .mot file');
+                }
+            }
+        }
+        
       if (files.length === 0 || (jsonFiles.length === 0 && osimFiles.length === 0 && motFiles.length === 0 && videoFiles.length === 0)) {
         console.warn('Please drop JSON, OSIM, MOT, or video files');
-      }
+        }
     },
     deleteSubject(index) {
         // Remove meshes for this animation
@@ -2144,6 +2153,7 @@ const axiosInstance = axios.create();
         }
     },
     loadSampleFiles() {
+        console.log('loadSampleFiles called');
         // Define the URLs for the sample files with simple relative paths
         const sampleFiles = [
             '/samples/sample_mocap.json',
@@ -2158,6 +2168,27 @@ const axiosInstance = axios.create();
         this.animations = [];
         
         // Fetch all sample files
+        Promise.all(sampleFiles.map(url => 
+            fetch(url)
+                .then(response => {
+                    if (!response.ok) {
+                        console.error(`Failed to load ${url}:`, response.status, response.statusText);
+                        throw new Error(`Failed to load ${url}: ${response.status} ${response.statusText}`);
+                    }
+                    return response.json();
+                })
+                .catch(error => {
+                    console.error(`Error loading ${url}:`, error);
+                    throw error;
+                })
+        ))
+        .catch(error => {
+            console.error('Error in loadSampleFiles:', error);
+            this.trialLoading = false;
+            // You might want to show an error message to the user here
+        });
+        
+        // Process the sample files first
         Promise.all(sampleFiles.map(url => 
             fetch(url).then(response => {
                 if (!response.ok) {
@@ -4057,109 +4088,109 @@ const axiosInstance = axios.create();
   height: 100vh;
   position: relative;
   
-  .viewer {
-    height: 100%;
+    .viewer {
+      height: 100%;
     position: relative;
-
-    #mocap {
-      width: 100%;
+  
+      #mocap {
+          width: 100%;
       height: calc(100% - 60px); // Reduce height to make room for controls
       position: relative;
       overflow: visible;
+      }
     }
-  }
   
-  .right {
-    flex: 0 0 350px;
-    height: 100%;
-    padding: 10px;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-
-    &::-webkit-scrollbar {
-      width: 8px;
-    }
-
-    .scene-controls {
-      background: rgba(0, 0, 0, 0.2);
-      border-radius: 4px;
+    .right {
+      flex: 0 0 350px;
+      height: 100%;
       padding: 10px;
-    }
-
-    .color-preview {
-      width: 32px !important;
-      min-width: 32px !important;
-      height: 24px !important;
-      border-radius: 4px !important;
-      border: 1px solid rgba(255, 255, 255, 0.3) !important;
-    }
-
-    .legend {
-      flex: 1;
       overflow-y: auto;
-      background: rgba(0, 0, 0, 0.2);
-      border-radius: 4px;
-      padding: 10px;
+      display: flex;
+      flex-direction: column;
 
-      .legend-item {
-        display: flex;
-        flex-direction: column;
-        align-items: flex-start;
-        padding: 5px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      &::-webkit-scrollbar {
+        width: 8px;
+      }
 
-        &:last-child {
-          border-bottom: none;
-        }
+      .scene-controls {
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 4px;
+        padding: 10px;
+      }
 
-        .color-box {
-          width: 20px;
-          height: 20px;
-          border-radius: 4px;
-          display: inline-block;
-          vertical-align: middle;
-        }
+      .color-preview {
+        width: 32px !important;
+        min-width: 32px !important;
+        height: 24px !important;
+        border-radius: 4px !important;
+        border: 1px solid rgba(255, 255, 255, 0.3) !important;
+      }
 
-        .trial-name {
-          font-weight: bold;
-          font-size: 14px;
-        }
+      .legend {
+        flex: 1;
+        overflow-y: auto;
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 4px;
+        padding: 10px;
 
-        .file-name {
-          opacity: 0.7;
-          font-size: 12px;
-        }
-
-        .offset-controls {
+        .legend-item {
           display: flex;
-          gap: 10px;
-          width: 100%;
-          flex-wrap: wrap;
-        }
+          flex-direction: column;
+          align-items: flex-start;
+          padding: 5px;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 
-        // Add new styles for button spacing
-        .v-btn {
-          margin-left: 4px !important;
-          min-width: 32px !important;
-          width: 32px !important;
-          height: 32px !important;
-          padding: 0 !important;
+          &:last-child {
+            border-bottom: none;
+          }
+
+          .color-box {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            display: inline-block;
+            vertical-align: middle;
+          }
+
+          .trial-name {
+            font-weight: bold;
+            font-size: 14px;
+          }
+
+          .file-name {
+            opacity: 0.7;
+            font-size: 12px;
+          }
+
+          .offset-controls {
+            display: flex;
+            gap: 10px;
+            width: 100%;
+            flex-wrap: wrap;
+          }
+
+          // Add new styles for button spacing
+          .v-btn {
+            margin-left: 4px !important;
+            min-width: 32px !important;
+            width: 32px !important;
+            height: 32px !important;
+            padding: 0 !important;
+          }
         }
       }
     }
-  }
 
-  .controls-container {
+    .controls-container {
     height: 60px; // Fixed height for controls
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: 4px;
-    margin: 5px;
-    padding: 8px;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 4px;
+      margin: 5px;
+      padding: 8px;
     display: flex;
     align-items: center;
+    }
   }
-}
 
 .trial-name-input {
     .v-input__slot {
