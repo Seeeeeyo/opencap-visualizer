@@ -4259,11 +4259,12 @@ const axiosInstance = axios.create();
   
   .viewer {
     height: 100%;
-    position: relative;
+    // Remove fixed position, let it be part of the flex flow
+    // position: relative; 
     transition: margin-right 0.3s ease;
   
     &:not(.sidebar-hidden):not(.is-embedded) {
-      margin-right: 50px;
+      margin-right: 400px; // Match sidebar width
     }
   
     #mocap {
@@ -4291,6 +4292,8 @@ const axiosInstance = axios.create();
 
     &.hidden {
       transform: translateX(100%);
+      // Add display: none or visibility: hidden if transform is not enough
+      // Or ensure position: fixed keeps it out of flow
     }
 
     &::-webkit-scrollbar {
@@ -4376,11 +4379,13 @@ const axiosInstance = axios.create();
 
   .sidebar-toggle {
     position: fixed !important;
-    top: 50%;
-    transform: translateY(-50%);
+    top: 50%; // Keep vertical centering
+    // Adjust transform based on sidebar state for correct placement
+    // transform: translateY(-50%); // This might interfere with right positioning
     z-index: 101;
     transition: right 0.3s ease;
-    right: 50px;
+    // Right position is dynamically set via :style binding, which is correct
+    // right: 50px; // Remove static right style
     background: rgba(30, 30, 30, 0.8) !important;
     
     &:hover {
