@@ -829,16 +829,21 @@ const axiosInstance = axios.create();
     async mounted() {
         console.log('Session component mounted');
         console.log('Current route:', this.$route.path);
-        
+        console.log('Query params:', this.$route.query);
+
         // Initialize the scene first
         this.initScene();
-        
-        // Check if we're on the samples route
-        if (this.$route.path === '/samples' || this.$route.path === '/samples/') {
-            console.log('Loading sample files from mounted hook');
+
+        // Check if we should load samples based on route path OR query parameter
+        const shouldLoadSamples = 
+            (this.$route.path === '/samples' || this.$route.path === '/samples/') ||
+            (this.$route.query.load_samples === 'true');
+
+        if (shouldLoadSamples) {
+            console.log('Loading sample files from mounted hook (triggered by route or query param)');
             // Add a small delay to ensure scene is fully initialized
             setTimeout(() => {
-            this.loadSampleFiles();
+                this.loadSampleFiles();
             }, 100);
         }
     },
