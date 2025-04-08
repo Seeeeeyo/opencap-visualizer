@@ -155,7 +155,8 @@
           </v-btn>
         </div>
       </div>
-      <div class="right d-flex flex-column">
+      <!-- Right Panel: Controls, Legend, etc. -->
+      <div class="right d-flex flex-column" v-if="$route.query.embed !== 'true'">
         <!-- Add recording controls -->
         <div class="recording-controls mb-4">
           <!-- Control buttons row -->
