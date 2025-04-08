@@ -64,7 +64,7 @@
         ></div>
       </div>
       
-      <div class="viewer flex-grow-1" @dragover.prevent @drop.prevent="handleDrop">
+      <div class="viewer flex-grow-1" :class="{ 'sidebar-hidden': !showSidebar }" @dragover.prevent @drop.prevent="handleDrop">
         <div v-if="trial" class="d-flex flex-column h-100">
           <div id="mocap" ref="mocap" class="flex-grow-1 position-relative">
             <!-- Debug info -->
@@ -155,9 +155,21 @@
           </v-btn>
         </div>
       </div>
+
+      <!-- Toggle button for sidebar -->
+      <v-btn
+        icon
+        dark
+        class="sidebar-toggle"
+        @click="showSidebar = !showSidebar"
+        :style="{ right: showSidebar ? '400px' : '0' }"
+      >
+        <v-icon>{{ showSidebar ? 'mdi-chevron-right' : 'mdi-chevron-left' }}</v-icon>
+      </v-btn>
+
       <!-- Right Panel: Controls, Legend, etc. -->
-      <div class="right d-flex flex-column" v-if="$route.query.embed !== 'true'">
-        <!-- Add recording controls -->
+      <div class="right d-flex flex-column" :class="{ 'hidden': !showSidebar }" v-if="$route.query.embed !== 'true'">
+        <!-- Recording controls -->
         <div class="recording-controls mb-4">
           <!-- Control buttons row -->
           <div class="d-flex align-center mb-2">
@@ -247,7 +259,8 @@
             ></v-select>
           </div>
         </div>
-        <!-- Add file controls -->
+
+        <!-- File controls -->
         <div class="file-controls mb-4 position-relative">
           <!-- Show loading overlay when converting -->
           <div v-if="converting" class="conversion-overlay-small">
@@ -287,14 +300,16 @@
             <!-- Existing file chips etc. -->
           </div>
         </div>
-        <!-- Add sync controls -->
+
+        <!-- Sync controls -->
         <div class="sync-controls mb-4">
           <v-btn color="grey darken-3" class="mb-2 white--text" block @click="syncAllAnimations">
             <v-icon left>mdi-sync</v-icon>
             Sync All Subjects
           </v-btn>
         </div>
-        <!-- Add scene color controls -->
+
+        <!-- Scene color controls -->
         <div class="scene-controls mb-4">
           <div class="d-flex align-center mb-2">
             <div class="mr-4 d-flex align-center">
@@ -367,7 +382,8 @@
             ></v-slider>
           </div>
         </div>
-        <!-- Add Timelapse Controls -->
+
+        <!-- Timelapse Controls -->
         <div class="timelapse-controls mb-4">
           <v-switch
             v-model="timelapseMode"
@@ -405,148 +421,51 @@
               </v-btn>
             </div>
           </div>
+        </div>
 
-          <!-- Add Timelapse Manager Dialog -->
-          <v-dialog v-model="showTimelapseManager" max-width="500">
-            <v-card>
-              <v-card-title>Manage Timelapse Models</v-card-title>
-              <v-card-text>
-                <div v-for="(group, animIndex) in timelapseGroups" :key="animIndex" class="mb-4">
-                  <div class="d-flex align-center justify-space-between mb-2">
-                    <div class="subtitle-1">{{ animations[animIndex]?.trialName || `Subject ${animIndex + 1}` }}</div>
-                    <v-btn small text color="error" @click="deleteTimelapseGroup(animIndex)">
-                      Delete All
-                    </v-btn>
-                  </div>
-                  <v-list dense>
-                    <v-list-item v-for="frame in group" :key="frame" class="mb-1">
-                      <v-list-item-content>
-                        <v-list-item-title>
-                          Frame {{ frame }}
-                          <span class="text-caption grey--text ml-2">
-                            (Mesh ID: {{ getMeshIdForFrame(animIndex, frame) }})
-                          </span>
-                        </v-list-item-title>
-                      </v-list-item-content>
-                      <v-list-item-action>
-                        <v-btn small icon color="error" @click="deleteTimelapseFrame(animIndex, frame)">
-                          <v-icon small>mdi-delete</v-icon>
-                        </v-btn>
-                      </v-list-item-action>
-                    </v-list-item>
-                  </v-list>
+        <!-- Timelapse Manager Dialog -->
+        <v-dialog v-model="showTimelapseManager" max-width="500">
+          <v-card>
+            <v-card-title>Manage Timelapse Models</v-card-title>
+            <v-card-text>
+              <div v-for="(group, animIndex) in timelapseGroups" :key="animIndex" class="mb-4">
+                <div class="d-flex align-center justify-space-between mb-2">
+                  <div class="subtitle-1">{{ animations[animIndex]?.trialName || `Subject ${animIndex + 1}` }}</div>
+                  <v-btn small text color="error" @click="deleteTimelapseGroup(animIndex)">
+                    Delete All
+                  </v-btn>
                 </div>
-                <div v-if="Object.keys(timelapseGroups).length === 0" class="text-center grey--text">
-                  No timelapse models created yet
-                </div>
-              </v-card-text>
-              <v-card-actions>
-                <v-spacer></v-spacer>
-                <v-btn text @click="showTimelapseManager = false">Close</v-btn>
-              </v-card-actions>
-            </v-card>
-          </v-dialog>
-        </div>
-        
-        <!-- Add marker controls -->
-        <div class="marker-controls mb-4" v-if="Object.keys(markers).length > 0">
-          <v-card outlined class="pa-3">
-            <v-card-title class="subtitle-1 px-0 pt-0">Marker Settings</v-card-title>
-            
-            <v-switch
-              v-model="showMarkers"
-              label="Show Markers"
-              color="red"
-              @change="toggleMarkerVisibility"
-              class="mt-0"
-            ></v-switch>
-            
-            <div v-if="showMarkers">
-              <div class="d-flex align-center mb-2">
-                <div class="mr-2">Color:</div>
-                <v-menu offset-y>
-                  <template v-slot:activator="{ on, attrs }">
-                    <v-btn 
-                      small 
-                      v-bind="attrs" 
-                      v-on="on" 
-                      class="color-preview" 
-                      :style="{ backgroundColor: markerColor }"
-                    ></v-btn>
-                  </template>
-                  <v-card class="color-picker pa-2">
-                    <v-color-picker
-                      v-model="markerColor"
-                      hide-inputs
-                      hide-mode-switch
-                      @input="updateMarkerColor"
-                    ></v-color-picker>
-                  </v-card>
-                </v-menu>
+                <v-list dense>
+                  <v-list-item v-for="frame in group" :key="frame" class="mb-1">
+                    <v-list-item-content>
+                      <v-list-item-title>
+                        Frame {{ frame }}
+                        <span class="text-caption grey--text ml-2">
+                          (Mesh ID: {{ getMeshIdForFrame(animIndex, frame) }})
+                        </span>
+                      </v-list-item-title>
+                    </v-list-item-content>
+                    <v-list-item-action>
+                      <v-btn small icon color="error" @click="deleteTimelapseFrame(animIndex, frame)">
+                        <v-icon small>mdi-delete</v-icon>
+                      </v-btn>
+                    </v-list-item-action>
+                  </v-list-item>
+                </v-list>
               </div>
-              
-              <v-slider
-                v-model="markerSize"
-                label="Marker Size"
-                min="0.005"
-                max="0.05"
-                step="0.001"
-                thumb-label
-                @input="updateMarkerSize"
-              ></v-slider>
-              
-              <v-slider
-                v-model="markerScale"
-                label="Scale Factor"
-                min="0.01"
-                max="10"
-                step="0.01"
-                thumb-label
-                @input="updateMarkerScale"
-              ></v-slider>
-              
-              <div class="mt-3 subtitle-2">Markers: {{ Object.keys(markers).length }}</div>
-              <div class="text-caption">Current positions shown for frame: {{ frame }}</div>
-              
-              <!-- Add marker sync button when animations are present -->
-              <div v-if="animations.length > 0" class="marker-sync-controls mt-3">
-                <v-btn color="red lighten-2" small block @click="syncMarkersWithAnimations">
-                  <v-icon left small>mdi-sync</v-icon>
-                  Sync Markers with Animations
-                </v-btn>
-                <div class="text-caption mt-1">
-                  This will interpolate marker data to match the animation timeline.
-                </div>
+              <div v-if="Object.keys(timelapseGroups).length === 0" class="text-center grey--text">
+                No timelapse models created yet
               </div>
-              
-              <!-- Add marker legend -->
-              <v-expansion-panels flat class="mt-2">
-                <v-expansion-panel>
-                  <v-expansion-panel-header>
-                    Show Marker List
-                  </v-expansion-panel-header>
-                  <v-expansion-panel-content>
-                    <div class="marker-list" style="max-height: 200px; overflow-y: auto;">
-                      <v-chip
-                        v-for="markerName in Object.keys(markers)"
-                        :key="markerName"
-                        small
-                        class="ma-1"
-                        :color="markerColor"
-                        text-color="white"
-                      >
-                        {{ markerName }}
-                      </v-chip>
-                    </div>
-                  </v-expansion-panel-content>
-                </v-expansion-panel>
-              </v-expansion-panels>
-            </div>
+            </v-card-text>
+            <v-card-actions>
+              <v-spacer></v-spacer>
+              <v-btn text @click="showTimelapseManager = false">Close</v-btn>
+            </v-card-actions>
           </v-card>
-        </div>
-        
+        </v-dialog>
+
         <!-- Legend -->
-        <div class="legend mb-4">
+        <div class="legend flex-grow-1 mb-4">
           <div v-for="(animation, index) in animations" :key="index" class="legend-item mb-2">
             <div class="d-flex align-center mb-2">
               <div class="color-box" :style="{ backgroundColor: '#' + colors[index].getHexString() }"></div>
@@ -681,7 +600,105 @@
             </div>
           </div>
         </div>
-        <!-- Add credits at the bottom -->
+
+        <!-- Add marker controls -->
+        <div class="marker-controls mb-4" v-if="Object.keys(markers).length > 0">
+          <v-card outlined class="pa-3">
+            <v-card-title class="subtitle-1 px-0 pt-0">Marker Settings</v-card-title>
+            
+            <v-switch
+              v-model="showMarkers"
+              label="Show Markers"
+              color="red"
+              @change="toggleMarkerVisibility"
+              class="mt-0"
+            ></v-switch>
+            
+            <div v-if="showMarkers">
+              <div class="d-flex align-center mb-2">
+                <div class="mr-2">Color:</div>
+                <v-menu offset-y>
+                  <template v-slot:activator="{ on, attrs }">
+                    <v-btn 
+                      small 
+                      v-bind="attrs" 
+                      v-on="on" 
+                      class="color-preview" 
+                      :style="{ backgroundColor: markerColor }"
+                    ></v-btn>
+                  </template>
+                  <v-card class="color-picker pa-2">
+                    <v-color-picker
+                      v-model="markerColor"
+                      hide-inputs
+                      hide-mode-switch
+                      @input="updateMarkerColor"
+                    ></v-color-picker>
+                  </v-card>
+                </v-menu>
+              </div>
+              
+              <v-slider
+                v-model="markerSize"
+                label="Marker Size"
+                min="0.005"
+                max="0.05"
+                step="0.001"
+                thumb-label
+                @input="updateMarkerSize"
+              ></v-slider>
+              
+              <v-slider
+                v-model="markerScale"
+                label="Scale Factor"
+                min="0.01"
+                max="10"
+                step="0.01"
+                thumb-label
+                @input="updateMarkerScale"
+              ></v-slider>
+              
+              <div class="mt-3 subtitle-2">Markers: {{ Object.keys(markers).length }}</div>
+              <div class="text-caption">Current positions shown for frame: {{ frame }}</div>
+              
+              <!-- Add marker sync button when animations are present -->
+              <div v-if="animations.length > 0" class="marker-sync-controls mt-3">
+                <v-btn color="red lighten-2" small block @click="syncMarkersWithAnimations">
+                  <v-icon left small>mdi-sync</v-icon>
+                  Sync Markers with Animations
+                </v-btn>
+                <div class="text-caption mt-1">
+                  This will interpolate marker data to match the animation timeline.
+                </div>
+              </div>
+              
+              <!-- Add marker legend -->
+              <v-expansion-panels flat class="mt-2">
+                <v-expansion-panel>
+                  <v-expansion-panel-header>
+                    Show Marker List
+                  </v-expansion-panel-header>
+                  <v-expansion-panel-content>
+                    <div class="marker-list" style="max-height: 200px; overflow-y: auto;">
+                      <v-chip
+                        v-for="markerName in Object.keys(markers)"
+                        :key="markerName"
+                        small
+                        class="ma-1"
+                        :color="markerColor"
+                        text-color="white"
+                      >
+                        {{ markerName }}
+                      </v-chip>
+                    </div>
+                  </v-expansion-panel-content>
+                </v-expansion-panel>
+              </v-expansion-panels>
+            </div>
+          </v-card>
+        </div>
+        
+        <!-- Credits -->
         <div class="credits mt-auto pt-2 text-center">
           <div class="text-caption grey--text text--lighten-1">
             Developed by <a href="https://www.linkedin.com/in/selim-gilon/" target="_blank" class="text-decoration-none">Selim Gilon</a><br>
@@ -851,6 +868,7 @@ const axiosInstance = axios.create();
               dragOffset: { x: 0, y: 0 },
               resizeStartPosition: { x: 0, y: 0 },
               resizeStartSize: { width: 0, height: 0 },
+              showSidebar: true, // Add this line to control sidebar visibility
           }
       },
       computed: {
@@ -4143,148 +4161,182 @@ const axiosInstance = axios.create();
 .viewer-container {
   height: 100vh;
   position: relative;
+  overflow: hidden;
   
-    .viewer {
-      height: 100%;
+  .viewer {
+    height: 100%;
     position: relative;
+    transition: margin-right 0.3s ease;
   
-      #mocap {
-          width: 100%;
-      height: calc(100% - 60px); // Reduce height to make room for controls
-      position: relative;
-      overflow: visible;
-      }
+    &:not(.sidebar-hidden) {
+      margin-right: 50px;
     }
   
-    .right {
-      flex: 0 0 350px;
-      height: 100%;
-      padding: 10px;
+    #mocap {
+      width: 100%;
+      height: calc(100% - 60px);
+      position: relative;
+      overflow: visible;
+    }
+  }
+  
+  .right {
+    flex: 0 0 400px;
+    width: 400px;
+    height: 100%;
+    padding: 5px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    right: 0;
+    top: 0;
+    background: #1E1E1E;
+    transition: transform 0.3s ease;
+    z-index: 100;
+
+    &.hidden {
+      transform: translateX(100%);
+    }
+
+    &::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    // Adjust spacing for compact view
+    .mb-4 {
+      margin-bottom: 8px !important;
+    }
+
+    .scene-controls {
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 4px;
+      padding: 5px;
+    }
+
+    .color-preview {
+      width: 20px !important;
+      min-width: 20px !important;
+      height: 20px !important;
+      border-radius: 4px !important;
+      border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    }
+
+    .legend {
+      flex: 1;
       overflow-y: auto;
-      display: flex;
-      flex-direction: column;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 4px;
+      padding: 5px;
 
-      &::-webkit-scrollbar {
-        width: 8px;
-      }
+      .legend-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 3px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 
-      .scene-controls {
-        background: rgba(0, 0, 0, 0.2);
-        border-radius: 4px;
-        padding: 10px;
-      }
+        &:last-child {
+          border-bottom: none;
+        }
 
-      .color-preview {
-        width: 32px !important;
-        min-width: 32px !important;
-        height: 24px !important;
-        border-radius: 4px !important;
-        border: 1px solid rgba(255, 255, 255, 0.3) !important;
-      }
+        .color-box {
+          width: 20px;
+          height: 20px;
+          border-radius: 4px;
+          display: inline-block;
+        }
 
-      .legend {
-        flex: 1;
-        overflow-y: auto;
-        background: rgba(0, 0, 0, 0.2);
-        border-radius: 4px;
-        padding: 10px;
+        .trial-name {
+          font-size: 12px;
+          text-align: center;
+          width: 100%;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
 
-        .legend-item {
-          display: flex;
-          flex-direction: column;
-          align-items: flex-start;
-          padding: 5px;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        .file-name {
+          display: none;
+        }
 
-          &:last-child {
-            border-bottom: none;
-          }
+        .offset-controls {
+          display: none;
+        }
 
-          .color-box {
-            width: 20px;
-            height: 20px;
-            border-radius: 4px;
-            display: inline-block;
-            vertical-align: middle;
-          }
-
-          .trial-name {
-            font-weight: bold;
-            font-size: 14px;
-          }
-
-          .file-name {
-            opacity: 0.7;
-            font-size: 12px;
-          }
-
-          .offset-controls {
-            display: flex;
-            gap: 10px;
-            width: 100%;
-            flex-wrap: wrap;
-          }
-
-          // Add new styles for button spacing
-          .v-btn {
-            margin-left: 4px !important;
-            min-width: 32px !important;
-            width: 32px !important;
-            height: 32px !important;
-            padding: 0 !important;
-          }
+        .v-btn {
+          margin: 2px !important;
+          min-width: 20px !important;
+          width: 20px !important;
+          height: 20px !important;
+          padding: 0 !important;
         }
       }
     }
+  }
 
-    .controls-container {
-    height: 60px; // Fixed height for controls
-      background: rgba(0, 0, 0, 0.2);
-      border-radius: 4px;
-      margin: 5px;
-      padding: 8px;
-    display: flex;
-    align-items: center;
+  .sidebar-toggle {
+    position: fixed !important;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 101;
+    transition: right 0.3s ease;
+    right: 50px;
+    background: rgba(30, 30, 30, 0.8) !important;
+    
+    &:hover {
+      background: rgba(50, 50, 50, 0.9) !important;
     }
   }
 
+  .controls-container {
+    height: 60px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+    margin: 5px;
+    padding: 8px;
+    display: flex;
+    align-items: center;
+  }
+}
+
 .trial-name-input {
-    .v-input__slot {
-        margin-bottom: 0 !important;
-    }
-    input {
-        font-weight: bold !important;
-        font-size: 14px !important;
-    }
+  .v-input__slot {
+    margin-bottom: 0 !important;
+  }
+  input {
+    font-weight: bold !important;
+    font-size: 14px !important;
+  }
 }
 
 .color-picker {
-    background: #424242 !important;
-    max-width: 200px;
+  background: #424242 !important;
+  max-width: 200px;
 }
 
 .color-sample {
-    width: 24px;
-    height: 24px;
-    border-radius: 4px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 
-    &[style*="original"] {
-        background-color: #cccccc !important;
-        position: relative;
-        
-        &::after {
-            content: "O";
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: #000;
-            font-size: 12px;
-            font-weight: bold;
-      }
+  &[style*="original"] {
+    background-color: #cccccc !important;
+    position: relative;
+    
+    &::after {
+      content: "O";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: #000;
+      font-size: 12px;
+      font-weight: bold;
     }
   }
+}
 
 .drop-zone {
     width: 90%;
