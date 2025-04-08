@@ -834,16 +834,24 @@ const axiosInstance = axios.create();
         // Initialize the scene first
         this.initScene();
 
-        // Check if we should load samples based on route path OR query parameter
-        const shouldLoadSamples = 
-            (this.$route.path === '/samples' || this.$route.path === '/samples/') ||
-            (this.$route.query.load_samples === 'true');
+        // Determine if we need to load samples and which set
+        let sampleSetToLoad = null;
+        if (this.$route.query.sample_set && ['squat', 'walk', 'STS'].includes(this.$route.query.sample_set)) {
+            sampleSetToLoad = this.$route.query.sample_set;
+            console.log(`Query parameter found, loading sample set: ${sampleSetToLoad}`);
+        } else if (this.$route.query.load_samples === 'true') {
+            sampleSetToLoad = 'STS'; // Default set for the generic query
+            console.log('Generic load_samples query found, loading default set: STS');
+        } else if (this.$route.path === '/samples' || this.$route.path === '/samples/') {
+            sampleSetToLoad = 'STS'; // Default set for the /samples route
+            console.log('/samples route found, loading default set: STS');
+        }
 
-        if (shouldLoadSamples) {
-            console.log('Loading sample files from mounted hook (triggered by route or query param)');
+        if (sampleSetToLoad) {
+            console.log(`Loading sample set: ${sampleSetToLoad}`);
             // Add a small delay to ensure scene is fully initialized
             setTimeout(() => {
-                this.loadSampleFiles();
+                this.loadSampleFiles(sampleSetToLoad);
             }, 100);
         }
     },
@@ -2157,15 +2165,25 @@ const axiosInstance = axios.create();
             this.renderer.render(this.scene, this.camera);
         }
     },
-    loadSampleFiles() {
-        console.log('loadSampleFiles called');
-        // Define the URLs for the sample files relative to the root
+    loadSampleFiles(sampleSet = 'STS') { // Default to 'STS' if no set is provided
+        console.log(`loadSampleFiles called for set: ${sampleSet}`);
+        
+        // Validate sample set name, default to 'STS' if invalid
+        const validSets = ['squat', 'walk', 'STS'];
+        if (!validSets.includes(sampleSet)) {
+            console.warn(`Invalid sample set "${sampleSet}" provided. Defaulting to 'STS'.`);
+            sampleSet = 'STS';
+        }
+
+        // Define the URLs for the sample files relative to the root and the specific set
         const sampleFiles = [
-            '/samples/sample_mocap.json',
-            '/samples/sample_mono.json',
-            '/samples/sample_wham.json'
+            `/samples/${sampleSet}/sample_mocap.json`,
+            `/samples/${sampleSet}/sample_mono.json`,
+            `/samples/${sampleSet}/sample_wham.json`
         ];
         
+        console.log('Fetching sample files:', sampleFiles);
+
         // Show loading indicator
         this.trialLoading = true;
         
