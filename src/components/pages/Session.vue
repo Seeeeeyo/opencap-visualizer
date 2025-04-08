@@ -824,9 +824,9 @@ const axiosInstance = axios.create();
               lastFrameTime: 0,
               playSpeed: 1, // Playback speed multiplier
               colors: [
-                  new THREE.Color(0x00ff00),  // Green (first subject)
-                  new THREE.Color(0xff8000),  // Orange (second subject)
-                  new THREE.Color(0xff0000),  // Red (third subject)
+                  new THREE.Color(0xd3d3d3),  // Changed from Green to Light Grey (211, 211, 211)
+                  new THREE.Color(0x4995e0),  // Changed from Orange to RGB(73, 149, 224)
+                  new THREE.Color(0xe35335),  // Changed from Red to RGB(227, 83, 53)
                   new THREE.Color(0x0000ff),  // Blue
                   new THREE.Color(0xffff00),  // Yellow
                   new THREE.Color(0xff00ff),  // Magenta
