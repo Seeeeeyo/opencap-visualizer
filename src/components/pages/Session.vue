@@ -163,6 +163,7 @@
         class="sidebar-toggle"
         @click="showSidebar = !showSidebar"
         :style="{ right: showSidebar ? '400px' : '0' }"
+        v-if="$route.query.embed !== 'true'"
       >
         <v-icon>{{ showSidebar ? 'mdi-chevron-right' : 'mdi-chevron-left' }}</v-icon>
       </v-btn>
