@@ -2154,11 +2154,11 @@ const axiosInstance = axios.create();
     },
     loadSampleFiles() {
         console.log('loadSampleFiles called');
-        // Define the URLs for the sample files with simple relative paths
+        // Define the URLs for the sample files with correct paths
         const sampleFiles = [
-            '/samples/sample_mocap.json',
-            '/samples/sample_mono.json',
-            '/samples/sample_wham.json'
+            'samples/sample_mocap.json',
+            'samples/sample_mono.json',
+            'samples/sample_wham.json'
         ];
         
         // Show loading indicator
@@ -2185,7 +2185,8 @@ const axiosInstance = axios.create();
         .catch(error => {
             console.error('Error in loadSampleFiles:', error);
             this.trialLoading = false;
-            // You might want to show an error message to the user here
+            // Show error message to the user
+            alert('Failed to load sample files. Please try again.');
         });
         
         // Process the sample files first
