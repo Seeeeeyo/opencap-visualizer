@@ -1,8 +1,77 @@
 <template>
     <div class="viewer-container d-flex">
+      <!-- Top-level video container - always rendered -->
+      <div id="video-overlay" v-if="videoFile" :style="{
+        position: 'fixed',
+        top: videoPosition.y + 'px',
+        left: videoPosition.x + 'px',
+        width: videoSize.width + 'px',
+        background: '#000',
+        border: '2px solid #fff',
+        borderRadius: '8px',
+        zIndex: 99999,
+        boxShadow: '0 4px 20px rgba(0,0,0,0.8)',
+        overflow: 'hidden',
+        cursor: isDragging ? 'grabbing' : 'default'
+      }">
+        <div 
+          :style="{
+            display: 'flex',
+            justifyContent: 'space-between',
+            padding: '4px',
+            background: 'rgba(0,0,0,0.8)',
+            cursor: 'grab'
+          }"
+          @mousedown="startDrag"
+          @touchstart="startDrag"
+        >
+          <div style="display: flex; align-items: center;">
+            <v-icon x-small dark class="mr-1">mdi-drag</v-icon>
+            <span class="caption white--text">Drag to move</span>
+          </div>
+          <div>
+            <v-btn icon x-small dark @click="toggleVideoPreview" class="mr-1">
+              <v-icon>{{ videoMinimized ? 'mdi-arrow-expand' : 'mdi-arrow-collapse' }}</v-icon>
+            </v-btn>
+            <v-btn icon x-small dark @click="closeVideo">
+              <v-icon>mdi-close</v-icon>
+            </v-btn>
+          </div>
+        </div>
+        <video 
+          ref="videoPreview" 
+          :style="{ width: '100%', height: 'auto', minHeight: videoMinimized ? '120px' : '200px' }"
+          @loadedmetadata="handleVideoMetadata"
+          controls
+        >
+          <source :src="videoUrl" :type="videoFile.type">
+          Your browser does not support the video tag.
+        </video>
+        
+        <!-- Resize handle -->
+        <div 
+          :style="{
+            position: 'absolute',
+            bottom: '0',
+            right: '0',
+            width: '20px',
+            height: '20px',
+            cursor: 'nwse-resize',
+            background: 'linear-gradient(135deg, transparent 50%, rgba(255,255,255,0.5) 50%)'
+          }"
+          @mousedown="startResize"
+          @touchstart="startResize"
+        ></div>
+      </div>
+      
       <div class="viewer flex-grow-1" @dragover.prevent @drop.prevent="handleDrop">
         <div v-if="trial" class="d-flex flex-column h-100">
-          <div id="mocap" ref="mocap" class="flex-grow-1" />
+          <div id="mocap" ref="mocap" class="flex-grow-1 position-relative">
+            <!-- Debug info -->
+            <div v-if="videoFile && !$refs.videoPreview" class="debug-info">
+              Video file loaded but preview not mounted
+            </div>
+          </div>
           <div class="controls-container" style="display: flex; align-items: center; padding: 0 10px;">
             <!-- Video controls on the left -->
             <VideoNavigation 
@@ -57,12 +126,15 @@
             <v-icon size="64" color="grey darken-1">mdi-file-upload-outline</v-icon>
             
             <!-- Show selected files if any, otherwise show the default prompt -->
-            <div v-if="osimFile || motFile" class="text-h6 grey--text text--darken-1 mt-4">
+            <div v-if="osimFile || motFile || videoFile" class="text-h6 grey--text text--darken-1 mt-4">
               <div v-if="osimFile" class="selected-file mb-2">
                 <v-chip small color="indigo" dark>{{ osimFile.name }}</v-chip>
               </div>
               <div v-if="motFile" class="selected-file mb-2">
                 <v-chip small color="indigo" dark>{{ motFile.name }}</v-chip>
+              </div>
+              <div v-if="videoFile" class="selected-file mb-2">
+                <v-chip small color="cyan" dark>{{ videoFile.name }}</v-chip>
               </div>
               <div v-if="osimFile && !motFile" class="missing-file-prompt">
                 Please add a .mot file to complete the pair
@@ -73,7 +145,7 @@
             </div>
             <div v-else class="text-h6 grey--text text--darken-1 mt-4">
               Drag & drop files here<br>
-              .json, or .osim + .mot files accepted
+              .json, .osim + .mot files, or video (mp4/webm) accepted
             </div>
           </div>
           
@@ -202,6 +274,13 @@
             <v-btn color="indigo darken-1" class="mb-2 white--text" block @click="$refs.osimMotFileInput.click()" :disabled="converting">
               <v-icon left>mdi-file-upload-outline</v-icon>
               Load OpenSim (.mot+.osim)
+            </v-btn>
+            
+            <!-- Add video file upload button -->
+            <input type="file" ref="videoFileInput" accept="video/mp4,video/webm" style="display: none" @change="handleVideoUpload" />
+            <v-btn color="cyan darken-1" class="mb-2 white--text" block @click="$refs.videoFileInput.click()">
+              <v-icon left>mdi-video</v-icon>
+              Load Video (mp4/webm)
             </v-btn>
             
             <!-- Existing file chips etc. -->
@@ -723,6 +802,19 @@ const axiosInstance = axios.create();
               markerScale: 1.0, // Scale factor for marker positions
               markerLight: null, // Remove this line
               markerTimeData: null, // Store marker time data
+              // Video preview props
+              videoFile: null,
+              videoUrl: null,
+              videoMinimized: false,
+              videoDuration: 0,
+              videoFrameRate: 30, // Default estimate
+              videoPosition: { x: 20, y: 20 }, // Default position
+              videoSize: { width: 300, height: 'auto' }, // Default size
+              isDragging: false,
+              isResizing: false,
+              dragOffset: { x: 0, y: 0 },
+              resizeStartPosition: { x: 0, y: 0 },
+              resizeStartSize: { width: 0, height: 0 },
           }
       },
       computed: {
@@ -745,6 +837,11 @@ const axiosInstance = axios.create();
         }
     },
     beforeDestroy() {
+      // Clean up video URL
+      if (this.videoUrl) {
+        URL.revokeObjectURL(this.videoUrl);
+      }
+      
       if (this.resizeObserver) {
         this.resizeObserver.unobserve(this.$refs.mocap)
       }
@@ -1204,7 +1301,8 @@ const axiosInstance = axios.create();
         });
       },
       togglePlay(value) {
-        this.playing = value
+        // Call the original method implementation
+        this.playing = value;
         if (this.playing) {
           // Reset timing references when starting playback
           this.lastFrameTime = performance.now();
@@ -1214,17 +1312,48 @@ const axiosInstance = axios.create();
         } else if (this.isRecording) {
           this.playing = true;
         }
+        
+        // Add video playback control with proper error handling
+        if (this.videoFile && this.$refs.videoPreview) {
+          try {
+            if (value) {
+              const playPromise = this.$refs.videoPreview.play();
+              if (playPromise !== undefined) {
+                playPromise.catch(error => {
+                  console.log('Video playback error:', error);
+                  // Don't throw the error, just log it
+                });
+              }
+            } else {
+              this.$refs.videoPreview.pause();
+            }
+          } catch (error) {
+            console.log('Video control error:', error);
+          }
+        }
       },
       onNavigate(frame) {
+        // Update frame and time
         this.frame = frame;
-        // Use the actual time from the frames array if available, otherwise calculate it
         if (this.frames[frame] !== undefined) {
             this.time = parseFloat(this.frames[frame]).toFixed(2);
         } else {
             this.time = parseFloat(frame / this.frameRate).toFixed(2);
         }
+        
         // Render the frame without advancing
         this.animateOneFrame();
+        
+        // Sync video playback position with proper error handling
+        if (this.videoFile && this.$refs.videoPreview) {
+          try {
+            const totalFrames = this.frames.length - 1;
+            const videoTimePosition = (frame / totalFrames) * this.videoDuration;
+            this.$refs.videoPreview.currentTime = videoTimePosition;
+          } catch (error) {
+            console.log('Video sync error:', error);
+          }
+        }
       },
     getFileName(animation) {
         // Extract filename from the URL used to load the animation
@@ -1779,54 +1908,63 @@ const axiosInstance = axios.create();
         this.renderer.render(this.scene, this.camera);
     },
     handleDrop(event) {
-        const files = Array.from(event.dataTransfer.files);
+      event.preventDefault();
+      
+      const files = Array.from(event.dataTransfer.files);
+      
+      // Separate files by type
+      const jsonFiles = files.filter(file => file.name.toLowerCase().endsWith('.json'));
+      const osimFiles = files.filter(file => file.name.toLowerCase().endsWith('.osim'));
+      const motFiles = files.filter(file => file.name.toLowerCase().endsWith('.mot'));
+      const videoFiles = files.filter(file => file.type === 'video/mp4' || file.type === 'video/webm');
+      
+      // Handle video files
+      if (videoFiles.length > 0) {
+        this.videoFile = videoFiles[0];
+        this.videoUrl = URL.createObjectURL(this.videoFile);
+      }
+      
+      // Handle JSON files directly
+      if (jsonFiles.length > 0) {
+        const dataTransfer = new DataTransfer();
+        jsonFiles.forEach(file => dataTransfer.items.add(file));
         
-        // Separate files by type
-        const jsonFiles = files.filter(file => file.name.toLowerCase().endsWith('.json'));
-        const osimFiles = files.filter(file => file.name.toLowerCase().endsWith('.osim'));
-        const motFiles = files.filter(file => file.name.toLowerCase().endsWith('.mot'));
+        const fakeEvent = {
+          target: {
+            files: dataTransfer.files,
+            value: ''
+          }
+        };
         
-        // Handle JSON files directly
-        if (jsonFiles.length > 0) {
-            const dataTransfer = new DataTransfer();
-            jsonFiles.forEach(file => dataTransfer.items.add(file));
-            
-            const fakeEvent = {
-                target: {
-                    files: dataTransfer.files,
-                    value: ''
-                }
-            };
-            
-            this.handleFileUpload(fakeEvent);
+        this.handleFileUpload(fakeEvent);
+      }
+      
+      // Handle OpenSim files
+      if (osimFiles.length > 0 || motFiles.length > 0) {
+        // If we have exactly one of each type, process them
+        if (osimFiles.length === 1 && motFiles.length === 1) {
+          this.osimFile = osimFiles[0];
+          this.motFile = motFiles[0];
+          this.convertAndLoadOpenSimFiles();
+        } 
+        // Otherwise, just store what we got and wait for the user to provide the missing file
+        else {
+          if (osimFiles.length === 1) {
+            this.osimFile = osimFiles[0];
+          }
+          if (motFiles.length === 1) {
+            this.motFile = motFiles[0];
+          }
+          
+          if (osimFiles.length > 1 || motFiles.length > 1) {
+            alert('Please drop exactly one .osim file and one .mot file');
+          }
         }
-        
-        // Handle OpenSim files
-        if (osimFiles.length > 0 || motFiles.length > 0) {
-            // If we have exactly one of each type, process them
-            if (osimFiles.length === 1 && motFiles.length === 1) {
-                this.osimFile = osimFiles[0];
-                this.motFile = motFiles[0];
-                this.convertAndLoadOpenSimFiles();
-            } 
-            // Otherwise, just store what we got and wait for the user to provide the missing file
-            else {
-                if (osimFiles.length === 1) {
-                    this.osimFile = osimFiles[0];
-                }
-                if (motFiles.length === 1) {
-                    this.motFile = motFiles[0];
-                }
-                
-                if (osimFiles.length > 1 || motFiles.length > 1) {
-                    alert('Please drop exactly one .osim file and one .mot file');
-                }
-            }
-        }
-        
-        if (files.length === 0 || (jsonFiles.length === 0 && osimFiles.length === 0 && motFiles.length === 0)) {
-            console.warn('Please drop JSON, OSIM, or MOT files');
-        }
+      }
+      
+      if (files.length === 0 || (jsonFiles.length === 0 && osimFiles.length === 0 && motFiles.length === 0 && videoFiles.length === 0)) {
+        console.warn('Please drop JSON, OSIM, MOT, or video files');
+      }
     },
     deleteSubject(index) {
         // Remove meshes for this animation
@@ -3708,7 +3846,208 @@ const axiosInstance = axios.create();
             // Use a toast or some other non-blocking notification
             console.log('Markers synchronized with animation timeline');
         });
-    }
+    },
+    // Video handling methods
+    handleVideoUpload(event) {
+      const file = event.target.files[0];
+      if (file && (file.type === 'video/mp4' || file.type === 'video/webm')) {
+        // Clean up previous video URL if it exists
+        if (this.videoUrl) {
+          URL.revokeObjectURL(this.videoUrl);
+        }
+        
+        this.videoFile = file;
+        this.videoUrl = URL.createObjectURL(file);
+        this.videoMinimized = false; // Ensure video starts in full size
+        
+        console.log('Video file loaded:', file.name);
+        
+        // Reset the input to allow reselecting the same file
+        event.target.value = '';
+        
+        // Force a redraw
+        this.$nextTick(() => {
+          console.log('Video container should be visible now');
+        });
+      }
+    },
+    
+    handleVideoMetadata() {
+      if (this.$refs.videoPreview) {
+        this.videoDuration = this.$refs.videoPreview.duration;
+        console.log('Video duration:', this.videoDuration);
+        
+        // Set initial video position based on current frame
+        if (this.frames.length > 0) {
+          const totalFrames = this.frames.length - 1;
+          const videoTimePosition = (this.frame / totalFrames) * this.videoDuration;
+          this.$refs.videoPreview.currentTime = videoTimePosition;
+        }
+      }
+    },
+    
+    toggleVideoPreview() {
+      this.videoMinimized = !this.videoMinimized;
+      
+      // Adjust width based on minimized state
+      if (this.videoMinimized) {
+        this.videoSize.width = 200;
+      } else {
+        this.videoSize.width = 300;
+      }
+    },
+    
+    closeVideo() {
+      if (this.videoUrl) {
+        URL.revokeObjectURL(this.videoUrl);
+      }
+      this.videoFile = null;
+      this.videoUrl = null;
+      this.videoDuration = 0;
+      console.log('Video closed');
+    
+      // Reset position and size for next time
+      this.videoPosition = { x: 20, y: 20 };
+      this.videoSize = { width: 300, height: 'auto' };
+    },
+    
+    handleVideoError(event) {
+      console.error('Video error:', event);
+      const video = event.target;
+      console.log('Video element state:', {
+        error: video.error,
+        networkState: video.networkState,
+        readyState: video.readyState,
+        src: video.src,
+        currentSrc: video.currentSrc
+      });
+    },
+    
+    startDrag(event) {
+      // Handle both mouse and touch events
+      const clientX = event.clientX || (event.touches && event.touches[0].clientX);
+      const clientY = event.clientY || (event.touches && event.touches[0].clientY);
+      
+      if (!clientX || !clientY) return;
+      
+      this.isDragging = true;
+      this.dragOffset = {
+        x: clientX - this.videoPosition.x,
+        y: clientY - this.videoPosition.y
+      };
+      
+      // Add move and end event listeners
+      if (event.type === 'mousedown') {
+        window.addEventListener('mousemove', this.doDrag);
+        window.addEventListener('mouseup', this.stopDrag);
+      } else {
+        window.addEventListener('touchmove', this.doDrag);
+        window.addEventListener('touchend', this.stopDrag);
+      }
+      
+      // Prevent default to avoid text selection
+      event.preventDefault();
+    },
+    
+    doDrag(event) {
+      if (!this.isDragging) return;
+      
+      const clientX = event.clientX || (event.touches && event.touches[0].clientX);
+      const clientY = event.clientY || (event.touches && event.touches[0].clientY);
+      
+      if (!clientX || !clientY) return;
+      
+      // Calculate new position
+      this.videoPosition = {
+        x: clientX - this.dragOffset.x,
+        y: clientY - this.dragOffset.y
+      };
+      
+      // Ensure the video stays within the viewport
+      const viewport = {
+        width: window.innerWidth,
+        height: window.innerHeight
+      };
+      
+      // Prevent dragging too far off-screen
+      if (this.videoPosition.x < -this.videoSize.width + 100) {
+        this.videoPosition.x = -this.videoSize.width + 100;
+      }
+      if (this.videoPosition.x > viewport.width - 100) {
+        this.videoPosition.x = viewport.width - 100;
+      }
+      if (this.videoPosition.y < 0) {
+        this.videoPosition.y = 0;
+      }
+      if (this.videoPosition.y > viewport.height - 50) {
+        this.videoPosition.y = viewport.height - 50;
+      }
+      
+      event.preventDefault();
+    },
+    
+    stopDrag() {
+      this.isDragging = false;
+      
+      // Remove event listeners
+      window.removeEventListener('mousemove', this.doDrag);
+      window.removeEventListener('mouseup', this.stopDrag);
+      window.removeEventListener('touchmove', this.doDrag);
+      window.removeEventListener('touchend', this.stopDrag);
+    },
+    
+    startResize(event) {
+      // Handle both mouse and touch events
+      const clientX = event.clientX || (event.touches && event.touches[0].clientX);
+      const clientY = event.clientY || (event.touches && event.touches[0].clientY);
+      
+      if (!clientX || !clientY) return;
+      
+      this.isResizing = true;
+      this.resizeStartPosition = { x: clientX, y: clientY };
+      this.resizeStartSize = { ...this.videoSize };
+      
+      // Add move and end event listeners
+      if (event.type === 'mousedown') {
+        window.addEventListener('mousemove', this.doResize);
+        window.addEventListener('mouseup', this.stopResize);
+      } else {
+        window.addEventListener('touchmove', this.doResize);
+        window.addEventListener('touchend', this.stopResize);
+      }
+      
+      // Prevent default to avoid text selection
+      event.preventDefault();
+    },
+    
+    doResize(event) {
+      if (!this.isResizing) return;
+      
+      const clientX = event.clientX || (event.touches && event.touches[0].clientX);
+      const clientY = event.clientY || (event.touches && event.touches[0].clientY);
+      
+      if (!clientX || !clientY) return;
+      
+      // Calculate width change
+      const widthChange = clientX - this.resizeStartPosition.x;
+      const heightChange = clientY - this.resizeStartPosition.y;
+      
+      // Update width with minimum size constraints
+      const newWidth = Math.max(200, this.resizeStartSize.width + widthChange);
+      this.videoSize.width = newWidth;
+      
+      event.preventDefault();
+    },
+    
+    stopResize() {
+      this.isResizing = false;
+      
+      // Remove event listeners
+      window.removeEventListener('mousemove', this.doResize);
+      window.removeEventListener('mouseup', this.stopResize);
+      window.removeEventListener('touchmove', this.doResize);
+      window.removeEventListener('touchend', this.stopResize);
+    },
   }
 }
 </script>
@@ -3718,107 +4057,109 @@ const axiosInstance = axios.create();
   height: 100vh;
   position: relative;
   
-    .viewer {
-      height: 100%;
-  
-      #mocap {
-          width: 100%;
-        overflow: hidden;
-  
-        canvas {
-          width: 100% !important;
-        }
-      }
-    }
-  
-    .right {
-      flex: 0 0 350px;
-      height: 100%;
-      padding: 10px;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
+  .viewer {
+    height: 100%;
+    position: relative;
 
-      &::-webkit-scrollbar {
-        width: 8px;
-      }
-
-      .scene-controls {
-        background: rgba(0, 0, 0, 0.2);
-        border-radius: 4px;
-        padding: 10px;
-      }
-
-      .color-preview {
-        width: 32px !important;
-        min-width: 32px !important;
-        height: 24px !important;
-        border-radius: 4px !important;
-        border: 1px solid rgba(255, 255, 255, 0.3) !important;
-      }
-
-      .legend {
-        flex: 1;
-        overflow-y: auto;
-        background: rgba(0, 0, 0, 0.2);
-        border-radius: 4px;
-        padding: 10px;
-
-        .legend-item {
-          display: flex;
-          flex-direction: column;
-          align-items: flex-start;
-          padding: 5px;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-
-          &:last-child {
-            border-bottom: none;
-          }
-
-          .color-box {
-            width: 20px;
-            height: 20px;
-            border-radius: 4px;
-            display: inline-block;
-            vertical-align: middle;
-          }
-
-          .trial-name {
-            font-weight: bold;
-            font-size: 14px;
-          }
-
-          .file-name {
-            opacity: 0.7;
-            font-size: 12px;
-          }
-
-          .offset-controls {
-            display: flex;
-            gap: 10px;
-            width: 100%;
-            flex-wrap: wrap;
-          }
-
-          // Add new styles for button spacing
-          .v-btn {
-            margin-left: 4px !important;
-            min-width: 32px !important;
-            width: 32px !important;
-            height: 32px !important;
-            padding: 0 !important;
-          }
-        }
-      }
-    }
-
-    .controls-container {
-      background: rgba(0, 0, 0, 0.2);
-      border-radius: 4px;
-      margin: 5px;
-      padding: 8px;
+    #mocap {
+      width: 100%;
+      height: calc(100% - 60px); // Reduce height to make room for controls
+      position: relative;
+      overflow: visible;
     }
   }
+  
+  .right {
+    flex: 0 0 350px;
+    height: 100%;
+    padding: 10px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+
+    &::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .scene-controls {
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 4px;
+      padding: 10px;
+    }
+
+    .color-preview {
+      width: 32px !important;
+      min-width: 32px !important;
+      height: 24px !important;
+      border-radius: 4px !important;
+      border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    }
+
+    .legend {
+      flex: 1;
+      overflow-y: auto;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 4px;
+      padding: 10px;
+
+      .legend-item {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 5px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+
+        &:last-child {
+          border-bottom: none;
+        }
+
+        .color-box {
+          width: 20px;
+          height: 20px;
+          border-radius: 4px;
+          display: inline-block;
+          vertical-align: middle;
+        }
+
+        .trial-name {
+          font-weight: bold;
+          font-size: 14px;
+        }
+
+        .file-name {
+          opacity: 0.7;
+          font-size: 12px;
+        }
+
+        .offset-controls {
+          display: flex;
+          gap: 10px;
+          width: 100%;
+          flex-wrap: wrap;
+        }
+
+        // Add new styles for button spacing
+        .v-btn {
+          margin-left: 4px !important;
+          min-width: 32px !important;
+          width: 32px !important;
+          height: 32px !important;
+          padding: 0 !important;
+        }
+      }
+    }
+  }
+
+  .controls-container {
+    height: 60px; // Fixed height for controls
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+    margin: 5px;
+    padding: 8px;
+    display: flex;
+    align-items: center;
+  }
+}
 
 .trial-name-input {
     .v-input__slot {
@@ -3936,6 +4277,44 @@ const axiosInstance = axios.create();
   padding: 8px;
   background: rgba(0, 0, 0, 0.2);
   border-radius: 4px;
+}
+
+.video-preview-container {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 9999;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+  transition: all 0.3s ease;
+  max-width: 30%;
+  min-width: 200px; // Add minimum width
+  background-color: #000;
+  border: 1px solid rgba(255, 255, 255, 0.2); // Add border to make it visible
+}
+
+.video-preview-container video {
+  width: 100%;
+  display: block;
+  background-color: #000;
+  min-height: 150px; // Increase minimum height
+}
+
+.video-controls {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 10000; // Increase z-index to be above video
+  display: flex;
+  gap: 4px; // Add gap between buttons
+  background-color: rgba(0, 0, 0, 0.7); // Make background more visible
+  border-radius: 4px;
+  padding: 4px;
+}
+
+.video-minimized {
+  width: 200px;
 }
   </style>
   
