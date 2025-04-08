@@ -547,8 +547,25 @@
                     </v-btn>
                   </template>
                   <v-card class="transparency-picker pa-3" width="250">
-                    <div class="text-subtitle-2 mb-2">Transparency</div>
-                    <v-slider v-model="alphaValues[index]" :min="0" :max="1" step="0.01" hide-details @input="updateAlpha(index, $event)">
+                    <div class="text-subtitle-2 mb-2">
+                      Transparency
+                      <span class="text-caption ml-2">
+                        ({{ Math.round((1 - alphaValues[index]) * 100) }}%)
+                      </span>
+                    </div>
+                    <v-slider 
+                      :value="(1 - alphaValues[index]) * 100"
+                      @input="value => updateAlpha(index, 1 - value / 100)"
+                      :min="0" 
+                      :max="100" 
+                      step="1" 
+                      hide-details 
+                      :thumb-label="true"
+                      thumb-size="24"
+                    >
+                      <template v-slot:thumb-label="{ value }">
+                        {{ Math.round(value) }}%
+                      </template>
                       <template v-slot:prepend>
                         <div class="text-caption grey--text">0%</div>
                       </template>
