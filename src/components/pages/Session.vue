@@ -365,22 +365,23 @@
                 </v-card>
               </v-menu>
             </div>
+            <!-- Add Light Intensity control here -->
+            <div class="d-flex align-center ml-4 flex-grow-1">
+              <div class="mr-2">Light:</div>
+              <v-slider
+                v-model="globalLightIntensity"
+                min="0"
+                max="3"
+                step="0.1"
+                thumb-label
+                dense
+                hide-details
+                @input="updateGlobalLightIntensity"
+                class="mt-0"
+              ></v-slider>
+            </div>
           </div>
-          <!-- Add Light Intensity Slider -->
-          <div class="d-flex align-center mt-2">
-            <div class="mr-2">Light Intensity:</div>
-            <v-slider
-              v-model="globalLightIntensity"
-              min="0"
-              max="3"
-              step="0.1"
-              thumb-label
-              dense
-              hide-details
-              @input="updateGlobalLightIntensity"
-              class="flex-grow-1"
-            ></v-slider>
-          </div>
+          
         </div>
 
         <!-- Timelapse Controls -->
@@ -469,96 +470,108 @@
           <div v-for="(animation, index) in animations" :key="index" class="legend-item mb-2">
             <div class="d-flex align-center mb-2">
               <div class="color-box" :style="{ backgroundColor: '#' + colors[index].getHexString() }"></div>
-              <div class="ml-2 flex-grow-1">
+              <div class="ml-2" style="width: 120px; min-width: 120px;">
                 <v-text-field v-model="animation.trialName" dense hide-details class="trial-name-input" />
                 <div class="file-name text-caption">{{ getFileName(animation) }}</div>
               </div>
-              <v-menu offset-y :close-on-content-click="false">
-                <template v-slot:activator="{ on, attrs }">
-                  <v-btn icon small v-bind="attrs" v-on="on" class="ml-2">
-                    <v-icon small>mdi-palette</v-icon>
-                  </v-btn>
-                </template>
-                <v-card class="color-picker pa-2">
-                  <div class="d-flex flex-wrap">
-                    <v-btn v-for="color in availableColors" :key="color" small icon class="ma-1" @click="updateSubjectColor(index, color)">
-                      <div class="color-sample" :style="{ backgroundColor: color }"></div>
+              <div class="d-flex align-center flex-grow-1">
+                <v-menu offset-y :close-on-content-click="false">
+                  <template v-slot:activator="{ on, attrs }">
+                    <v-btn icon small v-bind="attrs" v-on="on" class="ml-2">
+                      <v-icon small>mdi-palette</v-icon>
                     </v-btn>
-                  </div>
-                  <div class="mt-2 text-center">
-                    <v-btn small text @click.stop="showRgbPicker = !showRgbPicker">
-                      {{ showRgbPicker ? 'Use Preset Colors' : 'Use RGB Picker' }}
-                    </v-btn>
-                  </div>
-                  <div v-if="showRgbPicker" class="rgb-picker mt-2" @click.stop>
-                    <v-slider
-                      v-model="rgbValues[index].r"
-                      :min="0"
-                      :max="255"
-                      label="Red"
-                      hide-details
-                      @input="updateRgbColor(index)"
-                      @click.stop
-                    ></v-slider>
-                    <v-slider
-                      v-model="rgbValues[index].g"
-                      :min="0"
-                      :max="255"
-                      label="Green"
-                      hide-details
-                      @input="updateRgbColor(index)"
-                      @click.stop
-                    ></v-slider>
-                    <v-slider
-                      v-model="rgbValues[index].b"
-                      :min="0"
-                      :max="255"
-                      label="Blue"
-                      hide-details
-                      @input="updateRgbColor(index)"
-                      @click.stop
-                    ></v-slider>
-                    <div class="d-flex justify-center mt-2">
-                      <div class="color-preview" :style="{ backgroundColor: `rgb(${rgbValues[index].r}, ${rgbValues[index].g}, ${rgbValues[index].b})` }"></div>
+                  </template>
+                  <v-card class="color-picker pa-2">
+                    <div class="d-flex flex-wrap">
+                      <v-btn v-for="color in availableColors" :key="color" small icon class="ma-1" @click="updateSubjectColor(index, color)">
+                        <div class="color-sample" :style="{ backgroundColor: color }"></div>
+                      </v-btn>
                     </div>
-                  </div>
-                  <!-- Add Eyedropper button -->
-                  <div class="mt-2 text-center">
-                    <v-btn small icon @click.stop="openEyedropper(index)" title="Pick color from screen">
-                      <v-icon small>mdi-eyedropper-variant</v-icon>
+                    <div class="mt-2 text-center">
+                      <v-btn small text @click.stop="showRgbPicker = !showRgbPicker">
+                        {{ showRgbPicker ? 'Use Preset Colors' : 'Use RGB Picker' }}
+                      </v-btn>
+                    </div>
+                    <div v-if="showRgbPicker" class="rgb-picker mt-2" @click.stop>
+                      <v-slider
+                        v-model="rgbValues[index].r"
+                        :min="0"
+                        :max="255"
+                        label="Red"
+                        hide-details
+                        @input="updateRgbColor(index)"
+                        @click.stop
+                      ></v-slider>
+                      <v-slider
+                        v-model="rgbValues[index].g"
+                        :min="0"
+                        :max="255"
+                        label="Green"
+                        hide-details
+                        @input="updateRgbColor(index)"
+                        @click.stop
+                      ></v-slider>
+                      <v-slider
+                        v-model="rgbValues[index].b"
+                        :min="0"
+                        :max="255"
+                        label="Blue"
+                        hide-details
+                        @input="updateRgbColor(index)"
+                        @click.stop
+                      ></v-slider>
+                      <div class="d-flex justify-center mt-2">
+                        <div class="color-preview" :style="{ backgroundColor: `rgb(${rgbValues[index].r}, ${rgbValues[index].g}, ${rgbValues[index].b})` }"></div>
+                      </div>
+                    </div>
+                    <!-- Add Eyedropper button -->
+                    <div class="mt-2 text-center">
+                      <v-btn small icon @click.stop="openEyedropper(index)" title="Pick color from screen">
+                        <v-icon small>mdi-eyedropper-variant</v-icon>
+                      </v-btn>
+                    </div>
+                  </v-card>
+                </v-menu>
+                <v-btn icon small class="ml-2" @click="deleteSubject(index)">
+                  <v-icon small color="error">mdi-delete</v-icon>
+                </v-btn>
+                <v-btn icon small class="ml-2" @click="toggleSubjectVisibility(index)">
+                  <v-icon small :color="animations[index].visible ? 'white' : 'grey'">
+                    {{ animations[index].visible ? 'mdi-eye' : 'mdi-eye-off' }}
+                  </v-icon>
+                </v-btn>
+                <v-menu offset-y>
+                  <template v-slot:activator="{ on, attrs }">
+                    <v-btn icon small v-bind="attrs" v-on="on" class="ml-2" @click="prepareTransparencyMenu(index)">
+                      <v-icon small>mdi-opacity</v-icon>
                     </v-btn>
-                  </div>
-                </v-card>
-              </v-menu>
-              <v-btn icon small class="ml-2" @click="deleteSubject(index)">
-                <v-icon small color="error">mdi-delete</v-icon>
-              </v-btn>
-              <!-- Add visibility toggle button -->
-              <v-btn icon small class="ml-2" @click="toggleSubjectVisibility(index)">
-                <v-icon small :color="animations[index].visible ? 'white' : 'grey'">
-                  {{ animations[index].visible ? 'mdi-eye' : 'mdi-eye-off' }}
-                </v-icon>
-              </v-btn>
-              <!-- Add transparency button -->
-              <v-menu offset-y>
-                <template v-slot:activator="{ on, attrs }">
-                  <v-btn icon small v-bind="attrs" v-on="on" class="ml-2" @click="prepareTransparencyMenu(index)">
-                    <v-icon small>mdi-opacity</v-icon>
-                  </v-btn>
-                </template>
-                <v-card class="transparency-picker pa-3" width="250">
-                  <div class="text-subtitle-2 mb-2">Transparency</div>
-                  <v-slider v-model="alphaValues[index]" :min="0" :max="1" step="0.01" hide-details @input="updateAlpha(index, $event)">
-                    <template v-slot:prepend>
-                      <div class="text-caption grey--text">0%</div>
-                    </template>
-                    <template v-slot:append>
-                      <div class="text-caption grey--text">100%</div>
-                    </template>
-                  </v-slider>
-                </v-card>
-              </v-menu>
+                  </template>
+                  <v-card class="transparency-picker pa-3" width="250">
+                    <div class="text-subtitle-2 mb-2">Transparency</div>
+                    <v-slider v-model="alphaValues[index]" :min="0" :max="1" step="0.01" hide-details @input="updateAlpha(index, $event)">
+                      <template v-slot:prepend>
+                        <div class="text-caption grey--text">0%</div>
+                      </template>
+                      <template v-slot:append>
+                        <div class="text-caption grey--text">100%</div>
+                      </template>
+                    </v-slider>
+                  </v-card>
+                </v-menu>
+
+                <v-btn 
+                  small 
+                  text 
+                  class="ml-2" 
+                  v-if="animations[index].visible"
+                  @click="openMeshDialog(index)"
+                >
+                  <v-icon left small>mdi-cube-outline</v-icon>
+                  Meshes
+                </v-btn>
+              </div>
             </div>
+            
             <!-- Offset controls -->
             <div class="offset-controls mt-1">
               <div class="d-flex align-center">
@@ -567,37 +580,43 @@
                 <v-text-field label="Z" type="number" :step="0.5" :value="animation.offset.z" dense @input="updateOffset(index, 'z', $event)" style="width: 70px" />
               </div>
             </div>
-            
-            <!-- Individual Mesh Controls -->
-            <div class="mesh-controls mt-1" v-if="animations[index].visible">
-              <v-expansion-panels>
-                <v-expansion-panel>
-                  <v-expansion-panel-header>
-                    <div class="text-subtitle-2">Mesh Objects</div>
-                  </v-expansion-panel-header>
-                  <v-expansion-panel-content>
-                    <div class="mesh-groups">
-                      <div v-for="(items, groupName) in getGroupedMeshes(index)" :key="groupName" class="mb-3">
-                        <div class="group-header pa-1 mb-1 d-flex align-center">
-                          <v-btn icon small class="mr-2" @click="toggleGroupVisibility(index, groupName, items)">
-                            <v-icon small>{{ isGroupVisible(items) ? 'mdi-eye' : 'mdi-eye-off' }}</v-icon>
-                          </v-btn>
-                          <strong class="text-subtitle-2">{{ groupName }}</strong>
-                        </div>
-                        <div v-for="item in items" :key="item.key" class="d-flex align-center pa-1 pl-3">
-                          <v-btn icon x-small @click="toggleMeshVisibility(item.key)">
-                            <v-icon x-small :color="meshes[item.key] && meshes[item.key].visible !== false ? 'white' : 'grey'">
-                              {{ meshes[item.key] && meshes[item.key].visible !== false ? 'mdi-eye' : 'mdi-eye-off' }}
-                            </v-icon>
-                          </v-btn>
-                          <span class="ml-2 text-caption">{{ item.name }}</span>
-                        </div>
+
+            <!-- Add mesh dialog -->
+            <v-dialog
+              v-model="meshDialogs[index]"
+              max-width="400"
+            >
+              <v-card>
+                <v-card-title class="text-subtitle-1">
+                  Mesh Objects - {{ animation.trialName }}
+                  <v-spacer></v-spacer>
+                  <v-btn icon small @click="meshDialogs[index] = false">
+                    <v-icon small>mdi-close</v-icon>
+                  </v-btn>
+                </v-card-title>
+                <v-divider></v-divider>
+                <v-card-text class="pa-4">
+                  <div class="mesh-groups">
+                    <div v-for="(items, groupName) in getGroupedMeshes(index)" :key="groupName" class="mb-3">
+                      <div class="group-header pa-2 d-flex align-center">
+                        <v-btn icon x-small class="mr-2" @click="toggleGroupVisibility(index, groupName, items)">
+                          <v-icon x-small>{{ isGroupVisible(items) ? 'mdi-eye' : 'mdi-eye-off' }}</v-icon>
+                        </v-btn>
+                        <strong>{{ groupName }}</strong>
+                      </div>
+                      <div v-for="item in items" :key="item.key" class="mesh-item d-flex align-center pa-2 pl-6">
+                        <v-btn icon x-small @click="toggleMeshVisibility(item.key)">
+                          <v-icon x-small :color="meshes[item.key] && meshes[item.key].visible !== false ? 'white' : 'grey'">
+                            {{ meshes[item.key] && meshes[item.key].visible !== false ? 'mdi-eye' : 'mdi-eye-off' }}
+                          </v-icon>
+                        </v-btn>
+                        <span class="ml-2">{{ item.name }}</span>
                       </div>
                     </div>
-                  </v-expansion-panel-content>
-                </v-expansion-panel>
-              </v-expansion-panels>
-            </div>
+                  </div>
+                </v-card-text>
+              </v-card>
+            </v-dialog>
           </div>
         </div>
 
@@ -869,6 +888,7 @@ const axiosInstance = axios.create();
               resizeStartPosition: { x: 0, y: 0 },
               resizeStartSize: { width: 0, height: 0 },
               showSidebar: true, // Add this line to control sidebar visibility
+              meshDialogs: {}, // Add this line to store mesh dialog states
           }
       },
       computed: {
@@ -4153,6 +4173,9 @@ const axiosInstance = axios.create();
         this.renderer.render(this.scene, this.camera);
       }
     },
+    openMeshDialog(index) {
+      this.meshDialogs[index] = true;
+    },
   }
 }
 </script>
@@ -4236,7 +4259,6 @@ const axiosInstance = axios.create();
       .legend-item {
         display: flex;
         flex-direction: column;
-        align-items: center;
         padding: 3px;
         border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 
@@ -4249,23 +4271,17 @@ const axiosInstance = axios.create();
           height: 20px;
           border-radius: 4px;
           display: inline-block;
-        }
-
-        .trial-name {
-          font-size: 12px;
-          text-align: center;
-          width: 100%;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
+          flex-shrink: 0; // Prevent color box from shrinking
         }
 
         .file-name {
-          display: none;
-        }
-
-        .offset-controls {
-          display: none;
+          font-size: 10px;
+          color: rgba(255, 255, 255, 0.5);
+          text-align: left; // Align text to the left
+          margin-top: 2px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
 
         .v-btn {
@@ -4274,6 +4290,14 @@ const axiosInstance = axios.create();
           width: 20px !important;
           height: 20px !important;
           padding: 0 !important;
+        }
+
+        // Style for the Meshes button
+        .v-btn.v-btn--text {
+          min-width: 80px !important;
+          width: auto !important;
+          height: 24px !important;
+          padding: 0 8px !important;
         }
       }
     }
@@ -4311,6 +4335,7 @@ const axiosInstance = axios.create();
   input {
     font-weight: bold !important;
     font-size: 14px !important;
+    min-width: 0 !important; // Add this to prevent input from expanding
   }
 }
 
@@ -4459,6 +4484,67 @@ const axiosInstance = axios.create();
 .video-minimized {
   width: 200px;
 }
-  </style>
+
+.mesh-controls {
+  .v-expansion-panels {
+    max-width: 200px;
+    background: transparent !important;
+    
+    .v-expansion-panel {
+      background: transparent !important;
+      
+      &::before {
+        box-shadow: none !important;
+      }
+      
+      .v-expansion-panel-header {
+        padding: 0 8px;
+        min-height: 32px;
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 4px;
+        
+        .v-expansion-panel-header__icon {
+          margin-left: 4px;
+          
+          .v-icon {
+            font-size: 18px;
+          }
+        }
+      }
+      
+      .v-expansion-panel-content {
+        background: rgba(0, 0, 0, 0.1);
+        border-radius: 4px;
+        margin-top: 4px;
+        
+        .v-expansion-panel-content__wrap {
+          padding: 4px;
+        }
+      }
+    }
+  }
+  
+  .mesh-groups {
+    .group-header {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+      margin-bottom: 4px;
+      font-size: 14px;
+    }
+    
+    .mesh-item {
+      border-radius: 4px;
+      transition: background-color 0.2s;
+      font-size: 13px;
+      
+      &:hover {
+        background: rgba(255, 255, 255, 0.05);
+      }
+    }
+  }
+}
+
+// ... existing code ...
+</style>
   
   
