@@ -1421,6 +1421,15 @@ const axiosInstance = axios.create();
             console.log('Video control error:', error);
           }
         }
+        
+        // Send play/pause state to parent window if running in an iframe
+        if (window.parent && window.parent !== window) {
+          try {
+            parent.postMessage({ type: value ? 'play' : 'pause' }, '*'); // Use targetOrigin '*' or specify parent domain
+          } catch (error) {
+            console.error('Error sending message to parent:', error);
+          }
+        }
       },
       onNavigate(frame) {
         // Update frame and time
@@ -4262,8 +4271,20 @@ const axiosInstance = axios.create();
       //   return;
       // }
 
+      // Check if data is a command object (play/pause)
+      if (typeof event.data === 'object' && event.data !== null && event.data.type) {
+        if (event.data.type === 'play') {
+          if (!this.playing) { // Only play if not already playing
+            this.togglePlay(true);
+          }
+        } else if (event.data.type === 'pause') {
+          if (this.playing) { // Only pause if not already paused
+            this.togglePlay(false);
+          }
+        }
+      }
       // Check if data is a number (video time)
-      if (typeof event.data === 'number' && isFinite(event.data)) {
+      else if (typeof event.data === 'number' && isFinite(event.data)) {
         const receivedTime = event.data;
         
         // Check if animation is loaded
