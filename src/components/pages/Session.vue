@@ -986,6 +986,9 @@ const axiosInstance = axios.create();
         console.log('Current route:', this.$route.path);
         console.log('Query params:', this.$route.query);
 
+        // Add keyboard event listeners
+        window.addEventListener('keydown', this.handleKeyDown);
+
         // Initialize the scene first
         this.initScene();
 
@@ -1031,6 +1034,9 @@ const axiosInstance = axios.create();
       
       // Remove message listener
       window.removeEventListener('message', this.handleIframeMessage);
+
+      // Remove keyboard event listener
+      window.removeEventListener('keydown', this.handleKeyDown);
     },
     watch: {
       trial() {
@@ -4398,7 +4404,59 @@ const axiosInstance = axios.create();
     },
     toggleLooping() {
       this.isLooping = !this.isLooping;
-    }
+    },
+    handleKeyDown(event) {
+      // Ignore keyboard events if we're in an input field
+      if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
+        return;
+      }
+
+      // Ignore if we don't have any frames loaded
+      if (!this.frames || this.frames.length === 0) {
+        return;
+      }
+
+      switch (event.code) {
+        case 'Space': {
+          // Toggle play/pause
+          event.preventDefault(); // Prevent page scroll
+          this.togglePlay(!this.playing);
+          break;
+        }
+
+        case 'ArrowLeft': {
+          // Previous frame
+          event.preventDefault();
+          this.playing = false; // Stop playback
+          const prevFrame = Math.max(0, this.frame - 1);
+          this.onNavigate(prevFrame);
+          break;
+        }
+
+        case 'ArrowRight': {
+          // Next frame
+          event.preventDefault();
+          this.playing = false; // Stop playback
+          const nextFrame = Math.min(this.frames.length - 1, this.frame + 1);
+          this.onNavigate(nextFrame);
+          break;
+        }
+
+        case 'ArrowUp': {
+          // Increase playback speed
+          event.preventDefault();
+          this.playSpeed = Math.min(4, this.playSpeed + 0.25);
+          break;
+        }
+
+        case 'ArrowDown': {
+          // Decrease playback speed
+          event.preventDefault();
+          this.playSpeed = Math.max(0.25, this.playSpeed - 0.25);
+          break;
+        }
+      }
+    },
   }
 }
 </script>
