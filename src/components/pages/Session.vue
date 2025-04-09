@@ -4364,6 +4364,7 @@ const axiosInstance = axios.create();
       }
     },
     updateGlobalLightIntensity(value) {
+      this.globalLightIntensity = value; // Update the component's data property
       if (this.lights.hemisphere) {
         this.lights.hemisphere.intensity = 0.1 * value; // Use base intensity 0.1
       }
