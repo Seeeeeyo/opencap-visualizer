@@ -548,6 +548,15 @@
                         <div class="color-sample" :style="{ backgroundColor: color }"></div>
                       </v-btn>
                     </div>
+                    <!-- Recent Colors Section -->
+                    <div v-if="recentSubjectColors.length > 0" class="mt-3">
+                      <div class="text-caption grey--text mb-1">Recent Colors</div>
+                      <div class="d-flex flex-wrap">
+                        <v-btn v-for="color in recentSubjectColors" :key="color" small icon class="ma-1" @click="updateSubjectColor(index, color)">
+                          <div class="color-sample" :style="{ backgroundColor: color }"></div>
+                        </v-btn>
+                      </div>
+                    </div>
                     <div class="mt-2 text-center">
                       <v-btn small text @click.stop="showRgbPicker = !showRgbPicker">
                         {{ showRgbPicker ? 'Use Preset Colors' : 'Use RGB Picker' }}
@@ -970,6 +979,8 @@ const axiosInstance = axios.create();
               resizeStartSize: { width: 0, height: 0 },
               showSidebar: true, // Add this line to control sidebar visibility
               meshDialogs: {}, // Add this line to store mesh dialog states
+              recentSubjectColors: [], // Store recent colors used for subjects
+              maxRecentColors: 8, // Maximum number of recent colors to store
           }
       },
       computed: {
@@ -2059,6 +2070,17 @@ const axiosInstance = axios.create();
         return left;
     },
     updateSubjectColor(index, colorHex) {
+        // Add color to recent colors if it's not 'original'
+        if (colorHex !== 'original' && !this.recentSubjectColors.includes(colorHex)) {
+            // Add new color to the beginning of the array
+            this.recentSubjectColors.unshift(colorHex);
+            // Keep only the maximum number of recent colors
+            if (this.recentSubjectColors.length > this.maxRecentColors) {
+                this.recentSubjectColors.pop();
+            }
+            this.saveSettings(); // Save after updating recent colors
+        }
+
         if (colorHex === 'original') {
             // Remove color override, revert to original material
             Object.keys(this.meshes).forEach(key => {
@@ -4511,6 +4533,7 @@ const axiosInstance = axios.create();
           if (settings.timelapseMode !== undefined) this.timelapseMode = settings.timelapseMode;
           if (settings.timelapseInterval) this.timelapseInterval = settings.timelapseInterval;
           if (settings.timelapseOpacity !== undefined) this.timelapseOpacity = settings.timelapseOpacity;
+          if (settings.recentSubjectColors) this.recentSubjectColors = settings.recentSubjectColors;
 
         } catch (e) {
           console.error('Error parsing settings from localStorage:', e);
@@ -4548,6 +4571,7 @@ const axiosInstance = axios.create();
         timelapseMode: this.timelapseMode,
         timelapseInterval: this.timelapseInterval,
         timelapseOpacity: this.timelapseOpacity,
+        recentSubjectColors: this.recentSubjectColors, // Save recent colors
       };
       try {
         localStorage.setItem('opencapVisualizerSettings', JSON.stringify(settings));
