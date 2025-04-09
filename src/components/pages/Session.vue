@@ -4352,7 +4352,8 @@ const axiosInstance = axios.create();
       }
     },
     openMeshDialog(index) {
-      this.meshDialogs[index] = true;
+      // Use $set to ensure reactivity when adding/modifying the property
+      this.$set(this.meshDialogs, index, true);
     },
     // Add method to handle incoming messages from parent window
     handleIframeMessage(event) {
