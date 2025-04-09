@@ -84,6 +84,10 @@
               @input="onNavigate" 
               class="mr-3" 
             />
+            <!-- Add Loop button here -->
+            <v-btn icon dark @click="toggleLooping" :disabled="videoControlsDisabled" class="mr-2">
+              <v-icon :color="isLooping ? 'indigo lighten-1' : 'grey'">{{ isLooping ? 'mdi-repeat' : 'mdi-repeat-off' }}</v-icon>
+            </v-btn>
             <!-- Playback speed control -->
             <div class="mr-3">
               <SpeedControl v-model="playSpeed" />
@@ -858,6 +862,7 @@ const axiosInstance = axios.create();
               isRecording: false,
               loopCount: Infinity, // Default to Infinite
               currentLoop: 0, // Stays 0 for infinite
+              isLooping: true, // Add this for playback looping
               textSprites: {}, // Store text sprites for each animation
               recordingFileName: 'animation-recording.webm', // Add default filename
               recordingFormat: 'webm', // Default recording format
@@ -1317,8 +1322,15 @@ const axiosInstance = axios.create();
                         return; // Exit this specific animate cycle
                     }
                 } else if (nextFrame >= this.frames.length) {
-                    // If not recording OR loopCount is Infinite, just loop back normally using modulo
-                    nextFrame = nextFrame % this.frames.length;
+                    // If not recording OR loopCount is Infinite, check playback looping
+                    if (this.isLooping) {
+                      // Loop back normally using modulo
+                      nextFrame = nextFrame % this.frames.length;
+                    } else {
+                      // If not looping, stop at the last frame
+                      nextFrame = this.frames.length - 1;
+                      this.playing = false; // Stop playback
+                    }
                 }
                 // If nextFrame < this.frames.length, it's a normal advance.
 
@@ -4382,6 +4394,9 @@ const axiosInstance = axios.create();
           this.onNavigate(targetFrame);
         }
       }
+    },
+    toggleLooping() {
+      this.isLooping = !this.isLooping;
     }
   }
 }
