@@ -986,11 +986,14 @@ const axiosInstance = axios.create();
         console.log('Current route:', this.$route.path);
         console.log('Query params:', this.$route.query);
 
+        // Load settings from localStorage first
+        this.loadSettings();
+
         // Add keyboard event listeners
         window.addEventListener('keydown', this.handleKeyDown);
 
         // Initialize the scene first
-        this.initScene();
+        this.initScene(); // initScene will now call applyLoadedSceneSettings
 
         // Determine if we need to load samples and which set
         let sampleSetToLoad = null;
@@ -1913,6 +1916,10 @@ const axiosInstance = axios.create();
 
         // Initial render
         this.renderer.render(this.scene, this.camera);
+
+        // Apply loaded settings *after* scene is fully initialized
+        console.log('[initScene] Calling applyLoadedSceneSettings() at the end of initScene.');
+        this.applyLoadedSceneSettings();
     },
     onChangeTime(time) {
         // Round the time value to 2 decimal places
@@ -2598,10 +2605,12 @@ const axiosInstance = axios.create();
     },
     updateBackgroundColor(color) {
         this.backgroundColor = color;
+        console.log(`[updateBackgroundColor] Method called with color: ${color}`); // Add log here
         if (this.scene) {
             this.scene.background = new THREE.Color(color);
             this.renderer.render(this.scene, this.camera);
         }
+        this.saveSettings(); // Explicitly save
     },
     updateGroundColor(color) {
         this.groundColor = color;
@@ -2626,6 +2635,7 @@ const axiosInstance = axios.create();
             
             this.renderer.render(this.scene, this.camera);
         }
+        this.saveSettings(); // Explicitly save
     },
     toggleGroundTexture() {
         this.useGroundTexture = !this.useGroundTexture;
@@ -2654,6 +2664,7 @@ const axiosInstance = axios.create();
             
             this.renderer.render(this.scene, this.camera);
         }
+        this.saveSettings(); // Explicitly save
     },
     toggleCheckerboard() {
         this.useCheckerboard = !this.useCheckerboard;
@@ -2717,14 +2728,18 @@ const axiosInstance = axios.create();
             
             this.renderer.render(this.scene, this.camera);
         }
+        this.saveSettings(); // Explicitly save
     },
     toggleGroundVisibility() {
+        // We need to update the data property first for the watcher/save to work
         this.showGround = !this.showGround;
-        
+
         if (this.groundMesh) {
             this.groundMesh.visible = this.showGround;
             this.renderer.render(this.scene, this.camera);
         }
+        // Watcher should handle saving now that this.showGround is updated
+        this.saveSettings(); // Let watcher handle this one as example
     },
     captureScreenshot() {
         if (!this.renderer) return;
@@ -2842,10 +2857,12 @@ const axiosInstance = axios.create();
             }
             alert(message);
         });
+        this.saveSettings(); // Save light intensity setting
     },
     updateAlpha(animationIndex, value) {
         // Update the alpha value for the specified animation
-        this.alphaValues[animationIndex] = value;
+        console.log(`[updateAlpha] Updating alpha for index ${animationIndex} to ${value}`);
+        this.$set(this.alphaValues, animationIndex, value); // Use $set for reactivity
 
         // Update all meshes for this animation
         Object.keys(this.meshes).forEach(key => {
@@ -2865,10 +2882,11 @@ const axiosInstance = axios.create();
         if (this.renderer) {
             this.renderer.render(this.scene, this.camera);
         }
+        this.saveSettings(); // Save light intensity setting
     },
     initializeAlphaValue(index) {
         // Set default opacity to 0.8, which matches what we set when creating materials
-        if (!this.alphaValues[index] && this.alphaValues[index] !== 0) {
+        if (this.alphaValues[index] === undefined) { // Check specifically for undefined
             this.$set(this.alphaValues, index, 0.8);
         }
         // Initialize RGB values
@@ -4353,6 +4371,7 @@ const axiosInstance = axios.create();
         light.intensity = 0.5 * value; // Use base intensity 0.5
       });
       // Re-render the scene with updated light intensity
+      this.saveSettings(); // Save light intensity setting
       if (this.renderer) {
         this.renderer.render(this.scene, this.camera);
       }
@@ -4404,6 +4423,7 @@ const axiosInstance = axios.create();
     },
     toggleLooping() {
       this.isLooping = !this.isLooping;
+      // Watcher handles saving
     },
     handleKeyDown(event) {
       // Ignore keyboard events if we're in an input field
@@ -4456,6 +4476,188 @@ const axiosInstance = axios.create();
           break;
         }
       }
+    },
+    // Method to load settings from localStorage
+    loadSettings() {
+      const savedSettings = localStorage.getItem('opencapVisualizerSettings');
+      console.log('Loading settings from localStorage:', savedSettings);
+      if (savedSettings) {
+        try {
+          const settings = JSON.parse(savedSettings);
+          console.log('Loading settings from localStorage:', settings);
+          
+          // Apply settings to data properties
+          if (settings.backgroundColor) this.backgroundColor = settings.backgroundColor;
+          if (settings.groundColor) this.groundColor = settings.groundColor;
+          if (settings.showGround !== undefined) this.showGround = settings.showGround;
+          if (settings.useGroundTexture !== undefined) this.useGroundTexture = settings.useGroundTexture;
+          if (settings.useCheckerboard !== undefined) this.useCheckerboard = settings.useCheckerboard;
+          if (settings.globalLightIntensity !== undefined) this.globalLightIntensity = settings.globalLightIntensity;
+          if (settings.playSpeed !== undefined) this.playSpeed = settings.playSpeed;
+          if (settings.recordingFormat) this.recordingFormat = settings.recordingFormat;
+          if (settings.videoBitrate) this.videoBitrate = settings.videoBitrate;
+          if (settings.loopCount !== undefined) this.loopCount = settings.loopCount;
+          if (settings.isLooping !== undefined) this.isLooping = settings.isLooping;
+          if (settings.captureMode) this.captureMode = settings.captureMode;
+          if (settings.markerColor) this.markerColor = settings.markerColor;
+          if (settings.markerSize) this.markerSize = settings.markerSize;
+          if (settings.markerScale) this.markerScale = settings.markerScale;
+          if (settings.showMarkers !== undefined) this.showMarkers = settings.showMarkers;
+          if (settings.showSidebar !== undefined) this.showSidebar = settings.showSidebar;
+          if (settings.videoPosition) this.videoPosition = settings.videoPosition;
+          if (settings.videoSize) this.videoSize = settings.videoSize;
+          if (settings.videoMinimized !== undefined) this.videoMinimized = settings.videoMinimized;
+          if (settings.timelapseMode !== undefined) this.timelapseMode = settings.timelapseMode;
+          if (settings.timelapseInterval) this.timelapseInterval = settings.timelapseInterval;
+          if (settings.timelapseOpacity !== undefined) this.timelapseOpacity = settings.timelapseOpacity;
+
+        } catch (e) {
+          console.error('Error parsing settings from localStorage:', e);
+          localStorage.removeItem('opencapVisualizerSettings'); // Clear corrupted data
+        }
+      } else {
+        console.log('No saved settings found in localStorage.');
+      }
+    },
+
+    // Method to save settings to localStorage
+    saveSettings() {
+      console.log('Saving settings to localStorage...');
+      const settings = {
+        backgroundColor: this.backgroundColor,
+        groundColor: this.groundColor,
+        showGround: this.showGround,
+        useGroundTexture: this.useGroundTexture,
+        useCheckerboard: this.useCheckerboard,
+        globalLightIntensity: this.globalLightIntensity,
+        playSpeed: this.playSpeed,
+        recordingFormat: this.recordingFormat,
+        videoBitrate: this.videoBitrate,
+        loopCount: this.loopCount,
+        isLooping: this.isLooping,
+        captureMode: this.captureMode,
+        markerColor: this.markerColor,
+        markerSize: this.markerSize,
+        markerScale: this.markerScale,
+        showMarkers: this.showMarkers,
+        showSidebar: this.showSidebar,
+        videoPosition: this.videoPosition,
+        videoSize: this.videoSize,
+        videoMinimized: this.videoMinimized,
+        timelapseMode: this.timelapseMode,
+        timelapseInterval: this.timelapseInterval,
+        timelapseOpacity: this.timelapseOpacity,
+      };
+      try {
+        localStorage.setItem('opencapVisualizerSettings', JSON.stringify(settings));
+        console.log('Settings saved successfully:', settings);
+      } catch (e) {
+        console.error('Error saving settings to localStorage:', e);
+      }
+    },
+
+    // Apply scene-related settings after scene initialization
+    applyLoadedSceneSettings() {
+      console.log('[applyLoadedSceneSettings] Applying settings to the scene...');
+      console.log('[applyLoadedSceneSettings] Scene exists:', !!this.scene, 'Renderer exists:', !!this.renderer);
+      if (!this.scene || !this.renderer) return;
+
+      console.log(`[applyLoadedSceneSettings] Applying Background: ${this.backgroundColor}, Ground: ${this.groundColor}, ShowGround: ${this.showGround}, UseTexture: ${this.useGroundTexture}, UseChecker: ${this.useCheckerboard}, Light: ${this.globalLightIntensity}`);
+      // Background color
+      this.updateBackgroundColor(this.backgroundColor);
+
+      // Ground settings
+      if (this.groundMesh) {
+          this.groundMesh.visible = this.showGround;
+          this.updateGroundColor(this.groundColor); // Update color first
+          
+          // Apply texture settings
+          const oldMaterial = this.groundMesh.material;
+          if (this.useGroundTexture) {
+              const textureToUse = this.useCheckerboard ? this.groundTexture : this.gridTexture;
+              if (!textureToUse && !this.useCheckerboard) {
+                // Ensure grid texture is loaded if needed
+                this.loadGridTexture(); 
+              }
+              this.groundMesh.material = new THREE.MeshPhongMaterial({
+                  map: this.useCheckerboard ? this.groundTexture : this.gridTexture,
+                  side: THREE.DoubleSide,
+                  color: new THREE.Color(this.groundColor)
+              });
+          } else {
+              this.groundMesh.material = new THREE.MeshPhongMaterial({
+                  color: new THREE.Color(this.groundColor),
+                  side: THREE.DoubleSide
+              });
+          }
+          if (oldMaterial && oldMaterial !== this.groundMesh.material) {
+            oldMaterial.dispose();
+          }
+      } else {
+          console.warn('[applyLoadedSceneSettings] Ground mesh not ready when applying settings.');
+          console.warn('[applyLoadedSceneSettings] Ground mesh not ready.');
+      }
+
+      // Light intensity
+      this.updateGlobalLightIntensity(this.globalLightIntensity);
+
+      // Marker settings that affect meshes
+      this.updateMarkerColor(); // Update material color
+      this.updateMarkerSize(); // Update geometry size
+      this.updateMarkerScale(); // Update positions based on scale
+      this.toggleMarkerVisibility(); // Set visibility
+
+      // Re-render to apply all changes
+      this.renderer.render(this.scene, this.camera);
+    },
+    loadGridTexture() {
+        if (this.gridTexture) return; // Already loaded
+
+        // Create grid texture if it doesn't exist
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        canvas.width = 512;
+        canvas.height = 512;
+        
+        // Fill with background color (slightly off-white for better visibility)
+        context.fillStyle = '#f0f0f0'; 
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Draw grid lines
+        context.strokeStyle = '#888888'; // Darker grey lines
+        context.lineWidth = 1;
+        
+        const gridSize = 32; // Size of grid cells
+        
+        // Draw vertical lines
+        for (let x = 0; x <= canvas.width; x += gridSize) {
+            context.beginPath();
+            context.moveTo(x + 0.5, 0); // Offset by 0.5 for sharper lines
+            context.lineTo(x + 0.5, canvas.height);
+            context.stroke();
+        }
+        
+        // Draw horizontal lines
+        for (let y = 0; y <= canvas.height; y += gridSize) {
+            context.beginPath();
+            context.moveTo(0, y + 0.5); // Offset by 0.5 for sharper lines
+            context.lineTo(canvas.width, y + 0.5);
+            context.stroke();
+        }
+        
+        // Create texture from canvas
+        this.gridTexture = new THREE.CanvasTexture(canvas);
+        this.gridTexture.wrapS = THREE.RepeatWrapping;
+        this.gridTexture.wrapT = THREE.RepeatWrapping;
+        this.gridTexture.magFilter = THREE.LinearFilter; // Use linear filter for smoother look
+        this.gridTexture.minFilter = THREE.LinearMipmapLinearFilter;
+        this.gridTexture.anisotropy = this.renderer ? this.renderer.capabilities.getMaxAnisotropy() : 1;
+        this.gridTexture.needsUpdate = true; 
+
+        // Adjust repeat based on plane size
+        const repeats = 20; // Match planeSize
+        this.gridTexture.repeat.set(repeats, repeats); 
+        console.log('Grid texture created and assigned.');
     },
   }
 }
