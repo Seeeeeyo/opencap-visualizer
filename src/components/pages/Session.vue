@@ -162,7 +162,7 @@
         dark
         class="sidebar-toggle"
         @click="showSidebar = !showSidebar"
-        :style="{ right: showSidebar ? '400px' : '0' }"
+        :style="{ right: showSidebar ? '460px' : '10px' }"
         v-if="$route.query.embed !== 'true'"
       >
         <v-icon>{{ showSidebar ? 'mdi-chevron-right' : 'mdi-chevron-left' }}</v-icon>
@@ -181,7 +181,27 @@
             <v-btn v-else color="grey" dark @click="stopRecording" class="mr-2" style="flex: 2;">
               <v-icon left>mdi-stop</v-icon>
               Stop
+              <span v-if="loopCount !== Infinity" class="caption ml-1">({{ currentLoop }}/{{ loopCount }})</span>
             </v-btn>
+            
+            <v-select
+              v-model="loopCount"
+              :items="[
+                {text: 'Infinite ∞', value: Infinity},
+                {text: '1 Loop', value: 1},
+                {text: '2 Loops', value: 2},
+                {text: '3 Loops', value: 3},
+                {text: '4 Loops', value: 4},
+                {text: '5 Loops', value: 5}
+              ]"
+              label="Loops"
+              dense
+              dark
+              class="format-selector mr-2"
+              hide-details
+              :disabled="isRecording"
+              style="flex: 1; min-width: 80px;"
+            ></v-select>
             
             <v-select
               v-model="recordingFormat"
@@ -836,6 +856,8 @@ const axiosInstance = axios.create();
               mediaRecorder: null,
               recordedChunks: [],
               isRecording: false,
+              loopCount: Infinity, // Default to Infinite
+              currentLoop: 0, // Stays 0 for infinite
               textSprites: {}, // Store text sprites for each animation
               recordingFileName: 'animation-recording.webm', // Add default filename
               recordingFormat: 'webm', // Default recording format
@@ -1247,30 +1269,66 @@ const axiosInstance = axios.create();
         }
       },
       animate() {
+        // Always schedule the next frame first
         requestAnimationFrame(this.animate);
-          
+
+        // If not playing, just render the current state and exit
+        if (!this.playing) {
+          if (this.renderer && this.scene && this.camera) {
+            this.renderer.render(this.scene, this.camera);
+          }
+          return;
+        }
+
         // Calculate time since last frame
         const currentTime = performance.now();
         const deltaTime = (currentTime - this.lastFrameTime) / 1000; // Convert to seconds
-          
+
         // Check if we have markers or animations to animate
         const hasContent = this.animations.length > 0 || Object.keys(this.markers).length > 0;
-          
-        if (this.playing && deltaTime >= (1 / this.frameRate) && hasContent) { // Only update time if playing
-            // Calculate how many frames should have advanced based on elapsed time
-            // Apply playback speed multiplier
+
+        // Only advance frames if playing, enough time passed, and content exists
+        if (deltaTime >= (1 / this.frameRate) && hasContent) {
             const framesToAdvance = Math.floor(deltaTime * this.frameRate * this.playSpeed);
-            
+
             if (framesToAdvance > 0) {
-                // Advance the frame
-                this.frame = (this.frame + framesToAdvance) % this.frames.length;
-                
-                // Update lastFrameTime based on the exact frames we advanced
-                // This prevents timing drift by keeping track of actual time used
+                let nextFrame = this.frame + framesToAdvance;
+                let loopNeedsReset = false;
+
+                // Check for loop completion *only* if recording AND loopCount is finite
+                if (this.isRecording && this.loopCount !== Infinity && nextFrame >= this.frames.length) {
+                    console.log(`Animate: Loop end detected. Loop ${this.currentLoop}/${this.loopCount}. Frame ${this.frame} -> ${nextFrame}`);
+                    if (this.currentLoop < this.loopCount) {
+                        this.currentLoop++;
+                        console.log(`Animate: Starting loop ${this.currentLoop}.`);
+                        // Reset frame to 0 for the new loop start
+                        nextFrame = 0;
+                        loopNeedsReset = true;
+                    } else {
+                        console.log('Animate: All loops completed. Stopping recording.');
+                        // Set frame to the last frame before stopping
+                        this.frame = this.frames.length - 1;
+                        this.time = parseFloat(this.frames[this.frame]).toFixed(2);
+                        this.animateOneFrame(); // Render the final frame
+                        this.stopRecording(); 
+                        this.playing = false; // Force playing to false immediately
+                        // Since stopRecording sets this.playing = false, the check at the
+                        // start of the next animate call will prevent further frame advancement.
+                        return; // Exit this specific animate cycle
+                    }
+                } else if (nextFrame >= this.frames.length) {
+                    // If not recording OR loopCount is Infinite, just loop back normally using modulo
+                    nextFrame = nextFrame % this.frames.length;
+                }
+                // If nextFrame < this.frames.length, it's a normal advance.
+
+                // Update the frame
+                this.frame = nextFrame;
+
+                // Update lastFrameTime
                 this.lastFrameTime = currentTime - (deltaTime - (framesToAdvance / (this.frameRate * this.playSpeed))) * 1000;
-                
-                // Update displayed time based on actual frames in the JSON
-                // If time data is available in frames array, use that, otherwise calculate from frame number
+
+                // Update displayed time
                 if (this.frames[this.frame] !== undefined) {
                     this.time = parseFloat(this.frames[this.frame]).toFixed(2);
                 } else {
@@ -1279,6 +1337,12 @@ const axiosInstance = axios.create();
                 
                 // Render the current frame
                 this.animateOneFrame();
+
+                // If a loop was just completed and we are starting the next one
+                if (loopNeedsReset) {
+                    // Ensure onNavigate syncs things like video if needed
+                    this.onNavigate(this.frame); 
+                }
             }
         } else if (!this.playing || !hasContent) {
             // Still render the scene even when not playing
@@ -1498,8 +1562,12 @@ const axiosInstance = axios.create();
     startRecording() {
       if (!this.renderer) return;
       
+      // Reset to beginning when starting recording
+      this.frame = 0;
+      this.onNavigate(0);
+      
       const canvas = this.renderer.domElement;
-      const stream = canvas.captureStream(this.frameRate); // Now using dynamic frame rate
+      const stream = canvas.captureStream(this.frameRate);
       
       // Set the appropriate MIME type and file extension based on the selected format
       let mimeType, fileExtension;
@@ -1520,7 +1588,7 @@ const axiosInstance = axios.create();
       try {
         this.mediaRecorder = new MediaRecorder(stream, {
           mimeType: mimeType,
-          videoBitsPerSecond: this.videoBitrate // Use the selected bitrate
+          videoBitsPerSecond: this.videoBitrate
         });
       } catch (error) {
         console.warn(`${mimeType} not supported, falling back to webm format`, error);
@@ -1528,11 +1596,18 @@ const axiosInstance = axios.create();
         this.recordingFileName = 'animation-recording.webm';
         this.mediaRecorder = new MediaRecorder(stream, {
           mimeType: 'video/webm;codecs=vp9',
-          videoBitsPerSecond: this.videoBitrate // Use the selected bitrate
+          videoBitsPerSecond: this.videoBitrate
         });
       }
       
       this.recordedChunks = [];
+      // Only reset currentLoop if not in infinite mode
+      if (this.loopCount !== Infinity) {
+        this.currentLoop = 1;
+      } else {
+        this.currentLoop = 0; // Keep it 0 for infinite
+      }
+      
       this.mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           this.recordedChunks.push(event.data);
@@ -1550,6 +1625,7 @@ const axiosInstance = axios.create();
         a.click();
         window.URL.revokeObjectURL(url);
         this.recordedChunks = [];
+        this.currentLoop = 0;
       };
       
       // Start recording
@@ -1561,10 +1637,14 @@ const axiosInstance = axios.create();
         this.togglePlay(true);
       }
     },
+    
     stopRecording() {
       if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
-        this.mediaRecorder.stop();
+        this.mediaRecorder.stop(); // This triggers the onstop event handler eventually
         this.isRecording = false;
+        this.playing = false; // Explicitly stop playback
+        this.currentLoop = 0;
+        console.log('stopRecording called. isRecording and playing set to false.');
       }
     },
     calculateFrameRate(timeArray) {
@@ -4332,8 +4412,8 @@ const axiosInstance = axios.create();
   }
   
   .right {
-    flex: 0 0 400px;
-    width: 400px;
+    flex: 0 0 450px;
+    width: 450px;
     height: 100%;
     padding: 15px;  // Increased from 5px
     overflow-y: auto;
