@@ -1000,6 +1000,13 @@ const axiosInstance = axios.create();
         // Load settings from localStorage first
         this.loadSettings();
 
+        // Check for black=true parameter and override settings
+        if (this.$route.query.black === 'true') {
+            console.log('Setting black background and hiding ground');
+            this.backgroundColor = '#000000';
+            this.showGround = false;
+        }
+
         // Add keyboard event listeners
         window.addEventListener('keydown', this.handleKeyDown);
 
@@ -1108,11 +1115,27 @@ const axiosInstance = axios.create();
       },
       $route(to) {
         console.log('Route changed to:', to.path);
+        
+        // Handle black parameter
+        if (to.query.black === 'true') {
+            console.log('Setting black background and hiding ground');
+            this.backgroundColor = '#000000';
+            this.showGround = false;
+            // Apply settings immediately if scene exists
+            if (this.scene) {
+                this.scene.background = new THREE.Color(this.backgroundColor);
+                if (this.groundMesh) {
+                    this.groundMesh.visible = false;
+                }
+                this.renderer.render(this.scene, this.camera);
+            }
+        }
+        
         if (to.path === '/samples' || to.path === '/samples/') {
           console.log('Loading sample files from route watcher');
           // Add a small delay to ensure scene is ready
           setTimeout(() => {
-          this.loadSampleFiles();
+            this.loadSampleFiles();
           }, 100);
         }
       }
