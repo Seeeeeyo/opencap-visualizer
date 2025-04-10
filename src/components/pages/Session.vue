@@ -4422,6 +4422,11 @@ const axiosInstance = axios.create();
           if (this.playing) { // Only pause if not already paused
             this.togglePlay(false);
           }
+        } else if (event.data.type === 'loadJson') {
+          // Handle JSON data loading
+          if (event.data.jsonData) {
+            this.loadJsonData(event.data.jsonData);
+          }
         }
       }
       // Check if data is a number (video time)
@@ -4683,6 +4688,26 @@ const axiosInstance = axios.create();
         const repeats = 20; // Match planeSize
         this.gridTexture.repeat.set(repeats, repeats); 
         console.log('Grid texture created and assigned.');
+    },
+    // Add this new method
+    loadJsonData(jsonData) {
+        // Create a "virtual" File object with the JSON data
+        const jsonBlob = new Blob([JSON.stringify(jsonData)], { type: 'application/json' });
+        const jsonFile = new File([jsonBlob], 'data.json', { type: 'application/json' });
+        
+        // Use our existing file handler with a fake event
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(jsonFile);
+        
+        const fakeEvent = {
+            target: {
+                files: dataTransfer.files,
+                value: ''
+            }
+        };
+        
+        // Process the JSON using our existing handler
+        this.handleFileUpload(fakeEvent);
     },
   }
 }
