@@ -2407,7 +2407,7 @@ const axiosInstance = axios.create();
         console.log(`loadSampleFiles called for set: ${sampleSet}`);
         
         // Validate sample set name, default to 'STS' if invalid
-        const validSets = ['squat', 'walk', 'STS'];
+        const validSets = ['squat', 'walk', 'STS', 'rmasb']; // Added rmasb here too
         if (!validSets.includes(sampleSet)) {
             console.warn(`Invalid sample set "${sampleSet}" provided. Defaulting to 'STS'.`);
             sampleSet = 'STS';
@@ -2420,50 +2420,51 @@ const axiosInstance = axios.create();
             `/samples/${sampleSet}/sample_wham.json`
         ];
         
-        console.log('Fetching sample files:', sampleFiles);
+        console.log('Attempting to fetch potential sample files:', sampleFiles);
 
         // Show loading indicator
         this.trialLoading = true;
         
         // Clear existing animations before loading new ones
         this.animations = [];
+        this.clearExistingObjects(); // Clear meshes and sprites from previous loads
         
-        // Fetch all sample files
+        // Fetch all potential sample files, handling individual failures
         Promise.all(sampleFiles.map(url => 
             fetch(url)
                 .then(response => {
                     if (!response.ok) {
-                        console.error(`Failed to load ${url}:`, response.status, response.statusText);
-                        throw new Error(`Failed to load ${url}: ${response.status} ${response.statusText}`);
+                        // Log warning but don't throw error, return null to indicate failure
+                        console.warn(`Sample file not found or failed to load: ${url} (${response.status})`);
+                        return null; 
                     }
-                    return response.json();
+                    // If response is OK, parse JSON and pair with URL
+                    return response.json().then(data => ({ data, url }));
                 })
                 .catch(error => {
-                    console.error(`Error loading ${url}:`, error);
-                    throw error;
+                    // Catch network or other fetch errors
+                    console.warn(`Error fetching sample file ${url}:`, error);
+                    return null; // Indicate failure
                 })
         ))
-        .catch(error => {
-            console.error('Error in loadSampleFiles:', error);
-            this.trialLoading = false;
-            // Show error message to the user
-            alert('Failed to load sample files. Please try again.');
-        });
-        
-        // Process the sample files first
-        Promise.all(sampleFiles.map(url => 
-            fetch(url).then(response => {
-                if (!response.ok) {
-                    throw new Error(`Failed to load ${url}`);
-                }
-                return response.json();
-            })
-        ))
         .then(results => {
-            // Process the sample files first
-            results.forEach((data, index) => {
+            // Filter out null results (failed fetches)
+            const successfulResults = results.filter(r => r !== null);
+
+            console.log(`Successfully loaded ${successfulResults.length} sample files.`);
+
+            // If no files were loaded successfully, show an error or message
+            if (successfulResults.length === 0) {
+                console.error('No valid sample files found for set:', sampleSet);
+                alert(`Could not load any sample files for the set: ${sampleSet}. Please check the /public/samples/${sampleSet} folder.`);
+                this.trialLoading = false;
+                return; // Stop processing
+            }
+
+            // Process the successfully loaded files
+            successfulResults.forEach(({ data, url }, index) => {
                 // Get the filename from the URL
-                const fileName = sampleFiles[index].split('/').pop();
+                const fileName = url.split('/').pop();
                 
                 // Calculate FPS for this specific file
                 const fileFps = this.calculateFrameRate(data.time);
@@ -2474,24 +2475,26 @@ const axiosInstance = axios.create();
                     offset: new THREE.Vector3(0, 0, 0),
                     fileName: fileName,
                     trialName: fileName.replace('sample_', '').replace('.json', ''),
-                    visible: true,  // Add this line
+                    visible: true,  // Ensure visibility is true by default
                     calculatedFps: fileFps // Store calculated FPS
                 });
+                
+                // Set up the trial and frames from the *first successfully loaded* animation
+                if (index === 0) {
+                    this.frames = data.time;
+                    this.trial = { results: [] };
+                    // Set the global frameRate based on the first sample file loaded
+                    this.frameRate = this.animations[0].calculatedFps;
+                    console.log(`Using timeline and frame rate from: ${fileName}`);
+                }
             });
-            
-            // Set up the trial and frames from the first animation
-            if (this.animations.length > 0) {
-                this.frames = this.animations[0].data.time;
-                this.trial = { results: [] };
-                // Set the global frameRate based on the first sample file loaded
-                this.frameRate = this.animations[0].calculatedFps;
-            }
             
             // Force Vue to update the DOM before proceeding
             this.$nextTick(() => {
                 // Initialize the scene if needed
                 if (!this.scene || !this.renderer) {
-                    // Clear the container first
+                    console.log('Initializing scene for sample files...');
+                    // Clear the container first (should be handled by clearExistingObjects if needed)
                     const container = this.$refs.mocap;
                     if (container) {
                         while (container.firstChild) {
@@ -2507,15 +2510,17 @@ const axiosInstance = axios.create();
                         this.loadGeometriesForSamples();
                     }, 100);
                 } else {
-                    // Clear existing meshes and sprites
-                    this.clearExistingObjects();
+                    // Scene already exists, just load geometries
+                    console.log('Scene already exists, loading geometries for new samples...');
                     this.loadGeometriesForSamples();
                 }
             });
         })
         .catch(error => {
-            console.error('Error loading sample files:', error);
+            // This catch is for potential errors in the processing logic after Promise.all
+            console.error('Error processing sample files:', error);
             this.trialLoading = false;
+            alert('An unexpected error occurred while processing sample files.');
         });
     },
     clearExistingObjects() {
