@@ -1036,6 +1036,9 @@ const axiosInstance = axios.create();
               maxRecentColors: 8, // Maximum number of recent colors to store
               loadedMarkerFiles: [], // Add list to track loaded marker files
               showMarkerDialog: false, // Flag for the new marker visibility dialog
+              markerLabels: {}, // Store marker label sprites
+              activeMarkerLabel: null, // Track currently displayed label
+              markerLabelTimeout: null, // For label auto-hide timeout
           }
       },
       computed: {
@@ -1111,6 +1114,17 @@ const axiosInstance = axios.create();
           if (sprite.material.map) sprite.material.map.dispose();
           if (sprite.material) sprite.material.dispose();
       });
+      
+      // Clean up marker labels
+      Object.values(this.markerLabels).forEach(label => {
+          if (label.material.map) label.material.map.dispose();
+          if (label.material) label.material.dispose();
+      });
+      
+      // Remove double-click event listener
+      if (this.renderer && this.renderer.domElement) {
+          this.renderer.domElement.removeEventListener('dblclick', this.handleMarkerDoubleClick);
+      }
       
       // Remove message listener
       window.removeEventListener('message', this.handleIframeMessage);
@@ -3714,12 +3728,13 @@ const axiosInstance = axios.create();
         console.log(`TRC file contains ${lines.length} lines`);
         
         // First pass: find the data section marker lines (Frame# and coordinate labels)
+        console.log("--- TRC Header Inspection Start ---");
         for (let i = 0; i < Math.min(20, lines.length); i++) {
             const line = lines[i].trim();
             if (!line) continue;
             
-            // Debug first few lines
-            console.log(`Line ${i}: ${line.substring(0, 100)}${line.length > 100 ? '...' : ''}`);
+            // Log the header line being checked
+            console.log(`Inspecting Header Line ${i}: ${line}`);
             
             // Look for the line with "Frame" and "Time" which indicates column headers
             if (line.match(/Frame#?\s+Time/i)) {
@@ -3731,6 +3746,7 @@ const axiosInstance = axios.create();
                     xyzLabelsLineIndex = i+1;
                     console.log(`Found XYZ labels line at index ${i+1}`);
                     dataStartLineIndex = i+2; // Data starts after the XYZ labels
+                    console.log(`XYZ Labels Line Content: ${lines[xyzLabelsLineIndex]}`);
                 } else {
                     dataStartLineIndex = i+1; // Data starts right after headers
                 }
@@ -3746,7 +3762,8 @@ const axiosInstance = axios.create();
         
         // Extract column names from the header line
         columnNames = lines[dataHeaderLineIndex].split(/[\t\s]+/).filter(name => name.trim().length > 0);
-        console.log('Column headers found:', columnNames);
+        console.log(`Data Header Line Content: ${lines[dataHeaderLineIndex]}`);
+        console.log('Extracted Column Names:', columnNames);
         
         // Find the index of the time column
         frameTimeIndex = columnNames.indexOf('Time');
@@ -3777,6 +3794,7 @@ const axiosInstance = axios.create();
         
         console.log(`Parsed ${dataRows.length} data rows`);
         console.log(`Found ${columnNames.length} columns`);
+        console.log("--- TRC Header Inspection End ---");
         
         if (dataRows.length === 0) {
             console.error('No data rows found in TRC file');
@@ -3826,28 +3844,29 @@ const axiosInstance = axios.create();
         
         // Determine marker columns and their X,Y,Z patterns
         // Skip Frame# and Time columns (first two)
-        const markerCount = Math.floor((columnNames.length - 2) / 3);
-        console.log(`Expected marker count: ${markerCount}`);
+        const markerCount = columnNames.length - 2; // Use the actual number of names found
+        console.log(`Using actual marker count from header: ${markerCount}`);
         
-        // Process each marker (by groups of 3 columns: X, Y, Z)
+        // Process each marker
         for (let i = 0; i < markerCount; i++) {
-            const xCol = 2 + (i * 3);       // X column index
-            const yCol = xCol + 1;           // Y column index
-            const zCol = xCol + 2;           // Z column index
+            const xCol = 2 + (i * 3);       // X data column index in the data rows
+            const yCol = xCol + 1;           // Y data column index
+            const zCol = xCol + 2;           // Z data column index
 
-            // Make sure we have all three columns
-            if (zCol >= columnNames.length) {
-                console.warn(`[parseTrcFile] Not enough columns for marker index ${i}. Expected ${zCol}, have ${columnNames.length}. Skipping.`);
+            // Get the marker name using the direct index from the cleaned column names array
+            const markerNameFromHeader = columnNames[2 + i]; 
+            console.log(`[Marker ${i}] Name from Header Index ${2 + i}: "${markerNameFromHeader}"`);
+
+            // Check if we have enough data columns for this marker index
+            // Note: We compare zCol against the number of values found in the *first* data row as a proxy 
+            // for expected data columns, as the header might be misleading due to spacing.
+            if (dataRows.length > 0 && zCol >= dataRows[0].length) {
+                console.warn(`[Marker ${i}] Not enough data columns found in data rows for marker index ${i} (Name: ${markerNameFromHeader}). Expected column ${zCol}, but found ${dataRows[0].length}. Skipping.`);
                 continue;
             }
 
-            // Get marker name from column headers
-            let markerName = columnNames[xCol];
-
-            // Clean up marker name (remove .X, _X suffix, etc.)
-            markerName = markerName.replace(/\.X$|\.x$|_X$|_x$|X\d*$/, '');
-
-            // console.log(`[parseTrcFile] Processing marker: ${markerName} (columns ${xCol},${yCol},${zCol})`); // Keep commented unless needed
+            // Use the name extracted directly from the header array
+            let markerName = markerNameFromHeader; 
 
             // Initialize marker data structure
             this.markers[markerName] = {
@@ -3859,7 +3878,7 @@ const axiosInstance = axios.create();
             for (let rowIndex = 0; rowIndex < dataRows.length; rowIndex++) {
                 const row = dataRows[rowIndex];
 
-                // Make sure we have enough columns in this row
+                // Make sure we have enough columns in this specific row for data extraction
                 if (zCol < row.length) {
                     // XYZ coordinates for this marker in this frame
                     const x = parseFloat(row[xCol]);
@@ -3884,11 +3903,9 @@ const axiosInstance = axios.create();
                     this.markers[markerName].originalPositions.push({...nullPos});
                 }
             }
-            // Log after processing each marker
-            // console.log(`[parseTrcFile] Finished processing marker: ${markerName}. Position count: ${this.markers[markerName].positions.length}`);
         }
 
-        console.log(`[parseTrcFile] Finished processing all potential markers. Found ${Object.keys(this.markers).length} markers.`);
+        console.log(`[parseTrcFile] Finished processing all potential markers based on header names. Found ${Object.keys(this.markers).length} markers.`);
         console.log('[parseTrcFile] Marker keys found:', Object.keys(this.markers));
 
         // --- Move this block UP --- 
@@ -4047,15 +4064,25 @@ const axiosInstance = axios.create();
         console.log(`Creating ${Object.keys(this.markers).length} marker meshes`);
         
         // Create mesh for each marker
-        Object.keys(this.markers).forEach(markerName => {
-            const marker = this.markers[markerName];
+        Object.entries(this.markers).forEach(([markerName, markerData]) => {
             const mesh = new THREE.Mesh(geometry, material.clone());
             mesh.castShadow = true;
             mesh.receiveShadow = true;
             
+            // Store marker name on the mesh for event handling
+            mesh.userData.markerName = markerName;
+            
+            // Log the marker name being created
+            console.log(`Creating mesh for marker: ${markerName}`);
+            
+            // Add double-click event handling
+            mesh.userData.onDoubleClick = () => {
+                this.showMarkerLabel(markerName, mesh);
+            };
+            
             // If we have position data for the current frame
-            if (this.frame < marker.positions.length) {
-                const pos = marker.positions[this.frame];
+            if (this.frame < markerData.positions.length) {
+                const pos = markerData.positions[this.frame];
                 
                 // Only show marker if position is valid
                 if (pos && pos.x !== null && pos.y !== null && pos.z !== null) {
@@ -4079,9 +4106,14 @@ const axiosInstance = axios.create();
             // Add mesh to scene
             this.scene.add(mesh);
             
-            // Store reference to mesh
+            // Store reference to mesh with the correct marker name
             this.markerMeshes[markerName] = mesh;
         });
+
+        // Add double-click event listener to the renderer's DOM element
+        if (this.renderer && this.renderer.domElement) {
+            this.renderer.domElement.addEventListener('dblclick', this.handleMarkerDoubleClick);
+        }
 
         // Force an update of marker positions and visibility
         this.updateMarkerPositions(this.frame);
@@ -4091,69 +4123,99 @@ const axiosInstance = axios.create();
             this.renderer.render(this.scene, this.camera);
         }
     },
-    
-    // updateMarkerPositions(frame) {
-    //     // Only update if we have markers
-    //     if (Object.keys(this.markers).length === 0) {
-    //         return;
-    //     }
+
+    handleMarkerDoubleClick(event) {
+        event.preventDefault();
         
-    //     // Update position of each marker for the current frame
-    //     Object.keys(this.markers).forEach(markerName => {
-    //         const marker = this.markers[markerName];
-    //         const mesh = this.markerMeshes[markerName];
-            
-    //         if (mesh) {
-    //             let dataIsValid = false;
-    //             if (frame < marker.positions.length) {
-    //                 const pos = marker.positions[frame];
-    //                 dataIsValid = pos && pos.x !== null && pos.y !== null && pos.z !== null;
-                    
-    //                 if (dataIsValid) {
-    //                     mesh.position.set(
-    //                         pos.x * this.markerScale,
-    //                         pos.y * this.markerScale,
-    //                         pos.z * this.markerScale
-    //                     );
-    //                 }
-    //             }
-                
-    //             // Set visibility - markers should be visible by default if data is valid
-    //             mesh.visible = dataIsValid; // Remove dependency on showMarkers here since it's true by default
-    //         }
-    //     });
-    // },
-    clearMarkers() {
-        // Log marker clearing operation
-        console.log('Clearing marker meshes:', Object.keys(this.markerMeshes).length);
+        // Get mouse position
+        const mouse = new THREE.Vector2();
+        const rect = this.renderer.domElement.getBoundingClientRect();
+        mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+        // Set up raycaster
+        const raycaster = new THREE.Raycaster();
+        raycaster.setFromCamera(mouse, this.camera);
+
+        // Find intersected objects that are marker meshes
+        const intersects = raycaster.intersectObjects(Object.values(this.markerMeshes), true);
         
-        // Remove all marker meshes from scene
-        Object.entries(this.markerMeshes).forEach(([name, mesh]) => {
-            if (mesh) {
-                // Safely remove from scene
-                if (mesh.parent) {
-                    mesh.parent.remove(mesh);
-                }
-                
-                // Dispose geometry and material
-                if (mesh.geometry) {
-                    mesh.geometry.dispose();
-                }
-                if (mesh.material) {
-                    if (Array.isArray(mesh.material)) {
-                        mesh.material.forEach(material => material.dispose());
-                    } else {
-                        mesh.material.dispose();
-                    }
-                }
-                console.log(`Removed marker mesh: ${name}`);
+        if (intersects.length > 0) {
+            const mesh = intersects[0].object;
+            const markerName = mesh.userData.markerName;
+            console.log('Double-clicked marker:', markerName); // Debug log
+            if (markerName && this.markers[markerName]) {
+                this.showMarkerLabel(markerName, mesh);
             }
-        });
+        }
+    },
+
+    showMarkerLabel(markerName, mesh) {
+        // Clear any existing label timeout
+        if (this.markerLabelTimeout) {
+            clearTimeout(this.markerLabelTimeout);
+        }
+
+        // Remove existing label if it's for a different marker
+        if (this.activeMarkerLabel && this.activeMarkerLabel.userData.markerName !== markerName) {
+            this.scene.remove(this.activeMarkerLabel);
+        }
+
+        // Create or update label
+        if (!this.markerLabels[markerName]) {
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            canvas.width = 256;
+            canvas.height = 64;
+
+            // Set text style
+            context.font = 'bold 32px Arial';
+            context.textAlign = 'center';
+            context.fillStyle = '#ffffff';
+            context.strokeStyle = '#000000';
+            context.lineWidth = 4;
+
+            // Draw text with outline
+            context.strokeText(markerName, canvas.width/2, canvas.height/2);
+            context.fillText(markerName, canvas.width/2, canvas.height/2);
+
+            // Create sprite
+            const texture = new THREE.CanvasTexture(canvas);
+            const spriteMaterial = new THREE.SpriteMaterial({
+                map: texture,
+                transparent: true,
+                opacity: 0.8
+            });
+
+            const sprite = new THREE.Sprite(spriteMaterial);
+            sprite.scale.set(1, 0.25, 1);
+            sprite.userData.markerName = markerName;
+
+            this.markerLabels[markerName] = sprite;
+        }
+
+        const label = this.markerLabels[markerName];
         
-        // Clear marker mesh references
-        this.markerMeshes = {};
-        
-        // Render the scene to reflect changes
+        // Position label above marker
+        label.position.copy(mesh.position);
+        label.position.y += 0.1; // Offset above marker
+
+        // Add to scene if not already present
+        if (!this.scene.children.includes(label)) {
+            this.scene.add(label);
+        }
+
+        this.activeMarkerLabel = label;
+
+        // Auto-hide label after 3 seconds
+        this.markerLabelTimeout = setTimeout(() => {
+            if (this.activeMarkerLabel === label) {
+                this.scene.remove(label);
+                this.activeMarkerLabel = null;
+            }
+        }, 3000);
+
+        // Render scene
         if (this.renderer) {
             this.renderer.render(this.scene, this.camera);
         }
@@ -4978,6 +5040,62 @@ const axiosInstance = axios.create();
         });
         
         // Render the scene with updated transparency
+        if (this.renderer) {
+            this.renderer.render(this.scene, this.camera);
+        }
+    },
+    clearMarkers() {
+        // Clear existing marker labels
+        Object.values(this.markerLabels).forEach(label => {
+            if (label && label.parent) {
+                label.parent.remove(label);
+                if (label.material.map) {
+                    label.material.map.dispose();
+                }
+                label.material.dispose();
+            }
+        });
+        this.markerLabels = {};
+        this.activeMarkerLabel = null;
+        if (this.markerLabelTimeout) {
+            clearTimeout(this.markerLabelTimeout);
+        }
+
+        // Log marker clearing operation
+        console.log('Clearing marker meshes:', Object.keys(this.markerMeshes).length);
+        
+        // Remove all marker meshes from scene
+        Object.entries(this.markerMeshes).forEach(([name, mesh]) => {
+            if (mesh) {
+                // Safely remove from scene
+                if (mesh.parent) {
+                    mesh.parent.remove(mesh);
+                }
+                
+                // Dispose geometry and material
+                if (mesh.geometry) {
+                    mesh.geometry.dispose();
+                }
+                if (mesh.material) {
+                    if (Array.isArray(mesh.material)) {
+                        mesh.material.forEach(material => material.dispose());
+                    } else {
+                        mesh.material.dispose();
+                    }
+                }
+                console.log(`Removed marker mesh: ${name}`);
+            }
+        });
+        
+        // Clear marker mesh references
+        this.markerMeshes = {};
+        
+        // Remove double-click event listener
+        if (this.renderer && this.renderer.domElement) {
+            this.renderer.domElement.removeEventListener('dblclick', this.handleMarkerDoubleClick);
+        }
+        
+        // Render the scene to reflect changes
         if (this.renderer) {
             this.renderer.render(this.scene, this.camera);
         }
