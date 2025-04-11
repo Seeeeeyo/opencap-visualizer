@@ -1015,7 +1015,7 @@ const axiosInstance = axios.create();
 
         // Determine if we need to load samples and which set
         let sampleSetToLoad = null;
-        if (this.$route.query.sample_set && ['squat', 'walk', 'STS'].includes(this.$route.query.sample_set)) {
+        if (this.$route.query.sample_set && ['squat', 'walk', 'STS', 'rmasb'].includes(this.$route.query.sample_set)) {
             sampleSetToLoad = this.$route.query.sample_set;
             console.log(`Query parameter found, loading sample set: ${sampleSetToLoad}`);
         } else if (this.$route.query.load_samples === 'true') {
