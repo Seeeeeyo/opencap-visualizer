@@ -1000,11 +1000,15 @@ const axiosInstance = axios.create();
         // Load settings from localStorage first
         this.loadSettings();
 
-        // Check for black=true parameter and override settings
+        // Handle black and black_background parameters
         if (this.$route.query.black === 'true') {
-            console.log('Setting black background and hiding ground');
+            console.log('Setting black background AND hiding ground due to black=true');
             this.backgroundColor = '#000000';
-            this.showGround = false;
+            this.showGround = false; // Only hide ground for black=true
+        } else if (this.$route.query.black_background === 'true') {
+            console.log('Setting black background ONLY due to black_background=true');
+            this.backgroundColor = '#000000';
+            // Leave this.showGround as loaded from settings or default
         }
 
         // Add keyboard event listeners
@@ -1116,17 +1120,26 @@ const axiosInstance = axios.create();
       $route(to) {
         console.log('Route changed to:', to.path);
         
-        // Handle black parameter
+        // Handle black and black_background parameters
         if (to.query.black === 'true') {
-            console.log('Setting black background and hiding ground');
+            console.log('Setting black background AND hiding ground due to black=true');
             this.backgroundColor = '#000000';
-            this.showGround = false;
+            this.showGround = false; // Hide ground for black=true
             // Apply settings immediately if scene exists
             if (this.scene) {
                 this.scene.background = new THREE.Color(this.backgroundColor);
                 if (this.groundMesh) {
                     this.groundMesh.visible = false;
                 }
+                this.renderer.render(this.scene, this.camera);
+            }
+        } else if (to.query.black_background === 'true') {
+            console.log('Setting black background ONLY due to black_background=true');
+            this.backgroundColor = '#000000';
+            // Apply settings immediately if scene exists
+            if (this.scene) {
+                this.scene.background = new THREE.Color(this.backgroundColor);
+                // Do NOT change ground visibility here
                 this.renderer.render(this.scene, this.camera);
             }
         }
@@ -1890,13 +1903,13 @@ const axiosInstance = axios.create();
         this.controls = new THREE_OC.OrbitControls(this.camera, this.renderer.domElement);
 
         // Add plane
-        const planeSize = 20;
+        const planeSize = 8; // Reduced size
         const loader = new THREE.TextureLoader();
         const texture = loader.load('https://threejsfundamentals.org/threejs/resources/images/checker.png');
         texture.wrapS = THREE.RepeatWrapping;
         texture.wrapT = THREE.RepeatWrapping;
         texture.magFilter = THREE.NearestFilter;
-        const repeats = planeSize;
+        const repeats = planeSize; // Use the new planeSize for repeats
         texture.repeat.set(repeats, repeats);
         
         // Store the texture reference
