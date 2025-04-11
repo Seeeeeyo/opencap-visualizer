@@ -1238,8 +1238,8 @@ const axiosInstance = axios.create();
                             child.castShadow = false;
                                           child.material = new THREE.MeshPhongMaterial({ 
                                               color: this.colors[index],
-                                              transparent: true,
-                                              opacity: 0.8 // Slight transparency to better distinguish overlapping parts
+                                              transparent: false, // Default to opaque
+                                              opacity: 1.0 // Default to fully opaque
                                           });
                                       }
                                   });
@@ -1841,8 +1841,8 @@ const axiosInstance = axios.create();
                                         child.castShadow = false;
                                         child.material = new THREE.MeshPhongMaterial({ 
                                             color: this.colors[animIndex % this.colors.length],
-                                            transparent: true,
-                                            opacity: 0.8
+                                            transparent: false, // Default to opaque
+                                            opacity: 1.0 // Default to fully opaque
                                         });
                                     }
                                 });
@@ -1903,7 +1903,7 @@ const axiosInstance = axios.create();
         this.controls = new THREE_OC.OrbitControls(this.camera, this.renderer.domElement);
 
         // Add plane
-        const planeSize = 8; // Reduced size
+        const planeSize = 12; // Reduced size
         const loader = new THREE.TextureLoader();
         const texture = loader.load('https://threejsfundamentals.org/threejs/resources/images/checker.png');
         texture.wrapS = THREE.RepeatWrapping;
@@ -2126,8 +2126,8 @@ const axiosInstance = axios.create();
                         if (child instanceof THREE.Mesh) {
                             child.material = new THREE.MeshPhongMaterial({ 
                                 color: 0xcccccc,  // Default grey color
-                                transparent: false,
-                                opacity: 1
+                                transparent: false, // Revert to opaque
+                                opacity: 1.0 // Revert to fully opaque
                             });
                         }
                     });
@@ -2149,8 +2149,10 @@ const axiosInstance = axios.create();
                     mesh.traverse((child) => {
                         if (child instanceof THREE.Mesh) {
                             child.material.color = newColor;
-                            child.material.transparent = true;
-                            child.material.opacity = 0.8;
+                            // Keep current transparency settings when changing color
+                            // child.material.transparent = this.alphaValues[index] < 1.0;
+                            child.material.opacity = this.alphaValues[index];
+                            child.material.transparent = this.alphaValues[index] < 1.0; // Set transparent based on alpha
                             child.material.needsUpdate = true;
                         }
                     });
@@ -2603,8 +2605,8 @@ const axiosInstance = axios.create();
                                 child.castShadow = true;
                                 child.material = new THREE.MeshPhongMaterial({ 
                                     color: this.colors[index % this.colors.length],
-                                    transparent: true,
-                                    opacity: 0.8
+                                    transparent: false, // Default to opaque
+                                    opacity: 1.0 // Default to fully opaque
                                 });
                             }
                         });
@@ -2950,7 +2952,7 @@ const axiosInstance = axios.create();
     initializeAlphaValue(index) {
         // Set default opacity to 0.8, which matches what we set when creating materials
         if (this.alphaValues[index] === undefined) { // Check specifically for undefined
-            this.$set(this.alphaValues, index, 0.8);
+            this.$set(this.alphaValues, index, 1.0); // Default to 1.0 (fully opaque)
         }
         // Initialize RGB values
         this.initializeRgbValues(index);
