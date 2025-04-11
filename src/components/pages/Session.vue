@@ -166,7 +166,7 @@
         dark
         class="sidebar-toggle"
         @click="showSidebar = !showSidebar"
-        :style="{ right: showSidebar ? '460px' : '10px' }"
+        :style="{ right: showSidebar ? '370px' : '10px' }"
         v-if="$route.query.embed !== 'true'"
       >
         <v-icon>{{ showSidebar ? 'mdi-chevron-right' : 'mdi-chevron-left' }}</v-icon>
@@ -4993,19 +4993,16 @@ const axiosInstance = axios.create();
   overflow: hidden;
   font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
   
-  // Apply font to all text elements
   * {
     font-family: inherit;
   }
 
   .viewer {
     height: 100%;
-    // Remove fixed position, let it be part of the flex flow
-    // position: relative; 
     transition: margin-right 0.3s ease;
   
     &:not(.sidebar-hidden):not(.is-embedded) {
-      margin-right: 400px; // Match sidebar width
+      margin-right: 360px; // Reduced from 400px
     }
   
     #mocap {
@@ -5017,10 +5014,10 @@ const axiosInstance = axios.create();
   }
   
   .right {
-    flex: 0 0 450px;
-    width: 450px;
+    flex: 0 0 360px; // Reduced from 450px
+    width: 360px; // Reduced from 450px
     height: 100%;
-    padding: 15px;  // Increased from 5px
+    padding: 15px;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
@@ -5120,13 +5117,10 @@ const axiosInstance = axios.create();
 
   .sidebar-toggle {
     position: fixed !important;
-    top: 50%; // Keep vertical centering
-    // Adjust transform based on sidebar state for correct placement
-    // transform: translateY(-50%); // This might interfere with right positioning
+    top: 50%;
+    transform: translateY(-50%);
     z-index: 101;
     transition: right 0.3s ease;
-    // Right position is dynamically set via :style binding, which is correct
-    // right: 50px; // Remove static right style
     background: rgba(30, 30, 30, 0.8) !important;
     
     &:hover {
