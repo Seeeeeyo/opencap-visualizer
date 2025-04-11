@@ -149,7 +149,7 @@
             </div>
             <div v-else class="text-h6 grey--text text--darken-1 mt-4">
               Drag & drop files here<br>
-              .json, .osim + .mot files, or video (mp4/webm) accepted
+              .json, .trc, .osim + .mot files, or video (mp4/webm) accepted
             </div>
           </div>
           
@@ -176,112 +176,131 @@
       <div class="right d-flex flex-column" :class="{ 'hidden': !showSidebar }" v-if="$route.query.embed !== 'true'">
         <!-- Recording controls -->
         <div class="recording-controls mb-4">
-          <!-- Control buttons row -->
-          <div class="d-flex align-center mb-2">
-            <v-btn v-if="!isRecording" color="red" dark @click="startRecording" :disabled="isRecording" class="mr-2" style="flex: 2;">
-              <v-icon left>mdi-record</v-icon>
-              Record
-            </v-btn>
-            <v-btn v-else color="grey" dark @click="stopRecording" class="mr-2" style="flex: 2;">
-              <v-icon left>mdi-stop</v-icon>
-              Stop
-              <span v-if="loopCount !== Infinity" class="caption ml-1">({{ currentLoop }}/{{ loopCount }})</span>
-            </v-btn>
+          <!-- Video Recording Section -->
+          <div class="recording-section mb-6 pa-3" style="background: rgba(0, 0, 0, 0.2); border-radius: 8px;">
+            <div class="section-title mb-3" style="font-size: 0.9rem; color: rgba(255, 255, 255, 0.7);">Video Recording</div>
+            <!-- Record button row -->
+            <div class="d-flex align-center mb-3">
+              <v-btn v-if="!isRecording" color="#EF4444" dark @click="startRecording" :disabled="isRecording" class="custom-btn" style="flex: 1;">
+                <v-icon left>mdi-record</v-icon>
+                Record
+              </v-btn>
+              <v-btn v-else color="grey" dark @click="stopRecording" class="custom-btn" style="flex: 1;">
+                <v-icon left>mdi-stop</v-icon>
+                Stop
+                <span v-if="loopCount !== Infinity" class="caption ml-1">({{ currentLoop }}/{{ loopCount }})</span>
+              </v-btn>
+            </div>
             
-            <v-select
-              v-model="loopCount"
-              :items="[
-                {text: 'Infinite ∞', value: Infinity},
-                {text: '1 Loop', value: 1},
-                {text: '2 Loops', value: 2},
-                {text: '3 Loops', value: 3},
-                {text: '4 Loops', value: 4},
-                {text: '5 Loops', value: 5}
-              ]"
-              label="Loops"
-              dense
-              dark
-              class="format-selector mr-2"
-              hide-details
-              :disabled="isRecording"
-              style="flex: 1; min-width: 80px;"
-            ></v-select>
-            
-            <v-select
-              v-model="recordingFormat"
-              :items="[{text: 'WebM', value: 'webm'}, {text: 'MP4', value: 'mp4'}]"
-              label="Format"
-              dense
-              dark
-              class="format-selector mr-2"
-              hide-details
-              :disabled="isRecording"
-              style="flex: 1; min-width: 70px;"
-            ></v-select>
-            
-            <v-select
-              v-model="videoBitrate"
-              :items="[
-                {text: '2 Mbps', value: 2000000},
-                {text: '5 Mbps', value: 5000000},
-                {text: '8 Mbps', value: 8000000},
-                {text: '12 Mbps', value: 12000000},
-                {text: '15 Mbps', value: 15000000},
-                {text: '20 Mbps', value: 20000000}
-              ]"
-              label="Bitrate"
-              dense
-              dark
-              hide-details
-              :disabled="isRecording"
-              style="flex: 1; min-width: 90px;"
-            ></v-select>
-            
-            <!-- Add info icon with tooltip -->
-            <v-tooltip bottom max-width="300">
-              <template v-slot:activator="{ on, attrs }">
-                <v-btn
-                  icon
-                  x-small
-                  v-bind="attrs"
-                  v-on="on"
-                  class="ml-1 mt-1"
-                  color="grey lighten-1"
-                >
-                  <v-icon x-small>mdi-information-outline</v-icon>
-                </v-btn>
-              </template>
-              <div class="pa-2">
-                <p class="mb-1"><strong>For best recording quality:</strong></p>
-                <ul class="pl-4 mb-0">
-                  <li class="text-left">Maximize your browser window and the application view before recording</li>
-                  <li class="text-left">Use WebM format with VP9 codec for better quality than MP4 at the same bitrate</li>
-                </ul>
-              </div>
-            </v-tooltip>
+            <!-- Video options row -->
+            <div class="d-flex align-center">
+              <v-select
+                v-model="loopCount"
+                :items="[
+                  {text: 'Infinite ∞', value: Infinity},
+                  {text: '1 Loop', value: 1},
+                  {text: '2 Loops', value: 2},
+                  {text: '3 Loops', value: 3},
+                  {text: '4 Loops', value: 4},
+                  {text: '5 Loops', value: 5}
+                ]"
+                label="Loops"
+                dense
+                dark
+                class="mr-2"
+                hide-details
+                :disabled="isRecording"
+                style="flex: 1;"
+              ></v-select>
+              
+              <v-select
+                v-model="recordingFormat"
+                :items="[{text: 'WebM', value: 'webm'}, {text: 'MP4', value: 'mp4'}]"
+                label="Format"
+                dense
+                dark
+                class="mr-2"
+                hide-details
+                :disabled="isRecording"
+                style="flex: 1;"
+              ></v-select>
+              
+              <v-select
+                v-model="videoBitrate"
+                :items="[
+                  {text: '2 Mbps', value: 2000000},
+                  {text: '5 Mbps', value: 5000000},
+                  {text: '8 Mbps', value: 8000000},
+                  {text: '12 Mbps', value: 12000000},
+                  {text: '15 Mbps', value: 15000000},
+                  {text: '20 Mbps', value: 20000000}
+                ]"
+                label="Bitrate"
+                dense
+                dark
+                hide-details
+                :disabled="isRecording"
+                style="flex: 1;"
+              ></v-select>
+              
+              <!-- Add info icon with tooltip -->
+              <v-tooltip bottom max-width="300">
+                <template v-slot:activator="{ on, attrs }">
+                  <v-btn
+                    icon
+                    x-small
+                    v-bind="attrs"
+                    v-on="on"
+                    class="ml-1"
+                    color="grey lighten-1"
+                  >
+                    <v-icon x-small>mdi-information-outline</v-icon>
+                  </v-btn>
+                </template>
+                <div class="pa-2">
+                  <p class="mb-1"><strong>For best recording quality:</strong></p>
+                  <ul class="pl-4 mb-0">
+                    <li class="text-left">Maximize your browser window and the application view before recording</li>
+                    <li class="text-left">Use WebM format with VP9 codec for better quality than MP4 at the same bitrate</li>
+                  </ul>
+                </div>
+              </v-tooltip>
+            </div>
           </div>
-          
-          <!-- Add capture button row -->
-          <div class="d-flex align-center mb-2">
-            <v-btn color="teal" dark @click="captureScreenshot" style="flex: 3;" class="mr-2">
-              <v-icon left>mdi-camera</v-icon>
-              Capture Image
-            </v-btn>
+
+          <!-- Image Capture Section -->
+          <div class="capture-section pa-3" style="background: rgba(0, 0, 0, 0.2); border-radius: 8px;">
+            <div class="section-title mb-3" style="font-size: 0.9rem; color: rgba(255, 255, 255, 0.7);">Image Capture</div>
+            <!-- Capture button row -->
+            <div class="d-flex align-center mb-3">
+              <v-btn 
+                color="#6B7280" 
+                dark 
+                @click="captureScreenshot" 
+                class="custom-btn" 
+                style="flex: 1;"
+              >
+                <v-icon left>mdi-camera</v-icon>
+                Capture Image
+              </v-btn>
+            </div>
             
-            <v-select
-              v-model="captureMode"
-              :items="[
-                {text: 'Both Types', value: 'both'},
-                {text: 'Normal', value: 'normal'},
-                {text: 'Transparent', value: 'transparent'}
-              ]"
-              label="Background"
-              dense
-              dark
-              class="format-selector"
-              hide-details
-              style="flex: 1; max-width: 120px;"
-            ></v-select>
+            <!-- Image options row -->
+            <div class="d-flex align-center">
+              <v-select
+                v-model="captureMode"
+                :items="[
+                  {text: 'Both Types', value: 'both'},
+                  {text: 'Normal', value: 'normal'},
+                  {text: 'Transparent', value: 'transparent'}
+                ]"
+                label="Background"
+                dense
+                dark
+                hide-details
+                style="flex: 1;"
+              ></v-select>
+            </div>
           </div>
         </div>
 
@@ -296,28 +315,28 @@
           <!-- Make controls slightly transparent when loading -->
           <div :class="{ 'opacity-reduced': converting }">
             <!-- Existing file inputs and buttons -->
-            <input type="file" ref="fileInput" accept=".json" style="display: none" @change="handleFileUpload" multiple />
-            <v-btn color="grey darken-3" class="mb-2 white--text" block @click="$refs.fileInput.click()" :disabled="converting">
+            <input type="file" ref="fileInput" accept=".json,.trc" style="display: none" @change="handleFileUpload" multiple />
+            <v-btn color="#4B5563" class="mb-2 white--text custom-btn" block @click="$refs.fileInput.click()" :disabled="converting">
               <v-icon left>mdi-file-upload</v-icon>
               Load JSON Files
             </v-btn>
             
             <!-- Add TRC file upload option -->
             <input type="file" ref="trcFileInput" accept=".trc" style="display: none" @change="handleTrcFileUpload" multiple />
-            <v-btn color="teal darken-1" class="mb-2 white--text" block @click="$refs.trcFileInput.click()" :disabled="converting">
+            <v-btn color="#3B82F6" class="mb-2 white--text custom-btn" block @click="$refs.trcFileInput.click()" :disabled="converting">
               <v-icon left>mdi-file-upload-outline</v-icon>
               Load Markers (.trc)
             </v-btn>
             
             <input type="file" ref="osimMotFileInput" accept=".osim,.mot" style="display: none" @change="handleOpenSimFiles" multiple />
-            <v-btn color="indigo darken-1" class="mb-2 white--text" block @click="$refs.osimMotFileInput.click()" :disabled="converting">
+            <v-btn color="#6366F1" class="mb-2 white--text custom-btn" block @click="$refs.osimMotFileInput.click()" :disabled="converting">
               <v-icon left>mdi-file-upload-outline</v-icon>
               Load OpenSim (.mot+.osim)
             </v-btn>
             
             <!-- Add video file upload button -->
             <input type="file" ref="videoFileInput" accept="video/mp4,video/webm" style="display: none" @change="handleVideoUpload" />
-            <v-btn color="cyan darken-1" class="mb-2 white--text" block @click="$refs.videoFileInput.click()">
+            <v-btn color="#06B6D4" class="mb-2 white--text custom-btn" block @click="$refs.videoFileInput.click()">
               <v-icon left>mdi-video</v-icon>
               Load Video (mp4/webm)
             </v-btn>
@@ -328,7 +347,7 @@
 
         <!-- Sync controls -->
         <div class="sync-controls mb-4">
-          <v-btn color="grey darken-3" class="mb-2 white--text" block @click="syncAllAnimations">
+          <v-btn color="#9CA3AF" class="mb-2 white--text custom-btn" block @click="syncAllAnimations">
             <v-icon left>mdi-sync</v-icon>
             Sync All Subjects
           </v-btn>
@@ -524,6 +543,7 @@
 
         <!-- Legend -->
         <div class="legend flex-grow-1 mb-4">
+          <!-- Animation Files List -->
           <div v-for="(animation, index) in animations" :key="index" class="legend-item mb-2">
             <div class="d-flex align-center mb-2">
               <div class="color-box" :style="{ backgroundColor: '#' + colors[index].getHexString() }"></div>
@@ -705,105 +725,137 @@
               </v-card>
             </v-dialog>
           </div>
+
+          <!-- Marker Files List -->
+          <div v-for="(markerFile, markerIndex) in loadedMarkerFiles" :key="`marker-${markerIndex}`" class="legend-item mb-2">
+              <div class="d-flex align-center mb-2">
+                  <!-- Swatch using global markerColor -->
+                  <div class="color-box" :style="{ backgroundColor: markerColor }"></div>
+                  <div class="ml-2" style="width: 120px; min-width: 120px;">
+                      <!-- Use v-model for trialName if editable, or just display -->
+                      <v-text-field v-model="markerFile.trialName" dense hide-details class="trial-name-input" />
+                      <div class="file-name text-caption">{{ markerFile.fileName }}</div>
+                      <!-- Maybe add marker count here? -->
+                      <div class="fps-info text-caption grey--text">
+                          {{ Object.keys(markers).length }} Markers
+                      </div>
+                  </div>
+                  <div class="d-flex align-center flex-grow-1">
+                      <!-- Color Picker for Markers (1st) -->
+                      <v-menu offset-y>
+                          <template v-slot:activator="{ on, attrs }">
+                              <v-btn icon small v-bind="attrs" v-on="on" class="ml-2">
+                                  <v-icon small>mdi-palette</v-icon>
+                              </v-btn>
+                          </template>
+                          <v-card class="color-picker pa-2">
+                              <v-color-picker
+                                  v-model="markerColor"
+                                  hide-inputs
+                                  hide-mode-switch
+                                  @input="updateMarkerColor"
+                              ></v-color-picker>
+                          </v-card>
+                      </v-menu>
+                      <!-- Delete Button (2nd) -->
+                      <v-btn icon small class="ml-2" @click="deleteMarkerFile(markerIndex)">
+                          <v-icon small color="error">mdi-delete</v-icon>
+                      </v-btn>
+                      <!-- Visibility Toggle (3rd) -->
+                      <v-btn icon small class="ml-2" @click="toggleMarkerVisibility">
+                          <v-icon small :color="showMarkers ? 'white' : 'grey'">
+                              {{ showMarkers ? 'mdi-eye' : 'mdi-eye-off' }}
+                          </v-icon>
+                      </v-btn>
+                      <!-- Add Transparency Menu (4th) -->
+                      <v-menu offset-y>
+                          <template v-slot:activator="{ on, attrs }">
+                              <v-btn icon small v-bind="attrs" v-on="on" class="ml-2">
+                                  <v-icon small>mdi-opacity</v-icon>
+                              </v-btn>
+                          </template>
+                          <v-card class="transparency-picker pa-3" width="250">
+                              <div class="text-subtitle-2 mb-2">
+                                  Marker Transparency
+                                  <span class="text-caption ml-2">
+                                      ({{ Math.round((1 - markerOpacity) * 100) }}%)
+                                  </span>
+                              </div>
+                              <v-slider 
+                                  :value="(1 - markerOpacity) * 100"
+                                  @input="value => updateMarkerOpacity(1 - value / 100)"
+                                  :min="0" 
+                                  :max="100" 
+                                  step="1" 
+                                  hide-details 
+                                  :thumb-label="true"
+                                  thumb-size="24"
+                              >
+                                  <template v-slot:thumb-label="{ value }">
+                                      {{ Math.round(value) }}%
+                                  </template>
+                                  <template v-slot:prepend>
+                                      <div class="text-caption grey--text">0%</div>
+                                  </template>
+                                  <template v-slot:append>
+                                      <div class="text-caption grey--text">100%</div>
+                                  </template>
+                              </v-slider>
+                          </v-card>
+                      </v-menu>
+                      <!-- Markers List Button (5th) -->
+                      <v-btn 
+                          small 
+                          text 
+                          class="ml-2" 
+                          v-if="Object.keys(markers).length > 0"
+                          @click="showMarkerDialog = true"
+                      >
+                          <v-icon left small>mdi-vector-point</v-icon>
+                          Markers
+                      </v-btn>
+                      <!-- Add Sync button at the end -->
+                      <v-tooltip bottom v-if="animations.length > 0">
+                          <template v-slot:activator="{ on, attrs }">
+                              <v-btn icon small class="ml-2" @click="syncMarkersWithAnimations" v-bind="attrs" v-on="on">
+                                  <v-icon small>mdi-sync</v-icon>
+                              </v-btn>
+                          </template>
+                          <span>Sync Markers with Animations</span>
+                      </v-tooltip>
+                  </div>
+              </div>
+              <!-- No offset controls for markers -->
+          </div>
         </div>
 
-        <!-- Add marker controls -->
-        <div class="marker-controls mb-4" v-if="Object.keys(markers).length > 0">
-          <v-card outlined class="pa-3">
-            <v-card-title class="subtitle-1 px-0 pt-0">Marker Settings</v-card-title>
-            
-            <v-switch
-              v-model="showMarkers"
-              label="Show Markers"
-              color="red"
-              @change="toggleMarkerVisibility"
-              class="mt-0"
-            ></v-switch>
-            
-            <div v-if="showMarkers">
-              <div class="d-flex align-center mb-2">
-                <div class="mr-2">Color:</div>
-                <v-menu offset-y>
-                  <template v-slot:activator="{ on, attrs }">
-                    <v-btn 
-                      small 
-                      v-bind="attrs" 
-                      v-on="on" 
-                      class="color-preview" 
-                      :style="{ backgroundColor: markerColor }"
-                    ></v-btn>
-                  </template>
-                  <v-card class="color-picker pa-2">
-                    <v-color-picker
-                      v-model="markerColor"
-                      hide-inputs
-                      hide-mode-switch
-                      @input="updateMarkerColor"
-                    ></v-color-picker>
-                  </v-card>
-                </v-menu>
-              </div>
-              
-              <v-slider
-                v-model="markerSize"
-                label="Marker Size"
-                min="0.005"
-                max="0.05"
-                step="0.001"
-                thumb-label
-                @input="updateMarkerSize"
-              ></v-slider>
-              
-              <v-slider
-                v-model="markerScale"
-                label="Scale Factor"
-                min="0.01"
-                max="10"
-                step="0.01"
-                thumb-label
-                @input="updateMarkerScale"
-              ></v-slider>
-              
-              <div class="mt-3 subtitle-2">Markers: {{ Object.keys(markers).length }}</div>
-              <div class="text-caption">Current positions shown for frame: {{ frame }}</div>
-              
-              <!-- Add marker sync button when animations are present -->
-              <div v-if="animations.length > 0" class="marker-sync-controls mt-3">
-                <v-btn color="red lighten-2" small block @click="syncMarkersWithAnimations">
-                  <v-icon left small>mdi-sync</v-icon>
-                  Sync Markers with Animations
-                </v-btn>
-                <div class="text-caption mt-1">
-                  This will interpolate marker data to match the animation timeline.
-                </div>
-              </div>
-              
-              <!-- Add marker legend -->
-              <v-expansion-panels flat class="mt-2">
-                <v-expansion-panel>
-                  <v-expansion-panel-header>
-                    Show Marker List
-                  </v-expansion-panel-header>
-                  <v-expansion-panel-content>
-                    <div class="marker-list" style="max-height: 200px; overflow-y: auto;">
-                      <v-chip
-                        v-for="markerName in Object.keys(markers)"
-                        :key="markerName"
-                        small
-                        class="ma-1"
-                        :color="markerColor"
-                        text-color="white"
-                      >
-                        {{ markerName }}
-                      </v-chip>
+        <!-- Add Marker Visibility Dialog -->
+        <v-dialog v-model="showMarkerDialog" max-width="400">
+            <v-card>
+                <v-card-title class="text-subtitle-1">
+                    Marker Visibility
+                    <v-spacer></v-spacer>
+                    <v-btn icon small @click="showMarkerDialog = false">
+                        <v-icon small>mdi-close</v-icon>
+                    </v-btn>
+                </v-card-title>
+                <v-divider></v-divider>
+                <v-card-text class="pa-4" style="max-height: 400px; overflow-y: auto;">
+                    <div v-if="Object.keys(markers).length > 0">
+                        <div v-for="(marker, name) in markers" :key="name" class="mesh-item d-flex align-center pa-1 pl-2">
+                            <v-btn icon x-small @click="toggleSingleMarkerVisibility(name)">
+                                <v-icon x-small :color="marker.visible !== false ? 'white' : 'grey'">
+                                    {{ marker.visible !== false ? 'mdi-eye' : 'mdi-eye-off' }}
+                                </v-icon>
+                            </v-btn>
+                            <span class="ml-2">{{ name }}</span>
+                        </div>
                     </div>
-                  </v-expansion-panel-content>
-                </v-expansion-panel>
-              </v-expansion-panels>
-            </div>
-          </v-card>
-        </div>
-        
+                    <div v-else class="text-center grey--text">No markers loaded.</div>
+                </v-card-text>
+            </v-card>
+        </v-dialog>
+
         <!-- Credits -->
         <div class="credits mt-auto pt-2 text-center">
           <div class="text-caption grey--text text--lighten-1">
@@ -960,10 +1012,11 @@ const axiosInstance = axios.create();
               markerMeshes: {},
               markerSize: 0.02, // Default size for marker spheres (increased from 0.015)
               markerColor: '#ff0000', // Default color for markers (red)
-              showMarkers: true, // Toggle to show/hide markers
+              showMarkers: true, // Toggle to show/hide markers - **Ensure this defaults to true**
               markerScale: 1.0, // Scale factor for marker positions
               markerLight: null, // Remove this line
               markerTimeData: null, // Store marker time data
+              markerOpacity: 1.0, // Add opacity control for markers
               // Video preview props
               videoFile: null,
               videoUrl: null,
@@ -981,6 +1034,8 @@ const axiosInstance = axios.create();
               meshDialogs: {}, // Add this line to store mesh dialog states
               recentSubjectColors: [], // Store recent colors used for subjects
               maxRecentColors: 8, // Maximum number of recent colors to store
+              loadedMarkerFiles: [], // Add list to track loaded marker files
+              showMarkerDialog: false, // Flag for the new marker visibility dialog
           }
       },
       computed: {
@@ -1487,42 +1542,38 @@ const axiosInstance = axios.create();
       },
       
       updateMarkerPositions(frame) {
-        // Only update if we have markers and they should be shown
-        if (!this.showMarkers || Object.keys(this.markers).length === 0) {
-          return;
+        // Only update if we have markers
+        if (Object.keys(this.markers).length === 0) {
+            return;
         }
-        
-        // Debug log the update
-        // console.log(`Updating marker positions for frame ${frame}`);
         
         // Update position of each marker for the current frame
         Object.keys(this.markers).forEach(markerName => {
-          const marker = this.markers[markerName];
-          const mesh = this.markerMeshes[markerName];
-          
-          if (mesh && frame < marker.positions.length) {
-            const pos = marker.positions[frame];
+            const marker = this.markers[markerName]; // Get marker data (including visibility)
+            const mesh = this.markerMeshes[markerName]; // Get the mesh
             
-            // Only update position if we have valid data for this frame
-            if (pos && pos.x !== null && pos.y !== null && pos.z !== null) {
-              // Apply scale factor to position
-              mesh.position.set(
-                pos.x * this.markerScale,
-                pos.y * this.markerScale,
-                pos.z * this.markerScale
-              );
-              mesh.visible = true;
-            } else {
-              // Hide marker if position data is invalid
-              mesh.visible = false;
+            if (mesh) {
+                let dataIsValid = false;
+                if (frame < marker.positions.length) {
+                    const pos = marker.positions[frame];
+                    dataIsValid = pos && pos.x !== null && pos.y !== null && pos.z !== null;
+                    
+                    if (dataIsValid) {
+                        // Apply scale factor to position
+                        mesh.position.set(
+                            pos.x * this.markerScale,
+                            pos.y * this.markerScale,
+                            pos.z * this.markerScale
+                        );
+                    }
+                }
+                
+                // Set visibility based on global toggle, individual toggle, AND data validity
+                mesh.visible = this.showMarkers && marker.visible !== false && dataIsValid;
             }
-          } else if (mesh) {
-            // Hide marker if we don't have data for this frame
-            mesh.visible = false;
-          }
         });
-      },
-      togglePlay(value) {
+    },
+    togglePlay(value) {
         // Call the original method implementation
         this.playing = value;
         if (this.playing) {
@@ -2188,7 +2239,10 @@ const axiosInstance = axios.create();
         const files = Array.from(event.dataTransfer.files);
         
         // Separate files by type
-        const jsonFiles = files.filter(file => file.name.toLowerCase().endsWith('.json'));
+        const markerFiles = files.filter(file => {
+          const lowerCaseName = file.name.toLowerCase();
+          return lowerCaseName.endsWith('.json') || lowerCaseName.endsWith('.trc');
+        });
         const osimFiles = files.filter(file => file.name.toLowerCase().endsWith('.osim'));
         const motFiles = files.filter(file => file.name.toLowerCase().endsWith('.mot'));
       const videoFiles = files.filter(file => file.type === 'video/mp4' || file.type === 'video/webm');
@@ -2199,18 +2253,18 @@ const axiosInstance = axios.create();
         this.videoUrl = URL.createObjectURL(this.videoFile);
       }
         
-        // Handle JSON files directly
-        if (jsonFiles.length > 0) {
+        // Handle JSON and TRC files directly
+        if (markerFiles.length > 0) {
             const dataTransfer = new DataTransfer();
-            jsonFiles.forEach(file => dataTransfer.items.add(file));
-            
+            markerFiles.forEach(file => dataTransfer.items.add(file));
+
             const fakeEvent = {
                 target: {
                     files: dataTransfer.files,
                     value: ''
                 }
             };
-            
+
             this.handleFileUpload(fakeEvent);
         }
         
@@ -2237,8 +2291,8 @@ const axiosInstance = axios.create();
             }
         }
         
-      if (files.length === 0 || (jsonFiles.length === 0 && osimFiles.length === 0 && motFiles.length === 0 && videoFiles.length === 0)) {
-        console.warn('Please drop JSON, OSIM, MOT, or video files');
+      if (files.length === 0 || (markerFiles.length === 0 && osimFiles.length === 0 && motFiles.length === 0 && videoFiles.length === 0)) {
+        console.warn('Please drop JSON, TRC, OSIM, MOT, or video files');
         }
     },
     deleteSubject(index) {
@@ -3619,6 +3673,35 @@ const axiosInstance = axios.create();
         // Clear any existing marker meshes
         this.clearMarkers();
 
+        // Initialize trial data first
+        if (!this.trial) {
+            this.trial = { results: [] };
+        }
+
+        // Initialize scene if it doesn't exist
+        if (!this.scene) {
+            console.log('Initializing scene for TRC file');
+            this.initScene();
+            
+            // Wait for scene initialization to complete
+            this.$nextTick(() => {
+                // Set initial camera position for better marker viewing
+                if (this.camera) {
+                    this.camera.position.set(3.33, 3.5, -2.30);
+                    this.camera.lookAt(0, 1, 0);
+                }
+                
+                // Continue with TRC parsing after scene is initialized
+                this.processTrcContent(trcContent);
+            });
+            return;
+        }
+
+        // If scene already exists, proceed directly
+        this.processTrcContent(trcContent);
+    },
+
+    processTrcContent(trcContent) {
         const lines = trcContent.split('\n');
         let dataHeaderLineIndex = -1;
         let columnNames = [];
@@ -3715,6 +3798,31 @@ const axiosInstance = axios.create();
             times: frameTimes,
             fileName: this.trcFile ? this.trcFile.name : 'markers.trc'
         };
+
+        // Initialize scene if it doesn't exist
+        if (!this.scene) {
+            console.log('Initializing scene for TRC file');
+            this.initScene();
+        }
+
+        // Ensure ground plane exists if scene exists but ground doesn't
+        if (this.scene && !this.groundMesh) {
+            console.log('Adding ground plane for markers');
+            const planeSize = 20;
+            const planeGeo = new THREE.PlaneGeometry(planeSize, planeSize);
+            const planeMat = new THREE.MeshPhongMaterial({
+                map: this.useGroundTexture ? this.groundTexture : null,
+                side: THREE.DoubleSide,
+                color: new THREE.Color(this.groundColor)
+            });
+            this.groundMesh = new THREE.Mesh(planeGeo, planeMat);
+            this.groundMesh.rotation.x = Math.PI * -.5;
+            this.groundMesh.position.y = 0;
+            this.scene.add(this.groundMesh);
+        }
+
+        // Ensure markers are shown by default
+        this.showMarkers = true;
         
         // Determine marker columns and their X,Y,Z patterns
         // Skip Frame# and Time columns (first two)
@@ -3724,47 +3832,47 @@ const axiosInstance = axios.create();
         // Process each marker (by groups of 3 columns: X, Y, Z)
         for (let i = 0; i < markerCount; i++) {
             const xCol = 2 + (i * 3);       // X column index
-            const yCol = xCol + 1;           // Y column index 
+            const yCol = xCol + 1;           // Y column index
             const zCol = xCol + 2;           // Z column index
-            
+
             // Make sure we have all three columns
             if (zCol >= columnNames.length) {
-                console.log(`Not enough columns for marker ${i}`);
+                console.warn(`[parseTrcFile] Not enough columns for marker index ${i}. Expected ${zCol}, have ${columnNames.length}. Skipping.`);
                 continue;
             }
-            
+
             // Get marker name from column headers
             let markerName = columnNames[xCol];
-            
+
             // Clean up marker name (remove .X, _X suffix, etc.)
             markerName = markerName.replace(/\.X$|\.x$|_X$|_x$|X\d*$/, '');
-            
-            console.log(`Processing marker: ${markerName} (columns ${xCol},${yCol},${zCol})`);
-            
+
+            // console.log(`[parseTrcFile] Processing marker: ${markerName} (columns ${xCol},${yCol},${zCol})`); // Keep commented unless needed
+
             // Initialize marker data structure
-            this.markers[markerName] = { 
+            this.markers[markerName] = {
                 positions: [],
                 originalPositions: [] // Store the original positions for resampling
             };
-            
+
             // Extract positions for this marker across all frames
             for (let rowIndex = 0; rowIndex < dataRows.length; rowIndex++) {
                 const row = dataRows[rowIndex];
-                
+
                 // Make sure we have enough columns in this row
                 if (zCol < row.length) {
                     // XYZ coordinates for this marker in this frame
                     const x = parseFloat(row[xCol]);
                     const y = parseFloat(row[yCol]);
                     const z = parseFloat(row[zCol]);
-                    
+
                     // Create position object
                     const pos = {
                         x: isNaN(x) ? null : x,
                         y: isNaN(y) ? null : y,
                         z: isNaN(z) ? null : z
                     };
-                    
+
                     // Add to marker positions, checking for NaN values
                     this.markers[markerName].positions.push({...pos});
                     // Also store in original positions
@@ -3776,16 +3884,30 @@ const axiosInstance = axios.create();
                     this.markers[markerName].originalPositions.push({...nullPos});
                 }
             }
+            // Log after processing each marker
+            // console.log(`[parseTrcFile] Finished processing marker: ${markerName}. Position count: ${this.markers[markerName].positions.length}`);
         }
-        
-        console.log(`Created ${Object.keys(this.markers).length} markers`);
-        
+
+        console.log(`[parseTrcFile] Finished processing all potential markers. Found ${Object.keys(this.markers).length} markers.`);
+        console.log('[parseTrcFile] Marker keys found:', Object.keys(this.markers));
+
+        // --- Move this block UP --- 
+        // Add marker data to the list of loaded marker files *before* checking if markers were found
+        // This ensures the file appears in the list even if parsing fails
+        this.loadedMarkerFiles.push({
+            fileName: this.trcFile.name,
+            trialName: this.trcFile.name.replace('.trc', ''), // Basic name derivation
+        });
+        console.log('[parseTrcFile] Added marker file to loadedMarkerFiles:', JSON.stringify(this.loadedMarkerFiles));
+        // --- End Moved Block --- 
+
         // If no markers were found, something went wrong
         if (Object.keys(this.markers).length === 0) {
-            console.error('No valid markers found in TRC file');
-            return;
+            console.error('[parseTrcFile] No valid markers found in TRC file. Stopping further marker processing (meshes, sync). File entry was still added to the list.');
+            // We don't return here anymore, but subsequent steps depending on markers might fail
+            // The functions createMarkerMeshes and syncMarkerDataToTimeline already handle empty markers gracefully.
         }
-        
+
         // Handle different scenarios for timeline integration
         if (!this.trial || !this.frames.length) {
             // Case 1: First data loaded - use the TRC file's timeline
@@ -3807,31 +3929,17 @@ const axiosInstance = axios.create();
             }
         }
         
-        // Make sure the scene is initialized properly
-        if (!this.scene) {
-            console.log('Initializing scene for markers');
-            this.initScene();
-        } else if (!this.groundMesh && this.scene) {
-            // Ensure a ground plane exists if it doesn't already
-            console.log('Adding ground plane for markers-only view');
-            const planeSize = 20;
-            const planeGeo = new THREE.PlaneGeometry(planeSize, planeSize);
-            const planeMat = new THREE.MeshPhongMaterial({
-                side: THREE.DoubleSide,
-                color: new THREE.Color(this.groundColor)
-            });
-            this.groundMesh = new THREE.Mesh(planeGeo, planeMat);
-            this.groundMesh.rotation.x = Math.PI * -.5;
-            this.groundMesh.position.y = 0;
-            this.scene.add(this.groundMesh);
-        }
-        
-        // Create marker meshes for the current frame
+        // Make sure the scene is initialized properly and create marker meshes
         this.createMarkerMeshes();
-        
-        // Ensure first frame is rendered and playback starts
-        this.animateOneFrame();
-        this.togglePlay(true);
+
+        // Start animation loop if this is the first data loaded
+        if (!this.playing && (!this.animations || this.animations.length === 0)) {
+            console.log('Starting animation loop for markers');
+            this.animate();
+            this.frame = 0;
+            this.animateOneFrame();
+            this.togglePlay(true);
+        }
     },
     
     // New method to sync marker data to the existing timeline
@@ -3914,16 +4022,26 @@ const axiosInstance = axios.create();
     createMarkerMeshes() {
         // Remove any existing marker meshes
         this.clearMarkers();
-        
+
+        // Ensure we have a scene
+        if (!this.scene) {
+            console.log('Scene not initialized. Initializing scene for markers...');
+            this.initScene();
+        }
+
+        // Double check scene initialization
+        if (!this.scene) {
+            console.error('Failed to initialize scene for markers');
+            return;
+        }
+
+        console.log(`[createMarkerMeshes] Creating meshes for ${Object.keys(this.markers).length} markers. Current frame: ${this.frame}. Show markers: ${this.showMarkers}`);
+
         // Create geometry for marker spheres - shared by all markers
         const geometry = new THREE.SphereGeometry(this.markerSize, 16, 16);
-        const material = new THREE.MeshPhongMaterial({ 
+        // Change material to MeshLambertMaterial for a matte effect
+        const material = new THREE.MeshLambertMaterial({ 
             color: new THREE.Color(this.markerColor),
-            transparent: true,
-            opacity: 0.9,
-            emissive: new THREE.Color(this.markerColor).multiplyScalar(0.5), // Increased emissive for better visibility
-            specular: new THREE.Color(0xffffff),
-            shininess: 80
         });
         
         console.log(`Creating ${Object.keys(this.markers).length} marker meshes`);
@@ -3946,7 +4064,8 @@ const axiosInstance = axios.create();
                         pos.y * this.markerScale, 
                         pos.z * this.markerScale
                     );
-                    mesh.visible = this.showMarkers;
+                    // Set visibility based on valid data (showMarkers is true by default)
+                    mesh.visible = true;
                     console.log(`Marker ${markerName} positioned at:`, pos);
                 } else {
                     mesh.visible = false;
@@ -3963,6 +4082,9 @@ const axiosInstance = axios.create();
             // Store reference to mesh
             this.markerMeshes[markerName] = mesh;
         });
+
+        // Force an update of marker positions and visibility
+        this.updateMarkerPositions(this.frame);
         
         // Render the scene to show the markers
         if (this.renderer) {
@@ -3970,6 +4092,37 @@ const axiosInstance = axios.create();
         }
     },
     
+    // updateMarkerPositions(frame) {
+    //     // Only update if we have markers
+    //     if (Object.keys(this.markers).length === 0) {
+    //         return;
+    //     }
+        
+    //     // Update position of each marker for the current frame
+    //     Object.keys(this.markers).forEach(markerName => {
+    //         const marker = this.markers[markerName];
+    //         const mesh = this.markerMeshes[markerName];
+            
+    //         if (mesh) {
+    //             let dataIsValid = false;
+    //             if (frame < marker.positions.length) {
+    //                 const pos = marker.positions[frame];
+    //                 dataIsValid = pos && pos.x !== null && pos.y !== null && pos.z !== null;
+                    
+    //                 if (dataIsValid) {
+    //                     mesh.position.set(
+    //                         pos.x * this.markerScale,
+    //                         pos.y * this.markerScale,
+    //                         pos.z * this.markerScale
+    //                     );
+    //                 }
+    //             }
+                
+    //             // Set visibility - markers should be visible by default if data is valid
+    //             mesh.visible = dataIsValid; // Remove dependency on showMarkers here since it's true by default
+    //         }
+    //     });
+    // },
     clearMarkers() {
         // Log marker clearing operation
         console.log('Clearing marker meshes:', Object.keys(this.markerMeshes).length);
@@ -3977,7 +4130,12 @@ const axiosInstance = axios.create();
         // Remove all marker meshes from scene
         Object.entries(this.markerMeshes).forEach(([name, mesh]) => {
             if (mesh) {
-                this.scene.remove(mesh);
+                // Safely remove from scene
+                if (mesh.parent) {
+                    mesh.parent.remove(mesh);
+                }
+                
+                // Dispose geometry and material
                 if (mesh.geometry) {
                     mesh.geometry.dispose();
                 }
@@ -3988,7 +4146,7 @@ const axiosInstance = axios.create();
                         mesh.material.dispose();
                     }
                 }
-                console.log(`Removed marker: ${name}`);
+                console.log(`Removed marker mesh: ${name}`);
             }
         });
         
@@ -4001,13 +4159,13 @@ const axiosInstance = axios.create();
         }
     },
     toggleMarkerVisibility() {
-        // Update the visibility of all marker meshes
-        Object.values(this.markerMeshes).forEach(mesh => {
-            if (mesh) {
-                mesh.visible = this.showMarkers;
-            }
-        });
-        
+        // Toggle the global state
+        this.showMarkers = !this.showMarkers;
+        console.log(`[toggleMarkerVisibility] Set showMarkers to: ${this.showMarkers}`);
+
+        // Update the visibility of all marker meshes (will be reapplied based on individual state in updateMarkerPositions)
+        this.updateMarkerPositions(this.frame); // Re-run position/visibility update for current frame
+
         // Render the scene with updated visibility
         if (this.renderer) {
             this.renderer.render(this.scene, this.camera);
@@ -4051,9 +4209,9 @@ const axiosInstance = axios.create();
         
         // Render the scene with updated marker sizes
         if (this.renderer) {
-            this.renderer.render(this.scene, this.camera);
+          this.renderer.render(this.scene, this.camera);
         }
-    },
+      },
     downloadSampleTrcFile() {
         // Create a sample TRC file with some basic markers
         console.log('Generating sample TRC file');
@@ -4147,9 +4305,9 @@ const axiosInstance = axios.create();
         
         // Render the scene with updated positions
         if (this.renderer) {
-            this.renderer.render(this.scene, this.camera);
+          this.renderer.render(this.scene, this.camera);
         }
-    },
+      },
     syncMarkersWithAnimations() {
         // Check if we have both marker data and animations
         if (!this.markerTimeData || Object.keys(this.markers).length === 0) {
@@ -4221,7 +4379,7 @@ const axiosInstance = axios.create();
       // Adjust width based on minimized state
       if (this.videoMinimized) {
         this.videoSize.width = 200;
-      } else {
+                    } else {
         this.videoSize.width = 300;
       }
     },
@@ -4504,9 +4662,9 @@ const axiosInstance = axios.create();
 
       // Ignore if we don't have any frames loaded
       if (!this.frames || this.frames.length === 0) {
-        return;
-      }
-
+            return;
+        }
+        
       switch (event.code) {
         case 'Space': {
           // Toggle play/pause
@@ -4587,7 +4745,7 @@ const axiosInstance = axios.create();
           console.error('Error parsing settings from localStorage:', e);
           localStorage.removeItem('opencapVisualizerSettings'); // Clear corrupted data
         }
-      } else {
+                    } else {
         console.log('No saved settings found in localStorage.');
       }
     },
@@ -4656,8 +4814,8 @@ const axiosInstance = axios.create();
                   map: this.useCheckerboard ? this.groundTexture : this.gridTexture,
                   side: THREE.DoubleSide,
                   color: new THREE.Color(this.groundColor)
-              });
-          } else {
+                            });
+                        } else {
               this.groundMesh.material = new THREE.MeshPhongMaterial({
                   color: new THREE.Color(this.groundColor),
                   side: THREE.DoubleSide
@@ -4666,7 +4824,7 @@ const axiosInstance = axios.create();
           if (oldMaterial && oldMaterial !== this.groundMesh.material) {
             oldMaterial.dispose();
           }
-      } else {
+                    } else {
           console.warn('[applyLoadedSceneSettings] Ground mesh not ready when applying settings.');
           console.warn('[applyLoadedSceneSettings] Ground mesh not ready.');
       }
@@ -4752,6 +4910,78 @@ const axiosInstance = axios.create();
         // Process the JSON using our existing handler
         this.handleFileUpload(fakeEvent);
     },
+    // New method to delete a marker file entry
+    deleteMarkerFile(index) {
+        // Remove the specific file entry
+        this.loadedMarkerFiles.splice(index, 1);
+        
+        // If no marker files are left, clear all marker data and meshes
+        if (this.loadedMarkerFiles.length === 0) {
+            console.log('Last marker file removed, clearing all marker data.');
+            this.clearMarkers(); // Remove meshes
+            this.markers = {}; // Clear parsed data
+            this.markerTimeData = null; // Clear time data
+            this.showMarkers = false; // Ensure markers are hidden if panel disappears
+        } else {
+            console.log(`Removed marker file at index ${index}. ${this.loadedMarkerFiles.length} remaining.`);
+            // Optional: If needed, re-sync remaining markers or update UI?
+            // For now, just removing the reference. Assumes marker data (`this.markers`) might be shared if multiple TRCs were loaded?
+            // If each TRC load replaces `this.markers`, then removing the last file is correct.
+            // If TRC loads *add* to `this.markers`, this logic needs refinement.
+            // Based on current `parseTrcFile`, it seems to replace `this.markers`, so this is likely okay.
+        }
+        
+        // Re-render the scene
+        if (this.renderer) {
+            this.renderer.render(this.scene, this.camera);
+        }
+    },
+    toggleSingleMarkerVisibility(markerName) {
+        if (this.markers[markerName]) {
+            // Toggle the visibility state for the specific marker
+            this.markers[markerName].visible = !this.markers[markerName].visible;
+            console.log(`[toggleSingleMarkerVisibility] Set ${markerName} visibility to: ${this.markers[markerName].visible}`);
+
+            // Find the corresponding mesh and update its visibility immediately
+            const mesh = this.markerMeshes[markerName];
+            if (mesh) {
+                // We also need to check data validity for the *current* frame here
+                let dataIsValid = false;
+                const markerData = this.markers[markerName];
+                if (markerData && this.frame < markerData.positions.length) {
+                    const pos = markerData.positions[this.frame];
+                    dataIsValid = pos && pos.x !== null && pos.y !== null && pos.z !== null;
+                }
+                // Mesh is visible if global toggle is on, this marker is set to visible, AND current frame data is valid
+                mesh.visible = this.showMarkers && this.markers[markerName].visible && dataIsValid;
+            }
+            
+            // Re-render the scene
+            if (this.renderer) {
+                this.renderer.render(this.scene, this.camera);
+            }
+            // Use $forceUpdate if reactivity is an issue with the dialog list
+            this.$forceUpdate();
+        }
+    },
+    updateMarkerOpacity(value) {
+        // Update the opacity value
+        this.markerOpacity = value;
+        
+        // Update all marker meshes
+        Object.values(this.markerMeshes).forEach(mesh => {
+            if (mesh && mesh.material) {
+                mesh.material.transparent = value < 1.0;
+                mesh.material.opacity = value;
+                mesh.material.needsUpdate = true;
+            }
+        });
+        
+        // Render the scene with updated transparency
+        if (this.renderer) {
+            this.renderer.render(this.scene, this.camera);
+        }
+    },
   }
 }
 </script>
@@ -4761,7 +4991,13 @@ const axiosInstance = axios.create();
   height: 100vh;
   position: relative;
   overflow: hidden;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
   
+  // Apply font to all text elements
+  * {
+    font-family: inherit;
+  }
+
   .viewer {
     height: 100%;
     // Remove fixed position, let it be part of the flex flow
@@ -4914,9 +5150,10 @@ const axiosInstance = axios.create();
     margin-bottom: 0 !important;
   }
   input {
-    font-weight: bold !important;
+    font-weight: 500 !important;
     font-size: 14px !important;
-    min-width: 0 !important; // Add this to prevent input from expanding
+    min-width: 0 !important;
+    font-family: inherit !important;
   }
 }
 
@@ -5111,12 +5348,14 @@ const axiosInstance = axios.create();
       border-radius: 4px;
       margin-bottom: 4px;
       font-size: 14px;
+      font-family: inherit;
     }
     
     .mesh-item {
       border-radius: 4px;
       transition: background-color 0.2s;
       font-size: 13px;
+      font-family: inherit;
       
       &:hover {
         background: rgba(255, 255, 255, 0.05);
@@ -5131,6 +5370,7 @@ const axiosInstance = axios.create();
   font-size: 10px;
   margin-top: 1px;
   text-align: left; // Align text to the left
+  font-family: inherit;
 }
 
 .drop-zone {
@@ -5151,6 +5391,30 @@ const axiosInstance = axios.create();
         background: rgba(255, 255, 255, 0.08);
     }
   }
+
+.custom-btn {
+  border-radius: 8px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.025em !important;
+  text-transform: none !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+  transition: all 0.2s ease !important;
+  font-family: inherit !important;
+
+  &:hover {
+    filter: brightness(0.95);
+    transform: scale(1.02);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15) !important;
+  }
+
+  &:active {
+    transform: scale(0.98);
+  }
+
+  .v-icon {
+    margin-right: 6px !important;
+  }
+}
 </style>
   
   
