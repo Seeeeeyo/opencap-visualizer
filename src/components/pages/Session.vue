@@ -166,7 +166,7 @@
         dark
         class="sidebar-toggle"
         @click="showSidebar = !showSidebar"
-        :style="{ right: showSidebar ? '370px' : '10px' }"
+        :style="{ right: showSidebar ? '420px' : '10px' }"
         v-if="$route.query.embed !== 'true'"
       >
         <v-icon>{{ showSidebar ? 'mdi-chevron-right' : 'mdi-chevron-left' }}</v-icon>
@@ -410,7 +410,7 @@
               </v-menu>
             </div>
             <!-- Add Light Intensity control here -->
-            <div class="d-flex align-center ml-4 flex-grow-1">
+            <div class="d-flex align-center ml-4">
               <div class="mr-2">Light:</div>
               <v-slider
                 v-model="globalLightIntensity"
@@ -424,6 +424,23 @@
                 class="mt-0"
               ></v-slider>
             </div>
+            <!-- Add Center Camera button -->
+            <v-tooltip bottom>
+              <template v-slot:activator="{ on, attrs }">
+                <v-btn
+                  icon
+                  dark
+                  small
+                  class="ml-2"
+                  v-bind="attrs"
+                  v-on="on"
+                  @click="centerCameraOnSubject"
+                >
+                  <v-icon small>mdi-target</v-icon>
+                </v-btn>
+              </template>
+              <span>Center Camera on Subject</span>
+            </v-tooltip>
           </div>
           
         </div>
@@ -5100,6 +5117,105 @@ const axiosInstance = axios.create();
             this.renderer.render(this.scene, this.camera);
         }
     },
+    centerCameraOnSubject() {
+      if (!this.scene || !this.camera || !this.controls) return;
+
+      let targetPosition = new THREE.Vector3(0, 1, 0); // Default target near origin
+      let foundSubject = false;
+
+      // Priority 1: Use first animation's central body part
+      if (this.animations.length > 0) {
+        const firstAnim = this.animations[0];
+        // Try common names for central body parts
+        const centralBodyNames = ['pelvis', 'torso', 'midHip', 'hip']; 
+        let centralBodyKey = null;
+
+        for (const name of centralBodyNames) {
+            if (firstAnim.data.bodies[name]) {
+                centralBodyKey = name;
+                break;
+            }
+        }
+
+        if (centralBodyKey && firstAnim.data.bodies[centralBodyKey].translation[this.frame]) {
+            const bodyData = firstAnim.data.bodies[centralBodyKey];
+            targetPosition.set(
+                bodyData.translation[this.frame][0],
+                bodyData.translation[this.frame][1],
+                bodyData.translation[this.frame][2]
+            );
+            // Apply animation offset
+            targetPosition.add(firstAnim.offset);
+            foundSubject = true;
+            console.log(`Centering on animation body: ${centralBodyKey}`);
+        } else if (this.meshes) {
+            // Fallback: Average position of first animation's meshes
+            const meshKeys = this.getMeshKeysForAnimation(0);
+            if (meshKeys.length > 0) {
+                const center = new THREE.Vector3();
+                let count = 0;
+                meshKeys.forEach(key => {
+                    if (this.meshes[key] && this.meshes[key].visible) {
+                        center.add(this.meshes[key].position);
+                        count++;
+                    }
+                });
+                if (count > 0) {
+                    targetPosition = center.divideScalar(count);
+                    foundSubject = true;
+                    console.log('Centering on average mesh position of first animation.');
+                }
+            }
+        }
+      }
+      // Priority 2: Use average marker position
+      else if (Object.keys(this.markerMeshes).length > 0) {
+        const center = new THREE.Vector3();
+        let visibleMarkerCount = 0;
+        Object.values(this.markerMeshes).forEach(mesh => {
+          if (mesh.visible) {
+            center.add(mesh.position);
+            visibleMarkerCount++;
+          }
+        });
+
+        if (visibleMarkerCount > 0) {
+          targetPosition = center.divideScalar(visibleMarkerCount);
+          foundSubject = true;
+          console.log('Centering on average marker position.');
+        }
+      }
+
+      // Set camera position relative to the target
+      // Maintain current camera distance if possible, otherwise use default
+      const offset = new THREE.Vector3();
+      if (foundSubject) {
+          offset.copy(this.camera.position).sub(this.controls.target);
+      } else {
+          // Reset to default view if no subject found
+          console.log('No subject found, resetting to default view.');
+          targetPosition.set(0, 1, 0);
+          offset.set(3.33, 2.5, -2.30); // Corresponds to initial position relative to target (0,1,0)
+      }
+      
+      // Keep a minimum distance to avoid being inside the model
+      const minDistance = 1.0;
+      if (offset.length() < minDistance) {
+          offset.normalize().multiplyScalar(minDistance);
+      }
+
+      const newCameraPosition = new THREE.Vector3().copy(targetPosition).add(offset);
+
+      // Apply the changes
+      this.controls.target.copy(targetPosition);
+      this.camera.position.copy(newCameraPosition);
+      this.controls.update(); // Important to apply target and position changes
+
+      // Render the scene
+      if (this.renderer) {
+          this.renderer.render(this.scene, this.camera);
+      }
+    },
   }
 }
 </script>
@@ -5120,7 +5236,7 @@ const axiosInstance = axios.create();
     transition: margin-right 0.3s ease;
   
     &:not(.sidebar-hidden):not(.is-embedded) {
-      margin-right: 360px; // Reduced from 400px
+      margin-right: 410px; // Increased from 360px
     }
   
     #mocap {
@@ -5132,8 +5248,8 @@ const axiosInstance = axios.create();
   }
   
   .right {
-    flex: 0 0 360px; // Reduced from 450px
-    width: 360px; // Reduced from 450px
+    flex: 0 0 410px; // Increased from 360px
+    width: 410px; // Increased from 360px
     height: 100%;
     padding: 15px;
     overflow-y: auto;
