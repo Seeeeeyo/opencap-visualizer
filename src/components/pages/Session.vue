@@ -950,7 +950,9 @@ const axiosInstance = axios.create();
               ],
               backgroundColors: [
                   '#000000',
+                  '#111111',
                   '#1a1a1a',
+                  '#222222',
                   '#333333',
                   '#4d4d4d',
                   '#666666',
@@ -1961,26 +1963,35 @@ const axiosInstance = axios.create();
         this.camera.position.y = 3.5;
 
         this.scene = new THREE.Scene();
-        this.scene.background = new THREE.Color(0x808080);
+        
+        // Set pure black background
+        this.scene.background = new THREE.Color(0x000000);
+        this.backgroundColor = '#000000';
+        
+        // Configure renderer with black background and better shadows
         this.renderer = new THREE.WebGLRenderer({antialias: true});
+        this.renderer.setClearColor(0x000000);
         this.renderer.shadowMap.enabled = true;
+        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        
         this.onResize();
         container.appendChild(this.renderer.domElement);
         this.controls = new THREE_OC.OrbitControls(this.camera, this.renderer.domElement);
 
-        // Add plane
-        const planeSize = 12; // Reduced size
+        // Create a much larger plane for "infinite" appearance
+        const planeSize = 200; // Make plane much larger for "infinite" appearance
         const loader = new THREE.TextureLoader();
         const texture = loader.load('https://threejsfundamentals.org/threejs/resources/images/checker.png');
         texture.wrapS = THREE.RepeatWrapping;
         texture.wrapT = THREE.RepeatWrapping;
         texture.magFilter = THREE.NearestFilter;
-        const repeats = planeSize; // Use the new planeSize for repeats
+        const repeats = 100; // More repeats for the larger plane
         texture.repeat.set(repeats, repeats);
         
         // Store the texture reference
         this.groundTexture = texture;
 
+        // Create a ground plane with fog for distance fading
         const planeGeo = new THREE.PlaneGeometry(planeSize, planeSize);
         const planeMat = new THREE.MeshPhongMaterial({
             map: this.useGroundTexture ? texture : null,
@@ -1990,48 +2001,56 @@ const axiosInstance = axios.create();
         const groundMesh = new THREE.Mesh(planeGeo, planeMat);
         groundMesh.rotation.x = Math.PI * -.5;
         groundMesh.position.y = 0;
+        groundMesh.receiveShadow = true;
         this.scene.add(groundMesh);
         
-        // Store the mesh reference inside the block where groundMesh is defined
+        // Store the mesh reference
         this.groundMesh = groundMesh;
         
+        // Add fog to create the fading effect at the edges
+        this.scene.fog = new THREE.FogExp2(0x000000, 0.025); // Increased density from 0.01 to 0.025
         
-        // Set initial background color
-        this.scene.background = new THREE.Color(this.backgroundColor);
-
         // Add lights with good default settings
         const skyColor = 0xB1E1FF;
         const groundColor = 0xB97A20;
-        const hemisphereIntensity = 0.8; // Increased from 0.1
+        const hemisphereIntensity = 0.8;
         const hemisphereLight = new THREE.HemisphereLight(skyColor, groundColor, hemisphereIntensity);
         this.scene.add(hemisphereLight);
         this.lights.hemisphere = hemisphereLight;
 
-        // Add four directional lights from corners with good default intensity
-        const cornerPositions = [
-            // { x: 10, y: 10, z: 10 },
-            // { x: -10, y: 10, z: 10 },
-            // { x: 10, y: 10, z: -10 },
-            { x: -10, y: 10, z: -10 }
-        ];
-        const lightIntensity = 0.7; // Increased from 0.5
+        // Main directional light with softer intensity
+        const lightIntensity = 0.5;
         const lightColor = 0xFFFFFF;
+        const directionalLight = new THREE.DirectionalLight(lightColor, lightIntensity);
+        directionalLight.position.set(-10, 10, -10);
+        directionalLight.target.position.set(0, 0, 0);
+        this.scene.add(directionalLight);
+        this.scene.add(directionalLight.target);
+        this.lights.directionals = [directionalLight];
 
-        this.lights.directionals = []; // Clear previous references
-        cornerPositions.forEach(pos => {
-            const directionalLight = new THREE.DirectionalLight(lightColor, lightIntensity);
-            directionalLight.position.set(pos.x, pos.y, pos.z);
-            directionalLight.target.position.set(0, 0, 0);
-            directionalLight.castShadow = false; // Disable shadows for performance initially
-            this.scene.add(directionalLight);
-            this.scene.add(directionalLight.target);
-            this.lights.directionals.push(directionalLight);
-        });
+        // Add spotlight to create the gradient lighting effect around subjects
+        const spotLight = new THREE.SpotLight(0xffffff, 1); // Increased intensity from 1 to 1.2
+        spotLight.position.set(0, 15, 0);
+        spotLight.angle = Math.PI / 4;
+        spotLight.penumbra = 0.9; // Increased from 0.8 to 0.9 for softer edge
+        spotLight.decay = 2.0; // Increased from 1.5 to 2.0 for faster falloff
+        spotLight.distance = 30; // Reduced from 40 to 30 for tighter spotlight
+        spotLight.castShadow = true;
+        spotLight.shadow.mapSize.width = 1024;
+        spotLight.shadow.mapSize.height = 1024;
+        spotLight.shadow.bias = -0.0001;
+        this.scene.add(spotLight);
+        this.lights.spotlight = spotLight;
+
+        // Create an ambient light with very low intensity for minimum visibility
+        const ambientLight = new THREE.AmbientLight(0x404040, 0.2);
+        this.scene.add(ambientLight);
+        this.lights.ambient = ambientLight;
 
         // Initial render
         this.renderer.render(this.scene, this.camera);
 
-        // Apply loaded settings *after* scene is fully initialized
+        // Apply loaded settings after scene initialization
         console.log('[initScene] Calling applyLoadedSceneSettings() at the end of initScene.');
         this.applyLoadedSceneSettings();
     },
@@ -2739,13 +2758,18 @@ const axiosInstance = axios.create();
         }, 100);
     },
     updateBackgroundColor(color) {
-        this.backgroundColor = color;
-        console.log(`[updateBackgroundColor] Method called with color: ${color}`); // Add log here
-        if (this.scene) {
-            this.scene.background = new THREE.Color(color);
-            this.renderer.render(this.scene, this.camera);
+      console.log(`[updateBackgroundColor] Setting background color to ${color}`);
+      this.backgroundColor = color;
+      
+      if (this.scene) {
+        this.scene.background = new THREE.Color(color);
+        if (this.renderer) {
+          this.renderer.setClearColor(new THREE.Color(color));
+          this.renderer.render(this.scene, this.camera);
         }
-        this.saveSettings(); // Explicitly save
+      }
+      
+      this.saveSettings(); // Explicitly save
     },
     updateGroundColor(color) {
         this.groundColor = color;
