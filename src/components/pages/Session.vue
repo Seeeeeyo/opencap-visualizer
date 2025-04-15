@@ -341,6 +341,13 @@
               Load Video (mp4/webm)
             </v-btn>
             
+            <!-- Add Load Object button -->
+            <input type="file" ref="objFileInput" accept=".obj" style="display: none" @change="handleObjFileSelect" />
+            <v-btn color="#9333EA" class="mb-2 white--text custom-btn" block @click="$refs.objFileInput.click()">
+              <v-icon left>mdi-cube-outline</v-icon>
+              Load 3D Object (.obj)
+            </v-btn>
+            
             <!-- Existing file chips etc. -->
           </div>
         </div>
@@ -829,6 +836,86 @@
               </div>
               <!-- No offset controls for markers -->
           </div>
+
+          <!-- Custom Objects List -->
+          <div v-for="obj in customObjects" :key="obj.id" class="legend-item mb-2">
+            <div class="d-flex align-center mb-2">
+              <div class="color-box" :style="{ backgroundColor: obj.color }"></div>
+              <div class="ml-2" style="width: 120px; min-width: 120px;">
+                <v-text-field v-model="obj.name" dense hide-details class="trial-name-input" />
+                <div class="file-name text-caption">{{ obj.name }}</div>
+              </div>
+              <div class="d-flex align-center flex-grow-1">
+                <v-menu offset-y :close-on-content-click="false">
+                  <template v-slot:activator="{ on, attrs }">
+                    <v-btn icon small v-bind="attrs" v-on="on" class="ml-2">
+                      <v-icon small>mdi-palette</v-icon>
+                    </v-btn>
+                  </template>
+                  <v-card class="color-picker pa-2">
+                    <div class="d-flex flex-wrap">
+                      <v-btn v-for="color in availableColors.filter(c => c !== 'original')" 
+                        :key="color" 
+                        small 
+                        icon 
+                        class="ma-1" 
+                        @click="updateObjectColor(obj.id, color)"
+                      >
+                        <div class="color-sample" :style="{ backgroundColor: color }"></div>
+                      </v-btn>
+                    </div>
+                  </v-card>
+                </v-menu>
+                <v-btn icon small class="ml-2" @click="removeCustomObject(obj.id)">
+                  <v-icon small color="error">mdi-delete</v-icon>
+                </v-btn>
+                <v-btn icon small class="ml-2" @click="toggleObjectVisibility(obj.id)">
+                  <v-icon small :color="isObjectVisible(obj.id) ? 'white' : 'grey'">
+                    {{ isObjectVisible(obj.id) ? 'mdi-eye' : 'mdi-eye-off' }}
+                  </v-icon>
+                </v-btn>
+                <v-menu offset-y>
+                  <template v-slot:activator="{ on, attrs }">
+                    <v-btn icon small v-bind="attrs" v-on="on" class="ml-2">
+                      <v-icon small>mdi-opacity</v-icon>
+                    </v-btn>
+                  </template>
+                  <v-card class="transparency-picker pa-3" width="250">
+                    <div class="text-subtitle-2 mb-2">
+                      Transparency
+                      <span class="text-caption ml-2">
+                        ({{ Math.round((1 - obj.opacity) * 100) }}%)
+                      </span>
+                    </div>
+                    <v-slider 
+                      :value="(1 - (obj.opacity || 1)) * 100"
+                      @input="value => updateObjectOpacity(obj.id, 1 - value / 100)"
+                      :min="0" 
+                      :max="100" 
+                      step="1" 
+                      hide-details 
+                      :thumb-label="true"
+                      thumb-size="24"
+                    >
+                      <template v-slot:thumb-label="{ value }">
+                        {{ Math.round(value) }}%
+                      </template>
+                    </v-slider>
+                  </v-card>
+                </v-menu>
+              </div>
+            </div>
+            
+            <!-- Position controls -->
+            <div class="offset-controls mt-1">
+              <div class="d-flex align-center">
+                <v-text-field label="X" type="number" :step="0.5" :value="obj.position.x" dense @input="updateObjectPosition(obj.id, 'x', $event)" style="width: 70px" />
+                <v-text-field label="Y" type="number" :step="0.5" :value="obj.position.y" dense @input="updateObjectPosition(obj.id, 'y', $event)" style="width: 70px" />
+                <v-text-field label="Z" type="number" :step="0.5" :value="obj.position.z" dense @input="updateObjectPosition(obj.id, 'z', $event)" style="width: 70px" />
+                <v-text-field label="Scale" type="number" :step="0.1" :value="obj.scale" dense @input="updateObjectScale(obj.id, $event)" style="width: 70px" class="ml-2" />
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- Add Marker Visibility Dialog -->
@@ -866,6 +953,141 @@
             <span class="text-caption grey--text text--darken-1">© 2025 PhD Research</span>
           </div>
         </div>
+
+        <!-- Load Object Dialog -->
+        <v-dialog v-model="showLoadObjectDialog" max-width="500">
+          <v-card>
+            <v-card-title>Load 3D Object</v-card-title>
+            <v-card-text>
+              <v-file-input
+                v-model="objFile"
+                label="Select OBJ file"
+                accept=".obj"
+                prepend-icon="mdi-cube-outline"
+                outlined
+                dense
+                show-size
+              ></v-file-input>
+              
+              <div class="mt-4">
+                <div class="text-subtitle-1 mb-2">Position</div>
+                <div class="d-flex">
+                  <v-text-field
+                    v-model="objPosition.x"
+                    label="X"
+                    type="number"
+                    step="0.1"
+                    class="mr-2"
+                    dense
+                  ></v-text-field>
+                  <v-text-field
+                    v-model="objPosition.y"
+                    label="Y"
+                    type="number"
+                    step="0.1"
+                    class="mr-2"
+                    dense
+                  ></v-text-field>
+                  <v-text-field
+                    v-model="objPosition.z"
+                    label="Z"
+                    type="number"
+                    step="0.1"
+                    dense
+                  ></v-text-field>
+                </div>
+              </div>
+              
+              <div class="mt-4">
+                <div class="text-subtitle-1 mb-2">Scale</div>
+                <v-slider
+                  v-model="objScale"
+                  label="Scale"
+                  min="0.1"
+                  max="5"
+                  step="0.1"
+                  thumb-label
+                ></v-slider>
+              </div>
+              
+              <div class="mt-4">
+                <div class="text-subtitle-1 mb-2">Color</div>
+                <div class="d-flex flex-wrap">
+                  <v-btn
+                    v-for="color in availableColors.filter(c => c !== 'original')" 
+                    :key="color"
+                    small
+                    icon
+                    class="ma-1"
+                    @click="objColor = color"
+                  >
+                    <div 
+                      class="color-sample" 
+                      :style="{ 
+                        backgroundColor: color,
+                        border: objColor === color ? '2px solid white' : 'none'
+                      }"
+                    ></div>
+                  </v-btn>
+                </div>
+              </div>
+            </v-card-text>
+            <v-card-actions>
+              <v-spacer></v-spacer>
+              <v-btn text @click="showLoadObjectDialog = false">Cancel</v-btn>
+              <v-btn color="indigo" text @click="loadCustomObject">Load</v-btn>
+            </v-card-actions>
+          </v-card>
+        </v-dialog>
+
+        <!-- Custom Objects Manager Dialog -->
+        <v-dialog v-model="showCustomObjectsManager" max-width="500">
+          <v-card>
+            <v-card-title>Custom 3D Objects</v-card-title>
+            <v-card-text>
+              <div v-if="customObjects.length === 0" class="text-center grey--text pa-4">
+                No custom objects loaded
+              </div>
+              <v-list dense v-else>
+                <v-list-item v-for="obj in customObjects" :key="obj.id">
+                  <v-list-item-content>
+                    <v-list-item-title>{{ obj.name }}</v-list-item-title>
+                    <v-list-item-subtitle>
+                      Position: ({{ obj.position.x }}, {{ obj.position.y }}, {{ obj.position.z }})
+                      | Scale: {{ obj.scale }}
+                    </v-list-item-subtitle>
+                  </v-list-item-content>
+                  <v-list-item-action>
+                    <div class="d-flex">
+                      <v-btn 
+                        icon 
+                        small 
+                        @click="toggleObjectVisibility(obj.id)"
+                        class="mr-1"
+                      >
+                        <v-icon small :color="isObjectVisible(obj.id) ? 'white' : 'grey'">
+                          {{ isObjectVisible(obj.id) ? 'mdi-eye' : 'mdi-eye-off' }}
+                        </v-icon>
+                      </v-btn>
+                      <v-btn 
+                        icon 
+                        small 
+                        @click="removeCustomObject(obj.id)"
+                        color="error"
+                      >
+                        <v-icon small>mdi-delete</v-icon>
+                      </v-btn>
+                    </div>
+                  </v-list-item-action>
+                </v-list-item>
+              </v-list>
+            </v-card-text>
+            <v-card-actions>
+              <v-spacer></v-spacer>
+              <v-btn text @click="showCustomObjectsManager = false">Close</v-btn>
+            </v-card-actions>
+          </v-card>
+        </v-dialog>
       </div>
     </div>
   </template>
@@ -1042,6 +1264,13 @@ const axiosInstance = axios.create();
               markerLabels: {}, // Store marker label sprites
               activeMarkerLabel: null, // Track currently displayed label
               markerLabelTimeout: null, // For label auto-hide timeout
+              showLoadObjectDialog: false, // Add this line to control the load object dialog
+              objFile: null,
+              objPosition: { x: 0, y: 0, z: 0 },
+              objScale: 1,
+              objColor: '#ffffff',
+              customObjects: [], // Track loaded custom objects
+              showCustomObjectsManager: false, // Dialog to manage custom objects
           }
       },
       computed: {
@@ -5219,6 +5448,289 @@ const axiosInstance = axios.create();
       if (this.renderer) {
           this.renderer.render(this.scene, this.camera);
       }
+    },
+    toggleLoadObjectDialog() {
+      this.showLoadObjectDialog = !this.showLoadObjectDialog;
+    },
+    loadCustomObject() {
+      if (!this.objFile) {
+        alert('Please select an OBJ file');
+        return;
+      }
+      
+      // Create a URL for the uploaded file
+      const fileURL = URL.createObjectURL(this.objFile);
+      
+      // Load the OBJ file using the existing objLoader
+      objLoader.load(fileURL, (root) => {
+        if (!this.scene) {
+          URL.revokeObjectURL(fileURL);
+          return;
+        }
+        
+        // Set up the object properties
+        root.position.set(
+          parseFloat(this.objPosition.x),
+          parseFloat(this.objPosition.y),
+          parseFloat(this.objPosition.z)
+        );
+        
+        // Set scale
+        const scale = parseFloat(this.objScale);
+        root.scale.set(scale, scale, scale);
+        
+        // Apply material to all meshes in the object
+        root.traverse((child) => {
+          if (child instanceof THREE.Mesh) {
+            // Create a material with the selected color
+            child.material = new THREE.MeshPhongMaterial({
+              color: new THREE.Color(this.objColor),
+              shininess: 30,
+              transparent: false,
+              opacity: 1.0
+            });
+            
+            // Enable shadows
+            child.castShadow = true;
+            child.receiveShadow = true;
+          }
+        });
+        
+        // Generate a unique key for this object
+        const objKey = `custom_obj_${Date.now()}`;
+        
+        // Store the mesh in the meshes object
+        this.meshes[objKey] = root;
+        
+        // Track this custom object
+        this.customObjects.push({
+          id: objKey,
+          name: this.objFile.name,
+          position: { ...this.objPosition },
+          scale: this.objScale,
+          color: this.objColor
+        });
+        
+        // Add the object to the scene
+        this.scene.add(root);
+        
+        // Render the scene
+        this.renderer.render(this.scene, this.camera);
+        
+        // Clean up the URL
+        URL.revokeObjectURL(fileURL);
+        
+        // Close the dialog
+        this.showLoadObjectDialog = false;
+        
+        // Reset the file input
+        this.objFile = null;
+        
+        // Log success
+        console.log('Custom object loaded successfully', objKey);
+      }, 
+      // Progress callback
+      (xhr) => {
+        console.log((xhr.loaded / xhr.total * 100) + '% loaded');
+      },
+      // Error callback
+      (error) => {
+        console.error('Error loading the OBJ file', error);
+        alert('Error loading the OBJ file: ' + error.message);
+        URL.revokeObjectURL(fileURL);
+      });
+    },
+    isObjectVisible(id) {
+      // Check if the object exists in the meshes
+      if (this.meshes[id]) {
+        return this.meshes[id].visible;
+      }
+      return false;
+    },
+    toggleObjectVisibility(id) {
+      // Toggle visibility of the custom object
+      if (this.meshes[id]) {
+        this.meshes[id].visible = !this.meshes[id].visible;
+        // Force a render update
+        this.renderer.render(this.scene, this.camera);
+      }
+    },
+    removeCustomObject(id) {
+      // Remove the object from the scene
+      if (this.meshes[id]) {
+        this.scene.remove(this.meshes[id]);
+        
+        // Remove from meshes object
+        delete this.meshes[id];
+        
+        // Remove from customObjects array
+        this.customObjects = this.customObjects.filter(obj => obj.id !== id);
+        
+        // Force a render update
+        this.renderer.render(this.scene, this.camera);
+        
+        // Close the manager if no objects remain
+        if (this.customObjects.length === 0) {
+          this.showCustomObjectsManager = false;
+        }
+      }
+    },
+    handleObjFileSelect(event) {
+      const files = event.target.files;
+      if (files.length > 0) {
+        const file = files[0];
+        // Create a URL for the uploaded file
+        const fileURL = URL.createObjectURL(file);
+        
+        // Load the OBJ file using the existing objLoader
+        objLoader.load(fileURL, (root) => {
+          if (!this.scene) {
+            URL.revokeObjectURL(fileURL);
+            return;
+          }
+          
+          // Generate a unique key for this object
+          const objKey = `custom_obj_${Date.now()}`;
+          
+          // Create default object properties
+          const newObject = {
+            id: objKey,
+            name: file.name,
+            position: { x: 0, y: 0, z: 0 },
+            scale: 1,
+            color: '#ffffff',
+            opacity: 1.0
+          };
+          
+          // Set up the object properties
+          root.position.set(0, 0, 0);
+          root.scale.set(1, 1, 1);
+          
+          // Apply material to all meshes in the object
+          root.traverse((child) => {
+            if (child instanceof THREE.Mesh) {
+              // Create a material with the default color
+              child.material = new THREE.MeshPhongMaterial({
+                color: new THREE.Color(newObject.color),
+                shininess: 30,
+                transparent: false,
+                opacity: 1.0
+              });
+              
+              // Enable shadows
+              child.castShadow = true;
+              child.receiveShadow = true;
+            }
+          });
+          
+          // Store the mesh in the meshes object
+          this.meshes[objKey] = root;
+          
+          // Add the object to customObjects array
+          this.customObjects.push(newObject);
+          
+          // Add the object to the scene
+          this.scene.add(root);
+          
+          // Render the scene
+          this.renderer.render(this.scene, this.camera);
+          
+          // Clean up the URL
+          URL.revokeObjectURL(fileURL);
+          
+          // Reset the file input
+          event.target.value = '';
+          
+          // Log success
+          console.log('Custom object loaded successfully', objKey);
+        }, 
+        // Progress callback
+        (xhr) => {
+          console.log((xhr.loaded / xhr.total * 100) + '% loaded');
+        },
+        // Error callback
+        (error) => {
+          console.error('Error loading the OBJ file', error);
+          alert('Error loading the OBJ file: ' + error.message);
+          URL.revokeObjectURL(fileURL);
+        });
+      }
+    },
+    updateObjectColor(id, colorHex) {
+      const obj = this.customObjects.find(o => o.id === id);
+      if (!obj) return;
+
+      // Update the object's color property
+      obj.color = colorHex;
+
+      // Update the mesh material
+      const mesh = this.meshes[id];
+      if (mesh) {
+        mesh.traverse((child) => {
+          if (child instanceof THREE.Mesh) {
+            child.material.color = new THREE.Color(colorHex);
+            child.material.needsUpdate = true;
+          }
+        });
+      }
+
+      // Render the scene
+      this.renderer.render(this.scene, this.camera);
+    },
+    updateObjectOpacity(id, value) {
+      const obj = this.customObjects.find(o => o.id === id);
+      if (!obj) return;
+
+      // Update the object's opacity property
+      obj.opacity = value;
+
+      // Update the mesh material
+      const mesh = this.meshes[id];
+      if (mesh) {
+        mesh.traverse((child) => {
+          if (child instanceof THREE.Mesh) {
+            child.material.opacity = value;
+            child.material.transparent = value < 1;
+            child.material.needsUpdate = true;
+          }
+        });
+      }
+
+      // Render the scene
+      this.renderer.render(this.scene, this.camera);
+    },
+    updateObjectPosition(id, axis, value) {
+      const obj = this.customObjects.find(o => o.id === id);
+      if (!obj) return;
+
+      // Update the object's position property
+      obj.position[axis] = Number(value);
+
+      // Update the mesh position
+      const mesh = this.meshes[id];
+      if (mesh) {
+        mesh.position[axis] = Number(value);
+      }
+
+      // Render the scene
+      this.renderer.render(this.scene, this.camera);
+    },
+    updateObjectScale(id, value) {
+      const obj = this.customObjects.find(o => o.id === id);
+      if (!obj) return;
+
+      // Update the object's scale property
+      obj.scale = Number(value);
+
+      // Update the mesh scale
+      const mesh = this.meshes[id];
+      if (mesh) {
+        const scale = Number(value);
+        mesh.scale.set(scale, scale, scale);
+      }
+
+      // Render the scene
+      this.renderer.render(this.scene, this.camera);
     },
   }
 }
