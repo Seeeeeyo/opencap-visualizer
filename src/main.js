@@ -61,6 +61,7 @@ Vue.component("ValidationProvider", ValidationProvider);
 Vue.component("ValidationObserver", ValidationObserver);
 
 import Toasted from 'vue-toasted'
+import './registerServiceWorker'
 Vue.use(Toasted, { 
   position: 'bottom-center', 
   duration: 10000,
