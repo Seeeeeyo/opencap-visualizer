@@ -409,22 +409,7 @@
                 </v-card>
               </v-menu>
             </div>
-            <!-- Add Light Intensity control here -->
-            <div class="d-flex align-center ml-4">
-              <div class="mr-2">Light:</div>
-              <v-slider
-                v-model="globalLightIntensity"
-                min="0"
-                max="3"
-                step="0.1"
-                thumb-label
-                dense
-                hide-details
-                @input="updateGlobalLightIntensity"
-                class="mt-0"
-              ></v-slider>
-            </div>
-            <!-- Add Center Camera button -->
+            <!-- Center Camera button -->
             <v-tooltip bottom>
               <template v-slot:activator="{ on, attrs }">
                 <v-btn
@@ -1002,7 +987,6 @@ const axiosInstance = axios.create();
               gridTexture: null,
               showGround: true,
               alphaValues: [], // Array to store alpha values for each animation
-              globalLightIntensity: 1.0, // Add global light intensity control
               lights: { hemisphere: null, directionals: [] }, // Store light references
               osimFile: null,
               motFile: null,
@@ -2015,32 +1999,33 @@ const axiosInstance = axios.create();
         // Set initial background color
         this.scene.background = new THREE.Color(this.backgroundColor);
 
-        // Add lights
+        // Add lights with good default settings
         const skyColor = 0xB1E1FF;
         const groundColor = 0xB97A20;
-        const intensity = 0.1; // Base intensity for hemisphere light
-        const hemisphereLight = new THREE.HemisphereLight(skyColor, groundColor, intensity * this.globalLightIntensity);
+        const hemisphereIntensity = 0.8; // Increased from 0.1
+        const hemisphereLight = new THREE.HemisphereLight(skyColor, groundColor, hemisphereIntensity);
         this.scene.add(hemisphereLight);
-        this.lights.hemisphere = hemisphereLight; // Store reference
+        this.lights.hemisphere = hemisphereLight;
 
-        // Add four directional lights from corners
+        // Add four directional lights from corners with good default intensity
         const cornerPositions = [
-            { x: 10, y: 10, z: 10 },
-            { x: -10, y: 10, z: 10 },
-            { x: 10, y: 10, z: -10 },
+            // { x: 10, y: 10, z: 10 },
+            // { x: -10, y: 10, z: 10 },
+            // { x: 10, y: 10, z: -10 },
             { x: -10, y: 10, z: -10 }
         ];
-        const lightIntensity = 0.5; // Base intensity for directional lights
+        const lightIntensity = 0.7; // Increased from 0.5
         const lightColor = 0xFFFFFF;
 
         this.lights.directionals = []; // Clear previous references
         cornerPositions.forEach(pos => {
-            const directionalLight = new THREE.DirectionalLight(lightColor, lightIntensity * this.globalLightIntensity);
+            const directionalLight = new THREE.DirectionalLight(lightColor, lightIntensity);
             directionalLight.position.set(pos.x, pos.y, pos.z);
             directionalLight.target.position.set(0, 0, 0);
             directionalLight.castShadow = false; // Disable shadows for performance initially
             this.scene.add(directionalLight);
             this.scene.add(directionalLight.target);
+            this.lights.directionals.push(directionalLight);
         });
 
         // Initial render
@@ -4800,7 +4785,6 @@ const axiosInstance = axios.create();
           if (settings.showGround !== undefined) this.showGround = settings.showGround;
           if (settings.useGroundTexture !== undefined) this.useGroundTexture = settings.useGroundTexture;
           if (settings.useCheckerboard !== undefined) this.useCheckerboard = settings.useCheckerboard;
-          if (settings.globalLightIntensity !== undefined) this.globalLightIntensity = settings.globalLightIntensity;
           if (settings.playSpeed !== undefined) this.playSpeed = settings.playSpeed;
           if (settings.recordingFormat) this.recordingFormat = settings.recordingFormat;
           if (settings.videoBitrate) this.videoBitrate = settings.videoBitrate;
@@ -4838,7 +4822,6 @@ const axiosInstance = axios.create();
         showGround: this.showGround,
         useGroundTexture: this.useGroundTexture,
         useCheckerboard: this.useCheckerboard,
-        globalLightIntensity: this.globalLightIntensity,
         playSpeed: this.playSpeed,
         recordingFormat: this.recordingFormat,
         videoBitrate: this.videoBitrate,
@@ -4872,7 +4855,7 @@ const axiosInstance = axios.create();
       console.log('[applyLoadedSceneSettings] Scene exists:', !!this.scene, 'Renderer exists:', !!this.renderer);
       if (!this.scene || !this.renderer) return;
 
-      console.log(`[applyLoadedSceneSettings] Applying Background: ${this.backgroundColor}, Ground: ${this.groundColor}, ShowGround: ${this.showGround}, UseTexture: ${this.useGroundTexture}, UseChecker: ${this.useCheckerboard}, Light: ${this.globalLightIntensity}`);
+      console.log(`[applyLoadedSceneSettings] Applying Background: ${this.backgroundColor}, Ground: ${this.groundColor}, ShowGround: ${this.showGround}, UseTexture: ${this.useGroundTexture}, UseChecker: ${this.useCheckerboard}`);
       // Background color
       this.updateBackgroundColor(this.backgroundColor);
 
@@ -4907,9 +4890,6 @@ const axiosInstance = axios.create();
           console.warn('[applyLoadedSceneSettings] Ground mesh not ready when applying settings.');
           console.warn('[applyLoadedSceneSettings] Ground mesh not ready.');
       }
-
-      // Light intensity
-      this.updateGlobalLightIntensity(this.globalLightIntensity);
 
       // Marker settings that affect meshes
       this.updateMarkerColor(); // Update material color
