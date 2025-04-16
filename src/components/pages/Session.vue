@@ -645,6 +645,9 @@
                     {{ animations[index].visible ? 'mdi-eye' : 'mdi-eye-off' }}
                   </v-icon>
                 </v-btn>
+                <v-btn icon small class="ml-2" @click="centerCameraOnAnimation(index)" title="Center camera on this subject">
+                  <v-icon small>mdi-target</v-icon>
+                </v-btn>
                 <v-menu offset-y>
                   <template v-slot:activator="{ on, attrs }">
                     <v-btn icon small v-bind="attrs" v-on="on" class="ml-2" @click="prepareTransparencyMenu(index)">
@@ -782,6 +785,9 @@
                               {{ showMarkers ? 'mdi-eye' : 'mdi-eye-off' }}
                           </v-icon>
                       </v-btn>
+                      <v-btn icon small class="ml-2" @click="centerCameraOnMarkers" title="Center camera on markers">
+                          <v-icon small>mdi-target</v-icon>
+                      </v-btn>
                       <!-- Add Transparency Menu (4th) -->
                       <v-menu offset-y>
                           <template v-slot:activator="{ on, attrs }">
@@ -879,6 +885,9 @@
                   <v-icon small :color="isObjectVisible(obj.id) ? 'white' : 'grey'">
                     {{ isObjectVisible(obj.id) ? 'mdi-eye' : 'mdi-eye-off' }}
                   </v-icon>
+                </v-btn>
+                <v-btn icon small class="ml-2" @click="centerCameraOnObject(obj.id)" title="Center camera on this object">
+                  <v-icon small>mdi-target</v-icon>
                 </v-btn>
                 <v-menu offset-y>
                   <template v-slot:activator="{ on, attrs }">
@@ -5857,6 +5866,110 @@
           toRadians(obj.rotation.z)
         );
       }
+
+      // Render the scene
+      this.renderer.render(this.scene, this.camera);
+    },
+    centerCameraOnObject(id) {
+      if (!this.scene || !this.camera || !this.controls) return;
+
+      const mesh = this.meshes[id];
+      if (!mesh) return;
+
+      // Calculate bounding box
+      const boundingBox = new THREE.Box3().setFromObject(mesh);
+      const center = new THREE.Vector3();
+      boundingBox.getCenter(center);
+
+      // Calculate optimal distance based on bounding box size
+      const size = new THREE.Vector3();
+      boundingBox.getSize(size);
+      const maxDim = Math.max(size.x, size.y, size.z);
+      const fov = this.camera.fov * (Math.PI / 180);
+      const distance = Math.abs(maxDim / Math.sin(fov / 2)) * 1.5; // 1.5 for some padding
+
+      // Set camera position
+      const direction = new THREE.Vector3(1, 1, 1).normalize();
+      const position = center.clone().add(direction.multiplyScalar(distance));
+
+      // Update camera and controls
+      this.camera.position.copy(position);
+      this.controls.target.copy(center);
+      this.controls.update();
+
+      // Render the scene
+      this.renderer.render(this.scene, this.camera);
+    },
+
+    centerCameraOnAnimation(index) {
+      if (!this.scene || !this.camera || !this.controls || !this.animations[index]) return;
+
+      const animation = this.animations[index];
+      const meshKeys = Object.keys(this.meshes).filter(key => key.startsWith(`anim${index}_`));
+      
+      if (meshKeys.length === 0) return;
+
+      // Calculate combined bounding box of all meshes in the animation
+      const boundingBox = new THREE.Box3();
+      meshKeys.forEach(key => {
+        const mesh = this.meshes[key];
+        if (mesh && mesh.visible) {
+          boundingBox.expandByObject(mesh);
+        }
+      });
+
+      const center = new THREE.Vector3();
+      boundingBox.getCenter(center);
+
+      // Calculate optimal distance
+      const size = new THREE.Vector3();
+      boundingBox.getSize(size);
+      const maxDim = Math.max(size.x, size.y, size.z);
+      const fov = this.camera.fov * (Math.PI / 180);
+      const distance = Math.abs(maxDim / Math.sin(fov / 2)) * 1.5;
+
+      // Set camera position
+      const direction = new THREE.Vector3(1, 1, 1).normalize();
+      const position = center.clone().add(direction.multiplyScalar(distance));
+
+      // Update camera and controls
+      this.camera.position.copy(position);
+      this.controls.target.copy(center);
+      this.controls.update();
+
+      // Render the scene
+      this.renderer.render(this.scene, this.camera);
+    },
+
+    centerCameraOnMarkers() {
+      if (!this.scene || !this.camera || !this.controls || Object.keys(this.markers).length === 0) return;
+
+      // Calculate bounding box of all visible markers
+      const boundingBox = new THREE.Box3();
+      Object.values(this.markerMeshes).forEach(mesh => {
+        if (mesh && mesh.visible) {
+          boundingBox.expandByObject(mesh);
+        }
+      });
+
+      const center = new THREE.Vector3();
+      boundingBox.getCenter(center);
+
+      // Calculate optimal distance
+      const size = new THREE.Vector3();
+      boundingBox.getSize(size);
+      const maxDim = Math.max(size.x, size.y, size.z);
+      const fov = this.camera.fov * (Math.PI / 180);
+      const distance = Math.abs(maxDim / Math.sin(fov / 2)) * 1.5;
+
+      // Set camera position
+      const direction = new THREE.Vector3(1, 1, 1).normalize();
+      const position = center.clone().add(direction.multiplyScalar(distance));
+
+      // Update camera and controls
+      this.camera.position.copy(position);
+      this.controls.target.copy(center);
+      this.controls.update();
 
       // Render the scene
       this.renderer.render(this.scene, this.camera);
