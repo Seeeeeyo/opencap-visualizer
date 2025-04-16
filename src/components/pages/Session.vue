@@ -64,7 +64,48 @@
         ></div>
       </div>
       
-      <div class="viewer flex-grow-1" :class="{ 'sidebar-hidden': !showSidebar, 'is-embedded': $route.query.embed === 'true' }" @dragover.prevent @drop.prevent="handleDrop">
+      <!-- Left Sidebar -->
+      <div class="left d-flex flex-column" :class="{ 'hidden': !showLeftSidebar }" v-if="$route.query.embed !== 'true'">
+        <!-- Empty left sidebar - will be populated later -->
+        <div class="left-content flex-grow-1">
+          <div class="pa-4">
+            <h2 class="text-h6 white--text mb-4">Left Panel</h2>
+            
+            <v-card dark color="#1E1E1E" class="mb-4 pa-3 elevation-3">
+              <v-card-title class="text-subtitle-1 px-0 pt-0">Additional Controls</v-card-title>
+              <v-card-text class="px-0 pb-0">
+                <p class="grey--text text--lighten-1">This panel will be used for additional controls and information in future updates.</p>
+              </v-card-text>
+            </v-card>
+
+            <v-btn dark color="indigo" block class="mb-3">
+              <v-icon left>mdi-cog</v-icon>
+              Future Feature
+            </v-btn>
+          </div>
+        </div>
+        
+        <!-- Credits -->
+        <div class="credits mt-auto pt-2 text-center">
+          <div class="text-caption grey--text text--lighten-1">
+            Left Sidebar
+          </div>
+        </div>
+      </div>
+
+      <!-- Toggle button for left sidebar -->
+      <v-btn
+        icon
+        dark
+        class="left-sidebar-toggle"
+        @click="showLeftSidebar = !showLeftSidebar"
+        :style="{ left: showLeftSidebar ? '330px' : '10px' }"
+        v-if="$route.query.embed !== 'true'"
+      >
+        <v-icon>{{ showLeftSidebar ? 'mdi-chevron-left' : 'mdi-chevron-right' }}</v-icon>
+      </v-btn>
+      
+      <div class="viewer flex-grow-1" :class="{ 'sidebar-hidden': !showSidebar, 'left-sidebar-shown': showLeftSidebar, 'is-embedded': $route.query.embed === 'true' }" @dragover.prevent @drop.prevent="handleDrop">
         <div v-if="trial" class="d-flex flex-column h-100">
           <div id="mocap" ref="mocap" class="flex-grow-1 position-relative">
             <!-- Debug info -->
@@ -1367,6 +1408,7 @@
               objColor: '#ffffff',
               customObjects: [], // Track loaded custom objects
               showCustomObjectsManager: false, // Dialog to manage custom objects
+              showLeftSidebar: false, // Add this line to control left sidebar visibility
           }
       },
       computed: {
@@ -6027,10 +6069,14 @@
 
   .viewer {
     height: 100%;
-    transition: margin-right 0.3s ease;
+    transition: margin 0.3s ease;
   
     &:not(.sidebar-hidden):not(.is-embedded) {
-      margin-right: 410px; // Increased from 360px
+      margin-right: 410px; // Right sidebar width
+    }
+    
+    &.left-sidebar-shown:not(.is-embedded) {
+      margin-left: 330px; // Left sidebar width
     }
   
     #mocap {
@@ -6038,6 +6084,32 @@
       height: calc(100% - 60px);
       position: relative;
       overflow: visible;
+    }
+  }
+
+  .left-sidebar-toggle {
+    position: fixed !important;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 101;
+    transition: left 0.3s ease;
+    background: rgba(30, 30, 30, 0.8) !important;
+    
+    &:hover {
+      background: rgba(50, 50, 50, 0.9) !important;
+    }
+  }
+  
+  .sidebar-toggle {
+    position: fixed !important;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 101;
+    transition: right 0.3s ease;
+    background: rgba(30, 30, 30, 0.8) !important;
+    
+    &:hover {
+      background: rgba(50, 50, 50, 0.9) !important;
     }
   }
   
@@ -6140,19 +6212,6 @@
           padding: 0 8px !important;
         }
       }
-    }
-  }
-
-  .sidebar-toggle {
-    position: fixed !important;
-    top: 50%;
-    transform: translateY(-50%);
-    z-index: 101;
-    transition: right 0.3s ease;
-    background: rgba(30, 30, 30, 0.8) !important;
-    
-    &:hover {
-      background: rgba(50, 50, 50, 0.9) !important;
     }
   }
 
@@ -6436,6 +6495,53 @@
   .v-icon {
     margin-right: 6px !important;
   }
+}
+
+.left {
+  flex: 0 0 330px; 
+  width: 330px;
+  height: 100%;
+  padding: 15px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  left: 0;
+  top: 0;
+  background: #1E1E1E;
+  transition: transform 0.3s ease;
+  z-index: 100;
+
+  &.hidden {
+    transform: translateX(-100%);
+  }
+
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  // Adjust spacing for compact view
+  .mb-4 {
+    margin-bottom: 8px !important;
+  }
+
+  .left-content {
+    flex-grow: 1;
+  }
+
+  .credits {
+    margin-top: auto;
+    padding: 20px;
+    text-align: center;
+
+    .text-caption {
+      color: rgba(255, 255, 255, 0.5);
+    }
+  }
+}
+
+.left-sidebar-shown {
+  margin-left: 330px;
 }
 </style>
   
