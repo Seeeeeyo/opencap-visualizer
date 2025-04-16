@@ -80,21 +80,35 @@
             <!-- Legend -->
             <div class="legend flex-grow-1 mb-4">
               <!-- Animation Files List -->
-              <div v-for="(animation, index) in animations" :key="index" class="legend-item mb-4">
+              <div v-for="(animation, index) in animations" :key="`animation-${index}`" class="legend-item mb-4">
                 <div class="d-flex mb-2">
                   <div class="color-box" :style="{ backgroundColor: '#' + colors[index].getHexString() }"></div>
                   <div class="ml-2" style="flex-grow: 1;">
                     <v-text-field v-model="animation.trialName" dense hide-details class="trial-name-input" />
-                    <div class="file-name text-caption">{{ getFileName(animation) }}</div>
-                    <!-- Add FPS display here -->
-                    <div v-if="animation.calculatedFps" class="fps-info text-caption grey--text">
-                      {{ animation.calculatedFps }} FPS
+                    <div class="file-name text-caption">{{ animation.fileName }}</div>
+                    <div class="fps-info text-caption grey--text">
+                      {{ animation.calculatedFps ? animation.calculatedFps.toFixed(2) + ' fps' : '' }}
                     </div>
                   </div>
                 </div>
                 
-                <!-- Buttons row -->
-                <div class="d-flex align-center" style="min-width: 300px; margin-left: 44px;">
+                <!-- Buttons row - add checkbox here -->
+                <div class="d-flex align-center ml-8" style="min-width: 300px;">
+                  <v-tooltip bottom>
+                    <template v-slot:activator="{ on, attrs }">
+                      <div v-bind="attrs" v-on="on">
+                        <v-checkbox 
+                          v-model="animation.playable" 
+                          hide-details 
+                          dense 
+                          color="primary" 
+                          class="mt-0 mr-2 playable-checkbox"
+                        ></v-checkbox>
+                      </div>
+                    </template>
+                    <span>{{ animation.playable ? 'Animation enabled' : 'Static display (visible but not animating)' }}</span>
+                  </v-tooltip>
+                  
                   <v-menu offset-y :close-on-content-click="false">
                     <template v-slot:activator="{ on, attrs }">
                       <v-btn icon small v-bind="attrs" v-on="on" class="mr-2">
@@ -272,6 +286,21 @@
                 
                 <!-- Buttons row -->
                 <div class="d-flex align-center ml-8" style="min-width: 300px;">
+                  <v-tooltip bottom>
+                    <template v-slot:activator="{ on, attrs }">
+                      <div v-bind="attrs" v-on="on">
+                        <v-checkbox 
+                          v-model="markersPlayable" 
+                          hide-details 
+                          dense 
+                          color="primary" 
+                          class="mt-0 mr-2 playable-checkbox"
+                        ></v-checkbox>
+                      </div>
+                    </template>
+                    <span>{{ markersPlayable ? 'Markers animation enabled' : 'Static markers (visible but not animating)' }}</span>
+                  </v-tooltip>
+                  
                   <v-menu offset-y :close-on-content-click="false">
                     <template v-slot:activator="{ on, attrs }">
                       <v-btn icon small v-bind="attrs" v-on="on" class="mr-2">
@@ -1377,6 +1406,7 @@ const axiosInstance = axios.create();
               showCustomObjectsManager: false, // Dialog to manage custom objects
               showLeftSidebar: false, // Add this line to control left sidebar visibility
               showImportDialog: false, // Add this line to control the import dialog
+              markersPlayable: true,
           }
       },
       computed: {
@@ -1830,6 +1860,9 @@ const axiosInstance = axios.create();
         if (cframe < this.frames.length) {
           // Update each animation
           this.animations.forEach((animation, animIndex) => {
+            // Skip animation updates if not playable, but still keep visible
+            if (!animation.playable) return;
+            
             let json = animation.data;
             for (let body in json.bodies) {
               json.bodies[body].attachedGeometries.forEach((geom) => {
@@ -1879,15 +1912,8 @@ const axiosInstance = axios.create();
   
           this.renderer.render(this.scene, this.camera);
   
-          // Frame advancement is now handled in the animate method
-          // We're no longer advancing frames here
-          if (this.playing && this.timelapseMode && cframe === this.frames.length - 1) {
-            // Only stop playback at the end of sequence in timelapse mode
-            this.togglePlay(false);
-          }
-          
-          // Update marker positions if we have marker data
-          if (Object.keys(this.markers).length > 0 && this.showMarkers) {
+          // Handle markers separately based on markersPlayable flag
+          if (Object.keys(this.markers).length > 0 && this.showMarkers && this.markersPlayable) {
             this.updateMarkerPositions(cframe);
           }
         }
@@ -2199,6 +2225,7 @@ const axiosInstance = axios.create();
                     fileName: file.name,
                     trialName: `Subject ${startIndex + index + 1}`,
                     visible: true,  // Add this line
+                    playable: true, // Add playable property, default to true
                     calculatedFps: fileFps // Store calculated FPS
                 });
 
@@ -2915,6 +2942,7 @@ const axiosInstance = axios.create();
                     fileName: fileName,
                     trialName: fileName.replace('sample_', '').replace('.json', ''),
                     visible: true,  // Ensure visibility is true by default
+                    playable: true, // Add playable property, default to true
                     calculatedFps: fileFps // Store calculated FPS
                 });
                 
@@ -6373,6 +6401,16 @@ const axiosInstance = axios.create();
   padding-left: 8px;
   text-transform: none;
   letter-spacing: normal;
+}
+
+.playable-checkbox {
+  min-width: 40px;
+  max-width: 40px;
+  overflow: hidden;
+}
+
+.playable-checkbox :deep(.v-input--selection-controls__input) {
+  margin-right: 0;
 }
 
 </style>
