@@ -79,6 +79,20 @@
             
             <!-- Legend -->
             <div class="legend flex-grow-1 mb-4">
+              <!-- Add animation control buttons -->
+              <div class="d-flex align-center mb-4">
+                <div class="text-subtitle-2 mr-2">Animations</div>
+                <v-spacer></v-spacer>
+                <v-btn x-small text color="primary" @click="setAllAnimationsPlayable(true)" class="mr-1">
+                  <v-icon x-small left>mdi-play-circle</v-icon>
+                  All
+                </v-btn>
+                <v-btn x-small text color="grey" @click="setAllAnimationsPlayable(false)">
+                  <v-icon x-small left>mdi-pause-circle</v-icon>
+                  None
+                </v-btn>
+              </div>
+              
               <!-- Animation Files List -->
               <div v-for="(animation, index) in animations" :key="`animation-${index}`" class="legend-item mb-4">
                 <div class="d-flex mb-2">
@@ -6054,7 +6068,13 @@ const axiosInstance = axios.create();
     selectFileType(inputRef) {
       this.$refs[inputRef].click();
       this.showImportDialog = false; // Close the dialog after selecting
-    }
+    },
+    setAllAnimationsPlayable(playable) {
+      this.animations.forEach(animation => {
+        animation.playable = playable;
+      });
+      this.markersPlayable = playable;
+    },
   }
 }
 </script>
