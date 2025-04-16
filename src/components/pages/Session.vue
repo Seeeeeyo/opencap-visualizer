@@ -493,44 +493,101 @@
                 
                 <!-- Position controls -->
                 <div class="offset-controls mt-2" style="margin-left: 44px;">
-                  <div class="d-flex align-center" style="border-bottom: 1px solid rgba(255, 255, 255, 0.12);">
-                    <div class="text-caption grey--text mr-2" style="width: 12px;">X</div>
+                  <div class="d-flex align-center mb-2" style="border-bottom: 1px solid rgba(255, 255, 255, 0.12);">
+                    <div class="text-caption grey--text mr-2">Position</div>
+                    <div class="d-flex align-center">
+                      <div class="text-caption grey--text mr-2" style="width: 12px;">X</div>
+                      <v-text-field 
+                        type="number" 
+                        :step="0.5" 
+                        :value="obj.position.x" 
+                        dense 
+                        @input="updateObjectPosition(obj.id, 'x', $event)" 
+                        style="width: 70px"
+                        class="grey--text text--darken-1"
+                        hide-details
+                      />
+                      <div class="text-caption grey--text mx-2" style="width: 12px;">Y</div>
+                      <v-text-field 
+                        type="number" 
+                        :step="0.5" 
+                        :value="obj.position.y" 
+                        dense 
+                        @input="updateObjectPosition(obj.id, 'y', $event)" 
+                        style="width: 70px"
+                        class="grey--text text--darken-1"
+                        hide-details
+                      />
+                      <div class="text-caption grey--text mx-2" style="width: 12px;">Z</div>
+                      <v-text-field 
+                        type="number" 
+                        :step="0.5" 
+                        :value="obj.position.z" 
+                        dense 
+                        @input="updateObjectPosition(obj.id, 'z', $event)" 
+                        style="width: 70px"
+                        class="grey--text text--darken-1"
+                        hide-details
+                      />
+                    </div>
+                  </div>
+                  
+                  <!-- Rotation controls -->
+                  <div class="d-flex align-center mb-2" style="border-bottom: 1px solid rgba(255, 255, 255, 0.12);">
+                    <div class="text-caption grey--text mr-2">Rotation</div>
+                    <div class="d-flex align-center">
+                      <div class="text-caption grey--text mr-2" style="width: 12px;">X</div>
+                      <v-text-field 
+                        type="number" 
+                        :step="5" 
+                        :value="obj.rotation ? obj.rotation.x : 0" 
+                        dense 
+                        @input="updateObjectRotation(obj.id, 'x', $event)" 
+                        style="width: 70px"
+                        class="grey--text text--darken-1"
+                        hide-details
+                      />
+                      <div class="text-caption grey--text mx-2" style="width: 12px;">Y</div>
+                      <v-text-field 
+                        type="number" 
+                        :step="5" 
+                        :value="obj.rotation ? obj.rotation.y : 0" 
+                        dense 
+                        @input="updateObjectRotation(obj.id, 'y', $event)" 
+                        style="width: 70px"
+                        class="grey--text text--darken-1"
+                        hide-details
+                      />
+                      <div class="text-caption grey--text mx-2" style="width: 12px;">Z</div>
+                      <v-text-field 
+                        type="number" 
+                        :step="5" 
+                        :value="obj.rotation ? obj.rotation.z : 0" 
+                        dense 
+                        @input="updateObjectRotation(obj.id, 'z', $event)" 
+                        style="width: 70px"
+                        class="grey--text text--darken-1"
+                        hide-details
+                      />
+                    </div>
+                  </div>
+                  
+                  <!-- Scale control -->
+                  <div class="d-flex align-center">
+                    <div class="text-caption grey--text mr-2">Scale</div>
                     <v-text-field 
                       type="number" 
-                      :step="0.5" 
-                      :value="obj.position.x" 
+                      :step="0.1" 
+                      :min="0.1"
+                      :value="obj.scale" 
                       dense 
-                      @input="updateObjectPosition(obj.id, 'x', $event)" 
-                      style="width: 70px"
-                      class="grey--text text--darken-1"
-                      hide-details
-                    />
-                    <div class="text-caption grey--text mx-2" style="width: 12px;">Y</div>
-                    <v-text-field 
-                      type="number" 
-                      :step="0.5" 
-                      :value="obj.position.y" 
-                      dense 
-                      @input="updateObjectPosition(obj.id, 'y', $event)" 
-                      style="width: 70px"
-                      class="grey--text text--darken-1"
-                      hide-details
-                    />
-                    <div class="text-caption grey--text mx-2" style="width: 12px;">Z</div>
-                    <v-text-field 
-                      type="number" 
-                      :step="0.5" 
-                      :value="obj.position.z" 
-                      dense 
-                      @input="updateObjectPosition(obj.id, 'z', $event)" 
+                      @input="updateObjectScale(obj.id, $event)" 
                       style="width: 70px"
                       class="grey--text text--darken-1"
                       hide-details
                     />
                   </div>
                 </div>
-                <!-- Divider -->
-                <v-divider class="mt-4" style="opacity: 0.2"></v-divider>
               </div>
             </div>
 
@@ -5736,7 +5793,8 @@ const axiosInstance = axios.create();
             scale: 1,
             color: '#ffffff',
             opacity: 1.0,
-            type: type
+            type: type,
+            mesh: model
           };
 
           // For GLTF/GLB models that might come with their own materials
@@ -5752,12 +5810,8 @@ const axiosInstance = axios.create();
               opacity: 1.0
             });
             model = new THREE.Mesh(model, material);
+            newObject.mesh = model;
           }
-          
-          // Set up the object properties
-          model.position.set(0, 0, 0);
-          model.scale.set(1, 1, 1);
-          model.rotation.set(0, 0, 0);
           
           // Apply material to all meshes unless it's a GLTF/GLB model
           if (!preserveMaterials) {
@@ -5774,6 +5828,43 @@ const axiosInstance = axios.create();
               }
             });
           }
+          
+          // AUTO-CENTER AND SCALE THE MODEL
+          // Create a bounding box for the model
+          const boundingBox = new THREE.Box3().setFromObject(model);
+          const size = new THREE.Vector3();
+          boundingBox.getSize(size);
+          
+          // Calculate the center of the object
+          const center = new THREE.Vector3();
+          boundingBox.getCenter(center);
+          
+          // Move object center to origin
+          model.position.sub(center);
+          
+          // Calculate scale to make the object a reasonable size (target size in meters)
+          const targetSize = 2.0; // Target size of the largest dimension in meters
+          const maxDimension = Math.max(size.x, size.y, size.z);
+          const scale = targetSize / maxDimension;
+          
+          // Apply scale
+          model.scale.set(scale, scale, scale);
+          newObject.scale = scale;
+          
+          // Place object on the ground (y=0)
+          // First recalculate bounding box after scaling
+          const newBoundingBox = new THREE.Box3().setFromObject(model);
+          const newSize = new THREE.Vector3();
+          newBoundingBox.getSize(newSize);
+          
+          // Position the bottom of the object at y=0 (ground level)
+          const bottomY = newBoundingBox.min.y;
+          model.position.y -= bottomY;
+          newObject.position = { 
+            x: model.position.x, 
+            y: model.position.y, 
+            z: model.position.z 
+          };
           
           // Store the mesh
           this.meshes[objKey] = model;
@@ -5901,61 +5992,34 @@ const axiosInstance = axios.create();
     },
     updateObjectPosition(id, axis, value) {
       const obj = this.customObjects.find(o => o.id === id);
-      if (!obj) return;
-
-      // Update the object's position property
+      if (!obj || !obj.mesh) return;
+      
       obj.position[axis] = Number(value);
-
-      // Update the mesh position
-      const mesh = this.meshes[id];
-      if (mesh) {
-        mesh.position[axis] = Number(value);
-      }
-
-      // Render the scene
+      obj.mesh.position[axis] = Number(value);
+      
       this.renderer.render(this.scene, this.camera);
     },
     updateObjectScale(id, value) {
       const obj = this.customObjects.find(o => o.id === id);
-      if (!obj) return;
-
-      // Update the object's scale property
-      obj.scale = Number(value);
-
-      // Update the mesh scale
-      const mesh = this.meshes[id];
-      if (mesh) {
-        const scale = Number(value);
-        mesh.scale.set(scale, scale, scale);
-      }
-
-      // Render the scene
+      if (!obj || !obj.mesh) return;
+      
+      const scale = Number(value);
+      obj.scale = scale;
+      obj.mesh.scale.set(scale, scale, scale);
+      
       this.renderer.render(this.scene, this.camera);
     },
     updateObjectRotation(id, axis, value) {
       const obj = this.customObjects.find(o => o.id === id);
-      if (!obj) return;
-
-      // Initialize rotation object if it doesn't exist
+      if (!obj || !obj.mesh) return;
+      
       if (!obj.rotation) {
         obj.rotation = { x: 0, y: 0, z: 0 };
       }
-
-      // Update the object's rotation property (store in degrees)
+      
       obj.rotation[axis] = Number(value);
-
-      // Update the mesh rotation (convert to radians)
-      const mesh = this.meshes[id];
-      if (mesh) {
-        const toRadians = (degrees) => degrees * (Math.PI / 180);
-        mesh.rotation.set(
-          toRadians(obj.rotation.x),
-          toRadians(obj.rotation.y),
-          toRadians(obj.rotation.z)
-        );
-      }
-
-      // Render the scene
+      obj.mesh.rotation[axis] = THREE.MathUtils.degToRad(Number(value));
+      
       this.renderer.render(this.scene, this.camera);
     },
     centerCameraOnObject(id) {
