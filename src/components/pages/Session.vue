@@ -75,10 +75,10 @@
         <!-- Legend -->
         <div class="legend flex-grow-1 mb-4">
           <!-- Animation Files List -->
-          <div v-for="(animation, index) in animations" :key="index" class="legend-item mb-2">
-            <div class="d-flex align-center mb-2">
+          <div v-for="(animation, index) in animations" :key="index" class="legend-item mb-4">
+            <div class="d-flex mb-2">
               <div class="color-box" :style="{ backgroundColor: '#' + colors[index].getHexString() }"></div>
-              <div class="ml-2" style="width: 120px; min-width: 120px;">
+              <div class="ml-2" style="flex-grow: 1;">
                 <v-text-field v-model="animation.trialName" dense hide-details class="trial-name-input" />
                 <div class="file-name text-caption">{{ getFileName(animation) }}</div>
                 <!-- Add FPS display here -->
@@ -86,151 +86,182 @@
                   {{ animation.calculatedFps }} FPS
                 </div>
               </div>
-              <div class="d-flex align-center flex-grow-1">
-                <v-menu offset-y :close-on-content-click="false">
-                  <template v-slot:activator="{ on, attrs }">
-                    <v-btn icon small v-bind="attrs" v-on="on" class="ml-2">
-                      <v-icon small>mdi-palette</v-icon>
+            </div>
+            
+            <!-- Buttons row -->
+            <div class="d-flex align-center" style="min-width: 300px; margin-left: 44px;">
+              <v-menu offset-y :close-on-content-click="false">
+                <template v-slot:activator="{ on, attrs }">
+                  <v-btn icon small v-bind="attrs" v-on="on" class="mr-2">
+                    <v-icon small>mdi-palette</v-icon>
+                  </v-btn>
+                </template>
+                <v-card class="color-picker pa-2">
+                  <div class="d-flex flex-wrap">
+                    <v-btn v-for="color in availableColors" :key="color" small icon class="ma-1" @click="updateSubjectColor(index, color)">
+                      <div class="color-sample" :style="{ backgroundColor: color }"></div>
                     </v-btn>
-                  </template>
-                  <v-card class="color-picker pa-2">
+                  </div>
+                  <!-- Recent Colors Section -->
+                  <div v-if="recentSubjectColors.length > 0" class="mt-3">
+                    <div class="text-caption grey--text mb-1">Recent Colors</div>
                     <div class="d-flex flex-wrap">
-                      <v-btn v-for="color in availableColors" :key="color" small icon class="ma-1" @click="updateSubjectColor(index, color)">
+                      <v-btn v-for="color in recentSubjectColors" :key="color" small icon class="ma-1" @click="updateSubjectColor(index, color)">
                         <div class="color-sample" :style="{ backgroundColor: color }"></div>
                       </v-btn>
                     </div>
-                    <!-- Recent Colors Section -->
-                    <div v-if="recentSubjectColors.length > 0" class="mt-3">
-                      <div class="text-caption grey--text mb-1">Recent Colors</div>
-                      <div class="d-flex flex-wrap">
-                        <v-btn v-for="color in recentSubjectColors" :key="color" small icon class="ma-1" @click="updateSubjectColor(index, color)">
-                          <div class="color-sample" :style="{ backgroundColor: color }"></div>
-                        </v-btn>
-                      </div>
-                    </div>
-                    <div class="mt-2 text-center">
-                      <v-btn small text @click.stop="showRgbPicker = !showRgbPicker">
-                        {{ showRgbPicker ? 'Use Preset Colors' : 'Use RGB Picker' }}
-                      </v-btn>
-                    </div>
-                    <div v-if="showRgbPicker" class="rgb-picker mt-2" @click.stop>
-                      <v-slider
-                        v-model="rgbValues[index].r"
-                        :min="0"
-                        :max="255"
-                        label="Red"
-                        hide-details
-                        @input="updateRgbColor(index)"
-                        @click.stop
-                      ></v-slider>
-                      <v-slider
-                        v-model="rgbValues[index].g"
-                        :min="0"
-                        :max="255"
-                        label="Green"
-                        hide-details
-                        @input="updateRgbColor(index)"
-                        @click.stop
-                      ></v-slider>
-                      <v-slider
-                        v-model="rgbValues[index].b"
-                        :min="0"
-                        :max="255"
-                        label="Blue"
-                        hide-details
-                        @input="updateRgbColor(index)"
-                        @click.stop
-                      ></v-slider>
-                      <div class="d-flex justify-center mt-2">
-                        <div class="color-preview" :style="{ backgroundColor: `rgb(${rgbValues[index].r}, ${rgbValues[index].g}, ${rgbValues[index].b})` }"></div>
-                      </div>
-                    </div>
-                    <!-- Add Eyedropper button -->
-                    <div class="mt-2 text-center">
-                      <v-btn small icon @click.stop="openEyedropper(index)" title="Pick color from screen">
-                        <v-icon small>mdi-eyedropper-variant</v-icon>
-                      </v-btn>
-                    </div>
-                  </v-card>
-                </v-menu>
-                <v-btn icon small class="ml-2" @click="deleteSubject(index)">
-                  <v-icon small color="error">mdi-delete</v-icon>
-                </v-btn>
-                <v-btn icon small class="ml-2" @click="toggleSubjectVisibility(index)">
-                  <v-icon small :color="animations[index].visible ? 'white' : 'grey'">
-                    {{ animations[index].visible ? 'mdi-eye' : 'mdi-eye-off' }}
-                  </v-icon>
-                </v-btn>
-                <v-tooltip bottom>
-                  <template v-slot:activator="{ on, attrs }">
-                    <v-btn 
-                      icon 
-                      small 
-                      class="ml-2" 
-                      v-bind="attrs"
-                      v-on="on"
-                      @click="centerCameraOnAnimation(index)"
-                    >
-                      <v-icon small>mdi-target</v-icon>
+                  </div>
+                  <div class="mt-2 text-center">
+                    <v-btn small text @click.stop="showRgbPicker = !showRgbPicker">
+                      {{ showRgbPicker ? 'Use Preset Colors' : 'Use RGB Picker' }}
                     </v-btn>
-                  </template>
-                  <span>Center camera on this animation</span>
-                </v-tooltip>
-                <v-menu offset-y>
-                  <template v-slot:activator="{ on, attrs }">
-                    <v-btn icon small v-bind="attrs" v-on="on" class="ml-2" @click="prepareTransparencyMenu(index)">
-                      <v-icon small>mdi-opacity</v-icon>
-                    </v-btn>
-                  </template>
-                  <v-card class="transparency-picker pa-3" width="250">
-                    <div class="text-subtitle-2 mb-2">
-                      Transparency
-                      <span class="text-caption ml-2">
-                        ({{ Math.round((1 - alphaValues[index]) * 100) }}%)
-                      </span>
+                  </div>
+                  <div v-if="showRgbPicker" class="rgb-picker mt-2" @click.stop>
+                    <v-slider
+                      v-model="rgbValues[index].r"
+                      :min="0"
+                      :max="255"
+                      label="Red"
+                      hide-details
+                      @input="updateRgbColor(index)"
+                      @click.stop
+                    ></v-slider>
+                    <v-slider
+                      v-model="rgbValues[index].g"
+                      :min="0"
+                      :max="255"
+                      label="Green"
+                      hide-details
+                      @input="updateRgbColor(index)"
+                      @click.stop
+                    ></v-slider>
+                    <v-slider
+                      v-model="rgbValues[index].b"
+                      :min="0"
+                      :max="255"
+                      label="Blue"
+                      hide-details
+                      @input="updateRgbColor(index)"
+                      @click.stop
+                    ></v-slider>
+                    <div class="d-flex justify-center mt-2">
+                      <div class="color-preview" :style="{ backgroundColor: `rgb(${rgbValues[index].r}, ${rgbValues[index].g}, ${rgbValues[index].b})` }"></div>
                     </div>
-                    <v-slider 
-                      :value="(1 - alphaValues[index]) * 100"
-                      @input="value => updateAlpha(index, 1 - value / 100)"
-                      :min="0" 
-                      :max="100" 
-                      step="1" 
-                      hide-details 
-                      :thumb-label="true"
-                      thumb-size="24"
-                    >
-                      <template v-slot:thumb-label="{ value }">
-                        {{ Math.round(value) }}%
-                      </template>
-                      <template v-slot:prepend>
-                        <div class="text-caption grey--text">0%</div>
-                      </template>
-                      <template v-slot:append>
-                        <div class="text-caption grey--text">100%</div>
-                      </template>
-                    </v-slider>
-                  </v-card>
-                </v-menu>
+                  </div>
+                  <!-- Add Eyedropper button -->
+                  <div class="mt-2 text-center">
+                    <v-btn small icon @click.stop="openEyedropper(index)" title="Pick color from screen">
+                      <v-icon small>mdi-eyedropper-variant</v-icon>
+                    </v-btn>
+                  </div>
+                </v-card>
+              </v-menu>
+              <v-btn icon small class="mr-2" @click="deleteSubject(index)">
+                <v-icon small color="error">mdi-delete</v-icon>
+              </v-btn>
+              <v-btn icon small class="mr-2" @click="toggleSubjectVisibility(index)">
+                <v-icon small :color="animations[index].visible ? 'white' : 'grey'">
+                  {{ animations[index].visible ? 'mdi-eye' : 'mdi-eye-off' }}
+                </v-icon>
+              </v-btn>
+              <v-tooltip bottom>
+                <template v-slot:activator="{ on, attrs }">
+                  <v-btn 
+                    icon 
+                    small 
+                    class="mr-2" 
+                    v-bind="attrs"
+                    v-on="on"
+                    @click="centerCameraOnAnimation(index)"
+                  >
+                    <v-icon small>mdi-target</v-icon>
+                  </v-btn>
+                </template>
+                <span>Center camera on this animation</span>
+              </v-tooltip>
+              <v-menu offset-y>
+                <template v-slot:activator="{ on, attrs }">
+                  <v-btn icon small v-bind="attrs" v-on="on" class="mr-2" @click="prepareTransparencyMenu(index)">
+                    <v-icon small>mdi-opacity</v-icon>
+                  </v-btn>
+                </template>
+                <v-card class="transparency-picker pa-3" width="250">
+                  <div class="text-subtitle-2 mb-2">
+                    Transparency
+                    <span class="text-caption ml-2">
+                      ({{ Math.round((1 - alphaValues[index]) * 100) }}%)
+                    </span>
+                  </div>
+                  <v-slider 
+                    :value="(1 - alphaValues[index]) * 100"
+                    @input="value => updateAlpha(index, 1 - value / 100)"
+                    :min="0" 
+                    :max="100" 
+                    step="1" 
+                    hide-details 
+                    :thumb-label="true"
+                    thumb-size="24"
+                  >
+                    <template v-slot:thumb-label="{ value }">
+                      {{ Math.round(value) }}%
+                    </template>
+                    <template v-slot:prepend>
+                      <div class="text-caption grey--text">0%</div>
+                    </template>
+                    <template v-slot:append>
+                      <div class="text-caption grey--text">100%</div>
+                    </template>
+                  </v-slider>
+                </v-card>
+              </v-menu>
 
-                <v-btn 
-                  small 
-                  text 
-                  class="ml-2" 
-                  v-if="animations[index].visible"
-                  @click="openMeshDialog(index)"
-                >
-                  <v-icon left small>mdi-cube-outline</v-icon>
-                  Meshes
-                </v-btn>
-              </div>
+              <v-btn 
+                icon
+                small 
+                class="mr-2" 
+                v-if="animations[index].visible"
+                @click="openMeshDialog(index)"
+              >
+                <v-icon small>mdi-cube-outline</v-icon>
+              </v-btn>
             </div>
             
             <!-- Offset controls -->
-            <div class="offset-controls mt-1">
-              <div class="d-flex align-center">
-                <v-text-field label="X" type="number" :step="0.5" :value="animation.offset.x" dense @input="updateOffset(index, 'x', $event)" style="width: 70px" />
-                <v-text-field label="Y" type="number" :step="0.5" :value="animation.offset.y" dense @input="updateOffset(index, 'y', $event)" style="width: 70px" />
-                <v-text-field label="Z" type="number" :step="0.5" :value="animation.offset.z" dense @input="updateOffset(index, 'z', $event)" style="width: 70px" />
+            <div class="offset-controls mt-2" style="margin-left: 44px;">
+              <div class="d-flex align-center" style="border-bottom: 1px solid rgba(255, 255, 255, 0.12);">
+                <div class="text-caption grey--text mr-2" style="width: 12px;">X</div>
+                <v-text-field 
+                  type="number" 
+                  :step="0.5" 
+                  :value="animation.offset.x" 
+                  dense 
+                  @input="updateOffset(index, 'x', $event)" 
+                  style="width: 70px"
+                  class="grey--text text--darken-1"
+                  hide-details
+                />
+                <div class="text-caption grey--text mx-2" style="width: 12px;">Y</div>
+                <v-text-field 
+                  type="number" 
+                  :step="0.5" 
+                  :value="animation.offset.y" 
+                  dense 
+                  @input="updateOffset(index, 'y', $event)" 
+                  style="width: 70px"
+                  class="grey--text text--darken-1"
+                  hide-details
+                />
+                <div class="text-caption grey--text mx-2" style="width: 12px;">Z</div>
+                <v-text-field 
+                  type="number" 
+                  :step="0.5" 
+                  :value="animation.offset.z" 
+                  dense 
+                  @input="updateOffset(index, 'z', $event)" 
+                  style="width: 70px"
+                  class="grey--text text--darken-1"
+                  hide-details
+                />
               </div>
             </div>
 
@@ -273,245 +304,241 @@
           </div>
 
           <!-- Marker Files List -->
-          <div v-for="(markerFile, markerIndex) in loadedMarkerFiles" :key="`marker-${markerIndex}`" class="legend-item mb-2">
-              <div class="d-flex align-center mb-2">
-                  <!-- Swatch using global markerColor -->
-                  <div class="color-box" :style="{ backgroundColor: markerColor }"></div>
-                  <div class="ml-2" style="width: 120px; min-width: 120px;">
-                      <!-- Use v-model for trialName if editable, or just display -->
-                      <v-text-field v-model="markerFile.trialName" dense hide-details class="trial-name-input" />
-                      <div class="file-name text-caption">{{ markerFile.fileName }}</div>
-                      <!-- Maybe add marker count here? -->
-                      <div class="fps-info text-caption grey--text">
-                          {{ Object.keys(markers).length }} Markers
-                      </div>
-                  </div>
-                  <div class="d-flex align-center flex-grow-1">
-                      <!-- Color Picker for Markers (1st) -->
-                      <v-menu offset-y>
-                          <template v-slot:activator="{ on, attrs }">
-                              <v-btn icon small v-bind="attrs" v-on="on" class="ml-2">
-                                  <v-icon small>mdi-palette</v-icon>
-                              </v-btn>
-                          </template>
-                          <v-card class="color-picker pa-2">
-                              <v-color-picker
-                                  v-model="markerColor"
-                                  hide-inputs
-                                  hide-mode-switch
-                                  @input="updateMarkerColor"
-                              ></v-color-picker>
-                          </v-card>
-                      </v-menu>
-                      <!-- Delete Button (2nd) -->
-                      <v-btn icon small class="ml-2" @click="deleteMarkerFile(markerIndex)">
-                          <v-icon small color="error">mdi-delete</v-icon>
-                      </v-btn>
-                      <!-- Visibility Toggle (3rd) -->
-                      <v-btn icon small class="ml-2" @click="toggleMarkerVisibility">
-                          <v-icon small :color="showMarkers ? 'white' : 'grey'">
-                              {{ showMarkers ? 'mdi-eye' : 'mdi-eye-off' }}
-                          </v-icon>
-                      </v-btn>
-                      <v-tooltip bottom>
-                        <template v-slot:activator="{ on, attrs }">
-                          <v-btn 
-                            icon 
-                            small 
-                            class="ml-2" 
-                            v-bind="attrs"
-                            v-on="on"
-                            @click="centerCameraOnMarkers"
-                          >
-                            <v-icon small>mdi-target</v-icon>
-                          </v-btn>
-                        </template>
-                        <span>Center camera on all visible markers</span>
-                      </v-tooltip>
-                      <!-- Add Transparency Menu (4th) -->
-                      <v-menu offset-y>
-                          <template v-slot:activator="{ on, attrs }">
-                              <v-btn icon small v-bind="attrs" v-on="on" class="ml-2">
-                                  <v-icon small>mdi-opacity</v-icon>
-                              </v-btn>
-                          </template>
-                          <v-card class="transparency-picker pa-3" width="250">
-                              <div class="text-subtitle-2 mb-2">
-                                  Marker Transparency
-                                  <span class="text-caption ml-2">
-                                      ({{ Math.round((1 - markerOpacity) * 100) }}%)
-                                  </span>
-                              </div>
-                              <v-slider 
-                                  :value="(1 - markerOpacity) * 100"
-                                  @input="value => updateMarkerOpacity(1 - value / 100)"
-                                  :min="0" 
-                                  :max="100" 
-                                  step="1" 
-                                  hide-details 
-                                  :thumb-label="true"
-                                  thumb-size="24"
-                              >
-                                  <template v-slot:thumb-label="{ value }">
-                                      {{ Math.round(value) }}%
-                                  </template>
-                                  <template v-slot:prepend>
-                                      <div class="text-caption grey--text">0%</div>
-                                  </template>
-                                  <template v-slot:append>
-                                      <div class="text-caption grey--text">100%</div>
-                                  </template>
-                              </v-slider>
-                          </v-card>
-                      </v-menu>
-                      <!-- Markers List Button (5th) -->
-                      <v-btn 
-                          small 
-                          text 
-                          class="ml-2" 
-                          v-if="Object.keys(markers).length > 0"
-                          @click="showMarkerDialog = true"
-                      >
-                          <v-icon left small>mdi-vector-point</v-icon>
-                          Markers
-                      </v-btn>
-                      <!-- Add Sync button at the end -->
-                      <v-tooltip bottom v-if="animations.length > 0">
-                          <template v-slot:activator="{ on, attrs }">
-                              <v-btn icon small class="ml-2" @click="syncMarkersWithAnimations" v-bind="attrs" v-on="on">
-                                  <v-icon small>mdi-sync</v-icon>
-                              </v-btn>
-                          </template>
-                          <span>Sync Markers with Animations</span>
-                      </v-tooltip>
-                  </div>
-              </div>
-              <!-- No offset controls for markers -->
-          </div>
-
-          <!-- Custom Objects List -->
-          <div v-for="obj in customObjects" :key="obj.id" class="legend-item mb-2">
-            <div class="d-flex align-center mb-2">
-              <div class="color-box" :style="{ backgroundColor: obj.color }"></div>
-              <div class="ml-2" style="width: 120px; min-width: 120px;">
-                <v-text-field v-model="obj.name" dense hide-details class="trial-name-input" />
-                <div class="file-name text-caption">{{ obj.name }}</div>
-              </div>
-              <div class="d-flex align-center flex-grow-1">
-                <v-menu offset-y :close-on-content-click="false">
-                  <template v-slot:activator="{ on, attrs }">
-                    <v-btn icon small v-bind="attrs" v-on="on" class="ml-2">
-                      <v-icon small>mdi-palette</v-icon>
-                    </v-btn>
-                  </template>
-                  <v-card class="color-picker pa-2">
-                    <div class="d-flex flex-wrap">
-                      <v-btn v-for="color in availableColors.filter(c => c !== 'original')" 
-                        :key="color" 
-                        small 
-                        icon 
-                        class="ma-1" 
-                        @click="updateObjectColor(obj.id, color)"
-                      >
-                        <div class="color-sample" :style="{ backgroundColor: color }"></div>
-                      </v-btn>
-                    </div>
-                  </v-card>
-                </v-menu>
-                <v-btn icon small class="ml-2" @click="removeCustomObject(obj.id)">
-                  <v-icon small color="error">mdi-delete</v-icon>
-                </v-btn>
-                <v-btn icon small class="ml-2" @click="toggleObjectVisibility(obj.id)">
-                  <v-icon small :color="isObjectVisible(obj.id) ? 'white' : 'grey'">
-                    {{ isObjectVisible(obj.id) ? 'mdi-eye' : 'mdi-eye-off' }}
-                  </v-icon>
-                </v-btn>
-                <v-tooltip bottom>
-                  <template v-slot:activator="{ on, attrs }">
-                    <v-btn 
-                      icon 
-                      small 
-                      class="ml-2" 
-                      v-bind="attrs"
-                      v-on="on"
-                      @click="centerCameraOnObject(obj.id)"
-                    >
-                      <v-icon small>mdi-target</v-icon>
-                    </v-btn>
-                  </template>
-                  <span>Center camera on this object</span>
-                </v-tooltip>
-                <v-menu offset-y>
-                  <template v-slot:activator="{ on, attrs }">
-                    <v-btn icon small v-bind="attrs" v-on="on" class="ml-2">
-                      <v-icon small>mdi-opacity</v-icon>
-                    </v-btn>
-                  </template>
-                  <v-card class="transparency-picker pa-3" width="250">
-                    <div class="text-subtitle-2 mb-2">
-                      Transparency
-                      <span class="text-caption ml-2">
-                        ({{ Math.round((1 - obj.opacity) * 100) }}%)
-                      </span>
-                    </div>
-                    <v-slider 
-                      :value="(1 - (obj.opacity || 1)) * 100"
-                      @input="value => updateObjectOpacity(obj.id, 1 - value / 100)"
-                      :min="0" 
-                      :max="100" 
-                      step="1" 
-                      hide-details 
-                      :thumb-label="true"
-                      thumb-size="24"
-                    >
-                      <template v-slot:thumb-label="{ value }">
-                        {{ Math.round(value) }}%
-                      </template>
-                    </v-slider>
-                  </v-card>
-                </v-menu>
+          <div v-for="(markerFile, markerIndex) in loadedMarkerFiles" :key="`marker-${markerIndex}`" class="legend-item mb-4">
+            <div class="d-flex mb-2">
+              <div class="color-box" :style="{ backgroundColor: markerColor }"></div>
+              <div class="ml-2" style="flex-grow: 1;">
+                <v-text-field v-model="markerFile.trialName" dense hide-details class="trial-name-input" />
+                <div class="file-name text-caption">{{ markerFile.fileName }}</div>
+                <div class="fps-info text-caption grey--text">
+                  {{ Object.keys(markers).length }} Markers
+                </div>
               </div>
             </div>
             
-            <!-- Position controls -->
-            <div class="offset-controls mt-1">
-              <div class="d-flex align-center">
-                <v-text-field label="X" type="number" :step="0.5" :value="obj.position.x" dense @input="updateObjectPosition(obj.id, 'x', $event)" style="width: 70px" />
-                <v-text-field label="Y" type="number" :step="0.5" :value="obj.position.y" dense @input="updateObjectPosition(obj.id, 'y', $event)" style="width: 70px" />
-                <v-text-field label="Z" type="number" :step="0.5" :value="obj.position.z" dense @input="updateObjectPosition(obj.id, 'z', $event)" style="width: 70px" />
-                <v-text-field label="Scale" type="number" :step="0.1" :value="obj.scale" dense @input="updateObjectScale(obj.id, $event)" style="width: 70px" class="ml-2" />
+            <!-- Buttons row -->
+            <div class="d-flex align-center ml-8" style="min-width: 300px;">
+              <v-menu offset-y>
+                <template v-slot:activator="{ on, attrs }">
+                  <v-btn icon small v-bind="attrs" v-on="on" class="mr-2">
+                    <v-icon small>mdi-palette</v-icon>
+                  </v-btn>
+                </template>
+                <v-card class="color-picker pa-2">
+                  <v-color-picker
+                    v-model="markerColor"
+                    hide-inputs
+                    hide-mode-switch
+                    @input="updateMarkerColor"
+                  ></v-color-picker>
+                </v-card>
+              </v-menu>
+              <v-btn icon small class="mr-2" @click="deleteMarkerFile(markerIndex)">
+                <v-icon small color="error">mdi-delete</v-icon>
+              </v-btn>
+              <v-btn icon small class="mr-2" @click="toggleMarkerVisibility">
+                <v-icon small :color="showMarkers ? 'white' : 'grey'">
+                  {{ showMarkers ? 'mdi-eye' : 'mdi-eye-off' }}
+                </v-icon>
+              </v-btn>
+              <v-tooltip bottom>
+                <template v-slot:activator="{ on, attrs }">
+                  <v-btn 
+                    icon 
+                    small 
+                    class="mr-2" 
+                    v-bind="attrs"
+                    v-on="on"
+                    @click="centerCameraOnMarkers"
+                  >
+                    <v-icon small>mdi-target</v-icon>
+                  </v-btn>
+                </template>
+                <span>Center camera on all visible markers</span>
+              </v-tooltip>
+              <v-menu offset-y>
+                <template v-slot:activator="{ on, attrs }">
+                  <v-btn icon small v-bind="attrs" v-on="on" class="mr-2" @click="prepareTransparencyMenu(index)">
+                    <v-icon small>mdi-opacity</v-icon>
+                  </v-btn>
+                </template>
+                <v-card class="transparency-picker pa-3" width="250">
+                  <div class="text-subtitle-2 mb-2">
+                    Marker Transparency
+                    <span class="text-caption ml-2">
+                      ({{ Math.round((1 - markerOpacity) * 100) }}%)
+                    </span>
+                  </div>
+                  <v-slider 
+                    :value="(1 - markerOpacity) * 100"
+                    @input="value => updateMarkerOpacity(1 - value / 100)"
+                    :min="0" 
+                    :max="100" 
+                    step="1" 
+                    hide-details 
+                    :thumb-label="true"
+                    thumb-size="24"
+                  >
+                    <template v-slot:thumb-label="{ value }">
+                      {{ Math.round(value) }}%
+                    </template>
+                    <template v-slot:prepend>
+                      <div class="text-caption grey--text">0%</div>
+                    </template>
+                    <template v-slot:append>
+                      <div class="text-caption grey--text">100%</div>
+                    </template>
+                  </v-slider>
+                </v-card>
+              </v-menu>
+              <v-btn 
+                small 
+                text 
+                class="mr-2 mb-1" 
+                v-if="Object.keys(markers).length > 0"
+                @click="showMarkerDialog = true"
+              >
+                <v-icon left small>mdi-vector-point</v-icon>
+              </v-btn>
+              <v-tooltip bottom v-if="animations.length > 0">
+                <template v-slot:activator="{ on, attrs }">
+                  <v-btn icon small class="mr-2 mb-1" @click="syncMarkersWithAnimations" v-bind="attrs" v-on="on">
+                    <v-icon small>mdi-sync</v-icon>
+                  </v-btn>
+                </template>
+                <span>Sync Markers with Animations</span>
+              </v-tooltip>
+            </div>
+            <!-- Divider -->
+            <v-divider class="mt-4" style="opacity: 0.2"></v-divider>
+          </div>
+
+          <!-- Custom Objects List -->
+          <div v-for="obj in customObjects" :key="obj.id" class="legend-item mb-4">
+            <div class="d-flex mb-2">
+              <div class="color-box" :style="{ backgroundColor: obj.color }"></div>
+              <div class="ml-2" style="flex-grow: 1;">
+                <v-text-field v-model="obj.name" dense hide-details class="trial-name-input" />
+                <div class="file-name text-caption">{{ obj.name }}</div>
               </div>
-              <!-- Rotation controls -->
-              <div class="d-flex align-center mt-2">
+            </div>
+            
+            <!-- Buttons row -->
+            <div class="d-flex align-center ml-8" style="min-width: 300px;">
+              <v-menu offset-y :close-on-content-click="false">
+                <template v-slot:activator="{ on, attrs }">
+                  <v-btn icon small v-bind="attrs" v-on="on" class="mr-2">
+                    <v-icon small>mdi-palette</v-icon>
+                  </v-btn>
+                </template>
+                <v-card class="color-picker pa-2">
+                  <div class="d-flex flex-wrap">
+                    <v-btn v-for="color in availableColors.filter(c => c !== 'original')" 
+                      :key="color" 
+                      small 
+                      icon 
+                      class="ma-1" 
+                      @click="updateObjectColor(obj.id, color)"
+                    >
+                      <div class="color-sample" :style="{ backgroundColor: color }"></div>
+                    </v-btn>
+                  </div>
+                </v-card>
+              </v-menu>
+              <v-btn icon small class="mr-2" @click="removeCustomObject(obj.id)">
+                <v-icon small color="error">mdi-delete</v-icon>
+              </v-btn>
+              <v-btn icon small class="mr-2" @click="toggleObjectVisibility(obj.id)">
+                <v-icon small :color="isObjectVisible(obj.id) ? 'white' : 'grey'">
+                  {{ isObjectVisible(obj.id) ? 'mdi-eye' : 'mdi-eye-off' }}
+                </v-icon>
+              </v-btn>
+              <v-tooltip bottom>
+                <template v-slot:activator="{ on, attrs }">
+                  <v-btn 
+                    icon 
+                    small 
+                    class="mr-2" 
+                    v-bind="attrs"
+                    v-on="on"
+                    @click="centerCameraOnObject(obj.id)"
+                  >
+                    <v-icon small>mdi-target</v-icon>
+                  </v-btn>
+                </template>
+                <span>Center camera on this object</span>
+              </v-tooltip>
+              <v-menu offset-y>
+                <template v-slot:activator="{ on, attrs }">
+                  <v-btn icon small v-bind="attrs" v-on="on" class="mr-2" @click="prepareTransparencyMenu(index)">
+                    <v-icon small>mdi-opacity</v-icon>
+                  </v-btn>
+                </template>
+                <v-card class="transparency-picker pa-3" width="250">
+                  <div class="text-subtitle-2 mb-2">
+                    Transparency
+                    <span class="text-caption ml-2">
+                      ({{ Math.round((1 - obj.opacity) * 100) }}%)
+                    </span>
+                  </div>
+                  <v-slider 
+                    :value="(1 - (obj.opacity || 1)) * 100"
+                    @input="value => updateObjectOpacity(obj.id, 1 - value / 100)"
+                    :min="0" 
+                    :max="100" 
+                    step="1" 
+                    hide-details 
+                    :thumb-label="true"
+                    thumb-size="24"
+                  >
+                    <template v-slot:thumb-label="{ value }">
+                      {{ Math.round(value) }}%
+                    </template>
+                  </v-slider>
+                </v-card>
+              </v-menu>
+            </div>
+            
+            <!-- Position controls -->
+            <div class="offset-controls mt-2" style="margin-left: 44px;">
+              <div class="d-flex align-center" style="border-bottom: 1px solid rgba(255, 255, 255, 0.12);">
+                <div class="text-caption grey--text mr-2" style="width: 12px;">X</div>
                 <v-text-field 
-                  label="Rot X°" 
                   type="number" 
-                  :step="5" 
-                  :value="obj.rotation ? obj.rotation.x : 0" 
+                  :step="0.5" 
+                  :value="obj.position.x" 
                   dense 
-                  @input="updateObjectRotation(obj.id, 'x', $event)" 
-                  style="width: 70px" 
+                  @input="updateObjectPosition(obj.id, 'x', $event)" 
+                  style="width: 70px"
+                  class="grey--text text--darken-1"
+                  hide-details
                 />
+                <div class="text-caption grey--text mx-2" style="width: 12px;">Y</div>
                 <v-text-field 
-                  label="Rot Y°" 
                   type="number" 
-                  :step="5" 
-                  :value="obj.rotation ? obj.rotation.y : 0" 
+                  :step="0.5" 
+                  :value="obj.position.y" 
                   dense 
-                  @input="updateObjectRotation(obj.id, 'y', $event)" 
-                  style="width: 70px" 
+                  @input="updateObjectPosition(obj.id, 'y', $event)" 
+                  style="width: 70px"
+                  class="grey--text text--darken-1"
+                  hide-details
                 />
+                <div class="text-caption grey--text mx-2" style="width: 12px;">Z</div>
                 <v-text-field 
-                  label="Rot Z°" 
                   type="number" 
-                  :step="5" 
-                  :value="obj.rotation ? obj.rotation.z : 0" 
+                  :step="0.5" 
+                  :value="obj.position.z" 
                   dense 
-                  @input="updateObjectRotation(obj.id, 'z', $event)" 
-                  style="width: 70px" 
+                  @input="updateObjectPosition(obj.id, 'z', $event)" 
+                  style="width: 70px"
+                  class="grey--text text--darken-1"
+                  hide-details
                 />
               </div>
             </div>
+            <!-- Divider -->
+            <v-divider class="mt-4" style="opacity: 0.2"></v-divider>
           </div>
         </div>
 
@@ -6727,6 +6754,33 @@ const axiosInstance = axios.create();
       font-weight: 600;
     }
   }
+}
+
+.legend-item {
+  position: relative;
+  padding-bottom: 16px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.legend-item:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.offset-controls {
+  .v-text-field {
+    input {
+      color: rgba(255, 255, 255, 0.6) !important;
+    }
+  }
+}
+
+.color-box {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  margin-top: 4px;
 }
 </style>
   
