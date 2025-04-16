@@ -98,8 +98,8 @@
         icon
         dark
         class="left-sidebar-toggle"
+        :class="{ 'sidebar-open': showLeftSidebar }" 
         @click="showLeftSidebar = !showLeftSidebar"
-        :style="{ left: showLeftSidebar ? '330px' : '10px' }"
         v-if="$route.query.embed !== 'true'"
       >
         <v-icon>{{ showLeftSidebar ? 'mdi-chevron-left' : 'mdi-chevron-right' }}</v-icon>
@@ -206,8 +206,8 @@
         icon
         dark
         class="sidebar-toggle"
+        :class="{ 'sidebar-open': showSidebar }"
         @click="showSidebar = !showSidebar"
-        :style="{ right: showSidebar ? '420px' : '10px' }"
         v-if="$route.query.embed !== 'true'"
       >
         <v-icon>{{ showSidebar ? 'mdi-chevron-right' : 'mdi-chevron-left' }}</v-icon>
@@ -355,34 +355,17 @@
           
           <!-- Make controls slightly transparent when loading -->
           <div :class="{ 'opacity-reduced': converting }">
-            <!-- Existing file inputs and buttons -->
+            <!-- Replace multiple load buttons with single Import button -->
+            <v-btn color="#4B5563" class="mb-2 white--text custom-btn" block @click="openImportDialog" :disabled="converting">
+              <v-icon left>mdi-import</v-icon>
+              Import
+            </v-btn>
+            
+            <!-- Keep all the file inputs but hide them -->
             <input type="file" ref="fileInput" accept=".json,.trc" style="display: none" @change="handleFileUpload" multiple />
-            <v-btn color="#4B5563" class="mb-2 white--text custom-btn" block @click="$refs.fileInput.click()" :disabled="converting">
-              <v-icon left>mdi-file-upload</v-icon>
-              Load JSON Files
-            </v-btn>
-            
-            <!-- Add TRC file upload option -->
             <input type="file" ref="trcFileInput" accept=".trc" style="display: none" @change="handleTrcFileUpload" multiple />
-            <v-btn color="#3B82F6" class="mb-2 white--text custom-btn" block @click="$refs.trcFileInput.click()" :disabled="converting">
-              <v-icon left>mdi-file-upload-outline</v-icon>
-              Load Markers (.trc)
-            </v-btn>
-            
             <input type="file" ref="osimMotFileInput" accept=".osim,.mot" style="display: none" @change="handleOpenSimFiles" multiple />
-            <v-btn color="#6366F1" class="mb-2 white--text custom-btn" block @click="$refs.osimMotFileInput.click()" :disabled="converting">
-              <v-icon left>mdi-file-upload-outline</v-icon>
-              Load OpenSim (.mot+.osim)
-            </v-btn>
-            
-            <!-- Add video file upload button -->
             <input type="file" ref="videoFileInput" accept="video/mp4,video/webm" style="display: none" @change="handleVideoUpload" />
-            <v-btn color="#06B6D4" class="mb-2 white--text custom-btn" block @click="$refs.videoFileInput.click()">
-              <v-icon left>mdi-video</v-icon>
-              Load Video (mp4/webm)
-            </v-btn>
-            
-            <!-- Add Load Object button -->
             <input 
               type="file" 
               ref="objFileInput" 
@@ -390,12 +373,6 @@
               style="display: none" 
               @change="handleModelFileSelect" 
             />
-            <v-btn color="#9333EA" class="mb-2 white--text custom-btn" block @click="$refs.objFileInput.click()">
-              <v-icon left>mdi-cube-outline</v-icon>
-              Load 3D Model
-            </v-btn>
-            
-            <!-- Existing file chips etc. -->
           </div>
         </div>
 
@@ -406,6 +383,63 @@
             Sync All Subjects
           </v-btn>
         </div>
+
+        <!-- Add Import Dialog -->
+        <v-dialog v-model="showImportDialog" max-width="600" content-class="import-dialog">
+          <v-card class="import-dialog-card">
+            <v-card-title class="headline">Import Files </v-card-title>
+            <v-card-text>
+              <div class="import-grid">
+                <!-- Video -->
+                <div class="import-item" @click="selectFileType('videoFileInput')">
+                  <v-icon size="32">mdi-play-circle-outline</v-icon>
+                  <div class="import-item-title">Video</div>
+                  <div class="import-item-subtitle">MP4, WEBM</div>
+                </div>
+                
+                <!-- 3D Model -->
+                <div class="import-item" @click="selectFileType('objFileInput')">
+                  <v-icon size="32">mdi-cube-outline</v-icon>
+                  <div class="import-item-title">3D Model</div>
+                  <div class="import-item-subtitle">GLTF, STL, FBX, OBJ</div>
+                </div>
+                
+                <!-- Sound (placeholder for future) -->
+                <div class="import-item disabled">
+                  <v-icon size="32">mdi-volume-high</v-icon>
+                  <div class="import-item-title">Sound</div>
+                  <div class="import-item-subtitle">MP3, WAV</div>
+                </div>
+                
+                <!-- JSON Files -->
+                <div class="import-item" @click="selectFileType('fileInput')">
+                  <v-icon size="32">mdi-file</v-icon>
+                  <div class="import-item-title">JSON Files</div>
+                  <div class="import-item-subtitle">OpenCap Format</div>
+                </div>
+                
+                <!-- Markers -->
+                <div class="import-item" @click="selectFileType('trcFileInput')">
+                  <v-icon size="32">mdi-vector-point</v-icon>
+                  <div class="import-item-title">Markers</div>
+                  <div class="import-item-subtitle">.trc format</div>
+                </div>
+                
+                <!-- OpenSim -->
+                <div class="import-item" @click="selectFileType('osimMotFileInput')">
+                  <v-icon size="32">mdi-file-document-outline</v-icon>
+                  <div class="import-item-title">OpenSim</div>
+                  <div class="import-item-subtitle">.mot + .osim</div>
+                </div>
+              </div>
+       
+            </v-card-text>
+            <v-card-actions>
+              <v-spacer></v-spacer>
+              <v-btn text @click="showImportDialog = false">Cancel</v-btn>
+            </v-card-actions>
+          </v-card>
+        </v-dialog>
 
         <!-- Scene color controls -->
         <div class="scene-controls mb-4">
@@ -1409,6 +1443,7 @@
               customObjects: [], // Track loaded custom objects
               showCustomObjectsManager: false, // Dialog to manage custom objects
               showLeftSidebar: false, // Add this line to control left sidebar visibility
+              showImportDialog: false, // Add this line to control the import dialog
           }
       },
       computed: {
@@ -6052,6 +6087,13 @@
       // Render the scene
       this.renderer.render(this.scene, this.camera);
     },
+    openImportDialog() {
+      this.showImportDialog = true;
+    },
+    selectFileType(inputRef) {
+      this.$refs[inputRef].click();
+      this.showImportDialog = false; // Close the dialog after selecting
+    }
   }
 }
 </script>
@@ -6498,22 +6540,24 @@
 }
 
 .left {
-  flex: 0 0 330px; 
-  width: 330px;
-  height: 100%;
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  height: calc(100vh - 20px);
+  flex: 0 0 300px; /* Reduced width slightly */
+  width: 300px;
+  background: rgba(30, 30, 30, 0.95); /* Semi-transparent background */
+  border-radius: 10px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
   padding: 15px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  position: fixed;
-  left: 0;
-  top: 0;
-  background: #1E1E1E;
   transition: transform 0.3s ease;
-  z-index: 100;
+  z-index: 100; /* Ensure it's above the viewer */
 
   &.hidden {
-    transform: translateX(-100%);
+    transform: translateX(-110%); /* Move completely off-screen */
   }
 
   &::-webkit-scrollbar {
@@ -6531,7 +6575,7 @@
 
   .credits {
     margin-top: auto;
-    padding: 20px;
+    padding: 10px; /* Reduced padding */
     text-align: center;
 
     .text-caption {
@@ -6540,8 +6584,160 @@
   }
 }
 
+.right {
+  position: fixed; /* Change to fixed for more reliable positioning */
+  right: 30px; /* Increased margin */
+  top: 30px; /* Increased margin */
+  height: calc(100vh - 60px); /* Increased top/bottom margin */
+  flex: 0 0 330px; /* Further reduced width */
+  width: 330px; /* Further reduced width */
+  background: rgba(30, 30, 30, 0.95);
+  border-radius: 12px; /* Slightly increased border radius */
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4); /* Enhanced shadow */
+  padding: 15px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.3s ease;
+  z-index: 100;
+
+  &.hidden {
+    transform: translateX(110%);
+  }
+
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  // Adjust spacing for compact view
+  .mb-4 {
+    margin-bottom: 8px !important;
+  }
+}
+
+// Update the sidebar toggle button position to match new spacing
+.sidebar-toggle {
+  position: fixed !important; /* Change to fixed to match sidebar */
+  top: 35px; /* Adjusted to align with new sidebar position */
+  right: 35px; /* Adjusted to align with new sidebar position */
+  z-index: 101;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+  background: rgba(50, 50, 50, 0.8) !important;
+  
+  &:hover {
+    background: rgba(70, 70, 70, 0.9) !important;
+  }
+  
+  &.sidebar-open {
+     /* Optional: style when sidebar is open */
+  }
+}
+
 .left-sidebar-shown {
   margin-left: 330px;
+}
+
+.import-dialog {
+  .v-card {
+    background-color: #1E1E1E;
+    color: #FFFFFF;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .v-card-title {
+    background-color: #282828;
+    font-size: 1.6rem;
+    padding: 20px 24px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .v-card-text {
+    color: #FFFFFF;
+    padding: 30px;
+  }
+
+  .v-card-actions {
+    background-color: #282828;
+    padding: 12px 24px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+  }
+}
+
+.import-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-bottom: 30px;
+
+  .import-item {
+    background-color: #282828;
+    border-radius: 10px;
+    padding: 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+
+    &:hover {
+      background-color: #333333;
+      transform: translateY(-5px);
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    .v-icon {
+      font-size: 36px;
+      margin-bottom: 12px;
+      display: block;
+      margin: 0 auto 12px;
+    }
+
+    .import-item-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .import-item-subtitle {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.7);
+    }
+  }
+
+  .disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    
+    &:hover {
+      transform: none;
+      background-color: #282828;
+      box-shadow: none;
+    }
+  }
+}
+
+.generation-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+  margin-bottom: 20px;
+
+  .import-item {
+    position: relative;
+
+    .import-item-badge {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      font-size: 10px;
+      background-color: #7363F9;
+      color: #FFFFFF;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-weight: 600;
+    }
+  }
 }
 </style>
   
