@@ -6146,62 +6146,75 @@ const axiosInstance = axios.create();
       if (!this.camera || !this.controls) return;
 
       const distance = this.camera.position.distanceTo(this.controls.target);
-      const target = this.controls.target.clone(); // Keep current target
+      const currentTarget = this.controls.target.clone(); // Keep current target
 
-      // Define positions based on view type relative to target
+      // Define new positions based on view type relative to the CURRENT target
       let newPosition = new THREE.Vector3();
-      const offset = distance; // Use current distance
+      const offset = Math.max(distance, 1.0); // Ensure a minimum distance
 
       switch(viewType) {
         case 'top':
-          newPosition.set(target.x, target.y + offset, target.z);
+          newPosition.set(currentTarget.x, currentTarget.y + offset, currentTarget.z);
           break;
         case 'bottom':
-          newPosition.set(target.x, target.y - offset, target.z);
+          newPosition.set(currentTarget.x, currentTarget.y - offset, currentTarget.z);
           break;
         case 'front':
-          newPosition.set(target.x, target.y, target.z + offset);
+          newPosition.set(currentTarget.x, currentTarget.y, currentTarget.z + offset);
           break;
         case 'back':
-          newPosition.set(target.x, target.y, target.z - offset);
+          newPosition.set(currentTarget.x, currentTarget.y, currentTarget.z - offset);
           break;
         case 'left':
-          newPosition.set(target.x - offset, target.y, target.z);
+          newPosition.set(currentTarget.x - offset, currentTarget.y, currentTarget.z);
           break;
         case 'right':
-          newPosition.set(target.x + offset, target.y, target.z);
+          newPosition.set(currentTarget.x + offset, currentTarget.y, currentTarget.z);
           break;
-        case 'isometric': { // Added block scope
-          // Example isometric: equal distance offset in x, y, z
+        case 'isometric': { 
           const isoFactor = offset / Math.sqrt(3);
-          newPosition.set(target.x + isoFactor, target.y + isoFactor, target.z + isoFactor);
+          newPosition.set(currentTarget.x + isoFactor, currentTarget.y + isoFactor, currentTarget.z + isoFactor);
           break;
-        } // Added block scope
+        } 
         default:
           console.warn('Unknown view type:', viewType);
           return;
       }
 
-      // Apply new position and update controls
-      this.camera.position.copy(newPosition);
-      this.camera.lookAt(target); // Ensure camera looks at the target
-      this.controls.update(); // Update orbit controls state
+      // *** Update controls target FIRST ***
+      this.controls.target.copy(currentTarget); 
 
-      // Optional: Add smooth transition later (e.g., using GSAP)
+      // Apply new position 
+      this.camera.position.copy(newPosition);
+      
+      // *** Update controls state AFTER position and target are set ***
+      this.controls.update(); 
+
+      // Re-render the scene
+      if (this.renderer) {
+        this.renderer.render(this.scene, this.camera);
+      }
     },
 
     resetCameraView() {
       if (!this.camera || !this.controls) return;
       
-      // Reset to initial or a defined default state
-      // Example: Using initial settings from initScene
       const initialPosition = new THREE.Vector3(3.33, 3.5, -2.30);
-      const initialTarget = new THREE.Vector3(0, 1, 0); // Assuming default target is near origin
+      const initialTarget = new THREE.Vector3(0, 1, 0); 
 
-      this.camera.position.copy(initialPosition);
+      // *** Update controls target FIRST ***
       this.controls.target.copy(initialTarget);
-      this.camera.lookAt(initialTarget);
+
+      // Apply new position
+      this.camera.position.copy(initialPosition);
+      
+      // *** Update controls state AFTER position and target are set ***
       this.controls.update();
+
+      // Re-render the scene
+      if (this.renderer) {
+        this.renderer.render(this.scene, this.camera);
+      }
     },
   }
 }
