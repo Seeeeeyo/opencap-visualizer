@@ -634,9 +634,17 @@
       </v-btn>
       
       <div class="viewer flex-grow-1" :class="{ 'sidebar-hidden': !showSidebar, 'left-sidebar-shown': showLeftSidebar, 'is-embedded': $route.query.embed === 'true' }" @dragover.prevent @drop.prevent="handleDrop">
+        <!-- Camera Controls - Always show when renderer exists -->
+        <div class="camera-controls-wrapper" v-if="renderer">
+          <camera-controls 
+            @set-view="setCameraView" 
+            @reset-camera="resetCameraView"
+          />
+        </div>
+
+        <!-- Main Content -->
         <div v-if="trial" class="d-flex flex-column h-100">
           <div id="mocap" ref="mocap" class="flex-grow-1 position-relative">
-            <!-- Debug info -->
             <div v-if="videoFile && !$refs.videoPreview" class="debug-info">
               Video file loaded but preview not mounted
             </div>
@@ -1280,6 +1288,7 @@
   import * as THREE_OC from '@/orbitControls'
   import VideoNavigation from '@/components/ui/VideoNavigation'
   import SpeedControl from '@/components/ui/SpeedControl'
+  import CameraControls from '@/components/ui/CameraControls' // Added import
   import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js'
   import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
   import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js'
@@ -1308,7 +1317,8 @@ const axiosInstance = axios.create();
       name: 'Session',
       components: {
           VideoNavigation,
-          SpeedControl
+          SpeedControl,
+          CameraControls // Register component
       },
       data() {
           return {
@@ -6132,6 +6142,67 @@ const axiosInstance = axios.create();
       });
       this.markersPlayable = playable;
     },
+    setCameraView(viewType) {
+      if (!this.camera || !this.controls) return;
+
+      const distance = this.camera.position.distanceTo(this.controls.target);
+      const target = this.controls.target.clone(); // Keep current target
+
+      // Define positions based on view type relative to target
+      let newPosition = new THREE.Vector3();
+      const offset = distance; // Use current distance
+
+      switch(viewType) {
+        case 'top':
+          newPosition.set(target.x, target.y + offset, target.z);
+          break;
+        case 'bottom':
+          newPosition.set(target.x, target.y - offset, target.z);
+          break;
+        case 'front':
+          newPosition.set(target.x, target.y, target.z + offset);
+          break;
+        case 'back':
+          newPosition.set(target.x, target.y, target.z - offset);
+          break;
+        case 'left':
+          newPosition.set(target.x - offset, target.y, target.z);
+          break;
+        case 'right':
+          newPosition.set(target.x + offset, target.y, target.z);
+          break;
+        case 'isometric': { // Added block scope
+          // Example isometric: equal distance offset in x, y, z
+          const isoFactor = offset / Math.sqrt(3);
+          newPosition.set(target.x + isoFactor, target.y + isoFactor, target.z + isoFactor);
+          break;
+        } // Added block scope
+        default:
+          console.warn('Unknown view type:', viewType);
+          return;
+      }
+
+      // Apply new position and update controls
+      this.camera.position.copy(newPosition);
+      this.camera.lookAt(target); // Ensure camera looks at the target
+      this.controls.update(); // Update orbit controls state
+
+      // Optional: Add smooth transition later (e.g., using GSAP)
+    },
+
+    resetCameraView() {
+      if (!this.camera || !this.controls) return;
+      
+      // Reset to initial or a defined default state
+      // Example: Using initial settings from initScene
+      const initialPosition = new THREE.Vector3(3.33, 3.5, -2.30);
+      const initialTarget = new THREE.Vector3(0, 1, 0); // Assuming default target is near origin
+
+      this.camera.position.copy(initialPosition);
+      this.controls.target.copy(initialTarget);
+      this.camera.lookAt(initialTarget);
+      this.controls.update();
+    },
   }
 }
 </script>
@@ -6144,20 +6215,20 @@ const axiosInstance = axios.create();
   font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
 }
 
-.viewer {
-  position: relative; /* Ensure viewer is a positioning context if needed */
-  width: 100%; /* Ensure viewer takes full width */
-  height: 100vh; /* Ensure viewer takes full height */
-  overflow: hidden; /* Prevent scrollbars if content overflows slightly */
-  padding-bottom: 60px; /* Add padding for controls if they are inside the viewer */
-  box-sizing: border-box; /* Include padding in height calculation */
-}
-
 #mocap {
   width: 100%;
-  height: 100%; /* Mocap area should fill the viewer minus padding */
+  height: 100%;
   position: relative;
   overflow: visible;
+}
+
+/* Ensure camera controls are positioned correctly */
+#mocap :deep(.camera-controls-container) {
+  position: absolute;
+  bottom: 80px; /* Position above the timeline controls */
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
 }
 
 .controls-container {
@@ -6490,6 +6561,16 @@ const axiosInstance = axios.create();
   margin-right: 0;
 }
 
+.camera-controls-wrapper {
+  position: absolute;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  pointer-events: auto;
+}
+
+/* ... rest of existing styles ... */
 </style>
   
   
