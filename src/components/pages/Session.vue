@@ -984,23 +984,6 @@
                 </v-card>
               </v-menu>
             </div>
-            <!-- Center Camera button -->
-            <v-tooltip bottom>
-              <template v-slot:activator="{ on, attrs }">
-                <v-btn
-                  icon
-                  dark
-                  small
-                  class="ml-2"
-                  v-bind="attrs"
-                  v-on="on"
-                  @click="centerCameraOnSubject"
-                >
-                  <v-icon small>mdi-target</v-icon>
-                </v-btn>
-              </template>
-              <span>Center Camera on Subject</span>
-            </v-tooltip>
           </div>
           
         </div>
@@ -6115,174 +6098,152 @@ const axiosInstance = axios.create();
 }
 </script>
 
-<style lang="scss">
+<style scoped>
 .viewer-container {
   height: 100vh;
   position: relative;
   overflow: hidden;
   font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-  
-  * {
-    font-family: inherit;
-  }
+}
 
-  .viewer {
-    height: 100%;
-    transition: margin 0.3s ease;
-  
-    &:not(.sidebar-hidden):not(.is-embedded) {
-      margin-right: 410px; // Right sidebar width
-    }
-    
-    &.left-sidebar-shown:not(.is-embedded) {
-      margin-left: 330px; // Left sidebar width
-    }
-  
-    #mocap {
-      width: 100%;
-      height: calc(100% - 60px);
-      position: relative;
-      overflow: visible;
-    }
-  }
+.viewer {
+  position: relative; /* Ensure viewer is a positioning context if needed */
+  width: 100%; /* Ensure viewer takes full width */
+  height: 100vh; /* Ensure viewer takes full height */
+  overflow: hidden; /* Prevent scrollbars if content overflows slightly */
+  padding-bottom: 60px; /* Add padding for controls if they are inside the viewer */
+  box-sizing: border-box; /* Include padding in height calculation */
+}
 
-  .left-sidebar-toggle {
-    position: fixed !important;
-    top: 50%;
-    transform: translateY(-50%);
-    z-index: 101;
-    transition: left 0.3s ease;
-    background: rgba(30, 30, 30, 0.8) !important;
-    
-    &:hover {
-      background: rgba(50, 50, 50, 0.9) !important;
-    }
-  }
-  
-  .sidebar-toggle {
-    position: fixed !important;
-    top: 50%;
-    transform: translateY(-50%);
-    z-index: 101;
-    transition: right 0.3s ease;
-    background: rgba(30, 30, 30, 0.8) !important;
-    
-    &:hover {
-      background: rgba(50, 50, 50, 0.9) !important;
-    }
-  }
-  
-  .right {
-    flex: 0 0 410px; // Increased from 360px
-    width: 410px; // Increased from 360px
-    height: 100%;
-    padding: 15px;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    position: fixed;
-    right: 0;
-    top: 0;
-    background: #1E1E1E;
-    transition: transform 0.3s ease;
-    z-index: 100;
+#mocap {
+  width: 100%;
+  height: 100%; /* Mocap area should fill the viewer minus padding */
+  position: relative;
+  overflow: visible;
+}
 
-    &.hidden {
-      transform: translateX(100%);
-      // Add display: none or visibility: hidden if transform is not enough
-      // Or ensure position: fixed keeps it out of flow
-    }
+.controls-container {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 60px;
+  background: rgba(0, 0, 0, 0.7);
+  padding: 0 10px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  z-index: 5; /* Ensure controls are above viewer content */
+}
 
-    &::-webkit-scrollbar {
-      width: 4px;
-    }
+.left,
+.right {
+  position: absolute;
+  top: 10px;
+  width: 330px;
+  background: rgba(28, 28, 30, 0.9); /* Dark semi-transparent */
+  backdrop-filter: blur(10px);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  padding: 15px;
+  z-index: 10; /* Ensure sidebars are above the viewer */
+  overflow-y: auto; /* Allow scrolling within sidebars */
+  overflow-x: hidden; /* Prevent horizontal scrolling */
+  transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
+  display: flex;
+  flex-direction: column;
+}
 
-    // Adjust spacing for compact view
-    .mb-4 {
-      margin-bottom: 8px !important;
-    }
+.left::-webkit-scrollbar,
+.right::-webkit-scrollbar {
+  width: 6px;
+}
+.left::-webkit-scrollbar-thumb,
+.right::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+.left::-webkit-scrollbar-track,
+.right::-webkit-scrollbar-track {
+  background: transparent;
+}
 
-    .scene-controls {
-      background: rgba(0, 0, 0, 0.2);
-      border-radius: 4px;
-      padding: 10px;  // Increased from 5px
-    }
+.left {
+  left: 10px;
+  height: calc(100vh - 80px); /* Adjust height to leave space at bottom */
+}
 
-    .format-selector {
-      margin-top: 8px !important;  // Add top margin to Format and Bitrate selectors
-    }
+.left.hidden {
+  transform: translateX(-110%);
+  opacity: 0;
+  pointer-events: none;
+}
 
-    .color-preview {
-      width: 20px !important;
-      min-width: 20px !important;
-      height: 20px !important;
-      border-radius: 4px !important;
-      border: 1px solid rgba(255, 255, 255, 0.3) !important;
-    }
+.right {
+  right: 10px;
+  height: calc(100vh - 80px); /* Match left sidebar height */
+}
 
-    .legend {
-      flex: 1;
-      overflow-y: auto;
-      background: rgba(0, 0, 0, 0.2);
-      border-radius: 4px;
-      padding: 5px;
+.right.hidden {
+  transform: translateX(110%);
+  opacity: 0;
+  pointer-events: none;
+}
 
-      .legend-item {
-        display: flex;
-        flex-direction: column;
-        padding: 3px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+.left-sidebar-toggle,
+.sidebar-toggle {
+  position: absolute;
+  top: 15px; /* Align with sidebar top */
+  z-index: 11; /* Above sidebars */
+  background: rgba(40, 40, 40, 0.8);
+  border-radius: 50%;
+  transition: transform 0.3s ease-in-out;
+}
 
-        &:last-child {
-          border-bottom: none;
-        }
+.left-sidebar-toggle {
+  left: 15px; /* Position near left sidebar */
+}
 
-        .color-box {
-          width: 20px;
-          height: 20px;
-          border-radius: 4px;
-          display: inline-block;
-          flex-shrink: 0; // Prevent color box from shrinking
-        }
+.left-sidebar-toggle.sidebar-open {
+  transform: translateX(340px); /* Move with sidebar (width + padding/margin) */
+}
 
-        .file-name {
-          font-size: 10px;
-          color: rgba(255, 255, 255, 0.5);
-          text-align: left; // Align text to the left
-          margin-top: 2px;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
+.sidebar-toggle {
+  right: 15px; /* Position near right sidebar */
+}
 
-        .v-btn {
-          margin: 2px !important;
-          min-width: 20px !important;
-          width: 20px !important;
-          height: 20px !important;
-          padding: 0 !important;
-        }
+.sidebar-toggle.sidebar-open {
+  transform: translateX(-340px); /* Move with sidebar (width + padding/margin) */
+}
 
-        // Style for the Meshes button
-        .v-btn.v-btn--text {
-          min-width: 80px !important;
-          width: auto !important;
-          height: 24px !important;
-          padding: 0 8px !important;
-        }
-      }
-    }
-  }
+/* Legend and Controls specific styles */
+.left .left-content, .right .right-content /* Define a content wrapper if needed */ {
+  flex-grow: 1;
+  /* Potentially add overflow-y: auto here if header/footer is fixed */
+}
 
-  .controls-container {
-    height: 60px;
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: 4px;
-    margin: 5px;
-    padding: 8px;
-    display: flex;
-    align-items: center;
-  }
+.legend {
+  flex-grow: 1;
+}
+
+.legend-item {
+  position: relative;
+  padding-bottom: 16px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.legend-item:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.color-box {
+  width: 24px;
+  height: 24px;
+        border-radius: 4px;
+        margin-top: 4px;
+  flex-shrink: 0;
 }
 
 .trial-name-input {
@@ -6297,220 +6258,23 @@ const axiosInstance = axios.create();
   }
 }
 
-.color-picker {
-  background: #424242 !important;
-  max-width: 200px;
-}
-
-.color-sample {
-  width: 24px;
-  height: 24px;
-  border-radius: 4px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-
-  &[style*="original"] {
-    background-color: #cccccc !important;
-    position: relative;
-    
-    &::after {
-      content: "O";
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      color: #000;
-      font-size: 12px;
-      font-weight: bold;
-    }
-  }
-}
-
-.drop-zone {
-    width: 90%;
-    height: 80%;
-    min-height: 350px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    border: 3px dashed rgba(255, 255, 255, 0.2);
-    border-radius: 12px;
-    margin: 20px;
-    transition: all 0.3s ease;
-    
-    &:hover {
-        border-color: rgba(255, 255, 255, 0.4);
-        background: rgba(255, 255, 255, 0.08);
-    }
-  }
-
-.transparency-picker {
-    background: #424242 !important;
-}
-
-.selected-files-info {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
-  padding: 4px 8px;
-  display: flex;
-  align-items: center;
-  font-size: 12px;
-}
-
-.conversion-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  background-color: rgba(0, 0, 0, 0.7);
-  z-index: 10;
-  border-radius: 8px;
-  padding: 20px;
-  color: white;
-}
-
-.conversion-overlay-small {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background-color: rgba(0, 0, 0, 0.7);
-  z-index: 10;
-  border-radius: 4px;
-  padding: 10px;
-  color: white;
-}
-
-.opacity-reduced {
-  opacity: 0.3;
-  pointer-events: none;
-}
-
-.position-relative {
-  position: relative;
-}
-
-.rgb-picker {
-  padding: 8px;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 4px;
-}
-
-.video-preview-container {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  z-index: 9999;
-  border-radius: 6px;
-  overflow: hidden;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
-  transition: all 0.3s ease;
-  max-width: 30%;
-  min-width: 200px; // Add minimum width
-  background-color: #000;
-  border: 1px solid rgba(255, 255, 255, 0.2); // Add border to make it visible
-}
-
-.video-preview-container video {
-  width: 100%;
-  display: block;
-  background-color: #000;
-  min-height: 150px; // Increase minimum height
-}
-
-.video-controls {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  z-index: 10000; // Increase z-index to be above video
-  display: flex;
-  gap: 4px; // Add gap between buttons
-  background-color: rgba(0, 0, 0, 0.7); // Make background more visible
-  border-radius: 4px;
-  padding: 4px;
-}
-
-.video-minimized {
-  width: 200px;
-}
-
-.mesh-controls {
-  .v-expansion-panels {
-    max-width: 200px;
-    background: transparent !important;
-    
-    .v-expansion-panel {
-      background: transparent !important;
-      
-      &::before {
-        box-shadow: none !important;
-      }
-      
-      .v-expansion-panel-header {
-        padding: 0 8px;
-        min-height: 32px;
-        background: rgba(0, 0, 0, 0.2);
-        border-radius: 4px;
-        
-        .v-expansion-panel-header__icon {
-          margin-left: 4px;
-          
-          .v-icon {
-            font-size: 18px;
-          }
-        }
-      }
-      
-      .v-expansion-panel-content {
-        background: rgba(0, 0, 0, 0.1);
-        border-radius: 4px;
-        margin-top: 4px;
-        
-        .v-expansion-panel-content__wrap {
-          padding: 4px;
-        }
-      }
-    }
-  }
-  
-  .mesh-groups {
-    .group-header {
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 4px;
-      margin-bottom: 4px;
-      font-size: 14px;
-      font-family: inherit;
-    }
-    
-    .mesh-item {
-      border-radius: 4px;
-      transition: background-color 0.2s;
-      font-size: 13px;
-      font-family: inherit;
-      
-      &:hover {
-        background: rgba(255, 255, 255, 0.05);
-      }
-    }
-  }
-}
-
-// ... existing code ...
-
+.file-name,
 .fps-info {
-  font-size: 10px;
-  margin-top: 1px;
-  text-align: left; // Align text to the left
-  font-family: inherit;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
+  margin-top: 2px;
+}
+
+.offset-controls {
+  .v-text-field {
+    input {
+      color: rgba(255, 255, 255, 0.7) !important;
+      text-align: center;
+    }
+    .v-input__slot {
+      padding: 0 4px !important;
+    }
+  }
 }
 
 .drop-zone {
@@ -6523,13 +6287,13 @@ const axiosInstance = axios.create();
     align-items: center;
     border: 3px dashed rgba(255, 255, 255, 0.2);
     border-radius: 12px;
-    margin: 20px;
+  margin: 20px auto;
     transition: all 0.3s ease;
+}
     
-    &:hover {
+.drop-zone:hover {
         border-color: rgba(255, 255, 255, 0.4);
         background: rgba(255, 255, 255, 0.08);
-    }
   }
 
 .custom-btn {
@@ -6540,119 +6304,8 @@ const axiosInstance = axios.create();
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
   transition: all 0.2s ease !important;
   font-family: inherit !important;
-
-  &:hover {
-    filter: brightness(0.95);
-    transform: scale(1.02);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15) !important;
-  }
-
-  &:active {
-    transform: scale(0.98);
-  }
-
-  .v-icon {
-    margin-right: 6px !important;
-  }
 }
 
-.left {
-  position: absolute;
-  left: 10px;
-  top: 10px;
-  height: calc(100vh - 20px);
-  flex: 0 0 300px; /* Reduced width slightly */
-  width: 300px;
-  background: rgba(30, 30, 30, 0.95); /* Semi-transparent background */
-  border-radius: 10px;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-  padding: 15px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  transition: transform 0.3s ease;
-  z-index: 100; /* Ensure it's above the viewer */
-
-  &.hidden {
-    transform: translateX(-110%); /* Move completely off-screen */
-  }
-
-  &::-webkit-scrollbar {
-    width: 4px;
-  }
-
-  // Adjust spacing for compact view
-  .mb-4 {
-    margin-bottom: 8px !important;
-  }
-
-  .left-content {
-    flex-grow: 1;
-  }
-
-  .credits {
-    margin-top: auto;
-    padding: 10px; /* Reduced padding */
-    text-align: center;
-
-    .text-caption {
-      color: rgba(255, 255, 255, 0.5);
-    }
-  }
-}
-
-.right {
-  position: fixed; /* Change to fixed for more reliable positioning */
-  right: 30px; /* Increased margin */
-  top: 30px; /* Increased margin */
-  height: calc(100vh - 60px); /* Increased top/bottom margin */
-  flex: 0 0 330px; /* Further reduced width */
-  width: 330px; /* Further reduced width */
-  background: rgba(30, 30, 30, 0.95);
-  border-radius: 12px; /* Slightly increased border radius */
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4); /* Enhanced shadow */
-  padding: 15px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  transition: transform 0.3s ease;
-  z-index: 100;
-
-  &.hidden {
-    transform: translateX(110%);
-  }
-
-  &::-webkit-scrollbar {
-    width: 4px;
-  }
-
-  // Adjust spacing for compact view
-  .mb-4 {
-    margin-bottom: 8px !important;
-  }
-}
-
-// Update the sidebar toggle button position to match new spacing
-.sidebar-toggle {
-  position: fixed !important; /* Change to fixed to match sidebar */
-  top: 35px; /* Adjusted to align with new sidebar position */
-  right: 35px; /* Adjusted to align with new sidebar position */
-  z-index: 101;
-  transition: transform 0.3s ease, opacity 0.3s ease;
-  background: rgba(50, 50, 50, 0.8) !important;
-  
-  &:hover {
-    background: rgba(70, 70, 70, 0.9) !important;
-  }
-  
-  &.sidebar-open {
-     /* Optional: style when sidebar is open */
-  }
-}
-
-.left-sidebar-shown {
-  margin-left: 330px;
-}
 
 .import-dialog {
   .v-card {
@@ -6734,55 +6387,12 @@ const axiosInstance = axios.create();
   }
 }
 
-.generation-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 20px;
-  margin-bottom: 20px;
-
-  .import-item {
-    position: relative;
-
-    .import-item-badge {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      font-size: 10px;
-      background-color: #7363F9;
-      color: #FFFFFF;
-      padding: 3px 8px;
-      border-radius: 12px;
-      font-weight: 600;
-    }
-  }
-}
-
-.legend-item {
-  position: relative;
-  padding-bottom: 16px;
-  margin-bottom: 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
-}
-
-.legend-item:last-child {
-  border-bottom: none;
-  margin-bottom: 0;
-}
-
-.offset-controls {
-  .v-text-field {
-    input {
-      color: rgba(255, 255, 255, 0.6) !important;
-    }
-  }
-}
-
-.color-box {
-  width: 24px;
-  height: 24px;
+.v-tooltip__content {
+  background: rgba(50, 50, 50, 0.9) !important;
   border-radius: 4px;
-  margin-top: 4px;
+  font-size: 12px;
 }
+
 </style>
   
   
