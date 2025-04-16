@@ -102,63 +102,12 @@
                       </v-btn>
                     </template>
                     <v-card class="color-picker pa-2">
-                      <div class="d-flex flex-wrap">
-                        <v-btn v-for="color in availableColors" :key="color" small icon class="ma-1" @click="updateSubjectColor(index, color)">
-                          <div class="color-sample" :style="{ backgroundColor: color }"></div>
-                        </v-btn>
-                      </div>
-                      <!-- Recent Colors Section -->
-                      <div v-if="recentSubjectColors.length > 0" class="mt-3">
-                        <div class="text-caption grey--text mb-1">Recent Colors</div>
-                        <div class="d-flex flex-wrap">
-                          <v-btn v-for="color in recentSubjectColors" :key="color" small icon class="ma-1" @click="updateSubjectColor(index, color)">
-                            <div class="color-sample" :style="{ backgroundColor: color }"></div>
-                          </v-btn>
-                        </div>
-                      </div>
-                      <div class="mt-2 text-center">
-                        <v-btn small text @click.stop="showRgbPicker = !showRgbPicker">
-                          {{ showRgbPicker ? 'Use Preset Colors' : 'Use RGB Picker' }}
-                        </v-btn>
-                      </div>
-                      <div v-if="showRgbPicker" class="rgb-picker mt-2" @click.stop>
-                        <v-slider
-                          v-model="rgbValues[index].r"
-                          :min="0"
-                          :max="255"
-                          label="Red"
-                          hide-details
-                          @input="updateRgbColor(index)"
-                          @click.stop
-                        ></v-slider>
-                        <v-slider
-                          v-model="rgbValues[index].g"
-                          :min="0"
-                          :max="255"
-                          label="Green"
-                          hide-details
-                          @input="updateRgbColor(index)"
-                          @click.stop
-                        ></v-slider>
-                        <v-slider
-                          v-model="rgbValues[index].b"
-                          :min="0"
-                          :max="255"
-                          label="Blue"
-                          hide-details
-                          @input="updateRgbColor(index)"
-                          @click.stop
-                        ></v-slider>
-                        <div class="d-flex justify-center mt-2">
-                          <div class="color-preview" :style="{ backgroundColor: `rgb(${rgbValues[index].r}, ${rgbValues[index].g}, ${rgbValues[index].b})` }"></div>
-                        </div>
-                      </div>
-                      <!-- Add Eyedropper button -->
-                      <div class="mt-2 text-center">
-                        <v-btn small icon @click.stop="openEyedropper(index)" title="Pick color from screen">
-                          <v-icon small>mdi-eyedropper-variant</v-icon>
-                        </v-btn>
-                      </div>
+                      <v-color-picker
+                        v-model="colors[index]"
+                        hide-inputs
+                        hide-mode-switch
+                        @input="value => updateSubjectColor(index, '#' + value.hex)"
+                      ></v-color-picker>
                     </v-card>
                   </v-menu>
                   <v-btn icon small class="mr-2" @click="deleteSubject(index)">
@@ -323,7 +272,7 @@
                 
                 <!-- Buttons row -->
                 <div class="d-flex align-center ml-8" style="min-width: 300px;">
-                  <v-menu offset-y>
+                  <v-menu offset-y :close-on-content-click="false">
                     <template v-slot:activator="{ on, attrs }">
                       <v-btn icon small v-bind="attrs" v-on="on" class="mr-2">
                         <v-icon small>mdi-palette</v-icon>
@@ -437,17 +386,12 @@
                       </v-btn>
                     </template>
                     <v-card class="color-picker pa-2">
-                      <div class="d-flex flex-wrap">
-                        <v-btn v-for="color in availableColors.filter(c => c !== 'original')" 
-                          :key="color" 
-                          small 
-                          icon 
-                          class="ma-1" 
-                          @click="updateObjectColor(obj.id, color)"
-                        >
-                          <div class="color-sample" :style="{ backgroundColor: color }"></div>
-                        </v-btn>
-                      </div>
+                      <v-color-picker
+                        v-model="objColor"
+                        hide-inputs
+                        hide-mode-switch
+                        @input="value => updateObjectColor(obj.id, '#' + value.hex)"
+                      ></v-color-picker>
                     </v-card>
                   </v-menu>
                   <v-btn icon small class="mr-2" @click="removeCustomObject(obj.id)">
@@ -575,7 +519,6 @@
             </v-dialog>
           </div>
         </div>
-        
       </div>
 
       <!-- c -->
@@ -927,51 +870,47 @@
           <div class="d-flex align-center mb-2">
             <div class="mr-4 d-flex align-center">
               <div class="mr-2">Background:</div>
-              <v-menu offset-y>
+              <v-menu offset-y :close-on-content-click="false">
                 <template v-slot:activator="{ on, attrs }">
                   <v-btn small v-bind="attrs" v-on="on" class="color-preview" :style="{ backgroundColor: backgroundColor }"></v-btn>
                 </template>
                 <v-card class="color-picker pa-2">
-                  <div class="d-flex flex-wrap">
-                    <v-btn v-for="color in backgroundColors" :key="color" small icon class="ma-1" @click="updateBackgroundColor(color)">
-                      <div class="color-sample" :style="{ backgroundColor: color }"></div>
-                    </v-btn>
-                  </div>
-                  <!-- Add Eyedropper button -->
-                  <div class="mt-2 text-center">
-                    <v-btn small icon @click.stop="openBackgroundEyedropper" title="Pick color from screen">
-                      <v-icon small>mdi-eyedropper-variant</v-icon>
-                    </v-btn>
-                  </div>
+                  <v-color-picker
+                    v-model="backgroundColor"
+                    hide-inputs
+                    hide-mode-switch
+                    @input="updateBackgroundColor"
+                  ></v-color-picker>
                 </v-card>
               </v-menu>
             </div>
             <div class="d-flex align-center">
               <div class="mr-2">Ground:</div>
-              <v-menu offset-y>
+              <!-- Replace the ground color menu content -->
+              <v-menu offset-y :close-on-content-click="false">
                 <template v-slot:activator="{ on, attrs }">
                   <v-btn small v-bind="attrs" v-on="on" class="color-preview" :style="{ backgroundColor: showGround ? groundColor : 'transparent', border: !showGround ? '1px dashed rgba(255,255,255,0.5)' : '1px solid rgba(255,255,255,0.3)' }"></v-btn>
                 </template>
                 <v-card class="color-picker pa-2">
-                  <div class="d-flex flex-wrap">
-                    <v-btn v-for="color in groundColors" :key="color" small icon class="ma-1" @click="updateGroundColor(color)" :disabled="!showGround">
-                      <div class="color-sample" :style="{ backgroundColor: color }"></div>
-                    </v-btn>
-                  </div>
-                  <!-- Add Eyedropper button -->
-                  <div class="mt-2 text-center">
-                    <v-btn small icon @click.stop="openGroundEyedropper" title="Pick color from screen" :disabled="!showGround">
-                      <v-icon small>mdi-eyedropper-variant</v-icon>
-                    </v-btn>
-                  </div>
-                  <div class="mt-2 text-center">
-                    <v-btn small text @click="toggleGroundVisibility">
+                  <v-color-picker
+                    v-model="groundColor"
+                    hide-inputs
+                    hide-mode-switch
+                    @input="updateGroundColor"
+                    :disabled="!showGround"
+                  ></v-color-picker>
+                  <v-divider class="my-2"></v-divider>
+                  <div class="ground-controls pa-2">
+                    <v-btn small text block @click="toggleGroundVisibility" class="mb-2">
+                      <v-icon left small>{{ showGround ? 'mdi-eye-off' : 'mdi-eye' }}</v-icon>
                       {{ showGround ? 'Hide Ground' : 'Show Ground' }}
                     </v-btn>
-                    <v-btn small text @click="toggleGroundTexture" :disabled="!showGround">
+                    <v-btn small text block @click="toggleGroundTexture" :disabled="!showGround" class="mb-2">
+                      <v-icon left small>{{ useGroundTexture ? 'mdi-texture-box' : 'mdi-checkbox-blank-outline' }}</v-icon>
                       {{ useGroundTexture ? 'Remove Texture' : 'Use Texture' }}
                     </v-btn>
-                    <v-btn small text @click="toggleCheckerboard" :disabled="!showGround || !useGroundTexture">
+                    <v-btn small text block @click="toggleCheckerboard" :disabled="!showGround || !useGroundTexture">
+                      <v-icon left small>{{ useCheckerboard ? 'mdi-grid' : 'mdi-view-grid' }}</v-icon>
                       {{ useCheckerboard ? 'Use Grid' : 'Use Checkerboard' }}
                     </v-btn>
                   </div>
@@ -6385,6 +6324,55 @@ const axiosInstance = axios.create();
   background: rgba(50, 50, 50, 0.9) !important;
   border-radius: 4px;
   font-size: 12px;
+}
+
+.color-sample {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.color-preview {
+  width: 24px !important;
+  height: 24px !important;
+  min-width: 24px !important;
+  border-radius: 4px !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+}
+
+.color-picker {
+  background: #1E1E1E !important;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.color-picker .v-btn {
+  margin: 2px;
+  padding: 0;
+  min-width: 32px !important;
+  width: 32px !important;
+  height: 32px !important;
+}
+
+.color-picker .color-sample {
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.ground-controls {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+}
+
+.ground-controls .v-btn {
+  justify-content: flex-start;
+  padding-left: 8px;
+  text-transform: none;
+  letter-spacing: normal;
 }
 
 </style>
