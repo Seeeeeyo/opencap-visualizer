@@ -342,10 +342,16 @@
             </v-btn>
             
             <!-- Add Load Object button -->
-            <input type="file" ref="objFileInput" accept=".obj" style="display: none" @change="handleObjFileSelect" />
+            <input 
+              type="file" 
+              ref="objFileInput" 
+              accept=".obj,.gltf,.glb,.fbx,.stl,.dae" 
+              style="display: none" 
+              @change="handleModelFileSelect" 
+            />
             <v-btn color="#9333EA" class="mb-2 white--text custom-btn" block @click="$refs.objFileInput.click()">
               <v-icon left>mdi-cube-outline</v-icon>
-              Load 3D Object (.obj)
+              Load 3D Model
             </v-btn>
             
             <!-- Existing file chips etc. -->
@@ -1129,13 +1135,28 @@
   import VideoNavigation from '@/components/ui/VideoNavigation'
   import SpeedControl from '@/components/ui/SpeedControl'
   import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js'
+  import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+  import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js'
+  import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js'
+  import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader.js'
+  import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
   import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue';
   import { apiError } from '@/util/ErrorMessage.js';
   
-// Create a new axios instance without a base URL
-const axiosInstance = axios.create();
+  // Create a new axios instance without a base URL
+  const axiosInstance = axios.create();
   
+  // Initialize loaders
   const objLoader = new OBJLoader();
+  const gltfLoader = new GLTFLoader();
+  const fbxLoader = new FBXLoader();
+  const stlLoader = new STLLoader();
+  const colladaLoader = new ColladaLoader();
+  
+  // Optional: Setup DRACO compression support for GLTF
+  const dracoLoader = new DRACOLoader();
+  dracoLoader.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
+  gltfLoader.setDRACOLoader(dracoLoader);
   
   export default {
       name: 'Session',
@@ -5222,15 +5243,7 @@ const axiosInstance = axios.create();
         this.gridTexture = new THREE.CanvasTexture(canvas);
         this.gridTexture.wrapS = THREE.RepeatWrapping;
         this.gridTexture.wrapT = THREE.RepeatWrapping;
-        this.gridTexture.magFilter = THREE.LinearFilter; // Use linear filter for smoother look
-        this.gridTexture.minFilter = THREE.LinearMipmapLinearFilter;
-        this.gridTexture.anisotropy = this.renderer ? this.renderer.capabilities.getMaxAnisotropy() : 1;
-        this.gridTexture.needsUpdate = true; 
-
-        // Adjust repeat based on plane size
-        const repeats = 20; // Match planeSize
-        this.gridTexture.repeat.set(repeats, repeats); 
-        console.log('Grid texture created and assigned.');
+        this.gridTexture.repeat.set(10, 10); // Adjust repeat to match plane size
     },
     // Add this new method
     loadJsonData(jsonData) {
@@ -5605,20 +5618,15 @@ const axiosInstance = axios.create();
         }
       }
     },
-    handleObjFileSelect(event) {
+    handleModelFileSelect(event) {
       const files = event.target.files;
       if (files.length > 0) {
         const file = files[0];
-        // Create a URL for the uploaded file
         const fileURL = URL.createObjectURL(file);
+        const fileExtension = file.name.split('.').pop().toLowerCase();
         
-        // Load the OBJ file using the existing objLoader
-        objLoader.load(fileURL, (root) => {
-          if (!this.scene) {
-            URL.revokeObjectURL(fileURL);
-            return;
-          }
-          
+        // Function to handle loaded model
+        const processModel = (model, type) => {
           // Generate a unique key for this object
           const objKey = `custom_obj_${Date.now()}`;
           
@@ -5627,65 +5635,128 @@ const axiosInstance = axios.create();
             id: objKey,
             name: file.name,
             position: { x: 0, y: 0, z: 0 },
-            rotation: { x: 0, y: 0, z: 0 }, // Add rotation property
+            rotation: { x: 0, y: 0, z: 0 },
             scale: 1,
             color: '#ffffff',
-            opacity: 1.0
+            opacity: 1.0,
+            type: type
           };
+
+          // For GLTF/GLB models that might come with their own materials
+          const preserveMaterials = type === 'gltf' || type === 'glb';
+          
+          // Handle different model types
+          if (type === 'stl') {
+            // STL comes as geometry, needs to be converted to mesh
+            const material = new THREE.MeshPhongMaterial({
+              color: new THREE.Color(newObject.color),
+              shininess: 30,
+              transparent: false,
+              opacity: 1.0
+            });
+            model = new THREE.Mesh(model, material);
+          }
           
           // Set up the object properties
-          root.position.set(0, 0, 0);
-          root.scale.set(1, 1, 1);
-          root.rotation.set(0, 0, 0); // Initialize rotation
+          model.position.set(0, 0, 0);
+          model.scale.set(1, 1, 1);
+          model.rotation.set(0, 0, 0);
           
-          // Apply material to all meshes in the object
-          root.traverse((child) => {
-            if (child instanceof THREE.Mesh) {
-              // Create a material with the default color
-              child.material = new THREE.MeshPhongMaterial({
-                color: new THREE.Color(newObject.color),
-                shininess: 30,
-                transparent: false,
-                opacity: 1.0
-              });
-              
-              // Enable shadows
-              child.castShadow = true;
-              child.receiveShadow = true;
-            }
-          });
+          // Apply material to all meshes unless it's a GLTF/GLB model
+          if (!preserveMaterials) {
+            model.traverse((child) => {
+              if (child instanceof THREE.Mesh) {
+                child.material = new THREE.MeshPhongMaterial({
+                  color: new THREE.Color(newObject.color),
+                  shininess: 30,
+                  transparent: false,
+                  opacity: 1.0
+                });
+                child.castShadow = true;
+                child.receiveShadow = true;
+              }
+            });
+          }
           
-          // Store the mesh in the meshes object
-          this.meshes[objKey] = root;
+          // Store the mesh
+          this.meshes[objKey] = model;
           
-          // Add the object to customObjects array
+          // Add to customObjects array
           this.customObjects.push(newObject);
           
-          // Add the object to the scene
-          this.scene.add(root);
+          // Add to scene
+          this.scene.add(model);
           
           // Render the scene
           this.renderer.render(this.scene, this.camera);
           
-          // Clean up the URL
+          // Clean up
           URL.revokeObjectURL(fileURL);
-          
-          // Reset the file input
-          event.target.value = '';
-          
-          // Log success
-          console.log('Custom object loaded successfully', objKey);
-        }, 
-        // Progress callback
-        (xhr) => {
+        };
+
+        // Error handler
+        const handleError = (error) => {
+          console.error(`Error loading ${fileExtension.toUpperCase()} file:`, error);
+          alert(`Error loading ${fileExtension.toUpperCase()} file: ${error.message}`);
+          URL.revokeObjectURL(fileURL);
+        };
+
+        // Progress handler
+        const handleProgress = (xhr) => {
           console.log((xhr.loaded / xhr.total * 100) + '% loaded');
-        },
-        // Error callback
-        (error) => {
-          console.error('Error loading the OBJ file', error);
-          alert('Error loading the OBJ file: ' + error.message);
-          URL.revokeObjectURL(fileURL);
-        });
+        };
+
+        // Choose loader based on file extension
+        switch (fileExtension) {
+          case 'obj':
+            objLoader.load(fileURL, 
+              model => processModel(model, 'obj'),
+              handleProgress,
+              handleError
+            );
+            break;
+            
+          case 'gltf':
+          case 'glb':
+            gltfLoader.load(fileURL,
+              gltf => processModel(gltf.scene, 'gltf'),
+              handleProgress,
+              handleError
+            );
+            break;
+            
+          case 'fbx':
+            fbxLoader.load(fileURL,
+              model => processModel(model, 'fbx'),
+              handleProgress,
+              handleError
+            );
+            break;
+            
+          case 'stl':
+            stlLoader.load(fileURL,
+              geometry => processModel(geometry, 'stl'),
+              handleProgress,
+              handleError
+            );
+            break;
+            
+          case 'dae':
+            colladaLoader.load(fileURL,
+              collada => processModel(collada.scene, 'dae'),
+              handleProgress,
+              handleError
+            );
+            break;
+            
+          default:
+            alert('Unsupported file format');
+            URL.revokeObjectURL(fileURL);
+            break;
+        }
+
+        // Reset the input value
+        event.target.value = '';
       }
     },
     updateObjectColor(id, colorHex) {
