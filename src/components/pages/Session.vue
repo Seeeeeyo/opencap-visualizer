@@ -576,12 +576,6 @@
           </div>
         </div>
         
-        <!-- Credits -->
-        <div class="credits mt-auto pt-2 text-center">
-          <div class="text-caption grey--text text--lighten-1">
-            Left Sidebar
-          </div>
-        </div>
       </div>
 
       <!-- c -->
