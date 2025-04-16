@@ -645,9 +645,21 @@
                     {{ animations[index].visible ? 'mdi-eye' : 'mdi-eye-off' }}
                   </v-icon>
                 </v-btn>
-                <v-btn icon small class="ml-2" @click="centerCameraOnAnimation(index)" title="Center camera on this subject">
-                  <v-icon small>mdi-target</v-icon>
-                </v-btn>
+                <v-tooltip bottom>
+                  <template v-slot:activator="{ on, attrs }">
+                    <v-btn 
+                      icon 
+                      small 
+                      class="ml-2" 
+                      v-bind="attrs"
+                      v-on="on"
+                      @click="centerCameraOnAnimation(index)"
+                    >
+                      <v-icon small>mdi-target</v-icon>
+                    </v-btn>
+                  </template>
+                  <span>Center camera on this animation</span>
+                </v-tooltip>
                 <v-menu offset-y>
                   <template v-slot:activator="{ on, attrs }">
                     <v-btn icon small v-bind="attrs" v-on="on" class="ml-2" @click="prepareTransparencyMenu(index)">
@@ -785,9 +797,21 @@
                               {{ showMarkers ? 'mdi-eye' : 'mdi-eye-off' }}
                           </v-icon>
                       </v-btn>
-                      <v-btn icon small class="ml-2" @click="centerCameraOnMarkers" title="Center camera on markers">
-                          <v-icon small>mdi-target</v-icon>
-                      </v-btn>
+                      <v-tooltip bottom>
+                        <template v-slot:activator="{ on, attrs }">
+                          <v-btn 
+                            icon 
+                            small 
+                            class="ml-2" 
+                            v-bind="attrs"
+                            v-on="on"
+                            @click="centerCameraOnMarkers"
+                          >
+                            <v-icon small>mdi-target</v-icon>
+                          </v-btn>
+                        </template>
+                        <span>Center camera on all visible markers</span>
+                      </v-tooltip>
                       <!-- Add Transparency Menu (4th) -->
                       <v-menu offset-y>
                           <template v-slot:activator="{ on, attrs }">
@@ -886,9 +910,21 @@
                     {{ isObjectVisible(obj.id) ? 'mdi-eye' : 'mdi-eye-off' }}
                   </v-icon>
                 </v-btn>
-                <v-btn icon small class="ml-2" @click="centerCameraOnObject(obj.id)" title="Center camera on this object">
-                  <v-icon small>mdi-target</v-icon>
-                </v-btn>
+                <v-tooltip bottom>
+                  <template v-slot:activator="{ on, attrs }">
+                    <v-btn 
+                      icon 
+                      small 
+                      class="ml-2" 
+                      v-bind="attrs"
+                      v-on="on"
+                      @click="centerCameraOnObject(obj.id)"
+                    >
+                      <v-icon small>mdi-target</v-icon>
+                    </v-btn>
+                  </template>
+                  <span>Center camera on this object</span>
+                </v-tooltip>
                 <v-menu offset-y>
                   <template v-slot:activator="{ on, attrs }">
                     <v-btn icon small v-bind="attrs" v-on="on" class="ml-2">
