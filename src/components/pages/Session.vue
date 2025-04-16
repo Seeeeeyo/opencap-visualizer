@@ -914,6 +914,36 @@
                 <v-text-field label="Z" type="number" :step="0.5" :value="obj.position.z" dense @input="updateObjectPosition(obj.id, 'z', $event)" style="width: 70px" />
                 <v-text-field label="Scale" type="number" :step="0.1" :value="obj.scale" dense @input="updateObjectScale(obj.id, $event)" style="width: 70px" class="ml-2" />
               </div>
+              <!-- Rotation controls -->
+              <div class="d-flex align-center mt-2">
+                <v-text-field 
+                  label="Rot X°" 
+                  type="number" 
+                  :step="5" 
+                  :value="obj.rotation ? obj.rotation.x : 0" 
+                  dense 
+                  @input="updateObjectRotation(obj.id, 'x', $event)" 
+                  style="width: 70px" 
+                />
+                <v-text-field 
+                  label="Rot Y°" 
+                  type="number" 
+                  :step="5" 
+                  :value="obj.rotation ? obj.rotation.y : 0" 
+                  dense 
+                  @input="updateObjectRotation(obj.id, 'y', $event)" 
+                  style="width: 70px" 
+                />
+                <v-text-field 
+                  label="Rot Z°" 
+                  type="number" 
+                  :step="5" 
+                  :value="obj.rotation ? obj.rotation.z : 0" 
+                  dense 
+                  @input="updateObjectRotation(obj.id, 'z', $event)" 
+                  style="width: 70px" 
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -5597,6 +5627,7 @@ const axiosInstance = axios.create();
             id: objKey,
             name: file.name,
             position: { x: 0, y: 0, z: 0 },
+            rotation: { x: 0, y: 0, z: 0 }, // Add rotation property
             scale: 1,
             color: '#ffffff',
             opacity: 1.0
@@ -5605,6 +5636,7 @@ const axiosInstance = axios.create();
           // Set up the object properties
           root.position.set(0, 0, 0);
           root.scale.set(1, 1, 1);
+          root.rotation.set(0, 0, 0); // Initialize rotation
           
           // Apply material to all meshes in the object
           root.traverse((child) => {
@@ -5727,6 +5759,32 @@ const axiosInstance = axios.create();
       if (mesh) {
         const scale = Number(value);
         mesh.scale.set(scale, scale, scale);
+      }
+
+      // Render the scene
+      this.renderer.render(this.scene, this.camera);
+    },
+    updateObjectRotation(id, axis, value) {
+      const obj = this.customObjects.find(o => o.id === id);
+      if (!obj) return;
+
+      // Initialize rotation object if it doesn't exist
+      if (!obj.rotation) {
+        obj.rotation = { x: 0, y: 0, z: 0 };
+      }
+
+      // Update the object's rotation property (store in degrees)
+      obj.rotation[axis] = Number(value);
+
+      // Update the mesh rotation (convert to radians)
+      const mesh = this.meshes[id];
+      if (mesh) {
+        const toRadians = (degrees) => degrees * (Math.PI / 180);
+        mesh.rotation.set(
+          toRadians(obj.rotation.x),
+          toRadians(obj.rotation.y),
+          toRadians(obj.rotation.z)
+        );
       }
 
       // Render the scene
