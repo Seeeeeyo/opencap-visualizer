@@ -900,13 +900,6 @@
           </div>
         </div>
 
-        <!-- Sync controls -->
-        <div class="sync-controls mb-4">
-          <v-btn color="#9CA3AF" class="mb-2 white--text custom-btn" block @click="syncAllAnimations">
-            <v-icon left>mdi-sync</v-icon>
-            Sync All Subjects
-          </v-btn>
-        </div>
 
         <!-- Add Import Dialog -->
         <v-dialog v-model="showImportDialog" max-width="600" content-class="import-dialog">
