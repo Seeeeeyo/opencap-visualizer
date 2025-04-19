@@ -13,6 +13,10 @@ A web-based 3D viewer for OpenCap motion capture data and OpenSim simulations wi
 - [ ] Link Addbiomechanics 
 - [ ] Add feedback form 
 - [ ] Add plots 
+- [ ] Sync of video with 3D viz
+- [ ] Fix camera controller 
+- [ ] Add light settings
+- [ ] Add coordinate axes
 
 ## Demo
 
