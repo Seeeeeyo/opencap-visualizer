@@ -287,14 +287,14 @@
 
               <!-- Marker Files List -->
               <div v-for="(markerFile, markerIndex) in loadedMarkerFiles" :key="`marker-${markerIndex}`" class="legend-item mb-4">
-                <div class="d-flex align-center">
-                  <div class="color-box" :style="{ backgroundColor: markerColor }"></div>
+                <div class="d-flex mb-2">
+                  <div class="color-box" :style="{ backgroundColor: markerFile.color || markerColor }"></div>
                   <div class="flex-grow-1 ml-2">
                     <v-text-field v-model="markerFile.trialName" dense hide-details class="trial-name-input" />
                     <div class="file-name text-caption">{{ markerFile.fileName }}</div>
-                  </div>
-                  <div class="ml-auto">
-                    {{ Object.keys(markers).length }} Markers
+                    <div class="fps-info text-caption grey--text">
+                      {{ Object.keys(markers).length }} Markers
+                    </div>
                   </div>
                 </div>
 
@@ -322,10 +322,10 @@
                     </template>
                     <v-card class="color-picker pa-2">
                       <v-color-picker
-                        v-model="markerColor"
+                        v-model="markerFile.color"
                         hide-inputs
                         hide-mode-switch
-                        @input="updateMarkerColor"
+                        @input="updateMarkerColor(markerIndex)"
                       ></v-color-picker>
                     </v-card>
                   </v-menu>
@@ -4415,6 +4415,7 @@ const axiosInstance = axios.create();
         this.loadedMarkerFiles.push({
             fileName: this.trcFile.name,
             trialName: this.trcFile.name.replace('.trc', ''), // Basic name derivation
+            color: this.markerColor // Store initial color with marker file
         });
         console.log('[parseTrcFile] Added marker file to loadedMarkerFiles:', JSON.stringify(this.loadedMarkerFiles));
         // --- End Moved Block --- 
@@ -4734,11 +4735,17 @@ const axiosInstance = axios.create();
             this.renderer.render(this.scene, this.camera);
         }
     },
-    updateMarkerColor() {
-        // Update color for all marker meshes
+    updateMarkerColor(markerIndex) {
+        const markerFile = this.loadedMarkerFiles[markerIndex];
+        if (!markerFile || !markerFile.color) return;
+        
+        // Update color for marker meshes belonging to this file
+        const newColor = new THREE.Color(markerFile.color);
+        
+        // Update all marker meshes using the color from the corresponding marker file
         Object.values(this.markerMeshes).forEach(mesh => {
             if (mesh && mesh.material) {
-                mesh.material.color = new THREE.Color(this.markerColor);
+                mesh.material.color = newColor;
                 mesh.material.needsUpdate = true;
             }
         });
