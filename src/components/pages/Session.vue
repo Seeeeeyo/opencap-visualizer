@@ -298,7 +298,7 @@
                   </div>
                 </div>
 
-                <div class="mt-3 d-flex align-center">
+                <div class="mt-3 d-flex align-center ml-8">
                   <v-tooltip bottom>
                     <template v-slot:activator="{ on, attrs }">
                       <div v-bind="attrs" v-on="on">
@@ -400,38 +400,38 @@
                 
                 <!-- Add marker offset controls -->
                 <div class="offset-controls mt-2" style="margin-left: 44px;">
-                  <div class="d-flex">
-                    <span class="mr-2">X:</span>
+                  <div class="d-flex align-center" style="border-bottom: 1px solid rgba(255, 255, 255, 0.12);">
+                    <div class="text-caption grey--text mr-2" style="width: 12px;">X</div>
                     <v-text-field
                       dense
                       hide-details
                       type="number"
                       step="0.1"
                       :value="markerOffset.x"
-                      single-line
-                      class="offset-input"
+                      style="width: 70px"
+                      class="grey--text text--darken-1"
                       @input="updateMarkerOffset('x', $event)"
                     ></v-text-field>
-                    <span class="mx-2">Y:</span>
+                    <div class="text-caption grey--text mx-2" style="width: 12px;">Y</div>
                     <v-text-field
                       dense
                       hide-details
                       type="number"
                       step="0.1"
                       :value="markerOffset.y"
-                      single-line
-                      class="offset-input"
+                      style="width: 70px"
+                      class="grey--text text--darken-1"
                       @input="updateMarkerOffset('y', $event)"
                     ></v-text-field>
-                    <span class="mx-2">Z:</span>
+                    <div class="text-caption grey--text mx-2" style="width: 12px;">Z</div>
                     <v-text-field
                       dense
                       hide-details
                       type="number"
                       step="0.1"
                       :value="markerOffset.z"
-                      single-line
-                      class="offset-input"
+                      style="width: 70px"
+                      class="grey--text text--darken-1"
                       @input="updateMarkerOffset('z', $event)"
                     ></v-text-field>
                   </div>
@@ -4617,8 +4617,8 @@ const axiosInstance = axios.create();
         }
 
         // Force an update of marker positions and visibility
-        this.updateMarkerPositions(this.frame);
-        
+        this.updateMarkerPositions(this.frame); // Re-run position/visibility update for current frame
+
         // Render the scene to show the markers
         if (this.renderer) {
             this.renderer.render(this.scene, this.camera);
