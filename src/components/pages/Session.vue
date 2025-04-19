@@ -407,10 +407,10 @@
                       hide-details
                       type="number"
                       step="0.1"
-                      :value="markerOffset.x"
+                      :value="markerSets[markerIndex]?.offset?.x ?? markerOffset.x"
                       style="width: 70px"
                       class="grey--text text--darken-1"
-                      @input="updateMarkerOffset('x', $event)"
+                      @input="updateMarkerOffset('x', $event, markerIndex)"
                     ></v-text-field>
                     <div class="text-caption grey--text mx-2" style="width: 12px;">Y</div>
                     <v-text-field
@@ -418,10 +418,10 @@
                       hide-details
                       type="number"
                       step="0.1"
-                      :value="markerOffset.y"
+                      :value="markerSets[markerIndex]?.offset?.y ?? markerOffset.y"
                       style="width: 70px"
                       class="grey--text text--darken-1"
-                      @input="updateMarkerOffset('y', $event)"
+                      @input="updateMarkerOffset('y', $event, markerIndex)"
                     ></v-text-field>
                     <div class="text-caption grey--text mx-2" style="width: 12px;">Z</div>
                     <v-text-field
@@ -429,10 +429,10 @@
                       hide-details
                       type="number"
                       step="0.1"
-                      :value="markerOffset.z"
+                      :value="markerSets[markerIndex]?.offset?.z ?? markerOffset.z"
                       style="width: 70px"
                       class="grey--text text--darken-1"
-                      @input="updateMarkerOffset('z', $event)"
+                      @input="updateMarkerOffset('z', $event, markerIndex)"
                     ></v-text-field>
                   </div>
                 </div>
@@ -1519,6 +1519,7 @@ const axiosInstance = axios.create();
               showLeftSidebar: false, // Add this line to control left sidebar visibility
               showImportDialog: false, // Add this line to control the import dialog
               markersPlayable: true,
+              markerSets: [], // Array to store multiple marker sets
           }
       },
       computed: {
@@ -1884,21 +1885,28 @@ const axiosInstance = axios.create();
 
         // If not playing, just render the current state and exit
         if (!this.playing) {
+          // Optionally log pause state
+          // console.log('[animate] Paused. Rendering static frame.');
           if (this.renderer && this.scene && this.camera) {
             this.renderer.render(this.scene, this.camera);
           }
           return;
         }
 
+        // --- If playing, continue below --- 
+        // console.log(`[animate] Playing. Frame: ${this.frame}`);
+
         // Calculate time since last frame
         const currentTime = performance.now();
         const deltaTime = (currentTime - this.lastFrameTime) / 1000; // Convert to seconds
 
         // Check if we have markers or animations to animate
-        const hasContent = this.animations.length > 0 || Object.keys(this.markers).length > 0;
+        // Refined check for clarity: Checks if any animation is playable OR if marker sets exist and are playable
+        const hasAnimatedContent = this.animations.some(a => a.playable !== false) || 
+                                 (this.markerSets.length > 0 && this.markersPlayable);
 
         // Only advance frames if playing, enough time passed, and content exists
-        if (deltaTime >= (1 / this.frameRate) && hasContent) {
+        if (deltaTime >= (1 / this.frameRate) && hasAnimatedContent) {
             const framesToAdvance = Math.floor(deltaTime * this.frameRate * this.playSpeed);
 
             if (framesToAdvance > 0) {
@@ -1921,9 +1929,7 @@ const axiosInstance = axios.create();
                         this.time = parseFloat(this.frames[this.frame]).toFixed(2);
                         this.animateOneFrame(); // Render the final frame
                         this.stopRecording(); 
-                        this.playing = false; // Force playing to false immediately
-                        // Since stopRecording sets this.playing = false, the check at the
-                        // start of the next animate call will prevent further frame advancement.
+                        // Stop playing state is handled by stopRecording
                         return; // Exit this specific animate cycle
                     }
                 } else if (nextFrame >= this.frames.length) {
@@ -1935,24 +1941,26 @@ const axiosInstance = axios.create();
                       // If not looping, stop at the last frame
                       nextFrame = this.frames.length - 1;
                       this.playing = false; // Stop playback
+                      console.log('[animate] Reached end and not looping. Setting playing=false.');
                     }
                 }
                 // If nextFrame < this.frames.length, it's a normal advance.
 
-                // Update the frame
+                // Update the frame *before* updating time and rendering
                 this.frame = nextFrame;
 
-                // Update lastFrameTime
-                this.lastFrameTime = currentTime - (deltaTime - (framesToAdvance / (this.frameRate * this.playSpeed))) * 1000;
+                // Update lastFrameTime (using current time is simpler and often sufficient)
+                this.lastFrameTime = currentTime;
 
                 // Update displayed time
                 if (this.frames[this.frame] !== undefined) {
                     this.time = parseFloat(this.frames[this.frame]).toFixed(2);
                 } else {
+                    // Fallback if frames array doesn't have time for this index (should not happen with proper sync)
                     this.time = parseFloat(this.frame / this.frameRate).toFixed(2);
                 }
                 
-                // Render the current frame
+                // Render the current frame *after* state update
                 this.animateOneFrame();
 
                 // If a loop was just completed and we are starting the next one
@@ -1960,10 +1968,23 @@ const axiosInstance = axios.create();
                     // Ensure onNavigate syncs things like video if needed
                     this.onNavigate(this.frame); 
                 }
+                
+                // After advancing and rendering, if playing is now false (e.g., reached end), exit loop
+                if (!this.playing) {
+                    console.log('[animate] Exiting loop after reaching end.');
+                    return;
+                }
             }
-        } else if (!this.playing || !hasContent) {
-            // Still render the scene even when not playing
-            this.renderer.render(this.scene, this.camera);
+        } 
+        // Render even if not enough time has passed to advance the frame, but still playing
+        // This ensures smoother rendering, especially at high frame rates or low play speeds
+        else if (this.playing) { 
+             if (this.renderer && this.scene && this.camera) {
+                // Re-render the *current* frame without advancing
+                // We could call animateOneFrame here, but that might be redundant if marker/model updates are heavy.
+                // A simple render might suffice.
+                this.renderer.render(this.scene, this.camera); 
+             }
         }
       },
       animateOneFrame() {
@@ -2022,64 +2043,92 @@ const axiosInstance = axios.create();
             }
           });
   
+          // Render the scene (moved before marker update)
           this.renderer.render(this.scene, this.camera);
   
           // Handle markers separately based on markersPlayable flag
-          if (Object.keys(this.markers).length > 0 && this.showMarkers && this.markersPlayable) {
+          // Check markerSets instead of markers
+          if (this.markerSets.length > 0 && this.showMarkers && this.markersPlayable) {
             this.updateMarkerPositions(cframe);
           }
+        } else {
+            // If frame is out of bounds, still render the scene
+            this.renderer.render(this.scene, this.camera);
         }
       },
       
       updateMarkerPositions(frame) {
-        // Only update if we have markers
-        if (Object.keys(this.markers).length === 0) {
+        // Only update if we have marker sets and meshes
+        if (this.markerSets.length === 0 || Object.keys(this.markerMeshes).length === 0) {
             return;
         }
         
-        // Update position of each marker for the current frame
-        Object.keys(this.markers).forEach(markerName => {
-            const marker = this.markers[markerName]; // Get marker data (including visibility)
-            const mesh = this.markerMeshes[markerName]; // Get the mesh
-            
-            if (mesh) {
-                let dataIsValid = false;
-                if (frame < marker.positions.length) {
-                    const pos = marker.positions[frame];
-                    dataIsValid = pos && pos.x !== null && pos.y !== null && pos.z !== null;
-                    
-                    if (dataIsValid) {
-                        // Apply scale and offset to position
-                        mesh.position.set(
-                            pos.x * this.markerScale + this.markerOffset.x,
-                            pos.y * this.markerScale + this.markerOffset.y,
-                            pos.z * this.markerScale + this.markerOffset.z
-                        );
-                    }
-                }
+        // Update position of each marker mesh for the current frame
+        this.markerSets.forEach((markerSet, setIndex) => {
+            // Check visibility from loaded file entry
+            const loadedFileEntry = this.loadedMarkerFiles[setIndex]; 
+            // Default to visible if entry or visibility flags don't exist
+            const setVisible = loadedFileEntry?.visible !== false;
+
+            Object.keys(markerSet.markers).forEach(markerName => {
+                const marker = markerSet.markers[markerName]; // Get marker data
+                const meshKey = `set${setIndex}_${markerName}`; // Construct the unique key
+                const mesh = this.markerMeshes[meshKey]; // Get the mesh using the unique key
                 
-                // Set visibility based on global toggle, individual toggle, AND data validity
-                mesh.visible = this.showMarkers && marker.visible !== false && dataIsValid;
-            }
+                if (mesh) {
+                    let dataIsValid = false;
+                    // Check visibility toggle for this specific marker from loadedFileEntry
+                    const markerVisibleToggle = loadedFileEntry?.markerVisibility?.[markerName] !== false;
+                    
+                    if (frame < marker.positions.length) {
+                        const pos = marker.positions[frame];
+                        dataIsValid = pos && pos.x !== null && pos.y !== null && pos.z !== null;
+                        
+                        if (dataIsValid) {
+                            // Apply set-specific scale and offset to position
+                            mesh.position.set(
+                                pos.x * markerSet.scale + markerSet.offset.x,
+                                pos.y * markerSet.scale + markerSet.offset.y,
+                                pos.z * markerSet.scale + markerSet.offset.z
+                            );
+                        }
+                    }
+
+                    // Visibility depends on global setting, set-specific setting, marker toggle, and valid data
+                    mesh.visible = this.showMarkers && setVisible && markerVisibleToggle && dataIsValid; 
+                }
+            });
         });
     },
     togglePlay(value) {
-        // Call the original method implementation
-        this.playing = value;
+        // Determine the new playing state
+        const newPlayingState = value !== undefined ? value : !this.playing;
+        
+        // Log the intended change
+        console.log(`[togglePlay] Attempting to set playing state to: ${newPlayingState}`);
+
+        // Special handling for pause during recording if needed (currently just pauses)
+        if (!newPlayingState && this.isRecording) {
+             console.log('[togglePlay] Pause requested during recording. Stopping visual playback.');
+             // Note: Recording continues until explicitly stopped by stopRecording()
+        }
+
+        // Set the playing state
+        this.playing = newPlayingState;
+        console.log(`[togglePlay] Actual playing state set to: ${this.playing}`);
+
         if (this.playing) {
           // Reset timing references when starting playback
           this.lastFrameTime = performance.now();
-          
-          // Make sure first frame gets displayed immediately
-          this.animateOneFrame();
-        } else if (this.isRecording) {
-          this.playing = true;
-        }
-        
-        // Add video playback control with proper error handling
+          // Make sure first frame gets displayed immediately if starting from pause
+          this.animateOneFrame(); 
+        } 
+        // No specific 'else' action needed here for pause, the animate loop handles it.
+
+        // Video sync logic
         if (this.videoFile && this.$refs.videoPreview) {
           try {
-            if (value) {
+            if (this.playing) {
               const playPromise = this.$refs.videoPreview.play();
               if (playPromise !== undefined) {
                 playPromise.catch(error => {
@@ -2098,7 +2147,7 @@ const axiosInstance = axios.create();
         // Send play/pause state to parent window if running in an iframe
         if (window.parent && window.parent !== window) {
           try {
-            parent.postMessage({ type: value ? 'play' : 'pause' }, '*'); // Use targetOrigin '*' or specify parent domain
+            window.parent.postMessage({ type: 'playbackState', isPlaying: this.playing }, '*');
           } catch (error) {
             console.error('Error sending message to parent:', error);
           }
@@ -4185,8 +4234,11 @@ const axiosInstance = axios.create();
     parseTrcFile(trcContent) {
         console.log('Parsing TRC file...');
         
-        // Clear any existing marker meshes
-        this.clearMarkers();
+        // Create a new marker set for this TRC file
+        const newMarkerSet = {
+            markers: {},
+            timeData: null
+        };
 
         // Initialize trial data first
         if (!this.trial) {
@@ -4207,16 +4259,16 @@ const axiosInstance = axios.create();
                 }
                 
                 // Continue with TRC parsing after scene is initialized
-                this.processTrcContent(trcContent);
+                this.processTrcContent(trcContent, newMarkerSet);
             });
             return;
         }
 
         // If scene already exists, proceed directly
-        this.processTrcContent(trcContent);
+        this.processTrcContent(trcContent, newMarkerSet);
     },
 
-    processTrcContent(trcContent) {
+    processTrcContent(trcContent, markerSet) {
         const lines = trcContent.split('\n');
         let dataHeaderLineIndex = -1;
         let columnNames = [];
@@ -4310,10 +4362,14 @@ const axiosInstance = axios.create();
         }
         
         // Process the marker data to create marker objects
-        this.markers = {};
+        markerSet.markers = {};
+        // Initialize per-set settings using current defaults
+        markerSet.scale = this.markerScale; 
+        markerSet.offset = { ...this.markerOffset };
+        markerSet.color = this.markerColor;
         
         // Store the original time array for marker data
-        this.markerTimeData = {
+        markerSet.timeData = {
             times: frameTimes,
             fileName: this.trcFile ? this.trcFile.name : 'markers.trc'
         };
@@ -4369,8 +4425,8 @@ const axiosInstance = axios.create();
             // Use the name extracted directly from the header array
             let markerName = markerNameFromHeader; 
 
-            // Initialize marker data structure
-            this.markers[markerName] = {
+            // Initialize marker data structure within the current markerSet
+            markerSet.markers[markerName] = {
                 positions: [],
                 originalPositions: [] // Store the original positions for resampling
             };
@@ -4394,35 +4450,37 @@ const axiosInstance = axios.create();
                     };
 
                     // Add to marker positions, checking for NaN values
-                    this.markers[markerName].positions.push({...pos});
+                    markerSet.markers[markerName].positions.push({...pos});
                     // Also store in original positions
-                    this.markers[markerName].originalPositions.push({...pos});
+                    markerSet.markers[markerName].originalPositions.push({...pos});
                 } else {
                     // Add null position if row doesn't have enough data
                     const nullPos = { x: null, y: null, z: null };
-                    this.markers[markerName].positions.push({...nullPos});
-                    this.markers[markerName].originalPositions.push({...nullPos});
+                    markerSet.markers[markerName].positions.push({...nullPos});
+                    markerSet.markers[markerName].originalPositions.push({...nullPos});
                 }
             }
         }
 
-        console.log(`[parseTrcFile] Finished processing all potential markers based on header names. Found ${Object.keys(this.markers).length} markers.`);
-        console.log('[parseTrcFile] Marker keys found:', Object.keys(this.markers));
+        console.log(`[processTrcContent] Finished processing all potential markers based on header names. Found ${Object.keys(markerSet.markers).length} markers.`);
+        console.log('[processTrcContent] Marker keys found:', Object.keys(markerSet.markers));
 
-        // --- Move this block UP --- 
         // Add marker data to the list of loaded marker files *before* checking if markers were found
         // This ensures the file appears in the list even if parsing fails
+        // Add per-set settings to the loaded file entry as well for UI binding
         this.loadedMarkerFiles.push({
             fileName: this.trcFile.name,
             trialName: this.trcFile.name.replace('.trc', ''), // Basic name derivation
-            color: this.markerColor // Store initial color with marker file
+            color: markerSet.color, // Store initial color
+            scale: markerSet.scale, // Store initial scale
+            offset: { ...markerSet.offset }, // Store initial offset (copy)
+            visible: true // Default visibility
         });
-        console.log('[parseTrcFile] Added marker file to loadedMarkerFiles:', JSON.stringify(this.loadedMarkerFiles));
-        // --- End Moved Block --- 
+        console.log('[processTrcContent] Added marker file to loadedMarkerFiles:', JSON.stringify(this.loadedMarkerFiles));
 
         // If no markers were found, something went wrong
-        if (Object.keys(this.markers).length === 0) {
-            console.error('[parseTrcFile] No valid markers found in TRC file. Stopping further marker processing (meshes, sync). File entry was still added to the list.');
+        if (Object.keys(markerSet.markers).length === 0) {
+            console.error('[processTrcContent] No valid markers found in TRC file. Stopping further marker processing (meshes, sync). File entry was still added to the list.');
             // We don't return here anymore, but subsequent steps depending on markers might fail
             // The functions createMarkerMeshes and syncMarkerDataToTimeline already handle empty markers gracefully.
         }
@@ -4437,19 +4495,22 @@ const axiosInstance = axios.create();
         } else if (this.animations.length > 0) {
             // Case 2: Animation data already exists - sync the markers to it
             console.log('Syncing marker data with existing animation timeline');
-            this.syncMarkerDataToTimeline(frameTimes);
+            this.syncMarkerDataToTimeline(frameTimes, markerSet); // Pass markerSet
         } else {
             // Case 3: We have a timeline but no animations - just add marker data
             console.log('Adding marker data to existing timeline');
             // Handle case where we want to merge with existing frames
             // This would happen if loading multiple TRC files
             if (this.frames.length > 0 && this.frames[0] !== frameTimes[0]) {
-                this.syncMarkerDataToTimeline(frameTimes);
+                this.syncMarkerDataToTimeline(frameTimes, markerSet); // Pass markerSet
             }
         }
         
+        // Add the new marker set to the collection
+        this.markerSets.push(markerSet);
+
         // Make sure the scene is initialized properly and create marker meshes
-        this.createMarkerMeshes();
+        this.createMarkerMeshes(); // This will now handle multiple sets
 
         // Start animation loop if this is the first data loaded
         if (!this.playing && (!this.animations || this.animations.length === 0)) {
@@ -4462,85 +4523,84 @@ const axiosInstance = axios.create();
     },
     
     // New method to sync marker data to the existing timeline
-    syncMarkerDataToTimeline(markerTimes) {
-        console.log('Synchronizing marker data with existing timeline');
-        console.log(`Marker frames: ${markerTimes.length}, Existing frames: ${this.frames.length}`);
-        
-        // Store a copy of the original positions for each marker
-        const originalMarkers = JSON.parse(JSON.stringify(this.markers));
-        
-        // For each marker, resample its positions to match the current timeline
-        Object.keys(this.markers).forEach(markerName => {
-            const marker = this.markers[markerName];
-            const original = originalMarkers[markerName];
-            
-            // Create new position array matching current timeline length
-            const newPositions = [];
-            
-            // For each frame in the current timeline
-            this.frames.forEach(time => {
-                // Find the closest frame in the marker timeline
-                const index = this.findClosestTimeIndex(markerTimes, time);
-                
-                // If exact match or only one frame available, use that frame's position
-                if (index >= markerTimes.length || markerTimes[index] === time || markerTimes.length === 1) {
-                    if (index < original.positions.length) {
-                        newPositions.push({...original.positions[index]});
+    syncMarkerDataToTimeline(markerFrameTimes, markerSet) {
+        console.log('Syncing marker data to main timeline...');
+        if (!this.frames || this.frames.length === 0) {
+            console.warn('Cannot sync marker data: Main timeline (this.frames) is not set.');
+            return;
+        }
+        if (!markerSet || !markerSet.markers || Object.keys(markerSet.markers).length === 0) {
+            console.warn('Cannot sync marker data: No marker data provided in the set.');
+            return;
+        }
+
+        const mainTimeline = this.frames;
+        const originalMarkerTimes = markerSet.timeData.times; // Use the times from the specific set
+
+        Object.keys(markerSet.markers).forEach(markerName => {
+            const marker = markerSet.markers[markerName];
+            const originalPositions = marker.originalPositions; // Resample from original data
+            const resampledPositions = [];
+
+            if (!originalPositions || originalPositions.length === 0) {
+                console.warn(`No original positions found for marker ${markerName}. Skipping resampling.`);
+                marker.positions = []; // Ensure positions array exists but is empty
+                return;
+            }
+
+            mainTimeline.forEach(targetTime => {
+                // Find the indices of the original frames surrounding the target time
+                let indexBefore = -1;
+                let indexAfter = -1;
+
+                for (let i = 0; i < originalMarkerTimes.length; i++) {
+                    if (originalMarkerTimes[i] <= targetTime) {
+                        indexBefore = i;
                     } else {
-                        // Handle case where index is out of bounds
-                        newPositions.push({ x: null, y: null, z: null });
+                        indexAfter = i;
+                        break; // Found the first frame after targetTime
                     }
+                }
+
+                // Handle edge cases: target time is before the first frame or after the last frame
+                if (indexBefore === -1) { // Before the first frame
+                    resampledPositions.push({ ...originalPositions[0] }); // Use the first frame's data
+                } else if (indexAfter === -1) { // After the last frame
+                    resampledPositions.push({ ...originalPositions[originalPositions.length - 1] }); // Use the last frame's data
                 } else {
-                    // Otherwise, interpolate between the two closest frames
-                    const beforeIndex = index > 0 ? index - 1 : 0;
-                    const afterIndex = index;
-                    
-                    if (beforeIndex < original.positions.length && 
-                        afterIndex < original.positions.length) {
-                        
-                        const beforeTime = markerTimes[beforeIndex];
-                        const afterTime = markerTimes[afterIndex];
-                        const beforePos = original.positions[beforeIndex];
-                        const afterPos = original.positions[afterIndex];
-                        
-                        // Only interpolate if both positions have valid data
-                        if (beforePos.x !== null && beforePos.y !== null && beforePos.z !== null &&
-                            afterPos.x !== null && afterPos.y !== null && afterPos.z !== null) {
-                            
-                            // Calculate interpolation factor (0-1)
-                            const timeDiff = afterTime - beforeTime;
-                            const factor = timeDiff === 0 ? 0 : (time - beforeTime) / timeDiff;
-                            
-                            // Linear interpolation between positions
-                            newPositions.push({
-                                x: beforePos.x + factor * (afterPos.x - beforePos.x),
-                                y: beforePos.y + factor * (afterPos.y - beforePos.y),
-                                z: beforePos.z + factor * (afterPos.z - beforePos.z)
-                            });
-                        } else {
-                            // If either position is invalid, use the valid one, or null
-                            newPositions.push({
-                                x: beforePos.x !== null ? beforePos.x : (afterPos.x !== null ? afterPos.x : null),
-                                y: beforePos.y !== null ? beforePos.y : (afterPos.y !== null ? afterPos.y : null),
-                                z: beforePos.z !== null ? beforePos.z : (afterPos.z !== null ? afterPos.z : null)
-                            });
-                        }
+                    // Interpolate between indexBefore and indexAfter
+                    const timeBefore = originalMarkerTimes[indexBefore];
+                    const timeAfter = originalMarkerTimes[indexAfter];
+                    const posBefore = originalPositions[indexBefore];
+                    const posAfter = originalPositions[indexAfter];
+
+                    // If times are identical or positions are invalid, use the 'before' position
+                    if (timeAfter === timeBefore || !posBefore || !posAfter || posBefore.x === null || posAfter.x === null) {
+                        resampledPositions.push({ ...posBefore });
                     } else {
-                        // Handle out of bounds
-                        newPositions.push({ x: null, y: null, z: null });
+                        const t = (targetTime - timeBefore) / (timeAfter - timeBefore);
+                        const interpolatedPos = {
+                            x: posBefore.x + (posAfter.x - posBefore.x) * t,
+                            y: posBefore.y + (posAfter.y - posBefore.y) * t,
+                            z: posBefore.z + (posAfter.z - posBefore.z) * t,
+                        };
+                        resampledPositions.push(interpolatedPos);
                     }
                 }
             });
-            
-            // Update marker's positions array
-            this.markers[markerName].positions = newPositions;
+
+            marker.positions = resampledPositions; // Update the marker's positions with the resampled data
         });
-        
-        console.log('Marker data synchronized with timeline');
+
+        console.log('Marker data synced to main timeline.');
+        // Optionally, trigger an update if needed, though usually called after processing
+        // this.updateMarkerPositions(this.frame); 
+        // if (this.renderer) this.renderer.render(this.scene, this.camera);
     },
     createMarkerMeshes() {
-        // Remove any existing marker meshes
-        this.clearMarkers();
+        // Remove any existing marker meshes and labels first
+        this.clearMarkers(); 
+        this.clearMarkerLabels();
 
         // Ensure we have a scene
         if (!this.scene) {
@@ -4554,71 +4614,75 @@ const axiosInstance = axios.create();
             return;
         }
 
-        console.log(`[createMarkerMeshes] Creating meshes for ${Object.keys(this.markers).length} markers. Current frame: ${this.frame}. Show markers: ${this.showMarkers}`);
+        console.log(`[createMarkerMeshes] Creating meshes for ${this.markerSets.length} marker sets. Current frame: ${this.frame}. Show markers: ${this.showMarkers}`);
 
         // Create geometry for marker spheres - shared by all markers
-        const geometry = new THREE.SphereGeometry(this.markerSize, 16, 16);
-        // Change material to MeshLambertMaterial for a matte effect
-        const material = new THREE.MeshLambertMaterial({ 
-            color: new THREE.Color(this.markerColor),
-        });
+        const geometry = new THREE.SphereGeometry(this.markerSize, 16, 16); 
         
-        console.log(`Creating ${Object.keys(this.markers).length} marker meshes`);
-        
-        // Create mesh for each marker
-        Object.entries(this.markers).forEach(([markerName, markerData]) => {
-            const mesh = new THREE.Mesh(geometry, material.clone());
-            mesh.castShadow = true;
-            mesh.receiveShadow = true;
+        // Iterate over each marker set
+        this.markerSets.forEach((markerSet, setIndex) => {
+            console.log(`Creating marker meshes for set ${setIndex} with color ${markerSet.color}`);
             
-            // Store marker name on the mesh for event handling
-            mesh.userData.markerName = markerName;
+            // Create a unique material for this set using its color
+            const material = new THREE.MeshLambertMaterial({ 
+                color: new THREE.Color(markerSet.color),
+                // Add opacity if needed:
+                // transparent: this.markerOpacity < 1, 
+                // opacity: this.markerOpacity 
+            });
             
-            // Log the marker name being created
-            console.log(`Creating mesh for marker: ${markerName}`);
-            
-            // Add double-click event handling
-            mesh.userData.onDoubleClick = () => {
-                this.showMarkerLabel(markerName, mesh);
-            };
-            
-            // If we have position data for the current frame
-            if (this.frame < markerData.positions.length) {
-                const pos = markerData.positions[this.frame];
+            // Create mesh for each marker in this set
+            Object.entries(markerSet.markers).forEach(([markerName, markerData]) => {
+                // Use a unique key for the mesh including the set index
+                const meshKey = `set${setIndex}_${markerName}`; 
                 
-                // Only show marker if position is valid
-                if (pos && pos.x !== null && pos.y !== null && pos.z !== null) {
-                    mesh.position.set(
-                        pos.x * this.markerScale + this.markerOffset.x, 
-                        pos.y * this.markerScale + this.markerOffset.y, 
-                        pos.z * this.markerScale + this.markerOffset.z
-                    );
-                    // Set visibility based on valid data (showMarkers is true by default)
-                    mesh.visible = true;
-                    console.log(`Marker ${markerName} positioned at:`, pos);
+                const mesh = new THREE.Mesh(geometry, material); // Use the set-specific material
+                mesh.castShadow = true;
+                mesh.receiveShadow = true;
+                
+                // Store marker name and set index on the mesh for event handling/updates
+                mesh.userData.markerName = markerName;
+                mesh.userData.setIndex = setIndex; // Store the index of the marker set
+                
+                // Log the marker name being created
+                // console.log(`Creating mesh for marker: ${markerName} (Set ${setIndex})`);
+                
+                // Add double-click event handling (example)
+                mesh.userData.onDoubleClick = () => {
+                    this.showMarkerLabel(markerName, mesh);
+                };
+                
+                // Initial position setting (will be refined by updateMarkerPositions)
+                if (this.frame < markerData.positions.length) {
+                    const pos = markerData.positions[this.frame];
+                    mesh.visible = pos && pos.x !== null && pos.y !== null && pos.z !== null;
+                    if (mesh.visible) {
+                        mesh.position.set(
+                            pos.x * markerSet.scale + markerSet.offset.x, 
+                            pos.y * markerSet.scale + markerSet.offset.y, 
+                            pos.z * markerSet.scale + markerSet.offset.z
+                        );
+                    }
                 } else {
                     mesh.visible = false;
-                    console.log(`Marker ${markerName} has invalid position data for frame ${this.frame}`);
                 }
-            } else {
-                mesh.visible = false;
-                console.log(`Marker ${markerName} has no position data for frame ${this.frame}`);
-            }
-            
-            // Add mesh to scene
-            this.scene.add(mesh);
-            
-            // Store reference to mesh with the correct marker name
-            this.markerMeshes[markerName] = mesh;
+                
+                // Add mesh to scene
+                this.scene.add(mesh);
+                
+                // Store reference to mesh using the unique key
+                this.markerMeshes[meshKey] = mesh;
+            });
         });
 
-        // Add double-click event listener to the renderer's DOM element
-        if (this.renderer && this.renderer.domElement) {
+        // Add double-click event listener (if not already added)
+        if (this.renderer && this.renderer.domElement && !this.markerDoubleClickListenerAdded) {
             this.renderer.domElement.addEventListener('dblclick', this.handleMarkerDoubleClick);
+            this.markerDoubleClickListenerAdded = true; // Flag to prevent multiple listeners
         }
 
-        // Force an update of marker positions and visibility
-        this.updateMarkerPositions(this.frame); // Re-run position/visibility update for current frame
+        // Force an update of marker positions and visibility for the current frame
+        this.updateMarkerPositions(this.frame); 
 
         // Render the scene to show the markers
         if (this.renderer) {
@@ -4645,8 +4709,12 @@ const axiosInstance = axios.create();
         if (intersects.length > 0) {
             const mesh = intersects[0].object;
             const markerName = mesh.userData.markerName;
-            console.log('Double-clicked marker:', markerName); // Debug log
-            if (markerName && this.markers[markerName]) {
+            const setIndex = mesh.userData.setIndex; // Get the set index
+            
+            console.log(`Double-clicked marker: ${markerName} (Set ${setIndex})`); // Debug log
+            
+            // Check if the set and marker exist before showing the label
+            if (setIndex !== undefined && this.markerSets[setIndex] && this.markerSets[setIndex].markers[markerName]) {
                 this.showMarkerLabel(markerName, mesh);
             }
         }
@@ -4739,14 +4807,19 @@ const axiosInstance = axios.create();
         const markerFile = this.loadedMarkerFiles[markerIndex];
         if (!markerFile || !markerFile.color) return;
         
-        // Update color for marker meshes belonging to this file
+        // Get the new color
         const newColor = new THREE.Color(markerFile.color);
         
-        // Update all marker meshes using the color from the corresponding marker file
-        Object.values(this.markerMeshes).forEach(mesh => {
-            if (mesh && mesh.material) {
-                mesh.material.color = newColor;
-                mesh.material.needsUpdate = true;
+        // Update color only for marker meshes belonging to this specific marker file (setIndex)
+        Object.keys(this.markerMeshes).forEach(meshKey => {
+            const mesh = this.markerMeshes[meshKey];
+            // Extract setIndex from the mesh key (e.g., 'set0_Marker1')
+            const keyParts = meshKey.split('_');
+            if (keyParts.length > 0 && keyParts[0] === `set${markerIndex}`) {
+                if (mesh && mesh.material) {
+                    mesh.material.color.set(newColor); // Use set() for THREE.Color
+                    mesh.material.needsUpdate = true;
+                }
             }
         });
         
@@ -5503,24 +5576,43 @@ const axiosInstance = axios.create();
             this.renderer.render(this.scene, this.camera);
         }
     },
-    toggleSingleMarkerVisibility(markerName) {
-        if (this.markers[markerName]) {
-            // Toggle the visibility state for the specific marker
-            this.markers[markerName].visible = !this.markers[markerName].visible;
-            console.log(`[toggleSingleMarkerVisibility] Set ${markerName} visibility to: ${this.markers[markerName].visible}`);
-
+    toggleSingleMarkerVisibility(markerName, setIndex) {
+        // Find the corresponding entry in loadedMarkerFiles
+        const loadedFileEntry = this.loadedMarkerFiles[setIndex];
+        
+        if (loadedFileEntry) {
+            // Toggle the visibility state for this specific marker within the file entry
+            // This assumes you add a `markerVisibility` object to each loadedFileEntry
+            // If not already present, initialize it
+            if (!loadedFileEntry.markerVisibility) {
+                loadedFileEntry.markerVisibility = {};
+            }
+            // Set default visibility to true if not set, then toggle
+            loadedFileEntry.markerVisibility[markerName] = !(loadedFileEntry.markerVisibility[markerName] !== false);
+            
+            console.log(`[toggleSingleMarkerVisibility] Set ${markerName} visibility in loaded file entry ${setIndex} to: ${loadedFileEntry.markerVisibility[markerName]}`);
+            
             // Find the corresponding mesh and update its visibility immediately
-            const mesh = this.markerMeshes[markerName];
+            const meshKey = `set${setIndex}_${markerName}`;
+            const mesh = this.markerMeshes[meshKey];
             if (mesh) {
+                // Visibility depends on global toggle, marker set toggle, and this marker's toggle
+                const markerSetVisible = loadedFileEntry.visible !== false; // Check set visibility
+                const thisMarkerVisible = loadedFileEntry.markerVisibility[markerName] !== false; // Check this marker's visibility
+                
                 // We also need to check data validity for the *current* frame here
                 let dataIsValid = false;
-                const markerData = this.markers[markerName];
-                if (markerData && this.frame < markerData.positions.length) {
-                    const pos = markerData.positions[this.frame];
-                    dataIsValid = pos && pos.x !== null && pos.y !== null && pos.z !== null;
+                if (this.markerSets[setIndex] && this.markerSets[setIndex].markers[markerName]) {
+                    const markerData = this.markerSets[setIndex].markers[markerName];
+                    if (markerData && this.frame < markerData.positions.length) {
+                        const pos = markerData.positions[this.frame];
+                        dataIsValid = pos && pos.x !== null && pos.y !== null && pos.z !== null;
+                    }
                 }
-                // Mesh is visible if global toggle is on, this marker is set to visible, AND current frame data is valid
-                mesh.visible = this.showMarkers && this.markers[markerName].visible && dataIsValid;
+                
+                // Mesh is visible if global toggle is on, marker set is visible, this marker is visible, AND current frame data is valid
+                mesh.visible = this.showMarkers && markerSetVisible && thisMarkerVisible && dataIsValid;
+                console.log(`[toggleSingleMarkerVisibility] Mesh ${meshKey} final visibility: ${mesh.visible}`);
             }
             
             // Re-render the scene
@@ -5529,6 +5621,8 @@ const axiosInstance = axios.create();
             }
             // Use $forceUpdate if reactivity is an issue with the dialog list
             this.$forceUpdate();
+        } else {
+            console.error(`Could not find loaded file entry for set index ${setIndex}`);
         }
     },
     updateMarkerOpacity(value) {
@@ -5550,60 +5644,41 @@ const axiosInstance = axios.create();
       }
     },
     clearMarkers() {
-        // Clear existing marker labels
+        console.log('[clearMarkers] Clearing all marker meshes and labels');
+        Object.keys(this.markerMeshes).forEach(meshKey => {
+            const mesh = this.markerMeshes[meshKey];
+            if (mesh) {
+                this.scene.remove(mesh);
+                // Basic cleanup, assuming shared geometry/material managed elsewhere or simple enough
+                // We should NOT dispose the shared geometry here
+                // if (mesh.geometry) mesh.geometry.dispose(); 
+                // Materials are created per-set, dispose them if they exist
+                if (mesh.material) mesh.material.dispose(); 
+            }
+        });
+        this.markerMeshes = {}; // Reset the meshes object
+
+        // Also clear labels associated with markers
+        this.clearMarkerLabels();
+    },
+    clearMarkerLabels() {
+        console.log('[clearMarkerLabels] Clearing all marker labels');
         Object.values(this.markerLabels).forEach(label => {
             if (label && label.parent) {
                 label.parent.remove(label);
+                // Dispose texture and material
                 if (label.material.map) {
                     label.material.map.dispose();
                 }
                 label.material.dispose();
             }
         });
-        this.markerLabels = {};
-        this.activeMarkerLabel = null;
+        this.markerLabels = {}; // Reset the labels object
+        this.activeMarkerLabel = null; // Reset active label
         if (this.markerLabelTimeout) {
             clearTimeout(this.markerLabelTimeout);
+            this.markerLabelTimeout = null;
         }
-
-        // Log marker clearing operation
-        console.log('Clearing marker meshes:', Object.keys(this.markerMeshes).length);
-        
-        // Remove all marker meshes from scene
-        Object.entries(this.markerMeshes).forEach(([name, mesh]) => {
-            if (mesh) {
-                // Safely remove from scene
-                if (mesh.parent) {
-                    mesh.parent.remove(mesh);
-                }
-                
-                // Dispose geometry and material
-                if (mesh.geometry) {
-                    mesh.geometry.dispose();
-                }
-                if (mesh.material) {
-                    if (Array.isArray(mesh.material)) {
-                        mesh.material.forEach(material => material.dispose());
-                    } else {
-                        mesh.material.dispose();
-                    }
-                }
-                console.log(`Removed marker mesh: ${name}`);
-            }
-        });
-        
-        // Clear marker mesh references
-        this.markerMeshes = {};
-        
-        // Remove double-click event listener
-        if (this.renderer && this.renderer.domElement) {
-            this.renderer.domElement.removeEventListener('dblclick', this.handleMarkerDoubleClick);
-        }
-        
-        // Render the scene to reflect changes
-      if (this.renderer) {
-        this.renderer.render(this.scene, this.camera);
-      }
     },
     centerCameraOnSubject() {
       if (!this.scene || !this.camera || !this.controls) return;
@@ -6273,17 +6348,29 @@ const axiosInstance = axios.create();
     },
     
     // Add marker offset update method
-    updateMarkerOffset(axis, value) {
-      console.log(`Updating marker offset ${axis} to ${value}`);
-      // Update the offset value
-      this.markerOffset[axis] = Number(value);
+    updateMarkerOffset(axis, value, markerIndex) {
+      console.log(`Updating marker offset ${axis} to ${value} for marker set ${markerIndex}`);
       
-      // Update the position of all marker meshes
-      this.updateMarkerPositions(this.frame);
-      
-      // Render the scene to reflect the changes
-      if (this.renderer) {
-        this.renderer.render(this.scene, this.camera);
+      // Make sure we have a valid marker index and marker set
+      if (markerIndex !== undefined && this.markerSets[markerIndex]) {
+        // Update the offset for the specific marker set
+        this.markerSets[markerIndex].offset[axis] = Number(value);
+        
+        // Also update the corresponding loadedMarkerFiles entry if it exists
+        if (this.loadedMarkerFiles[markerIndex]) {
+          if (!this.loadedMarkerFiles[markerIndex].offset) {
+            this.loadedMarkerFiles[markerIndex].offset = { x: 0, y: 0, z: 0 };
+          }
+          this.loadedMarkerFiles[markerIndex].offset[axis] = Number(value);
+        }
+        
+        // Update the marker positions
+        this.updateMarkerPositions(this.frame);
+        
+        // Render the scene to reflect the changes
+        if (this.renderer) {
+          this.renderer.render(this.scene, this.camera);
+        }
       }
     },
   }
