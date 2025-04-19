@@ -2,6 +2,18 @@
 
 A web-based 3D viewer for OpenCap motion capture data and OpenSim simulations with advanced visualization and recording capabilities.
 
+
+## TO DO 
+# write todo list 
+- [ ] Add support for forces files
+- [ ] Add API to load files and generate video 
+- [ ] Add pip package 
+- [ ] Improve UI 
+- [ ] Create a share feature
+- [ ] Link Addbiomechanics 
+- [ ] Add feedback form 
+- [ ] Add plots 
+
 ## Demo
 
 [Live website](https://opencap-visualizer.onrender.com)
