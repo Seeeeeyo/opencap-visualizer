@@ -287,26 +287,25 @@
 
               <!-- Marker Files List -->
               <div v-for="(markerFile, markerIndex) in loadedMarkerFiles" :key="`marker-${markerIndex}`" class="legend-item mb-4">
-                <div class="d-flex mb-2">
+                <div class="d-flex align-center">
                   <div class="color-box" :style="{ backgroundColor: markerColor }"></div>
-                  <div class="ml-2" style="flex-grow: 1;">
+                  <div class="flex-grow-1 ml-2">
                     <v-text-field v-model="markerFile.trialName" dense hide-details class="trial-name-input" />
                     <div class="file-name text-caption">{{ markerFile.fileName }}</div>
-                    <div class="fps-info text-caption grey--text">
-                      {{ Object.keys(markers).length }} Markers
-                    </div>
+                  </div>
+                  <div class="ml-auto">
+                    {{ Object.keys(markers).length }} Markers
                   </div>
                 </div>
-                
-                <!-- Buttons row -->
-                <div class="d-flex align-center ml-8" style="min-width: 300px;">
+
+                <div class="mt-3 d-flex align-center">
                   <v-tooltip bottom>
                     <template v-slot:activator="{ on, attrs }">
                       <div v-bind="attrs" v-on="on">
                         <v-checkbox 
                           v-model="markersPlayable" 
-                          hide-details 
-                          dense 
+                          hide-details
+                          dense
                           color="primary" 
                           class="mt-0 mr-2 playable-checkbox"
                         ></v-checkbox>
@@ -397,15 +396,47 @@
                   >
                     <v-icon left small>mdi-vector-point</v-icon>
                   </v-btn>
-                  <v-tooltip bottom v-if="animations.length > 0">
-                    <template v-slot:activator="{ on, attrs }">
-                      <v-btn icon small class="mr-2 mb-1" @click="syncMarkersWithAnimations" v-bind="attrs" v-on="on">
-                        <v-icon small>mdi-sync</v-icon>
-                      </v-btn>
-                    </template>
-                    <span>Sync Markers with Animations</span>
-                  </v-tooltip>
                 </div>
+                
+                <!-- Add marker offset controls -->
+                <div class="offset-controls mt-2" style="margin-left: 44px;">
+                  <div class="d-flex">
+                    <span class="mr-2">X:</span>
+                    <v-text-field
+                      dense
+                      hide-details
+                      type="number"
+                      step="0.1"
+                      :value="markerOffset.x"
+                      single-line
+                      class="offset-input"
+                      @input="updateMarkerOffset('x', $event)"
+                    ></v-text-field>
+                    <span class="mx-2">Y:</span>
+                    <v-text-field
+                      dense
+                      hide-details
+                      type="number"
+                      step="0.1"
+                      :value="markerOffset.y"
+                      single-line
+                      class="offset-input"
+                      @input="updateMarkerOffset('y', $event)"
+                    ></v-text-field>
+                    <span class="mx-2">Z:</span>
+                    <v-text-field
+                      dense
+                      hide-details
+                      type="number"
+                      step="0.1"
+                      :value="markerOffset.z"
+                      single-line
+                      class="offset-input"
+                      @input="updateMarkerOffset('z', $event)"
+                    ></v-text-field>
+                  </div>
+                </div>
+                
                 <!-- Divider -->
                 <v-divider class="mt-4" style="opacity: 0.2"></v-divider>
               </div>
@@ -485,6 +516,12 @@
                       >
                         <template v-slot:thumb-label="{ value }">
                           {{ Math.round(value) }}%
+                        </template>
+                        <template v-slot:prepend>
+                          <div class="text-caption grey--text">0%</div>
+                        </template>
+                        <template v-slot:append>
+                          <div class="text-caption grey--text">100%</div>
                         </template>
                       </v-slider>
                     </v-card>
@@ -1446,6 +1483,7 @@ const axiosInstance = axios.create();
               markerColor: '#ff0000', // Default color for markers (red)
               showMarkers: true, // Toggle to show/hide markers - **Ensure this defaults to true**
               markerScale: 1.0, // Scale factor for marker positions
+              markerOffset: new THREE.Vector3(0, 0, 0), // Global offset for marker positions
               markerLight: null, // Remove this line
               markerTimeData: null, // Store marker time data
               markerOpacity: 1.0, // Add opacity control for markers
@@ -2011,11 +2049,11 @@ const axiosInstance = axios.create();
                     dataIsValid = pos && pos.x !== null && pos.y !== null && pos.z !== null;
                     
                     if (dataIsValid) {
-                        // Apply scale factor to position
+                        // Apply scale and offset to position
                         mesh.position.set(
-                            pos.x * this.markerScale,
-                            pos.y * this.markerScale,
-                            pos.z * this.markerScale
+                            pos.x * this.markerScale + this.markerOffset.x,
+                            pos.y * this.markerScale + this.markerOffset.y,
+                            pos.z * this.markerScale + this.markerOffset.z
                         );
                     }
                 }
@@ -2903,8 +2941,8 @@ const axiosInstance = axios.create();
                 this.scene.traverse((object) => {
                     // Skip lights and camera
                     if (object instanceof THREE.Light || object instanceof THREE.Camera || object === this.scene) {
-                        return;
-                    }
+                return;
+            }
                     objectsToRemove.push(object);
                 });
                 
@@ -3108,9 +3146,9 @@ const axiosInstance = axios.create();
         if (totalGeometries === 0) {
             console.error('No geometries found in sample files');
             this.finishSampleLoading();
-            return;
-        }
-        
+                return;
+            }
+            
         this.animations.forEach((animation, index) => {
             // Initialize the alpha value for each sample animation
             this.initializeAlphaValue(index);
@@ -4550,9 +4588,9 @@ const axiosInstance = axios.create();
                 // Only show marker if position is valid
                 if (pos && pos.x !== null && pos.y !== null && pos.z !== null) {
                     mesh.position.set(
-                        pos.x * this.markerScale, 
-                        pos.y * this.markerScale, 
-                        pos.z * this.markerScale
+                        pos.x * this.markerScale + this.markerOffset.x, 
+                        pos.y * this.markerScale + this.markerOffset.y, 
+                        pos.z * this.markerScale + this.markerOffset.z
                     );
                     // Set visibility based on valid data (showMarkers is true by default)
                     mesh.visible = true;
@@ -4818,11 +4856,11 @@ const axiosInstance = axios.create();
                 
                 // Only update position if we have valid data for this frame
                 if (pos && pos.x !== null && pos.y !== null && pos.z !== null) {
-                    // Apply scale factor
+                    // Apply scale factor and offset
                     mesh.position.set(
-                        pos.x * this.markerScale,
-                        pos.y * this.markerScale,
-                        pos.z * this.markerScale
+                        pos.x * this.markerScale + this.markerOffset.x,
+                        pos.y * this.markerScale + this.markerOffset.y,
+                        pos.z * this.markerScale + this.markerOffset.z
                     );
                 }
             }
@@ -5255,6 +5293,11 @@ const axiosInstance = axios.create();
           if (settings.markerColor) this.markerColor = settings.markerColor;
           if (settings.markerSize) this.markerSize = settings.markerSize;
           if (settings.markerScale) this.markerScale = settings.markerScale;
+          if (settings.markerOffset) this.markerOffset = new THREE.Vector3(
+            settings.markerOffset.x || 0,
+            settings.markerOffset.y || 0,
+            settings.markerOffset.z || 0
+          );
           if (settings.showMarkers !== undefined) this.showMarkers = settings.showMarkers;
           if (settings.showSidebar !== undefined) this.showSidebar = settings.showSidebar;
           if (settings.videoPosition) this.videoPosition = settings.videoPosition;
@@ -5292,6 +5335,11 @@ const axiosInstance = axios.create();
         markerColor: this.markerColor,
         markerSize: this.markerSize,
         markerScale: this.markerScale,
+        markerOffset: {
+          x: this.markerOffset.x,
+          y: this.markerOffset.y,
+          z: this.markerOffset.z
+        },
         showMarkers: this.showMarkers,
         showSidebar: this.showSidebar,
         videoPosition: this.videoPosition,
@@ -5479,20 +5527,20 @@ const axiosInstance = axios.create();
     updateMarkerOpacity(value) {
         // Update the opacity value
         this.markerOpacity = value;
-        
+      
         // Update all marker meshes
-        Object.values(this.markerMeshes).forEach(mesh => {
-            if (mesh && mesh.material) {
+      Object.values(this.markerMeshes).forEach(mesh => {
+        if (mesh && mesh.material) {
                 mesh.material.transparent = value < 1.0;
                 mesh.material.opacity = value;
-                mesh.material.needsUpdate = true;
-            }
-        });
-        
-        // Render the scene with updated transparency
-        if (this.renderer) {
-            this.renderer.render(this.scene, this.camera);
+          mesh.material.needsUpdate = true;
         }
+      });
+      
+        // Render the scene with updated transparency
+      if (this.renderer) {
+        this.renderer.render(this.scene, this.camera);
+      }
     },
     clearMarkers() {
         // Clear existing marker labels
@@ -5546,9 +5594,9 @@ const axiosInstance = axios.create();
         }
         
         // Render the scene to reflect changes
-        if (this.renderer) {
-            this.renderer.render(this.scene, this.camera);
-        }
+      if (this.renderer) {
+        this.renderer.render(this.scene, this.camera);
+      }
     },
     centerCameraOnSubject() {
       if (!this.scene || !this.camera || !this.controls) return;
@@ -5655,9 +5703,9 @@ const axiosInstance = axios.create();
     loadCustomObject() {
       if (!this.objFile) {
         alert('Please select an OBJ file');
-        return;
-      }
-      
+            return;
+        }
+        
       // Create a URL for the uploaded file
       const fileURL = URL.createObjectURL(this.objFile);
       
@@ -5849,8 +5897,8 @@ const axiosInstance = axios.create();
           const targetSize = 2.0; // Target size of the largest dimension in meters
           const maxDimension = Math.max(size.x, size.y, size.z);
           const scale = targetSize / maxDimension;
-          
-          // Apply scale
+        
+        // Apply scale
           model.scale.set(scale, scale, scale);
           newObject.scale = scale;
           
@@ -5959,17 +6007,17 @@ const axiosInstance = axios.create();
 
       // Update the mesh material
       const mesh = this.meshes[id];
-      if (mesh) {
-        mesh.traverse((child) => {
-          if (child instanceof THREE.Mesh) {
+          if (mesh) {
+            mesh.traverse((child) => {
+              if (child instanceof THREE.Mesh) {
             child.material.color = new THREE.Color(colorHex);
-            child.material.needsUpdate = true;
+                child.material.needsUpdate = true;
+              }
+            });
           }
-        });
-      }
-
+        
       // Render the scene
-      this.renderer.render(this.scene, this.camera);
+          this.renderer.render(this.scene, this.camera);
     },
     updateObjectOpacity(id, value) {
       const obj = this.customObjects.find(o => o.id === id);
@@ -5982,14 +6030,14 @@ const axiosInstance = axios.create();
       const mesh = this.meshes[id];
       if (mesh) {
         mesh.traverse((child) => {
-          if (child instanceof THREE.Mesh) {
+              if (child instanceof THREE.Mesh) {
             child.material.opacity = value;
             child.material.transparent = value < 1;
             child.material.needsUpdate = true;
+              }
+            });
           }
-        });
-      }
-
+          
       // Render the scene
       this.renderer.render(this.scene, this.camera);
     },
@@ -6000,7 +6048,7 @@ const axiosInstance = axios.create();
       obj.position[axis] = Number(value);
       obj.mesh.position[axis] = Number(value);
       
-      this.renderer.render(this.scene, this.camera);
+          this.renderer.render(this.scene, this.camera);
     },
     updateObjectScale(id, value) {
       const obj = this.customObjects.find(o => o.id === id);
@@ -6023,7 +6071,7 @@ const axiosInstance = axios.create();
       obj.rotation[axis] = Number(value);
       obj.mesh.rotation[axis] = THREE.MathUtils.degToRad(Number(value));
       
-      this.renderer.render(this.scene, this.camera);
+          this.renderer.render(this.scene, this.camera);
     },
     centerCameraOnObject(id) {
       if (!this.scene || !this.camera || !this.controls) return;
@@ -6053,7 +6101,7 @@ const axiosInstance = axios.create();
       this.controls.update();
 
       // Render the scene
-      this.renderer.render(this.scene, this.camera);
+          this.renderer.render(this.scene, this.camera);
     },
 
     centerCameraOnAnimation(index) {
@@ -6093,7 +6141,7 @@ const axiosInstance = axios.create();
       this.controls.update();
 
       // Render the scene
-      this.renderer.render(this.scene, this.camera);
+          this.renderer.render(this.scene, this.camera);
     },
 
     centerCameraOnMarkers() {
@@ -6216,6 +6264,21 @@ const axiosInstance = axios.create();
         this.renderer.render(this.scene, this.camera);
       }
     },
+    
+    // Add marker offset update method
+    updateMarkerOffset(axis, value) {
+      console.log(`Updating marker offset ${axis} to ${value}`);
+      // Update the offset value
+      this.markerOffset[axis] = Number(value);
+      
+      // Update the position of all marker meshes
+      this.updateMarkerPositions(this.frame);
+      
+      // Render the scene to reflect the changes
+      if (this.renderer) {
+        this.renderer.render(this.scene, this.camera);
+      }
+    },
   }
 }
 </script>
@@ -6263,6 +6326,7 @@ const axiosInstance = axios.create();
   position: absolute;
   top: 10px;
   width: 330px;
+  max-height: calc(100vh - 80px); /* Set max height to match height */
   background: rgba(28, 28, 30, 0.9); /* Dark semi-transparent */
   backdrop-filter: blur(10px);
   border-radius: 12px;
@@ -6293,6 +6357,7 @@ const axiosInstance = axios.create();
 .left {
   left: 10px;
   height: calc(100vh - 80px); /* Adjust height to leave space at bottom */
+  overflow-y: auto;
 }
 
 .left.hidden {
@@ -6304,12 +6369,30 @@ const axiosInstance = axios.create();
 .right {
   right: 10px;
   height: calc(100vh - 80px); /* Match left sidebar height */
+  overflow-y: auto;
 }
 
 .right.hidden {
   transform: translateX(110%);
   opacity: 0;
   pointer-events: none;
+}
+
+/* Ensure content stays contained in sidebars */
+.left .left-content, 
+.right .right-content {
+  flex-grow: 1;
+  min-height: 100%;
+  position: relative;
+  overflow-y: visible;
+}
+
+/* Fix for titles and headers to stay within sidebar */
+.left h2, 
+.right h2,
+.left .text-subtitle-2,
+.right .text-subtitle-2 {
+  position: relative;
 }
 
 .left-sidebar-toggle,
@@ -6346,13 +6429,13 @@ const axiosInstance = axios.create();
 
 .legend {
   flex-grow: 1;
+  position: relative;
+  width: 100%;
 }
 
 .legend-item {
   position: relative;
-  padding-bottom: 16px;
-  margin-bottom: 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  width: 100%;
 }
 
 .legend-item:last-child {
@@ -6586,4 +6669,4 @@ const axiosInstance = axios.create();
 /* ... rest of existing styles ... */
 </style>
   
-  
+                
