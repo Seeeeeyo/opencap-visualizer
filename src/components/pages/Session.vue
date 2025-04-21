@@ -131,16 +131,18 @@
                     </template>
                     <v-card class="color-picker pa-2">
             
-                        <v-color-picker
-                          :value="colors[index % colors.length]"
-                          :modes="['hex', 'rgba']"
-                          @update:color="updateSubjectColor(index, $event.hex)"
-                          class="flex-grow-1"
-                          >
-                        </v-color-picker>
+                        <div class="d-flex align-center">
+                          <v-color-picker
+                            :value="colors[index % colors.length]"
+                            :modes="['hex', 'rgba']"
+                            @update:color="updateSubjectColor(index, $event.hex)"
+                            class="flex-grow-1"
+                            >
+                          </v-color-picker>
                           <v-btn icon small @click="openEyeDropper('subject', index)" title="Pick color from screen" class="ml-2">
                             <v-icon>mdi-eyedropper-variant</v-icon>
                           </v-btn>
+                        </div>
                     </v-card>
                   </v-menu>
                   <v-btn icon small class="mr-2" @click="deleteSubject(index)">
@@ -328,14 +330,17 @@
                     </template>
                     <v-card class="color-picker pa-2">
 
-                      <v-color-picker
-                        v-model="markerFile.color"
-                        @input="updateMarkerColor(markerIndex)"
-                        class="flex-grow-1"
-                      ></v-color-picker>
-                      <v-btn icon small @click="openEyeDropper('marker', markerIndex)" title="Pick color from screen" class="ml-2">
+                      <div class="d-flex align-center">
+                        <v-color-picker
+                          v-model="markerFile.color"
+                          :modes="['hex', 'rgba']"
+                          @input="updateMarkerColor(markerIndex)"
+                          class="flex-grow-1"
+                        ></v-color-picker>
+                        <v-btn icon small @click="openEyeDropper('marker', markerIndex)" title="Pick color from screen" class="ml-2">
                           <v-icon>mdi-eyedropper-variant</v-icon>
                         </v-btn>
+                      </div>
 
                     </v-card>
                   </v-menu>
@@ -470,12 +475,17 @@
                       </v-btn>
                     </template>
                     <v-card class="color-picker pa-2">
-                      <v-color-picker
-                        v-model="objColor"
-                        hide-inputs
-                        hide-mode-switch
-                        @input="value => updateObjectColor(obj.id, '#' + value.hex)"
-                      ></v-color-picker>
+                      <div class="d-flex align-center">
+                        <v-color-picker
+                          v-model="objColor"
+                          :modes="['hex', 'rgba']"
+                          @input="value => updateObjectColor(obj.id, '#' + value.hex)"
+                          class="flex-grow-1"
+                        ></v-color-picker>
+                        <v-btn icon small @click="openEyeDropper('object', obj.id)" title="Pick color from screen" class="ml-2">
+                          <v-icon>mdi-eyedropper-variant</v-icon>
+                        </v-btn>
+                      </div>
                     </v-card>
                   </v-menu>
                   <v-btn icon small class="mr-2" @click="removeCustomObject(obj.id)">
@@ -1023,15 +1033,17 @@
                   <v-btn small v-bind="attrs" v-on="on" class="color-preview" :style="{ backgroundColor: backgroundColor }"></v-btn>
                 </template>
                 <v-card class="color-picker pa-2">
-                    <v-color-picker
-                      v-model="backgroundColor"
-                      :modes="['hex', 'rgba']"
-                      @input="updateBackgroundColor"
-                      class="flex-grow-1"
-                    ></v-color-picker>
-                    <v-btn icon small @click="openEyeDropper('backgroundColor')" title="Pick color from screen" class="ml-2">
-                      <v-icon>mdi-eyedropper-variant</v-icon>
-                    </v-btn>
+                    <div class="d-flex align-center">
+                      <v-color-picker
+                        v-model="backgroundColor"
+                        :modes="['hex', 'rgba']"
+                        @input="updateBackgroundColor"
+                        class="flex-grow-1"
+                      ></v-color-picker>
+                      <v-btn icon small @click="openEyeDropper('backgroundColor')" title="Pick color from screen" class="ml-2">
+                        <v-icon>mdi-eyedropper-variant</v-icon>
+                      </v-btn>
+                    </div>
                 </v-card>
               </v-menu>
             </div>
@@ -1043,16 +1055,18 @@
                   <v-btn small v-bind="attrs" v-on="on" class="color-preview" :style="{ backgroundColor: showGround ? groundColor : 'transparent', border: !showGround ? '1px dashed rgba(255,255,255,0.5)' : '1px solid rgba(255,255,255,0.3)' }"></v-btn>
                 </template>
                 <v-card class="color-picker pa-2">
-                    <v-color-picker
-                      v-model="groundColor"
-                      :modes="['hex', 'rgba']"
-                      @input="updateGroundColor"
-                      :disabled="!showGround"
-                      class="flex-grow-1"
-                    ></v-color-picker>
-                    <v-btn icon small @click="openEyeDropper('groundColor')" title="Pick color from screen" class="ml-2" :disabled="!showGround">
-                      <v-icon>mdi-eyedropper-variant</v-icon>
-                    </v-btn>
+                    <div class="d-flex align-center">
+                      <v-color-picker
+                        v-model="groundColor"
+                        :modes="['hex', 'rgba']"
+                        @input="updateGroundColor"
+                        :disabled="!showGround"
+                        class="flex-grow-1"
+                      ></v-color-picker>
+                      <v-btn icon small @click="openEyeDropper('groundColor')" title="Pick color from screen" class="ml-2" :disabled="!showGround">
+                        <v-icon>mdi-eyedropper-variant</v-icon>
+                      </v-btn>
+                    </div>
                   <v-divider class="my-2"></v-divider>
                   <div class="ground-controls pa-2">
                     <v-btn small text block @click="toggleGroundVisibility" class="mb-2">
@@ -2878,61 +2892,67 @@ const axiosInstance = axios.create();
       }
     }, 
     updateSubjectColor(index, colorHex) {
-        // Add color to recent colors if it's not 'original'
-        if (colorHex !== 'original' && !this.recentSubjectColors.includes(colorHex)) {
-            // Add new color to the beginning of the array
-            this.recentSubjectColors.unshift(colorHex);
-            // Keep only the maximum number of recent colors
-            if (this.recentSubjectColors.length > this.maxRecentColors) {
-                this.recentSubjectColors.pop();
+        // Ensure colorHex is a valid hex string (e.g., #RRGGBB)
+        if (!/^#[0-9A-F]{6}$/i.test(colorHex)) {
+            console.error(`Invalid hex color received in updateSubjectColor: ${colorHex}`);
+            return;
+        }
+
+        // Update the main color array (used by the picker's :value)
+        // Use $set for reactivity if colors array might not have the index initially
+        if (index >= this.colors.length) {
+            // Need to expand the colors array reactively if index is new
+            for (let i = this.colors.length; i <= index; i++) {
+                this.$set(this.colors, i, '#FFFFFF'); // Default or handle appropriately
             }
-            this.saveSettings(); // Save after updating recent colors
+        }
+        this.$set(this.colors, index, colorHex);
+
+        // --- Update RGB values for sliders ---
+        // Convert hex to RGB (0-255)
+        const hex = colorHex.substring(1); // Remove #
+        const r = parseInt(hex.substring(0, 2), 16);
+        const g = parseInt(hex.substring(2, 4), 16);
+        const b = parseInt(hex.substring(4, 6), 16);
+
+        // Initialize rgbValues for this index if it doesn't exist
+        if (!this.rgbValues[index]) {
+            this.$set(this.rgbValues, index, { r: 128, g: 128, b: 128 }); // Default values
         }
 
-        if (colorHex === 'original') {
-            // Remove color override, revert to original material
-            Object.keys(this.meshes).forEach(key => {
-                if (key.startsWith(`anim${index}_`)) {
-                    const mesh = this.meshes[key];
-                    mesh.traverse((child) => {
-                        if (child instanceof THREE.Mesh) {
-                            child.material = new THREE.MeshPhongMaterial({ 
-                                color: 0xcccccc,  // Default grey color
-                                transparent: false, // Revert to opaque
-                                opacity: 1.0 // Revert to fully opaque
-                            });
-                        }
-                    });
-                }
-            });
+        // Update RGB values reactively
+        this.$set(this.rgbValues[index], 'r', r);
+        this.$set(this.rgbValues[index], 'g', g);
+        this.$set(this.rgbValues[index], 'b', b);
+        // --- End RGB update ---
 
-            // Update color in our array
-            this.colors[index] = new THREE.Color(0xcccccc);
-            this.$forceUpdate(); // Force update to refresh the color box
-        } else {
-            // Regular color update
-            const newColor = new THREE.Color(colorHex);
-            this.colors[index] = newColor;
-            this.$forceUpdate(); // Force update to refresh the color box
+        // Update the actual mesh colors in the scene
+        Object.keys(this.meshes).forEach(key => {
+            if (key.startsWith(`anim${index}_`)) {
+                const mesh = this.meshes[key];
+                mesh.traverse((child) => {
+                    if (child instanceof THREE.Mesh) {
+                        // Preserve transparency, only change color
+                        child.material.color.set(colorHex); 
+                        child.material.needsUpdate = true;
+                    }
+                });
+            }
+        });
 
-            Object.keys(this.meshes).forEach(key => {
-                if (key.startsWith(`anim${index}_`)) {
-                    const mesh = this.meshes[key];
-                    mesh.traverse((child) => {
-                        if (child instanceof THREE.Mesh) {
-                            child.material.color = newColor;
-                            // Keep current transparency settings when changing color
-                            // child.material.transparent = this.alphaValues[index] < 1.0;
-                            child.material.opacity = this.alphaValues[index];
-                            child.material.transparent = this.alphaValues[index] < 1.0; // Set transparent based on alpha
-                            child.material.needsUpdate = true;
-                        }
-                    });
-                }
-            });
+        // Update text sprite color
+        this.updateTextSpriteColor(index, colorHex);
+
+        // Render scene
+        if (this.renderer) {
+            this.renderer.render(this.scene, this.camera);
         }
 
-        // Update text sprite
+        // Save settings
+        this.saveSettings();
+    },
+    // Helper to update text sprite color separately
+    updateTextSpriteColor(index, colorHex) {
         const sprite = this.textSprites[`text_${index}`];
         if (sprite) {
             const canvas = document.createElement('canvas');
@@ -2942,7 +2962,7 @@ const axiosInstance = axios.create();
             
             context.font = 'bold 40px Arial';
             context.textAlign = 'center';
-            context.fillStyle = colorHex === 'original' ? '#cccccc' : colorHex;
+            context.fillStyle = colorHex;
             context.fillText(this.animations[index].trialName, canvas.width/2, canvas.height/2);
             
             const texture = new THREE.CanvasTexture(canvas);
@@ -2950,9 +2970,6 @@ const axiosInstance = axios.create();
             sprite.material.map = texture;
             sprite.material.needsUpdate = true;
         }
-
-        // Render the scene with updated colors
-        this.renderer.render(this.scene, this.camera);
     },
     handleDrop(event) {
       event.preventDefault();
