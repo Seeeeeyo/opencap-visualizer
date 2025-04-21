@@ -694,8 +694,8 @@
         <!-- Camera Controls - Always show when renderer exists -->
         <div class="camera-controls-wrapper" v-if="renderer">
           <camera-controls 
-            @set-view="setCameraView" 
-            @reset-camera="resetCameraView"
+            @setView="setCameraView" 
+            @resetCamera="resetCameraView"
           />
         </div>
 
@@ -6481,6 +6481,7 @@ const axiosInstance = axios.create();
         case 'right':
           newPosition.set(currentTarget.x + offset, currentTarget.y, currentTarget.z);
           break;
+        case 'default': // Added case for resetting to default view
         case 'isometric': { 
           const isoFactor = offset / Math.sqrt(3);
           newPosition.set(currentTarget.x + isoFactor, currentTarget.y + isoFactor, currentTarget.z + isoFactor);
