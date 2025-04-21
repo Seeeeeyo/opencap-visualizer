@@ -1,32 +1,29 @@
 <template>
   <div class="camera-controls-container">
-    <!-- Reset Button -->
-    <button @click="resetCamera" class="control-button reset-button" title="Reset Camera View">
-      Reset
-    </button>
-
-    <!-- Axis Gizmo -->
-    <div class="axis-gizmo" title="Set View">
-      <!-- Center Dot -->
-      <div class="gizmo-center"></div>
-      <!-- Axis Lines -->
-      <div class="gizmo-line line-x"></div>
-      <div class="gizmo-line line-y"></div>
-      <div class="gizmo-line line-z"></div>
-      <!-- Axis Clickable Dots (+ Directions) -->
-      <div class="gizmo-axis gizmo-pos-y" @click="setView('top')" title="Top View (+Y)"></div>
-      <div class="gizmo-axis gizmo-pos-x" @click="setView('right')" title="Right View (+X)"></div>
-      <div class="gizmo-axis gizmo-pos-z" @click="setView('front')" title="Front View (+Z)"></div>
-      <!-- Axis Clickable Dots (- Directions - faded) -->
-      <div class="gizmo-axis gizmo-neg-y faded" @click="setView('bottom')" title="Bottom View (-Y)"></div>
-      <div class="gizmo-axis gizmo-neg-x faded" @click="setView('left')" title="Left View (-X)"></div>
-      <div class="gizmo-axis gizmo-neg-z faded" @click="setView('back')" title="Back View (-Z)"></div>
+    <!-- 3D Cube Gizmo -->
+    <div class="cube-gizmo" title="Set View">
+      <!-- Cube faces -->
+      <div class="cube">
+        <div class="face front" @click="setView('front')" title="Front View (+Z)">
+          <span class="axis-label">Z</span>
+        </div>
+        <div class="face back" @click="setView('back')" title="Back View (-Z)">
+          <span class="axis-label">-Z</span>
+        </div>
+        <div class="face right" @click="setView('right')" title="Right View (+X)">
+          <span class="axis-label">X</span>
+        </div>
+        <div class="face left" @click="setView('left')" title="Left View (-X)">
+          <span class="axis-label">-X</span>
+        </div>
+        <div class="face top" @click="setView('top')" title="Top View (+Y)">
+          <span class="axis-label">Y</span>
+        </div>
+        <div class="face bottom" @click="setView('bottom')" title="Bottom View (-Y)">
+          <span class="axis-label">-Y</span>
+        </div>
+      </div>
     </div>
-
-    <!-- Isometric Button -->
-    <button @click="setView('isometric')" class="control-button iso-button" title="Isometric View">
-      Isometric
-    </button>
   </div>
 </template>
 
@@ -51,137 +48,110 @@ export default {
 .camera-controls-container {
   position: absolute;
   bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 20px;
   display: flex;
   align-items: center;
-  background-color: rgba(45, 45, 45, 0.9); /* Darker, less transparent */
-  padding: 5px; /* Slightly less padding */
-  border-radius: 22px; /* Slightly more rounded */
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
-  z-index: 1000; /* Keep it on top */
-  gap: 6px; /* Slightly less gap */
+  justify-content: center;
+  background-color: rgba(28, 28, 28, 0.85);
+  padding: 15px;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  min-width: 75px;
+  min-height: 75px;
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.control-button {
-  background-color: #3a3a3a; /* Slightly lighter grey */
-  color: #e0e0e0; 
-  border: 1px solid #3a3a3a; /* Match background initially */
-  padding: 5px 15px; /* Adjusted padding for flatter look */
-  margin: 0;
-  border-radius: 18px; /* Adjusted rounding */
-  cursor: pointer;
-  font-size: 13px; 
-  font-weight: 500;
-  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
-  white-space: nowrap;
-}
-
-.control-button:hover {
-  background-color: #484848;
-  border-color: #484848;
-  color: #fff;
-}
-
-.control-button:active {
-  background-color: #555;
-  border-color: #555;
-}
-
-/* Style for an active/selected button (example, can be added dynamically) */
-.control-button.active {
-  background-color: #4a90e2; /* Blue background */
-  border-color: #4a90e2;
-  color: #fff;
-}
-
-.axis-gizmo {
-  width: 46px; /* Slightly smaller */
-  height: 46px;
-  border-radius: 50%;
-  margin: 0;
+.cube-gizmo {
+  width: 45px;
+  height: 45px;
+  perspective: 450px;
   position: relative;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+}
+
+.cube {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  transform-style: preserve-3d;
+  transform: rotateX(-25deg) rotateY(45deg);
+  transition: transform 0.3s ease;
+}
+
+.face {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.15);
   cursor: pointer;
-  background-color: #333; /* Darker gizmo background */
-  border: 1px solid #404040; /* Darker border */
-  transition: background-color 0.2s ease;
+  transition: all 0.2s ease;
+  font-weight: bold;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.8);
+  background-color: rgba(40, 40, 40, 0.9);
+  box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(2px);
 }
 
-.axis-gizmo:hover {
-  background-color: #3d3d3d;
-}
-
-.gizmo-center {
+.face::after {
+  content: '';
   position: absolute;
-  width: 8px; 
-  height: 8px;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background-color: rgba(80, 80, 80, 0.7); /* Darker, more subtle center */
-  border-radius: 50%;
+  inset: 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
   pointer-events: none;
 }
 
-.gizmo-axis {
-  position: absolute;
-  width: 11px; /* Slightly smaller dots */
-  height: 11px;
-  border-radius: 50%;
-  transition: transform 0.15s ease, filter 0.15s ease, background-color 0.2s ease;
-  z-index: 2;
+.face.front { 
+  transform: translateZ(22.5px); 
+  background-color: rgba(52, 152, 219, 0.4);
+  border-radius: 2px;
+}
+.face.back { 
+  transform: translateZ(-22.5px) rotateY(180deg); 
+  background-color: rgba(52, 152, 219, 0.2);
+  border-radius: 2px;
+}
+.face.right { 
+  transform: translateX(22.5px) rotateY(90deg); 
+  background-color: rgba(231, 76, 60, 0.4);
+  border-radius: 2px;
+}
+.face.left { 
+  transform: translateX(-22.5px) rotateY(-90deg); 
+  background-color: rgba(231, 76, 60, 0.2);
+  border-radius: 2px;
+}
+.face.top { 
+  transform: translateY(-22.5px) rotateX(90deg); 
+  background-color: rgba(46, 204, 113, 0.4);
+  border-radius: 2px;
+}
+.face.bottom { 
+  transform: translateY(22.5px) rotateX(-90deg); 
+  background-color: rgba(46, 204, 113, 0.2);
+  border-radius: 2px;
 }
 
-.gizmo-axis:hover {
-  filter: brightness(1.2);
-  transform: scale(1.1);
+.face:hover {
+  filter: brightness(1.3);
+  box-shadow: inset 0 0 20px rgba(255, 255, 255, 0.1);
 }
 
-.gizmo-axis.faded {
-  background-color: #555 !important; /* Darker grey for inactive */
-  opacity: 0.6; /* Less opaque */
+.face.front:hover { background-color: rgba(52, 152, 219, 0.6); }
+.face.back:hover { background-color: rgba(52, 152, 219, 0.4); }
+.face.right:hover { background-color: rgba(231, 76, 60, 0.6); }
+.face.left:hover { background-color: rgba(231, 76, 60, 0.4); }
+.face.top:hover { background-color: rgba(46, 204, 113, 0.6); }
+.face.bottom:hover { background-color: rgba(46, 204, 113, 0.4); }
+
+.axis-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
-
-.gizmo-axis.faded:hover {
-  filter: brightness(1.05);
-  opacity: 0.7;
-}
-
-/* Position axis dots */
-.gizmo-pos-y { top: 2px; left: 50%; transform: translateX(-50%); background-color: #2ecc71; } 
-.gizmo-neg-y { bottom: 2px; left: 50%; transform: translateX(-50%); }
-.gizmo-pos-x { right: 2px; top: 50%; transform: translateY(-50%); background-color: #e74c3c; } 
-.gizmo-neg-x { left: 2px; top: 50%; transform: translateY(-50%); }
-.gizmo-pos-z { top: 50%; left: 50%; transform: translate(calc(-50% + 9px), calc(-50% - 9px)); background-color: #3498db; } 
-.gizmo-neg-z { top: 50%; left: 50%; transform: translate(calc(-50% - 9px), calc(-50% + 9px)); }
-
-/* Axis lines - Change to simple cross */
-.gizmo-line {
-  position: absolute;
-  background-color: rgba(120, 120, 120, 0.4); /* Slightly thicker/less transparent than before */
-  pointer-events: none;
-  z-index: 1;
-}
-
-.line-x {
-  width: 60%; /* Make line shorter than full width */
-  height: 1px; 
-  top: 50%;
-  left: 20%; /* Center the line */
-  transform: translateY(-50%);
-}
-
-.line-y {
-  width: 1px; 
-  height: 60%; /* Make line shorter than full height */
-  top: 20%; /* Center the line */
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-.line-z {
-  /* Remove the Z line representation */
-  display: none; 
-}
-
 </style> 
