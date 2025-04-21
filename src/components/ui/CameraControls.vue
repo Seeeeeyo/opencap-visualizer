@@ -1,9 +1,40 @@
 <template>
   <div class="camera-controls-container">
-    <!-- 3D Cube Gizmo -->
+    <!-- 3D Cube Gizmo with Navigation Arrows -->
     <div class="cube-gizmo" title="Set View">
+      <!-- Navigation Arrows -->
+      <div class="nav-arrows">
+        <button class="nav-arrow arrow-up" @click="rotateToAdjacent('up')" title="Rotate Up">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16">
+            <path fill="currentColor" d="M12 4l-8 8h16l-8-8z"/>
+          </svg>
+        </button>
+        <button class="nav-arrow arrow-right" @click="rotateToAdjacent('right')" title="Rotate Right">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16">
+            <path fill="currentColor" d="M12 4l8 8-8 8v-16z"/>
+          </svg>
+        </button>
+        <button class="nav-arrow arrow-down" @click="rotateToAdjacent('down')" title="Rotate Down">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16">
+            <path fill="currentColor" d="M12 20l8-8H4l8 8z"/>
+          </svg>
+        </button>
+        <button class="nav-arrow arrow-left" @click="rotateToAdjacent('left')" title="Rotate Left">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16">
+            <path fill="currentColor" d="M12 4l-8 8 8 8v-16z"/>
+          </svg>
+        </button>
+      </div>
+      
+      <!-- Reset button -->
+      <button class="reset-button" @click="resetCamera()" title="Reset View">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14">
+          <path fill="currentColor" d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+        </svg>
+      </button>
+      
       <!-- Cube faces -->
-      <div class="cube">
+      <div class="cube" :class="currentView">
         <div class="face front" @click="setView('front')" title="Front View (+Z)">
           <span class="axis-label">Z</span>
         </div>
@@ -31,13 +62,43 @@
 export default {
   name: 'CameraControls',
   emits: ['setView', 'resetCamera'], // Declare emitted events
+  
+  data() {
+    return {
+      currentView: 'default', // Track current view to apply correct rotation
+      // Map of adjacent faces for each current face
+      adjacentFaces: {
+        front: { up: 'top', right: 'right', down: 'bottom', left: 'left' },
+        back: { up: 'top', right: 'left', down: 'bottom', left: 'right' },
+        right: { up: 'top', right: 'back', down: 'bottom', left: 'front' },
+        left: { up: 'top', right: 'front', down: 'bottom', left: 'back' },
+        top: { up: 'back', right: 'right', down: 'front', left: 'left' },
+        bottom: { up: 'front', right: 'right', down: 'back', left: 'left' },
+        default: { up: 'top', right: 'right', down: 'bottom', left: 'left' }
+      }
+    };
+  },
+  
   methods: {
     setView(viewType) {
-      console.log('Emitting setView:', viewType);
+      console.log('Setting view to:', viewType);
+      this.currentView = viewType; // Update the current view
+      
+      // Emit event to parent component
       this.$emit('setView', viewType);
     },
+    
+    rotateToAdjacent(direction) {
+      // Get the adjacent face in the specified direction based on current view
+      const nextView = this.adjacentFaces[this.currentView][direction];
+      if (nextView) {
+        this.setView(nextView);
+      }
+    },
+    
     resetCamera() {
-      console.log('Emitting resetCamera');
+      console.log('Resetting camera');
+      this.currentView = 'default';
       this.$emit('resetCamera');
     }
   }
@@ -53,12 +114,12 @@ export default {
   align-items: center;
   justify-content: center;
   background-color: rgba(28, 28, 28, 0.85);
-  padding: 15px;
-  border-radius: 12px;
+  padding: 40px;
+  border-radius: 16px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
   z-index: 1000;
-  min-width: 75px;
-  min-height: 75px;
+  min-width: 90px;
+  min-height: 90px;
   backdrop-filter: blur(8px);
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
@@ -71,13 +132,124 @@ export default {
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
 }
 
+/* Navigation Arrows */
+.nav-arrows {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.nav-arrow {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: rgba(60, 60, 60, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.8);
+  transition: all 0.2s ease;
+  pointer-events: auto;
+  padding: 0;
+  z-index: 15;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.nav-arrow:hover {
+  background-color: rgba(80, 80, 80, 0.9);
+  transform: scale(1.1);
+}
+
+/* Arrow positions adjusted to create more space from the cube */
+.arrow-up {
+  top: -35px;
+  left: calc(50% - 12px);
+}
+
+.arrow-right {
+  right: -35px;
+  top: calc(50% - 12px);
+}
+
+.arrow-down {
+  bottom: -35px;
+  left: calc(50% - 12px);
+}
+
+.arrow-left {
+  left: -35px;
+  top: calc(50% - 12px);
+}
+
+/* Reset button adjusted */
+.reset-button {
+  position: absolute;
+  top: -35px;
+  right: -35px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background-color: rgba(80, 80, 80, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.8);
+  transition: all 0.2s ease;
+  z-index: 15;
+  padding: 0;
+}
+
+.reset-button:hover {
+  background-color: rgba(100, 100, 100, 0.9);
+  transform: scale(1.1);
+}
+
+/* Existing cube styles */
 .cube {
   width: 100%;
   height: 100%;
   position: relative;
   transform-style: preserve-3d;
   transform: rotateX(-25deg) rotateY(45deg);
-  transition: transform 0.3s ease;
+  transition: transform 0.6s ease;
+}
+
+/* Cube rotation states based on the current view */
+.cube.front {
+  transform: rotateX(0deg) rotateY(0deg);
+}
+
+.cube.back {
+  transform: rotateX(0deg) rotateY(180deg);
+}
+
+.cube.right {
+  transform: rotateX(0deg) rotateY(-90deg);
+}
+
+.cube.left {
+  transform: rotateX(0deg) rotateY(90deg);
+}
+
+.cube.top {
+  transform: rotateX(-90deg) rotateY(0deg);
+}
+
+.cube.bottom {
+  transform: rotateX(90deg) rotateY(0deg);
+}
+
+.cube.default {
+  transform: rotateX(-25deg) rotateY(45deg);
 }
 
 .face {
