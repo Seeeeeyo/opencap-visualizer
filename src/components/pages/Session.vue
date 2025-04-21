@@ -293,7 +293,8 @@
                     <v-text-field v-model="markerFile.trialName" dense hide-details class="trial-name-input" />
                     <div class="file-name text-caption">{{ markerFile.fileName }}</div>
                     <div class="fps-info text-caption grey--text">
-                      {{ Object.keys(markers).length }} Markers
+                      <!-- Display marker count from the corresponding markerSet -->
+                      {{ markerSets[markerIndex] ? Object.keys(markerSets[markerIndex].markers).length : 0 }} Markers
                     </div>
                   </div>
                 </div>
