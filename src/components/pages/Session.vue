@@ -130,12 +130,17 @@
                       </v-btn>
                     </template>
                     <v-card class="color-picker pa-2">
-                      <v-color-picker
-                        v-model="colors[index]"
-                        hide-inputs
-                        hide-mode-switch
-                        @input="value => updateSubjectColor(index, '#' + value.hex)"
-                      ></v-color-picker>
+            
+                        <v-color-picker
+                          :value="colors[index % colors.length]"
+                          :modes="['hex', 'rgba']"
+                          @update:color="updateSubjectColor(index, $event.hex)"
+                          class="flex-grow-1"
+                          >
+                        </v-color-picker>
+                          <v-btn icon small @click="openEyeDropper('subject', index)" title="Pick color from screen" class="ml-2">
+                            <v-icon>mdi-eyedropper-variant</v-icon>
+                          </v-btn>
                     </v-card>
                   </v-menu>
                   <v-btn icon small class="mr-2" @click="deleteSubject(index)">
@@ -322,12 +327,16 @@
                       </v-btn>
                     </template>
                     <v-card class="color-picker pa-2">
+
                       <v-color-picker
                         v-model="markerFile.color"
-                        hide-inputs
-                        hide-mode-switch
                         @input="updateMarkerColor(markerIndex)"
+                        class="flex-grow-1"
                       ></v-color-picker>
+                      <v-btn icon small @click="openEyeDropper('marker', markerIndex)" title="Pick color from screen" class="ml-2">
+                          <v-icon>mdi-eyedropper-variant</v-icon>
+                        </v-btn>
+
                     </v-card>
                   </v-menu>
                   <v-btn icon small class="mr-2" @click="deleteMarkerFile(markerIndex)">
@@ -1014,12 +1023,15 @@
                   <v-btn small v-bind="attrs" v-on="on" class="color-preview" :style="{ backgroundColor: backgroundColor }"></v-btn>
                 </template>
                 <v-card class="color-picker pa-2">
-                  <v-color-picker
-                    v-model="backgroundColor"
-                    hide-inputs
-                    hide-mode-switch
-                    @input="updateBackgroundColor"
-                  ></v-color-picker>
+                    <v-color-picker
+                      v-model="backgroundColor"
+                      :modes="['hex', 'rgba']"
+                      @input="updateBackgroundColor"
+                      class="flex-grow-1"
+                    ></v-color-picker>
+                    <v-btn icon small @click="openEyeDropper('backgroundColor')" title="Pick color from screen" class="ml-2">
+                      <v-icon>mdi-eyedropper-variant</v-icon>
+                    </v-btn>
                 </v-card>
               </v-menu>
             </div>
@@ -1031,13 +1043,16 @@
                   <v-btn small v-bind="attrs" v-on="on" class="color-preview" :style="{ backgroundColor: showGround ? groundColor : 'transparent', border: !showGround ? '1px dashed rgba(255,255,255,0.5)' : '1px solid rgba(255,255,255,0.3)' }"></v-btn>
                 </template>
                 <v-card class="color-picker pa-2">
-                  <v-color-picker
-                    v-model="groundColor"
-                    hide-inputs
-                    hide-mode-switch
-                    @input="updateGroundColor"
-                    :disabled="!showGround"
-                  ></v-color-picker>
+                    <v-color-picker
+                      v-model="groundColor"
+                      :modes="['hex', 'rgba']"
+                      @input="updateGroundColor"
+                      :disabled="!showGround"
+                      class="flex-grow-1"
+                    ></v-color-picker>
+                    <v-btn icon small @click="openEyeDropper('groundColor')" title="Pick color from screen" class="ml-2" :disabled="!showGround">
+                      <v-icon>mdi-eyedropper-variant</v-icon>
+                    </v-btn>
                   <v-divider class="my-2"></v-divider>
                   <div class="ground-controls pa-2">
                     <v-btn small text block @click="toggleGroundVisibility" class="mb-2">
@@ -2821,6 +2836,47 @@ const axiosInstance = axios.create();
         
         return left;
     },
+    async openEyeDropper(target, index = null) {
+      if (!window.EyeDropper) {
+        alert('Your browser does not support the EyeDropper API.');
+        return;
+      }
+      const eyeDropper = new window.EyeDropper();
+      try {
+        // Ensure drag state doesn't interfere with eyedropper
+        this.isDragging = false; 
+        
+        const result = await eyeDropper.open();
+        const selectedColorHex = result.sRGBHex;
+        console.log(`Eyedropper selected: ${selectedColorHex} for target: ${target}, index: ${index}`);
+
+        if (target === 'backgroundColor') {
+          this.backgroundColor = selectedColorHex;
+          this.updateBackgroundColor(selectedColorHex);
+        } else if (target === 'groundColor') {
+          this.groundColor = selectedColorHex;
+          this.updateGroundColor(selectedColorHex);
+        } else if (target === 'subject' && index !== null) {
+          this.updateSubjectColor(index, selectedColorHex);
+        } else if (target === 'marker' && index !== null) {
+          // This part handles marker colors if needed, based on the previous apply attempt
+          this.$set(this.loadedMarkerFiles[index], 'color', selectedColorHex); 
+          this.updateMarkerColor(index); 
+        } else if (target === 'object' && index !== null) {
+           // This part handles object colors if needed, based on the previous apply attempt
+          const obj = this.loadedObjects.find(o => o.id === index);
+          if (obj) {
+              this.$set(obj, 'color', selectedColorHex);
+              this.updateObjectColor(index, selectedColorHex);
+          }
+        }
+        this.saveSettings(); // Save settings after color change
+
+      } catch (e) {
+        console.log('EyeDropper cancelled or failed:', e);
+        // Handle cancellation or error (e.g., user pressed Esc) - usually no action needed
+      }
+    }, 
     updateSubjectColor(index, colorHex) {
         // Add color to recent colors if it's not 'original'
         if (colorHex !== 'original' && !this.recentSubjectColors.includes(colorHex)) {
