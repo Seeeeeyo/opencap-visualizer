@@ -1057,7 +1057,14 @@
               </v-menu>
             </div>
           </div>
-          
+        </div>
+        <div class="d-flex align-center ml-4">  
+          <div class="d-flex align-center ml-4">
+               <div class="mr-2">Axes:</div>
+               <v-btn icon small @click="toggleAxes" title="Toggle Axes Visibility">
+                   <v-icon small :color="showAxes ? 'white' : 'grey'">{{ showAxes ? 'mdi-axis-arrow' : 'mdi-axis-arrow-lock' }}</v-icon>
+               </v-btn>
+           </div>
         </div>
 
         <!-- Timelapse Controls -->
@@ -1333,6 +1340,9 @@
   import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js'
   import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader.js'
   import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
+  import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js'
+  import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js'
+  import { Line2 } from 'three/examples/jsm/lines/Line2.js'
   import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue';
   import { apiError } from '@/util/ErrorMessage.js';
   
@@ -1521,6 +1531,8 @@ const axiosInstance = axios.create();
               showImportDialog: false, // Add this line to control the import dialog
               markersPlayable: true,
               markerSets: [], // Array to store multiple marker sets
+              showAxes: true, // Add this line to control axes visibility
+              axesGroup: null, // Add this line to store the axes group
           }
       },
       computed: {
@@ -2487,6 +2499,100 @@ const axiosInstance = axios.create();
         this.camera.position.y = 3.5;
 
         this.scene = new THREE.Scene();
+
+        // Create group for axes objects
+        this.axesGroup = new THREE.Group();
+        // Add thick coordinate axes
+        const axesSize = 0.25; // Size of the axes lines
+        const lineThickness = 3; // Thickness of the lines
+        const resolution = new THREE.Vector2(container.clientWidth, container.clientHeight);
+        
+        // X Axis (Red)
+        const pointsX = [0, 0.01, 0, axesSize, 0.01, 0]; // Added small Y offset
+        const geometryX = new LineGeometry();
+        geometryX.setPositions(pointsX);
+        const materialX = new LineMaterial({
+            color: 0xff0000, // Red
+            linewidth: lineThickness,
+            resolution: resolution,
+            dashed: false,
+            alphaToCoverage: true,
+        });
+        const lineX = new Line2(geometryX, materialX);
+        this.axesGroup.add(lineX);
+        
+        // Y Axis (Green)
+        const pointsY = [0, 0.01, 0, 0, axesSize, 0];
+        const geometryY = new LineGeometry();
+        geometryY.setPositions(pointsY);
+        const materialY = new LineMaterial({
+            color: 0x00ff00, // Green
+            linewidth: lineThickness,
+            resolution: resolution,
+            dashed: false,
+            alphaToCoverage: true,
+        });
+        const lineY = new Line2(geometryY, materialY);
+        this.axesGroup.add(lineY);
+        
+        // Z Axis (Blue)
+        const pointsZ = [0, 0.01, 0, 0, 0.01, axesSize]; // Added small Y offset
+        const geometryZ = new LineGeometry();
+        geometryZ.setPositions(pointsZ);
+        const materialZ = new LineMaterial({
+            color: 0x0000ff, // Blue
+            linewidth: lineThickness,
+            resolution: resolution,
+            dashed: false,
+            alphaToCoverage: true,
+        });
+        const lineZ = new Line2(geometryZ, materialZ);
+        this.axesGroup.add(lineZ);
+
+        // Helper function to create axis labels
+        const createAxisLabel = (text, color, position) => {
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            const fontSize = 24; // Reduced font size
+            context.font = `Bold ${fontSize}px Arial`;
+            const textWidth = context.measureText(text).width;
+
+            // Adjust canvas size dynamically based on text width
+            canvas.width = textWidth + 10; // Add some padding
+            canvas.height = fontSize + 10; // Add some padding
+
+            // Re-apply font settings after resizing
+            context.font = `Bold ${fontSize}px Arial`;
+            context.fillStyle = color;
+            context.textAlign = 'center';
+            context.textBaseline = 'middle';
+            context.fillText(text, canvas.width / 2, canvas.height / 2);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
+            const sprite = new THREE.Sprite(material);
+
+            // Scale the sprite - adjust as needed for visibility
+            const scale = 0.15;
+            sprite.scale.set(scale * (canvas.width / canvas.height), scale, scale);
+
+            sprite.position.copy(position);
+            this.axesGroup.add(sprite);
+        };
+
+        // Position labels slightly offset from the axis ends
+        const labelOffset = 0.05; // Adjust offset as needed
+        const labelYOffset = 0.01; // Match the line offset
+        const labelGroundClearance = 0.02; // Extra offset for labels above ground
+
+        createAxisLabel('X', '#ff0000', new THREE.Vector3(axesSize + labelOffset, labelYOffset + labelGroundClearance, 0));
+        createAxisLabel('Y', '#00ff00', new THREE.Vector3(0, axesSize + labelYOffset + labelOffset, 0)); // Adjusted Y position for label
+        createAxisLabel('Z', '#0000ff', new THREE.Vector3(0, labelYOffset + labelGroundClearance, axesSize + labelOffset));
+
+        // Add the axes group to the scene
+        this.scene.add(this.axesGroup);
+        // Set initial visibility
+        this.axesGroup.visible = this.showAxes;
         
         // Set pure black background
         this.scene.background = new THREE.Color(0x000000);
@@ -6374,6 +6480,13 @@ const axiosInstance = axios.create();
         }
       }
     },
+    toggleAxes() {
+      this.showAxes = !this.showAxes;
+      if (this.axesGroup) {
+        this.axesGroup.visible = this.showAxes;
+        this.renderer.render(this.scene, this.camera);
+      }
+    }
   }
 }
 </script>
