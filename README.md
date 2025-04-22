@@ -14,9 +14,17 @@ A web-based 3D viewer for OpenCap motion capture data and OpenSim simulations wi
 - [ ] Add feedback form 
 - [ ] Add plots 
 - [ ] Sync of video with 3D viz
-- [ ] Fix camera controller 
 - [ ] Add light settings
-- [ ] Add coordinate axes
+- [ ] Fix recording when no loop
+
+- [X] Fix camera controller 
+- [X] Add coordinate axes
+- [X] Fix number of markers 
+- [ ] Add default colors to marker file
+- [X] Add eydropper
+
+2. Please add an array of default marker colors (from trc file) because currently all imported trc files are red by default and that's confsing. Let's do the same we did for the json files, a new color for each new imported file. You can maybe even use the color array from the json?
+3. Remove the "Reset" and "Isommetric" as shown on this sceenshot, only keep the axis in the middle. For the axis on this camera controller, they don't look correct. Should we use a cube as camera/scene representation instead of this?
 
 ## Demo
 
