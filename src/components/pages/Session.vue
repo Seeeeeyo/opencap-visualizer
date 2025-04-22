@@ -694,6 +694,7 @@
         <!-- Camera Controls - Always show when renderer exists -->
         <div class="camera-controls-wrapper" v-if="renderer">
           <camera-controls 
+            v-if="showCameraControls"
             @setView="setCameraView" 
             @resetCamera="resetCameraView"
           />
@@ -1094,6 +1095,14 @@
                    <v-icon small :color="showAxes ? 'white' : 'grey'">{{ showAxes ? 'mdi-axis-arrow' : 'mdi-axis-arrow-lock' }}</v-icon>
                </v-btn>
            </div>
+           <!-- Add Camera Control Toggle Button Here -->
+           <div class="d-flex align-center ml-4">
+               <div class="mr-2">Camera:</div>
+               <v-btn icon small @click="toggleCameraControls" title="Toggle Camera Controls Visibility">
+                   <v-icon small :color="showCameraControls ? 'white' : 'grey'">{{ showCameraControls ? 'mdi-cube-scan' : 'mdi-cube-off-outline' }}</v-icon>
+               </v-btn>
+           </div>
+           <!-- End Camera Control Toggle Button -->
         </div>
 
         <!-- Timelapse Controls -->
@@ -1562,6 +1571,7 @@ const axiosInstance = axios.create();
               markerSets: [], // Array to store multiple marker sets
               showAxes: true, // Add this line to control axes visibility
               axesGroup: null, // Add this line to store the axes group
+              showCameraControls: true, // Add this line to control camera controls visibility
           }
       },
       computed: {
@@ -1746,6 +1756,10 @@ const axiosInstance = axios.create();
       }
     },
     methods: {
+    toggleCameraControls() {
+      this.showCameraControls = !this.showCameraControls;
+      console.log('Toggled camera controls visibility:', this.showCameraControls);
+    },
     async loadTrial() {
       console.log('loadTrial started')
         this.time = "0.00"
@@ -2389,6 +2403,7 @@ const axiosInstance = axios.create();
         // Most mocap systems operate between 30-120 fps
         return Math.min(Math.max(calculatedFps, 24), 120);
     },
+    
     handleFileUpload(event) {
         const files = event.target.files;
         if (!files.length) return;

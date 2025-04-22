@@ -124,13 +124,14 @@ export default {
 <style scoped>
 .camera-controls-container {
   position: absolute;
-  bottom: 20px;
-  left: 20px;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   align-items: center;
   justify-content: center;
   background-color: rgba(28, 28, 28, 0.85);
-  padding: 40px;
+  padding: 45px;
   border-radius: 16px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
   z-index: 1000;
