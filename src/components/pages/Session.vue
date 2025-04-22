@@ -1099,7 +1099,7 @@
            <div class="d-flex align-center ml-4">
                <div class="mr-2">Camera:</div>
                <v-btn icon small @click="toggleCameraControls" title="Toggle Camera Controls Visibility">
-                   <v-icon small :color="showCameraControls ? 'white' : 'grey'">{{ showCameraControls ? 'mdi-cube-scan' : 'mdi-cube-off-outline' }}</v-icon>
+                   <v-icon small :color="showCameraControls ? 'white' : 'grey'">{{ 'mdi-cube-scan' }}</v-icon> <!-- Always use mdi-cube-scan -->
                </v-btn>
            </div>
            <!-- End Camera Control Toggle Button -->
