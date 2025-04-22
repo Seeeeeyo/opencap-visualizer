@@ -1,6 +1,6 @@
 <template>
   <div class="camera-controls-container">
-    <!-- 3D Cube Gizmo with Navigation Arrows -->
+    <!-- 3D Cube Gizmo with Integrated Corners & Navigation -->
     <div class="cube-gizmo" title="Set View">
       <!-- Navigation Arrows -->
       <div class="nav-arrows">
@@ -24,6 +24,18 @@
             <path fill="currentColor" d="M12 4l-8 8 8 8v-16z"/>
           </svg>
         </button>
+      </div>
+      
+      <!-- Corner Click Targets -->
+      <div class="corner-click-targets">
+        <div class="corner-target corner-top-right-front" @click="setView('frontTopRight')" title="Front Top Right Corner"></div>
+        <div class="corner-target corner-top-left-front" @click="setView('frontTopLeft')" title="Front Top Left Corner"></div>
+        <div class="corner-target corner-top-right-back" @click="setView('backTopRight')" title="Back Top Right Corner"></div>
+        <div class="corner-target corner-top-left-back" @click="setView('backTopLeft')" title="Back Top Left Corner"></div>
+        <div class="corner-target corner-bottom-right-front" @click="setView('frontBottomRight')" title="Front Bottom Right Corner"></div>
+        <div class="corner-target corner-bottom-left-front" @click="setView('frontBottomLeft')" title="Front Bottom Left Corner"></div>
+        <div class="corner-target corner-bottom-right-back" @click="setView('backBottomRight')" title="Back Bottom Right Corner"></div>
+        <div class="corner-target corner-bottom-left-back" @click="setView('backBottomLeft')" title="Back Bottom Left Corner"></div>
       </div>
       
       <!-- Reset button -->
@@ -74,6 +86,7 @@ export default {
         left: { up: 'top', right: 'front', down: 'bottom', left: 'back' },
         top: { up: 'back', right: 'right', down: 'front', left: 'left' },
         bottom: { up: 'front', right: 'right', down: 'back', left: 'left' },
+        // Remove corner adjacency - navigation arrows only go between the 6 main faces
         default: { up: 'top', right: 'right', down: 'bottom', left: 'left' }
       }
     };
@@ -90,7 +103,10 @@ export default {
     
     rotateToAdjacent(direction) {
       // Get the adjacent face in the specified direction based on current view
-      const nextView = this.adjacentFaces[this.currentView][direction];
+      // If current view is a corner, default to rotating from the 'front' view as a baseline
+      const baseView = ['front', 'back', 'left', 'right', 'top', 'bottom', 'default'].includes(this.currentView) ? this.currentView : 'default';
+      const nextView = this.adjacentFaces[baseView][direction];
+      
       if (nextView) {
         this.setView(nextView);
       }
@@ -188,6 +204,35 @@ export default {
   top: calc(50% - 12px);
 }
 
+/* Corner Click Targets (Invisible overlays) */
+.corner-click-targets {
+  position: absolute;
+  inset: -5px; /* Slightly larger area around the cube */
+  z-index: 12;
+  pointer-events: none; /* Container doesn't capture events */
+}
+
+.corner-target {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  pointer-events: auto; /* Targets capture events */
+  /* Optional: Uncomment to visualize targets for debugging */
+  /* background-color: rgba(255, 0, 0, 0.2); */
+  /* border-radius: 50%; */
+}
+
+/* Precise positioning over cube corners in default view */
+.corner-top-right-front { top: 0; right: 0; }
+.corner-top-left-front { top: 0; left: 0; }
+.corner-top-right-back { top: 15px; right: 15px; } /* Approx */
+.corner-top-left-back { top: 15px; left: 15px; } /* Approx */
+.corner-bottom-right-front { bottom: 15px; right: 15px; } /* Approx */
+.corner-bottom-left-front { bottom: 15px; left: 15px; } /* Approx */
+.corner-bottom-right-back { bottom: 0; right: 0; }
+.corner-bottom-left-back { bottom: 0; left: 0; }
+
 /* Reset button adjusted */
 .reset-button {
   position: absolute;
@@ -223,35 +268,7 @@ export default {
   transition: transform 0.6s ease;
 }
 
-/* Cube rotation states based on the current view */
-.cube.front {
-  transform: rotateX(0deg) rotateY(0deg);
-}
-
-.cube.back {
-  transform: rotateX(0deg) rotateY(180deg);
-}
-
-.cube.right {
-  transform: rotateX(0deg) rotateY(-90deg);
-}
-
-.cube.left {
-  transform: rotateX(0deg) rotateY(90deg);
-}
-
-.cube.top {
-  transform: rotateX(-90deg) rotateY(0deg);
-}
-
-.cube.bottom {
-  transform: rotateX(90deg) rotateY(0deg);
-}
-
-.cube.default {
-  transform: rotateX(-25deg) rotateY(45deg);
-}
-
+/* Cube Face Styles */
 .face {
   position: absolute;
   width: 100%;
@@ -320,6 +337,68 @@ export default {
 .face.left:hover { background-color: rgba(231, 76, 60, 0.4); }
 .face.top:hover { background-color: rgba(46, 204, 113, 0.6); }
 .face.bottom:hover { background-color: rgba(46, 204, 113, 0.4); }
+
+/* Cube rotation states based on the current view */
+.cube.front {
+  transform: rotateX(0deg) rotateY(0deg);
+}
+
+.cube.back {
+  transform: rotateX(0deg) rotateY(180deg);
+}
+
+.cube.right {
+  transform: rotateX(0deg) rotateY(-90deg);
+}
+
+.cube.left {
+  transform: rotateX(0deg) rotateY(90deg);
+}
+
+.cube.top {
+  transform: rotateX(-90deg) rotateY(0deg);
+}
+
+.cube.bottom {
+  transform: rotateX(90deg) rotateY(0deg);
+}
+
+/* Corner view rotations - 45 degree angles */
+.cube.frontTopRight {
+  transform: rotateX(-35deg) rotateY(-35deg);
+}
+
+.cube.frontTopLeft {
+  transform: rotateX(-35deg) rotateY(35deg);
+}
+
+.cube.frontBottomRight {
+  transform: rotateX(35deg) rotateY(-35deg);
+}
+
+.cube.frontBottomLeft {
+  transform: rotateX(35deg) rotateY(35deg);
+}
+
+.cube.backTopRight {
+  transform: rotateX(-35deg) rotateY(-145deg);
+}
+
+.cube.backTopLeft {
+  transform: rotateX(-35deg) rotateY(145deg);
+}
+
+.cube.backBottomRight {
+  transform: rotateX(35deg) rotateY(-145deg);
+}
+
+.cube.backBottomLeft {
+  transform: rotateX(35deg) rotateY(145deg);
+}
+
+.cube.default {
+  transform: rotateX(-25deg) rotateY(45deg);
+}
 
 .axis-label {
   font-size: 10px;

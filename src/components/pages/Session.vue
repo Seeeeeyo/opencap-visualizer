@@ -6461,6 +6461,7 @@ const axiosInstance = axios.create();
       // Define new positions based on view type relative to the CURRENT target
       let newPosition = new THREE.Vector3();
       const offset = Math.max(distance, 1.0); // Ensure a minimum distance
+      const isoFactor = offset / Math.sqrt(3); // Factor for isometric views
 
       switch(viewType) {
         case 'top':
@@ -6481,9 +6482,36 @@ const axiosInstance = axios.create();
         case 'right':
           newPosition.set(currentTarget.x + offset, currentTarget.y, currentTarget.z);
           break;
+          
+        // Handle Corner Views
+        case 'frontTopRight':
+          newPosition.set(currentTarget.x + isoFactor, currentTarget.y + isoFactor, currentTarget.z + isoFactor);
+          break;
+        case 'frontTopLeft':
+          newPosition.set(currentTarget.x - isoFactor, currentTarget.y + isoFactor, currentTarget.z + isoFactor);
+          break;
+        case 'frontBottomRight':
+          newPosition.set(currentTarget.x + isoFactor, currentTarget.y - isoFactor, currentTarget.z + isoFactor);
+          break;
+        case 'frontBottomLeft':
+          newPosition.set(currentTarget.x - isoFactor, currentTarget.y - isoFactor, currentTarget.z + isoFactor);
+          break;
+        case 'backTopRight':
+          newPosition.set(currentTarget.x + isoFactor, currentTarget.y + isoFactor, currentTarget.z - isoFactor);
+          break;
+        case 'backTopLeft':
+          newPosition.set(currentTarget.x - isoFactor, currentTarget.y + isoFactor, currentTarget.z - isoFactor);
+          break;
+        case 'backBottomRight':
+          newPosition.set(currentTarget.x + isoFactor, currentTarget.y - isoFactor, currentTarget.z - isoFactor);
+          break;
+        case 'backBottomLeft':
+          newPosition.set(currentTarget.x - isoFactor, currentTarget.y - isoFactor, currentTarget.z - isoFactor);
+          break;
+          
         case 'default': // Added case for resetting to default view
         case 'isometric': { 
-          const isoFactor = offset / Math.sqrt(3);
+          // Use the standard frontTopRight isometric view for 'default' or 'isometric'
           newPosition.set(currentTarget.x + isoFactor, currentTarget.y + isoFactor, currentTarget.z + isoFactor);
           break;
         } 
@@ -6491,7 +6519,7 @@ const axiosInstance = axios.create();
           console.warn('Unknown view type:', viewType);
           return;
       }
-
+      
       // *** Update controls target FIRST ***
       this.controls.target.copy(currentTarget); 
 
