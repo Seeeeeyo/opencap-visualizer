@@ -729,7 +729,10 @@
             </div>
             <!-- Time and slider on the right -->
             <div style="flex: 1; display: flex; flex-wrap: wrap; align-items: center;">
-              <v-text-field label="Time (s)" type="number" :step="0.01" :value="formattedTime" dark style="flex: 0.1; min-width: 80px; margin-right: 5px;" @input="onChangeTime" />
+              <div style="flex: 0.1; min-width: 10px; margin-right: 5px; display: flex; align-items: center;">
+                <v-text-field type="number" :step="0.01" :value="formattedTime" dark style="flex: 1;" @input="onChangeTime" />
+                <span class="ml-1 white--text">(s)</span>
+              </div>
               <v-slider :value="frame" :min="0" :max="frames.length - 1" @input="onNavigate" hide-details class="mb-2" style="flex: 1;" />
             </div>
           </div>
