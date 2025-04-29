@@ -1571,7 +1571,7 @@ const axiosInstance = axios.create();
               markerSets: [], // Array to store multiple marker sets
               showAxes: true, // Add this line to control axes visibility
               axesGroup: null, // Add this line to store the axes group
-              showCameraControls: true, // Add this line to control camera controls visibility
+              showCameraControls: false, // Add this line to control camera controls visibility
           }
       },
       computed: {
@@ -5582,6 +5582,7 @@ const axiosInstance = axios.create();
           if (settings.timelapseInterval) this.timelapseInterval = settings.timelapseInterval;
           if (settings.timelapseOpacity !== undefined) this.timelapseOpacity = settings.timelapseOpacity;
           if (settings.recentSubjectColors) this.recentSubjectColors = settings.recentSubjectColors;
+          if (settings.showCameraControls !== undefined) this.showCameraControls = settings.showCameraControls;
 
         } catch (e) {
           console.error('Error parsing settings from localStorage:', e);
@@ -5624,6 +5625,7 @@ const axiosInstance = axios.create();
         timelapseInterval: this.timelapseInterval,
         timelapseOpacity: this.timelapseOpacity,
         recentSubjectColors: this.recentSubjectColors, // Save recent colors
+        showCameraControls: this.showCameraControls, // Save camera controls visibility
       };
       try {
         localStorage.setItem('opencapVisualizerSettings', JSON.stringify(settings));
