@@ -1572,7 +1572,7 @@ const axiosInstance = axios.create();
               showImportDialog: false, // Add this line to control the import dialog
               markersPlayable: true,
               markerSets: [], // Array to store multiple marker sets
-              showAxes: true, // Add this line to control axes visibility
+              showAxes: false, // Add this line to control axes visibility
               axesGroup: null, // Add this line to store the axes group
               showCameraControls: false, // Add this line to control camera controls visibility
           }
