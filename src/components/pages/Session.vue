@@ -763,7 +763,7 @@
             </v-alert>
           </div>
           
-          <div class="text-center drop-zone" :class="{ 'opacity-reduced': converting }">
+          <div class="text-center drop-zone" :class="{ 'opacity-reduced': converting }" @click="openFileBrowser">
             <!-- Existing drop zone content -->
             <v-icon size="64" color="grey darken-1">mdi-file-upload-outline</v-icon>
             
@@ -6608,6 +6608,46 @@ const axiosInstance = axios.create();
         this.axesGroup.visible = this.showAxes;
         this.renderer.render(this.scene, this.camera);
       }
+    },
+    openFileBrowser() {
+      // If already converting files, don't allow another file selection
+      if (this.converting) return;
+      
+      // Create a hidden file input if it doesn't exist
+      const fileInput = document.createElement('input');
+      fileInput.type = 'file';
+      fileInput.multiple = true;
+      fileInput.accept = '.json,.trc,.osim,.mot,video/mp4,video/webm';
+      
+      // Handle the file selection
+      fileInput.onchange = (event) => {
+        const files = Array.from(event.target.files);
+        
+        if (files.length === 0) return;
+        
+        // Process files based on their types
+        files.forEach(file => {
+          const fileExt = file.name.split('.').pop().toLowerCase();
+          
+          if (fileExt === 'json' || fileExt === 'trc') {
+            this.handleFileUpload({ target: { files: [file] } });
+          } else if (fileExt === 'osim') {
+            this.osimFile = file;
+          } else if (fileExt === 'mot') {
+            this.motFile = file;
+          } else if (file.type.startsWith('video/')) {
+            this.handleVideoUpload({ target: { files: [file] } });
+          }
+        });
+        
+        // If we have osim and mot files, process them
+        if (this.osimFile && this.motFile) {
+          this.convertAndLoadOpenSimFiles();
+        }
+      };
+      
+      // Trigger file selection dialog
+      fileInput.click();
     }
   }
 }
