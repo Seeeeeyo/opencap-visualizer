@@ -2599,20 +2599,13 @@ const axiosInstance = axios.create();
       }
       
       // Explicitly specify the MIME type when creating the blob
-      let finalType = mimeType;
-      
-      // For MP4, ensure we use the proper content type
-      if (this.recordingFormat === 'mp4') {
-        finalType = 'video/mp4';
-      } else {
-        finalType = 'video/webm';
-      }
+      const finalMimeType = this.mediaRecorder.mimeType || (this.recordingFormat === 'mp4' ? 'video/mp4' : 'video/webm');
       
       const options = {
-        type: finalType
+        type: finalMimeType
       };
       
-      console.log(`Creating blob with type: ${finalType}`);
+      console.log(`Creating blob with type: ${finalMimeType}`);
       const blob = new Blob(this.recordedChunks, options);
         const url = URL.createObjectURL(blob);
       
