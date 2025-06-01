@@ -1742,6 +1742,7 @@ const axiosInstance = axios.create();
               showAxes: false, // Add this line to control axes visibility
               axesGroup: null, // Add this line to store the axes group
               showCameraControls: false, // Add this line to control camera controls visibility
+              animationDurationInSeconds: 0, // Duration for headless recording
           }
       },
       computed: {
@@ -1763,6 +1764,9 @@ const axiosInstance = axios.create();
         
         // Initialize displayColors from THREE.Color objects
         this.initializeDisplayColors();
+        
+        // Expose component instance globally for headless operation
+        window.sessionComponent = this;
         
         // Add global click handler to help with UI debugging
         document.addEventListener('click', this.handleGlobalClick, true);
@@ -2810,12 +2814,20 @@ const axiosInstance = axios.create();
                                         this.syncAllAnimations();
                                     }
 
+                                    // Calculate animation duration for headless operation
+                                    if (this.frames && this.frames.length > 0 && this.frameRate > 0) {
+                                        this.animationDurationInSeconds = (this.frames.length - 1) / this.frameRate;
+                                    }
+
                                     // Start animation loop and render first frame
                                     this.animate();
                                     this.frame = 0;
                                     this.animateOneFrame();
                                     // Start playing automatically
                                     this.togglePlay(true);
+                                    
+                                    // Signal that all visuals are loaded for headless operation
+                                    window.allVisualsLoaded = true;
                                 }
                             });
                         });
