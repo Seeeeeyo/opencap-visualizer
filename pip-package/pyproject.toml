@@ -1,0 +1,77 @@
+[build-system]
+requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "opencap-visualizer-cli"
+dynamic = ["version"]
+authors = [
+    {name = "Selim Gilon", email = "selim.gilon@utah.edu"},
+]
+description = "Command-line tool for creating videos from OpenCap biomechanics data"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.7"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Visualization",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+    "Environment :: Console",
+]
+keywords = ["biomechanics", "motion-capture", "visualization", "video", "opencap", "opensim"]
+dependencies = [
+    "playwright>=1.40.0",
+    "aiohttp>=3.8.0",
+    "pathlib2>=2.3.0; python_version<'3.4'",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=6.0",
+    "black>=22.0",
+    "flake8>=4.0",
+    "mypy>=0.900",
+]
+ffmpeg = [
+    "ffmpeg-python>=0.2.0",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/utahmobl/opencap-visualizer-cli"
+"Bug Reports" = "https://github.com/utahmobl/opencap-visualizer-cli/issues"
+"Source" = "https://github.com/utahmobl/opencap-visualizer-cli"
+"Web App" = "https://opencap-visualizer.onrender.com/"
+
+[project.scripts]
+opencap-visualizer = "opencap_visualizer.cli:main"
+opencap-viz = "opencap_visualizer.cli:main"
+
+[tool.setuptools]
+packages = ["opencap_visualizer"]
+
+[tool.setuptools.dynamic]
+version = {attr = "opencap_visualizer.__version__"}
+
+[tool.black]
+line-length = 100
+target-version = ['py37']
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.mypy]
+python_version = "3.7"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true 

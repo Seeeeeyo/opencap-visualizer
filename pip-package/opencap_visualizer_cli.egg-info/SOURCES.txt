@@ -1,0 +1,16 @@
+CHANGELOG.md
+LICENSE
+MANIFEST.in
+README.md
+pyproject.toml
+requirements.txt
+setup.py
+opencap_visualizer/__init__.py
+opencap_visualizer/cli.py
+opencap_visualizer_cli.egg-info/PKG-INFO
+opencap_visualizer_cli.egg-info/SOURCES.txt
+opencap_visualizer_cli.egg-info/dependency_links.txt
+opencap_visualizer_cli.egg-info/entry_points.txt
+opencap_visualizer_cli.egg-info/not-zip-safe
+opencap_visualizer_cli.egg-info/requires.txt
+opencap_visualizer_cli.egg-info/top_level.txt
