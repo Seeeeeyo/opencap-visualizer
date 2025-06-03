@@ -1131,12 +1131,12 @@
         <v-dialog v-model="showShareDialog" max-width="600" content-class="share-dialog">
           <v-card class="share-dialog-card">
             <v-card-title class="headline white--text">Share Visualization</v-card-title>
-            <v-card-text class="white--text">
+            <v-card-text class="white--text pt-8">
               <div class="mb-4">
                 <p class="text-body-2 mb-3">Share your visualization with others using a direct link:</p>
                 
                 <!-- Share Options Tabs -->
-                <v-tabs v-model="shareMethod" background-color="transparent" color="primary" class="mb-4">
+                <v-tabs v-model="shareMethod" background-color="transparent" color="primary" class="mb-4 mt-8">
                   <v-tab key="url">Share URL</v-tab>
                   <v-tab key="file">Share File</v-tab>
                 </v-tabs>
@@ -1150,17 +1150,13 @@
                       readonly
                       outlined
                       dense
-                      class="mb-3"
+                      class="mb-3 mt-6"
                       append-icon="mdi-content-copy"
                       @click:append="copyToClipboard(shareUrl)"
                       hide-details
                     />
                     
                     <div class="d-flex flex-wrap gap-2 mb-3">
-                      <v-btn small color="primary" @click="copyToClipboard(shareUrl)">
-                        <v-icon left small>mdi-content-copy</v-icon>
-                        Copy Link
-                      </v-btn>
                       <v-btn small color="green" @click="openInNewTab(shareUrl)">
                         <v-icon left small>mdi-open-in-new</v-icon>
                         Open in New Tab
@@ -1205,7 +1201,7 @@
                     />
                     
                     <div class="d-flex flex-wrap gap-2 mb-3">
-                      <v-btn small color="primary" @click="downloadShareFile">
+                      <v-btn small color="success" @click="downloadShareFile">
                         <v-icon left small>mdi-download</v-icon>
                         Download Share File
                       </v-btn>
