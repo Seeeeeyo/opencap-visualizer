@@ -79,6 +79,12 @@
               Import
             </v-btn>
             
+            <!-- Add Share Button Here -->
+            <v-btn color="#2563EB" class="mb-4 white--text custom-btn" block @click="openShareDialog" :disabled="!trial || animations.length === 0">
+              <v-icon left>mdi-share-variant</v-icon>
+              Share Visualization
+            </v-btn>
+            
             <!-- Legend -->
             <div class="legend flex-grow-1 mb-4">
               <!-- Add animation control buttons -->
@@ -1121,6 +1127,147 @@
           </v-card>
         </v-dialog>
 
+        <!-- Share Dialog -->
+        <v-dialog v-model="showShareDialog" max-width="600" content-class="share-dialog">
+          <v-card class="share-dialog-card">
+            <v-card-title class="headline white--text">Share Visualization</v-card-title>
+            <v-card-text class="white--text">
+              <div class="mb-4">
+                <p class="text-body-2 mb-3">Share your visualization with others using a direct link:</p>
+                
+                <!-- Share Options Tabs -->
+                <v-tabs v-model="shareMethod" background-color="transparent" color="primary" class="mb-4">
+                  <v-tab key="url">Share URL</v-tab>
+                  <v-tab key="file">Share File</v-tab>
+                </v-tabs>
+
+                <v-tabs-items v-model="shareMethod">
+                  <!-- URL Sharing -->
+                  <v-tab-item key="url">
+                    <v-text-field
+                      v-model="shareUrl"
+                      label="Share URL"
+                      readonly
+                      outlined
+                      dense
+                      class="mb-3"
+                      append-icon="mdi-content-copy"
+                      @click:append="copyToClipboard(shareUrl)"
+                      hide-details
+                    />
+                    
+                    <div class="d-flex flex-wrap gap-2 mb-3">
+                      <v-btn small color="primary" @click="copyToClipboard(shareUrl)">
+                        <v-icon left small>mdi-content-copy</v-icon>
+                        Copy Link
+                      </v-btn>
+                      <v-btn small color="green" @click="openInNewTab(shareUrl)">
+                        <v-icon left small>mdi-open-in-new</v-icon>
+                        Open in New Tab
+                      </v-btn>
+                    </div>
+
+                    <v-alert
+                      v-if="shareUrl.includes('shareId=')"
+                      type="info"
+                      dense
+                      text
+                      class="mb-3"
+                    >
+                      <v-icon left small>mdi-information</v-icon>
+                      Using compact share ID. This link works as long as you don't clear browser data.
+                    </v-alert>
+                    
+                    <v-alert
+                      v-else-if="shareUrlSize > 8000"
+                      type="warning"
+                      dense
+                      text
+                      class="mb-3"
+                    >
+                      <v-icon left small>mdi-alert</v-icon>
+                      Large URL ({{ Math.round(shareUrlSize / 1000) }}KB). Consider using file sharing instead.
+                    </v-alert>
+                  </v-tab-item>
+
+                  <!-- File Sharing -->
+                  <v-tab-item key="file">
+                    <p class="text-body-2 mb-3">Download a share file that others can import:</p>
+                    
+                    <v-text-field
+                      v-model="shareFileName"
+                      label="File name"
+                      outlined
+                      dense
+                      suffix=".json"
+                      class="mb-3"
+                      hide-details
+                    />
+                    
+                    <div class="d-flex flex-wrap gap-2 mb-3">
+                      <v-btn small color="primary" @click="downloadShareFile">
+                        <v-icon left small>mdi-download</v-icon>
+                        Download Share File
+                      </v-btn>
+                    </div>
+
+                    <v-alert
+                      type="info"
+                      dense
+                      text
+                      class="mb-3"
+                    >
+                      <v-icon left small>mdi-information</v-icon>
+                      Recipients can import this file using the "Import" button.
+                    </v-alert>
+                  </v-tab-item>
+                </v-tabs-items>
+                
+                <!-- Share Settings -->
+                <v-expansion-panels flat>
+                  <v-expansion-panel>
+                    <v-expansion-panel-header class="text-body-2">
+                      <v-icon left small>mdi-cog</v-icon>
+                      Advanced Settings
+                    </v-expansion-panel-header>
+                    <v-expansion-panel-content>
+                      <v-checkbox
+                        v-model="shareSettings.includeCamera"
+                        label="Include camera position"
+                        dense
+                        hide-details
+                        class="mb-2"
+                      />
+                      <v-checkbox
+                        v-model="shareSettings.includeColors"
+                        label="Include custom colors"
+                        dense
+                        hide-details
+                        class="mb-2"
+                      />
+                      <v-checkbox
+                        v-model="shareSettings.includeCurrentFrame"
+                        label="Start at current frame"
+                        dense
+                        hide-details
+                        class="mb-3"
+                      />
+                      <v-btn small outlined @click="generateShareUrl">
+                        <v-icon left small>mdi-refresh</v-icon>
+                        Update Share URL
+                      </v-btn>
+                    </v-expansion-panel-content>
+                  </v-expansion-panel>
+                </v-expansion-panels>
+              </div>
+            </v-card-text>
+            <v-card-actions>
+              <v-spacer></v-spacer>
+              <v-btn text @click="showShareDialog = false">Close</v-btn>
+            </v-card-actions>
+          </v-card>
+        </v-dialog>
+
         <!-- Scene Controls Card -->
         <div class="scene-section mb-4 pa-3" style="background: rgba(0, 0, 0, 0.3); border-radius: 8px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1);">
           <div class="section-title mb-3" style="font-size: 0.9rem; color: rgba(255, 255, 255, 0.7);">Scene Settings</div>
@@ -1743,6 +1890,18 @@ const axiosInstance = axios.create();
               axesGroup: null, // Add this line to store the axes group
               showCameraControls: false, // Add this line to control camera controls visibility
               animationDurationInSeconds: 0, // Duration for headless recording
+              // Share functionality
+              showShareDialog: false,
+              shareUrl: '',
+              shareUrlSize: 0,
+              shareMethod: 0, // 0 for URL, 1 for file
+              shareFileName: 'visualization-share',
+              shareSettings: {
+                  includeCamera: false, // Changed to false for smaller URLs
+                  includeColors: false, // Changed to false for smaller URLs
+                  includeSettings: false, // Removed entirely from getShareData
+                  includeCurrentFrame: false
+              }
           }
       },
       computed: {
@@ -1787,6 +1946,30 @@ const axiosInstance = axios.create();
 
         // Initialize the scene first
         this.initScene(); // initScene will now call applyLoadedSceneSettings
+
+        // Check for shared visualization first
+        if (this.$route.query.share || this.$route.query.shareId) {
+            console.log('Found shared visualization in URL');
+            try {
+                let shareData;
+                if (this.$route.query.shareId) {
+                    // Load from cloud storage using shareId
+                    shareData = await this.loadShareData(this.$route.query.shareId);
+                } else {
+                    // Load from compressed URL data
+                    shareData = this.decompressShareData(this.$route.query.share);
+                }
+                
+                // Load shared visualization instead of default samples
+                setTimeout(() => {
+                    this.loadSharedVisualization(shareData);
+                }, 100);
+                return; // Skip normal loading
+            } catch (error) {
+                console.error('Failed to load shared visualization:', error);
+                this.$toasted.error('Invalid or expired share URL');
+            }
+        }
 
         // Determine if we need to load samples and which set
         let sampleSetToLoad = null;
@@ -1936,12 +2119,689 @@ const axiosInstance = axios.create();
             this.loadSampleFiles();
           }, 100);
         }
+      },
+      shareSettings: {
+        async handler() {
+          if (this.showShareDialog) {
+            await this.generateShareUrl();
+          }
+        },
+        deep: true
       }
     },
     methods: {
     toggleCameraControls() {
       this.showCameraControls = !this.showCameraControls;
       console.log('Toggled camera controls visibility:', this.showCameraControls);
+    },
+    
+    // Share functionality methods
+    async openShareDialog() {
+      this.showShareDialog = true;
+      await this.generateShareUrl();
+    },
+    
+    async generateShareUrl() {
+      try {
+        const shareData = this.getShareData();
+        const compressed = this.compressShareData(shareData);
+        const baseUrl = window.location.origin + window.location.pathname;
+        
+        // If the compressed data is still too large, use hash-based storage
+        if (compressed.length > 1000) {
+          const shareId = this.generateShareId();
+          await this.storeShareData(shareId, shareData);
+          this.shareUrl = `${baseUrl}?shareId=${shareId}`;
+        } else {
+          this.shareUrl = `${baseUrl}?share=${compressed}`;
+        }
+        
+        this.shareUrlSize = this.shareUrl.length;
+      } catch (error) {
+        console.error('Error generating share URL:', error);
+        this.$toasted.error('Failed to generate share URL');
+      }
+    },
+
+    generateShareId() {
+      // Generate a short, unique ID
+      const timestamp = Date.now().toString(36);
+      const random = Math.random().toString(36).substr(2, 5);
+      return `${timestamp}${random}`;
+    },
+
+    async storeShareData(shareId, data) {
+      try {
+        // Try cloud storage first
+        const response = await fetch('https://opencap-share-backend.onrender.com/api/share', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ shareId, data })
+        });
+
+        if (response.ok) {
+          console.log(`Stored share data in cloud with ID: ${shareId}`);
+          return;
+        }
+        
+        // Fallback to localStorage if cloud fails
+        console.warn('Cloud storage failed, falling back to localStorage');
+        const shareKey = `opencap_share_${shareId}`;
+        localStorage.setItem(shareKey, JSON.stringify(data));
+        console.log(`Stored share data locally with ID: ${shareId}`);
+        
+      } catch (error) {
+        console.error('Error storing share data:', error);
+        // Final fallback to localStorage
+        try {
+          const shareKey = `opencap_share_${shareId}`;
+          localStorage.setItem(shareKey, JSON.stringify(data));
+          console.log(`Fallback: Stored share data locally with ID: ${shareId}`);
+        } catch (localError) {
+          throw new Error('Failed to store share data');
+        }
+      }
+    },
+
+    async loadShareData(shareId) {
+      try {
+        // Try cloud storage first
+        const response = await fetch(`https://opencap-share-backend.onrender.com/api/share/${shareId}`);
+        
+        if (response.ok) {
+          const result = await response.json();
+          console.log(`Loaded share data from cloud with ID: ${shareId}`);
+          return result.data;
+        }
+        
+        // Fallback to localStorage if cloud fails or data not found
+        console.warn('Cloud data not found, trying localStorage');
+        const shareKey = `opencap_share_${shareId}`;
+        const storedData = localStorage.getItem(shareKey);
+        if (!storedData) {
+          throw new Error('Share data not found');
+        }
+        console.log(`Loaded share data from localStorage with ID: ${shareId}`);
+        return JSON.parse(storedData);
+        
+      } catch (error) {
+        console.error('Error loading share data:', error);
+        throw new Error('Invalid or expired share ID');
+      }
+    },
+    
+    getShareData() {
+      // Only include essential animation data - no settings by default
+      const data = {
+        animations: this.animations.map(anim => ({
+          data: this.compressAnimationData(anim.data),
+          trialName: anim.trialName,
+          fileName: anim.fileName,
+          offset: [anim.offset.x, anim.offset.y, anim.offset.z] // Use array instead of object
+        }))
+      };
+      
+      // Only include optional data if specifically requested
+      if (this.shareSettings.includeCamera && this.camera) {
+        data.camera = [
+          this.camera.position.x, this.camera.position.y, this.camera.position.z,
+          this.controls?.target.x || 0, this.controls?.target.y || 0, this.controls?.target.z || 0
+        ];
+      }
+      
+      if (this.shareSettings.includeColors) {
+        data.colors = this.colors.map(color => color.getHex());
+        data.alphaValues = [...this.alphaValues];
+      }
+      
+      if (this.shareSettings.includeCurrentFrame) {
+        data.currentFrame = this.frame;
+      }
+      
+      return data;
+    },
+
+    compressAnimationData(animData) {
+      // Create a highly compressed version of animation data
+      const compressed = {
+        t: animData.time, // Keep time array as is for now
+        b: {} // bodies
+      };
+
+      // Compress each body's data
+      Object.keys(animData.bodies).forEach(bodyKey => {
+        const body = animData.bodies[bodyKey];
+        compressed.b[bodyKey] = {
+          g: body.attachedGeometries, // geometries
+          s: body.scaleFactors, // scale factors
+          p: [], // positions (compressed)
+          r: []  // rotations (compressed)
+        };
+
+        // Compress position data - reduce precision and use deltas
+        if (body.position && body.position.length > 0) {
+          const positions = [];
+          for (let frame = 0; frame < body.position.length; frame++) {
+            if (frame === 0) {
+              // First frame: store full coordinates with reduced precision
+              positions.push([
+                Math.round(body.position[frame][0] * 1000) / 1000,
+                Math.round(body.position[frame][1] * 1000) / 1000,
+                Math.round(body.position[frame][2] * 1000) / 1000
+              ]);
+            } else {
+              // Subsequent frames: store deltas if significant
+              const prev = body.position[frame - 1];
+              const curr = body.position[frame];
+              const deltaX = Math.round((curr[0] - prev[0]) * 1000) / 1000;
+              const deltaY = Math.round((curr[1] - prev[1]) * 1000) / 1000;
+              const deltaZ = Math.round((curr[2] - prev[2]) * 1000) / 1000;
+              
+              // Only store if delta is significant (>0.001)
+              if (Math.abs(deltaX) > 0.001 || Math.abs(deltaY) > 0.001 || Math.abs(deltaZ) > 0.001) {
+                positions.push([deltaX, deltaY, deltaZ]);
+              } else {
+                positions.push(null); // No significant change
+              }
+            }
+          }
+          compressed.b[bodyKey].p = positions;
+        }
+
+        // Compress rotation data similarly
+        if (body.rotation && body.rotation.length > 0) {
+          const rotations = [];
+          for (let frame = 0; frame < body.rotation.length; frame++) {
+            if (frame === 0) {
+              rotations.push([
+                Math.round(body.rotation[frame][0] * 1000) / 1000,
+                Math.round(body.rotation[frame][1] * 1000) / 1000,
+                Math.round(body.rotation[frame][2] * 1000) / 1000
+              ]);
+            } else {
+              const prev = body.rotation[frame - 1];
+              const curr = body.rotation[frame];
+              const deltaX = Math.round((curr[0] - prev[0]) * 1000) / 1000;
+              const deltaY = Math.round((curr[1] - prev[1]) * 1000) / 1000;
+              const deltaZ = Math.round((curr[2] - prev[2]) * 1000) / 1000;
+              
+              if (Math.abs(deltaX) > 0.001 || Math.abs(deltaY) > 0.001 || Math.abs(deltaZ) > 0.001) {
+                rotations.push([deltaX, deltaY, deltaZ]);
+              } else {
+                rotations.push(null);
+              }
+            }
+          }
+          compressed.b[bodyKey].r = rotations;
+        }
+      });
+
+      return compressed;
+    },
+
+    decompressAnimationData(compressed) {
+      // Reconstruct the original animation data format
+      const animData = {
+        time: compressed.t,
+        bodies: {}
+      };
+
+      Object.keys(compressed.b).forEach(bodyKey => {
+        const compressedBody = compressed.b[bodyKey];
+        animData.bodies[bodyKey] = {
+          attachedGeometries: compressedBody.g,
+          scaleFactors: compressedBody.s,
+          position: [],
+          rotation: []
+        };
+
+        // Decompress positions
+        if (compressedBody.p && compressedBody.p.length > 0) {
+          let currentPos = [0, 0, 0];
+          for (let frame = 0; frame < compressedBody.p.length; frame++) {
+            if (frame === 0) {
+              currentPos = [...compressedBody.p[frame]];
+            } else {
+              if (compressedBody.p[frame] !== null) {
+                currentPos[0] += compressedBody.p[frame][0];
+                currentPos[1] += compressedBody.p[frame][1];
+                currentPos[2] += compressedBody.p[frame][2];
+              }
+            }
+            animData.bodies[bodyKey].position.push([...currentPos]);
+          }
+        }
+
+        // Decompress rotations
+        if (compressedBody.r && compressedBody.r.length > 0) {
+          let currentRot = [0, 0, 0];
+          for (let frame = 0; frame < compressedBody.r.length; frame++) {
+            if (frame === 0) {
+              currentRot = [...compressedBody.r[frame]];
+            } else {
+              if (compressedBody.r[frame] !== null) {
+                currentRot[0] += compressedBody.r[frame][0];
+                currentRot[1] += compressedBody.r[frame][1];
+                currentRot[2] += compressedBody.r[frame][2];
+              }
+            }
+            animData.bodies[bodyKey].rotation.push([...currentRot]);
+          }
+        }
+      });
+
+      return animData;
+    },
+    
+    compressShareData(data) {
+      try {
+        // Optimize the data structure for smaller size
+        const optimizedData = this.optimizeShareData(data);
+        const jsonString = JSON.stringify(optimizedData);
+        
+        // Use more efficient encoding
+        return this.lzCompress(jsonString);
+      } catch (error) {
+        console.error('Error compressing share data:', error);
+        throw new Error('Failed to compress data for sharing');
+      }
+    },
+    
+    optimizeShareData(data) {
+      // Create a more compact representation
+      const optimized = {
+        v: 1, // version
+        a: data.animations.map(anim => ({
+          d: anim.data,
+          n: anim.trialName,
+          f: anim.fileName,
+          o: [anim.offset.x, anim.offset.y, anim.offset.z]
+        }))
+      };
+      
+      if (data.camera) {
+        optimized.c = {
+          p: [data.camera.position.x, data.camera.position.y, data.camera.position.z],
+          t: [data.camera.target.x, data.camera.target.y, data.camera.target.z]
+        };
+      }
+      
+      if (data.colors) {
+        optimized.col = data.colors;
+      }
+      
+      if (data.alphaValues) {
+        optimized.alp = data.alphaValues;
+      }
+      
+      if (data.settings) {
+        optimized.s = data.settings;
+      }
+      
+      if (data.currentFrame !== undefined) {
+        optimized.fr = data.currentFrame;
+      }
+      
+      return optimized;
+    },
+    
+    unoptimizeShareData(optimized) {
+      // Convert back to full format
+      const data = {
+        animations: optimized.a.map(anim => ({
+          data: anim.d,
+          trialName: anim.n,
+          fileName: anim.f,
+          offset: {
+            x: anim.o[0] || 0,
+            y: anim.o[1] || 0,
+            z: anim.o[2] || 0
+          }
+        }))
+      };
+      
+      if (optimized.c) {
+        data.camera = {
+          position: {
+            x: optimized.c.p[0],
+            y: optimized.c.p[1],
+            z: optimized.c.p[2]
+          },
+          target: {
+            x: optimized.c.t[0],
+            y: optimized.c.t[1],
+            z: optimized.c.t[2]
+          }
+        };
+      }
+      
+      if (optimized.col) {
+        data.colors = optimized.col;
+      }
+      
+      if (optimized.alp) {
+        data.alphaValues = optimized.alp;
+      }
+      
+      if (optimized.s) {
+        data.settings = optimized.s;
+      }
+      
+      if (optimized.fr !== undefined) {
+        data.currentFrame = optimized.fr;
+      }
+      
+      return data;
+    },
+    
+    lzCompress(str) {
+      // Simple LZ-style compression for URLs
+      const dict = {};
+      let data = (str + '').split('');
+      let out = [];
+      let currChar;
+      let phrase = data[0];
+      let code = 256;
+      
+      for (let i = 1; i < data.length; i++) {
+        currChar = data[i];
+        if (dict[phrase + currChar] != null) {
+          phrase += currChar;
+        } else {
+          out.push(phrase.length > 1 ? dict[phrase] : phrase.charCodeAt(0));
+          dict[phrase + currChar] = code;
+          code++;
+          phrase = currChar;
+        }
+      }
+      out.push(phrase.length > 1 ? dict[phrase] : phrase.charCodeAt(0));
+      
+      // Convert to base64 for URL safety
+      return btoa(encodeURIComponent(JSON.stringify(out)));
+    },
+    
+    lzDecompress(compressed) {
+      try {
+        const out = JSON.parse(decodeURIComponent(atob(compressed)));
+        const dict = {};
+        let data = [];
+        let currChar = String.fromCharCode(out[0]);
+        let oldPhrase = currChar;
+        data.push(currChar);
+        let code = 256;
+        let phrase;
+        
+        for (let i = 1; i < out.length; i++) {
+          let currCode = out[i];
+          if (currCode < 256) {
+            phrase = String.fromCharCode(currCode);
+          } else {
+            phrase = dict[currCode] ? dict[currCode] : (oldPhrase + currChar);
+          }
+          data.push(phrase);
+          currChar = phrase.charAt(0);
+          dict[code] = oldPhrase + currChar;
+          code++;
+          oldPhrase = phrase;
+        }
+        return data.join('');
+      } catch (error) {
+        console.error('LZ decompression failed:', error);
+        throw error;
+      }
+    },
+    
+    decompressShareData(compressed) {
+      try {
+        const jsonString = this.lzDecompress(compressed);
+        const optimizedData = JSON.parse(jsonString);
+        return this.unoptimizeShareData(optimizedData);
+      } catch (error) {
+        console.error('Error decompressing share data:', error);
+        // Try fallback to old format
+        try {
+          const jsonString = decodeURIComponent(atob(compressed));
+          return JSON.parse(jsonString);
+        } catch (fallbackError) {
+          console.error('Fallback decompression also failed:', fallbackError);
+          throw new Error('Invalid share data');
+        }
+      }
+    },
+    
+    async loadSharedVisualization(shareData) {
+      try {
+        console.log('Loading shared visualization:', shareData);
+        
+        // Set up the trial structure
+        this.trial = { results: [] };
+        this.animations = [];
+        this.meshes = {};
+        
+        // Load animations from shared data
+        for (let i = 0; i < shareData.animations.length; i++) {
+          const animData = shareData.animations[i];
+          
+          // Decompress animation data if it's in compressed format
+          const decompressedData = animData.data.t ? 
+            this.decompressAnimationData(animData.data) : 
+            animData.data;
+          
+          // Handle both old and new offset formats
+          const offset = Array.isArray(animData.offset) ? 
+            new THREE.Vector3(animData.offset[0] || 0, animData.offset[1] || 0, animData.offset[2] || 0) :
+            new THREE.Vector3(
+              animData.offset?.x || 0,
+              animData.offset?.y || 0,
+              animData.offset?.z || 0
+            );
+          
+          this.animations.push({
+            data: decompressedData,
+            trialName: animData.trialName,
+            fileName: animData.fileName,
+            offset: offset,
+            calculatedFps: this.calculateFrameRate(decompressedData.time),
+            visible: true, // Default to visible
+            playable: true // Default to playable
+          });
+          
+          this.initializeAlphaValue(i);
+        }
+        
+        // Set frames from first animation
+        if (this.animations.length > 0) {
+          this.frames = this.animations[0].data.time;
+          this.frameRate = this.animations[0].calculatedFps;
+        }
+        
+        // Apply shared settings
+        if (shareData.settings) {
+          const settings = shareData.settings;
+          this.backgroundColor = settings.backgroundColor || this.backgroundColor;
+          this.groundColor = settings.groundColor || this.groundColor;
+          this.showGround = settings.showGround !== undefined ? settings.showGround : this.showGround;
+          this.useGroundTexture = settings.useGroundTexture !== undefined ? settings.useGroundTexture : this.useGroundTexture;
+          this.useCheckerboard = settings.useCheckerboard !== undefined ? settings.useCheckerboard : this.useCheckerboard;
+          this.showMarkers = settings.showMarkers !== undefined ? settings.showMarkers : this.showMarkers;
+          this.markerColor = settings.markerColor || this.markerColor;
+          this.markerSize = settings.markerSize || this.markerSize;
+          this.markerScale = settings.markerScale || this.markerScale;
+        }
+        
+        // Apply shared colors
+        if (shareData.colors) {
+          shareData.colors.forEach((colorHex, index) => {
+            if (index < this.colors.length) {
+              this.colors[index].setHex(colorHex);
+            }
+          });
+        }
+        
+        if (shareData.alphaValues) {
+          this.alphaValues = [...shareData.alphaValues];
+        }
+        
+        // Set current frame
+        if (shareData.currentFrame !== undefined) {
+          this.frame = shareData.currentFrame;
+        }
+        
+        // Initialize the 3D scene
+        await this.$nextTick();
+        this.initScene();
+        
+        // Load 3D models
+        this.animations.forEach((animation, index) => {
+          for (let body in animation.data.bodies) {
+            let bd = animation.data.bodies[body];
+            bd.attachedGeometries.forEach((geom) => {
+              let path = 'https://mc-opencap-public.s3.us-west-2.amazonaws.com/geometries/' + geom.substr(0, geom.length - 4) + ".obj";
+              objLoader.load(path, (root) => {
+                root.castShadow = false;
+                root.receiveShadow = false;
+                
+                root.traverse((child) => {
+                  if (child instanceof THREE.Mesh) {
+                    child.castShadow = false;
+                    child.material = new THREE.MeshPhongMaterial({ 
+                      color: this.colors[index],
+                      transparent: this.alphaValues[index] < 1.0,
+                      opacity: this.alphaValues[index] || 1.0
+                    });
+                  }
+                });
+                
+                const meshKey = `anim${index}_${body}${geom}`;
+                this.meshes[meshKey] = root;
+                this.meshes[meshKey].scale.set(bd.scaleFactors[0], bd.scaleFactors[1], bd.scaleFactors[2]);
+                
+                root.position.add(animation.offset);
+                this.scene.add(root);
+              });
+            });
+          }
+        });
+        
+        // Apply camera position if shared
+        if (shareData.camera && this.camera && this.controls) {
+          setTimeout(() => {
+            if (Array.isArray(shareData.camera)) {
+              // New format: [posX, posY, posZ, targetX, targetY, targetZ]
+              this.camera.position.set(
+                shareData.camera[0],
+                shareData.camera[1],
+                shareData.camera[2]
+              );
+              
+              this.controls.target.set(
+                shareData.camera[3],
+                shareData.camera[4],
+                shareData.camera[5]
+              );
+            } else {
+              // Old format: {position: {x, y, z}, target: {x, y, z}}
+              this.camera.position.set(
+                shareData.camera.position.x,
+                shareData.camera.position.y,
+                shareData.camera.position.z
+              );
+              
+              this.controls.target.set(
+                shareData.camera.target.x,
+                shareData.camera.target.y,
+                shareData.camera.target.z
+              );
+            }
+            
+            this.controls.update();
+          }, 1000);
+        }
+        
+        console.log('Shared visualization loaded successfully');
+        
+      } catch (error) {
+        console.error('Error loading shared visualization:', error);
+        this.$toasted.error('Failed to load shared visualization');
+      }
+    },
+    
+    copyToClipboard(text) {
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).then(() => {
+          this.$toasted.success('Share URL copied to clipboard!');
+        }).catch(() => {
+          this.fallbackCopyToClipboard(text);
+        });
+      } else {
+        this.fallbackCopyToClipboard(text);
+      }
+    },
+    
+    fallbackCopyToClipboard(text) {
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        this.$toasted.success('Share URL copied to clipboard!');
+      } catch (err) {
+        console.error('Fallback: Oops, unable to copy', err);
+        this.$toasted.error('Failed to copy URL to clipboard');
+      }
+      document.body.removeChild(textArea);
+    },
+    
+    openInNewTab(url) {
+      window.open(url, '_blank');
+    },
+
+    cleanupOldShares() {
+      // Clean up old share data from localStorage
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('opencap_share_')) {
+          keysToRemove.push(key);
+        }
+      }
+      
+      keysToRemove.forEach(key => {
+        localStorage.removeItem(key);
+      });
+      
+      console.log(`Cleaned up ${keysToRemove.length} old share entries`);
+      this.$toasted.success(`Cleaned up ${keysToRemove.length} old share entries`);
+    },
+    
+    downloadShareFile() {
+      try {
+        const shareData = this.getShareData();
+        const jsonString = JSON.stringify(shareData, null, 2);
+        
+        // Create blob and download
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${this.shareFileName}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Clean up the URL
+        URL.revokeObjectURL(url);
+        
+        this.$toasted.success('Share file downloaded successfully!');
+      } catch (error) {
+        console.error('Error downloading share file:', error);
+        this.$toasted.error('Failed to download share file');
+      }
     },
     async loadTrial() {
       console.log('loadTrial started')
@@ -1976,7 +2836,9 @@ const axiosInstance = axios.create();
                     offset: new THREE.Vector3(0, 0, 0),
                     fileName: 'test.json',
                     trialName: 'Subject 1',
-                    calculatedFps: 0 // Add this line
+                    calculatedFps: 0, // Add this line
+                    visible: true, // Default to visible
+                    playable: true // Default to playable
                 }
             ]
             
@@ -1990,7 +2852,9 @@ const axiosInstance = axios.create();
                     offset: new THREE.Vector3(0, 0, -1),
                     fileName: 'test2.json',
                     trialName: 'Subject 2',
-                    calculatedFps: 0 // Add this line
+                    calculatedFps: 0, // Add this line
+                    visible: true, // Default to visible
+                    playable: true // Default to playable
                 });
                 this.initializeAlphaValue(1);
             }
@@ -2717,16 +3581,52 @@ const axiosInstance = axios.create();
 
         // Create a Promise for each file
         const filePromises = Array.from(files).map(file => {
-            return new Promise((resolve) => {
+            return new Promise((resolve, reject) => {
                 const reader = new FileReader();
-                reader.onload = (e) => resolve({ data: JSON.parse(e.target.result), file });
+                reader.onload = (e) => {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        resolve({ data, file });
+                    } catch (error) {
+                        reject({ error, file });
+                    }
+                };
                 reader.readAsText(file);
             });
         });
 
         // Process all files together
-        Promise.all(filePromises).then(results => {
-            results.forEach(({ data, file }, index) => {
+        Promise.allSettled(filePromises).then(results => {
+            // Filter successful results
+            const successfulResults = results
+                .filter(result => result.status === 'fulfilled')
+                .map(result => result.value);
+            
+            // Log any errors
+            const errors = results.filter(result => result.status === 'rejected');
+            errors.forEach(error => {
+                console.error('Error loading file:', error.reason);
+                this.$toasted.error(`Error loading file: ${error.reason.file.name}`);
+            });
+            
+            if (successfulResults.length === 0) {
+                this.$toasted.error('No valid files could be loaded');
+                return;
+            }
+            // Check if any file is a share file
+            const shareFiles = successfulResults.filter(({ data }) => 
+                data && data.animations && Array.isArray(data.animations)
+            );
+            
+            if (shareFiles.length > 0) {
+                // Load as shared visualization
+                const shareData = shareFiles[0].data;
+                this.loadSharedVisualization(shareData);
+                this.$toasted.success('Share file loaded successfully!');
+                return;
+            }
+            
+            successfulResults.forEach(({ data, file }, index) => {
                 const offset = new THREE.Vector3(
                     0,    // X: no offset
                     0,    // Y: no offset
@@ -2759,7 +3659,7 @@ const axiosInstance = axios.create();
 
             // Keep track of loaded geometries
             let geometriesLoaded = 0;
-            const totalGeometries = results.reduce((total, { data }) => {
+            const totalGeometries = successfulResults.reduce((total, { data }) => {
                 return total + Object.values(data.bodies).reduce((sum, body) => 
                     sum + body.attachedGeometries.length, 0);
             }, 0);
@@ -6877,7 +7777,7 @@ const axiosInstance = axios.create();
       }
       
       obj.rotation[axis] = Number(value);
-      obj.mesh.rotation[axis] = THREE.MathUtils.degToRad(Number(value));
+      obj.mesh.rotation[axis] = THREE.Math.degToRad(Number(value));
       
           this.renderer.render(this.scene, this.camera);
     },
@@ -7465,6 +8365,98 @@ const axiosInstance = axios.create();
     background-color: #282828;
     padding: 12px 24px;
     border-top: 1px solid rgba(255, 255, 255, 0.1);
+  }
+}
+
+.share-dialog {
+  .v-card {
+    background-color: #1E1E1E !important;
+    color: #FFFFFF !important;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .v-card-title {
+    background-color: #282828 !important;
+    color: #FFFFFF !important;
+    font-size: 1.6rem;
+    padding: 20px 24px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .v-card-text {
+    color: #FFFFFF !important;
+    padding: 30px;
+    background-color: #1E1E1E !important;
+  }
+
+  .v-card-actions {
+    background-color: #282828 !important;
+    padding: 12px 24px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .v-text-field input {
+    color: #FFFFFF !important;
+  }
+
+  .v-text-field .v-label {
+    color: rgba(255, 255, 255, 0.7) !important;
+  }
+
+  .v-expansion-panels {
+    background-color: transparent !important;
+  }
+
+  .v-expansion-panel {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+    color: #FFFFFF !important;
+  }
+
+  .v-expansion-panel-header {
+    color: #FFFFFF !important;
+  }
+
+  .v-expansion-panel-content {
+    background-color: rgba(255, 255, 255, 0.02) !important;
+  }
+
+  .v-btn {
+    color: #FFFFFF !important;
+  }
+
+  .v-alert {
+    background-color: rgba(255, 193, 7, 0.1) !important;
+    border: 1px solid rgba(255, 193, 7, 0.3) !important;
+    color: #FFC107 !important;
+  }
+
+  .v-tabs {
+    background-color: transparent !important;
+  }
+
+  .v-tab {
+    color: rgba(255, 255, 255, 0.7) !important;
+    background-color: rgba(255, 255, 255, 0.1) !important;
+    margin-right: 8px !important;
+    border-radius: 4px !important;
+  }
+
+  .v-tab--active {
+    color: #FFFFFF !important;
+    background-color: rgba(33, 150, 243, 0.3) !important;
+  }
+
+  .v-tabs-slider {
+    display: none !important;
+  }
+
+  .v-tabs-items {
+    background-color: transparent !important;
+  }
+
+  .v-tab-item {
+    background-color: transparent !important;
   }
 }
 
