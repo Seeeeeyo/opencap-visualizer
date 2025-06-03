@@ -2273,6 +2273,8 @@ const axiosInstance = axios.create();
       // Compress each body's data
       Object.keys(animData.bodies).forEach(bodyKey => {
         const body = animData.bodies[bodyKey];
+        // Processing body data for compression
+        
         compressed.b[bodyKey] = {
           g: body.attachedGeometries, // geometries
           s: body.scaleFactors, // scale factors
@@ -2281,20 +2283,20 @@ const axiosInstance = axios.create();
         };
 
         // Compress position data - reduce precision and use deltas
-        if (body.position && body.position.length > 0) {
+        if (body.translation && body.translation.length > 0) {
           const positions = [];
-          for (let frame = 0; frame < body.position.length; frame++) {
+          for (let frame = 0; frame < body.translation.length; frame++) {
             if (frame === 0) {
               // First frame: store full coordinates with reduced precision
               positions.push([
-                Math.round(body.position[frame][0] * 1000) / 1000,
-                Math.round(body.position[frame][1] * 1000) / 1000,
-                Math.round(body.position[frame][2] * 1000) / 1000
+                Math.round(body.translation[frame][0] * 1000) / 1000,
+                Math.round(body.translation[frame][1] * 1000) / 1000,
+                Math.round(body.translation[frame][2] * 1000) / 1000
               ]);
             } else {
               // Subsequent frames: store deltas if significant
-              const prev = body.position[frame - 1];
-              const curr = body.position[frame];
+              const prev = body.translation[frame - 1];
+              const curr = body.translation[frame];
               const deltaX = Math.round((curr[0] - prev[0]) * 1000) / 1000;
               const deltaY = Math.round((curr[1] - prev[1]) * 1000) / 1000;
               const deltaZ = Math.round((curr[2] - prev[2]) * 1000) / 1000;
@@ -2338,6 +2340,8 @@ const axiosInstance = axios.create();
         }
       });
 
+      // Compression complete
+
       return compressed;
     },
 
@@ -2353,7 +2357,7 @@ const axiosInstance = axios.create();
         animData.bodies[bodyKey] = {
           attachedGeometries: compressedBody.g,
           scaleFactors: compressedBody.s,
-          position: [],
+          translation: [],
           rotation: []
         };
 
@@ -2370,7 +2374,7 @@ const axiosInstance = axios.create();
                 currentPos[2] += compressedBody.p[frame][2];
               }
             }
-            animData.bodies[bodyKey].position.push([...currentPos]);
+            animData.bodies[bodyKey].translation.push([...currentPos]);
           }
         }
 
@@ -2391,6 +2395,8 @@ const axiosInstance = axios.create();
           }
         }
       });
+
+      // Decompression complete
 
       return animData;
     },
@@ -2615,6 +2621,9 @@ const axiosInstance = axios.create();
         if (this.animations.length > 0) {
           this.frames = this.animations[0].data.time;
           this.frameRate = this.animations[0].calculatedFps;
+          console.log(`[loadSharedVisualization] Frames setup - Total frames: ${this.frames.length}, Frame rate: ${this.frameRate}, Current frame: ${this.frame}`);
+          console.log(`[loadSharedVisualization] First few frames:`, this.frames.slice(0, 5));
+          console.log(`[loadSharedVisualization] Last few frames:`, this.frames.slice(-5));
         }
         
         // Apply shared settings
@@ -2653,6 +2662,9 @@ const axiosInstance = axios.create();
         await this.$nextTick();
         this.initScene();
         
+        // Start the animation loop for shared visualizations
+        this.animate();
+        
         // Load 3D models
         let totalModelsToLoad = 0;
         let modelsLoaded = 0;
@@ -2669,14 +2681,13 @@ const axiosInstance = axios.create();
         
         const checkAllModelsLoaded = () => {
           modelsLoaded++;
-          console.log(`Models loaded: ${modelsLoaded}/${totalModelsToLoad}`);
           if (modelsLoaded >= totalModelsToLoad) {
-            console.log('All models loaded! Calling animateOneFrame()');
+            console.log(`[loadSharedVisualization] All models loaded. Ready for animation.`);
+            console.log(`[loadSharedVisualization] Current state - Frame: ${this.frame}, Playing: ${this.playing}, Frames length: ${this.frames.length}`);
             // All models loaded, now animate to current frame
             setTimeout(() => {
-              console.log('About to call animateOneFrame()');
               this.animateOneFrame();
-              console.log('animateOneFrame() called');
+              console.log(`[loadSharedVisualization] Initial frame animation complete. Try using play controls or navigating frames.`);
             }, 100);
           }
         };
@@ -3044,6 +3055,8 @@ const axiosInstance = axios.create();
         // Refined check for clarity: Checks if any animation is playable OR if marker sets exist and are playable
         const hasAnimatedContent = this.animations.some(a => a.playable !== false) || 
                                  (this.markerSets.length > 0 && this.markersPlayable);
+        
+        // Note: Debug removed - animation loop should now work for shared visualizations
 
         // Only advance frames if playing, enough time passed, and content exists
         if (deltaTime >= (1 / this.frameRate) && hasAnimatedContent) {
@@ -3148,7 +3161,6 @@ const axiosInstance = axios.create();
         }
       },
       animateOneFrame() {
-        console.log(`[animateOneFrame] Called with frame: ${this.frame}, animations count: ${this.animations.length}, meshes count: ${Object.keys(this.meshes).length}`);
         let cframe = this.frame;
   
         if (cframe < this.frames.length) {
@@ -3162,6 +3174,12 @@ const axiosInstance = axios.create();
               json.bodies[body].attachedGeometries.forEach((geom) => {
                 const meshKey = `anim${animIndex}_${body}${geom}`;
                 if (this.meshes[meshKey]) {
+                  // Check if translation data exists for this frame
+                  if (!json.bodies[body].translation || !json.bodies[body].translation[cframe]) {
+                    console.error(`[animateOneFrame] Missing translation data for body ${body} frame ${cframe}`);
+                    return; // Skip this geometry
+                  }
+                  
                   // Get base position from animation data
                   const position = new THREE.Vector3(
                     json.bodies[body].translation[cframe][0],
@@ -3174,6 +3192,12 @@ const axiosInstance = axios.create();
                   
                   // Set final position
                   this.meshes[meshKey].position.copy(position);
+                  
+                  // Check if rotation data exists for this frame
+                  if (!json.bodies[body].rotation || !json.bodies[body].rotation[cframe]) {
+                    console.error(`[animateOneFrame] Missing rotation data for body ${body} frame ${cframe}`);
+                    return; // Skip this geometry
+                  }
                   
                   // Set rotation
                   var euler = new THREE.Euler(
