@@ -2654,6 +2654,40 @@ const axiosInstance = axios.create();
         this.initScene();
         
         // Load 3D models
+        let totalModelsToLoad = 0;
+        let modelsLoaded = 0;
+        
+        // Count total models to load
+        this.animations.forEach((animation, index) => {
+          for (let body in animation.data.bodies) {
+            let bd = animation.data.bodies[body];
+            totalModelsToLoad += bd.attachedGeometries.length;
+          }
+        });
+        
+        console.log(`Total models to load: ${totalModelsToLoad}`);
+        
+        const checkAllModelsLoaded = () => {
+          modelsLoaded++;
+          console.log(`Models loaded: ${modelsLoaded}/${totalModelsToLoad}`);
+          if (modelsLoaded >= totalModelsToLoad) {
+            console.log('All models loaded! Calling animateOneFrame()');
+            // All models loaded, now animate to current frame
+            setTimeout(() => {
+              console.log('About to call animateOneFrame()');
+              this.animateOneFrame();
+              console.log('animateOneFrame() called');
+            }, 100);
+          }
+        };
+        
+        // If no models to load, animate immediately
+        if (totalModelsToLoad === 0) {
+          setTimeout(() => {
+            this.animateOneFrame();
+          }, 100);
+        }
+        
         this.animations.forEach((animation, index) => {
           for (let body in animation.data.bodies) {
             let bd = animation.data.bodies[body];
@@ -2680,6 +2714,9 @@ const axiosInstance = axios.create();
                 
                 root.position.add(animation.offset);
                 this.scene.add(root);
+                
+                // Check if all models are loaded
+                checkAllModelsLoaded();
               });
             });
           }
@@ -3111,6 +3148,7 @@ const axiosInstance = axios.create();
         }
       },
       animateOneFrame() {
+        console.log(`[animateOneFrame] Called with frame: ${this.frame}, animations count: ${this.animations.length}, meshes count: ${Object.keys(this.meshes).length}`);
         let cframe = this.frame;
   
         if (cframe < this.frames.length) {
@@ -3767,7 +3805,6 @@ const axiosInstance = axios.create();
             linewidth: lineThickness,
             resolution: resolution,
             dashed: false,
-            alphaToCoverage: true,
         });
         const lineX = new Line2(geometryX, materialX);
         this.axesGroup.add(lineX);
@@ -3781,7 +3818,6 @@ const axiosInstance = axios.create();
             linewidth: lineThickness,
             resolution: resolution,
             dashed: false,
-            alphaToCoverage: true,
         });
         const lineY = new Line2(geometryY, materialY);
         this.axesGroup.add(lineY);
@@ -3795,7 +3831,6 @@ const axiosInstance = axios.create();
             linewidth: lineThickness,
             resolution: resolution,
             dashed: false,
-            alphaToCoverage: true,
         });
         const lineZ = new Line2(geometryZ, materialZ);
         this.axesGroup.add(lineZ);
