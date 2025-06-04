@@ -1154,10 +1154,13 @@
                       append-icon="mdi-content-copy"
                       @click:append="copyToClipboard(shareUrl)"
                       hide-details
+                      :loading="loadingInitialShare"
+                      :placeholder="loadingInitialShare ? 'Generating share URL...' : ''"
+                      :append-icon-disabled="loadingInitialShare || !shareUrl"
                     />
                     
                     <div class="d-flex flex-wrap gap-2 mb-3">
-                      <v-btn small color="green" @click="openInNewTab(shareUrl)">
+                      <v-btn small color="green" @click="openInNewTab(shareUrl)" :disabled="loadingInitialShare || !shareUrl">
                         <v-icon left small>mdi-open-in-new</v-icon>
                         Open in New Tab
                       </v-btn>
@@ -1248,7 +1251,7 @@
                         hide-details
                         class="mb-3"
                       />
-                      <v-btn small outlined @click="generateShareUrl">
+                      <v-btn small outlined @click="generateShareUrl" :loading="generatingShareUrl">
                         <v-icon left small>mdi-refresh</v-icon>
                         Update Share URL
                       </v-btn>
@@ -1897,7 +1900,9 @@ const axiosInstance = axios.create();
                   includeColors: false, // Changed to false for smaller URLs
                   includeSettings: false, // Removed entirely from getShareData
                   includeCurrentFrame: false
-              }
+              },
+              generatingShareUrl: false,
+              loadingInitialShare: false
           }
       },
       computed: {
@@ -2134,10 +2139,16 @@ const axiosInstance = axios.create();
     // Share functionality methods
     async openShareDialog() {
       this.showShareDialog = true;
-      await this.generateShareUrl();
+      this.loadingInitialShare = true;
+      try {
+        await this.generateShareUrl();
+      } finally {
+        this.loadingInitialShare = false;
+      }
     },
     
     async generateShareUrl() {
+      this.generatingShareUrl = true;
       try {
         const shareData = this.getShareData();
         const compressed = this.compressShareData(shareData);
@@ -2156,6 +2167,8 @@ const axiosInstance = axios.create();
       } catch (error) {
         console.error('Error generating share URL:', error);
         this.$toasted.error('Failed to generate share URL');
+      } finally {
+        this.generatingShareUrl = false;
       }
     },
 
