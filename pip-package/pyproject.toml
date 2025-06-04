@@ -3,12 +3,12 @@ requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "opencap-visualizer-cli"
+name = "opencap-visualizer"
 dynamic = ["version"]
 authors = [
     {name = "Selim Gilon", email = "selim.gilon@utah.edu"},
 ]
-description = "Command-line tool for creating videos from OpenCap biomechanics data"
+description = "Tool for creating videos from OpenCap biomechanics data with both CLI and Python API"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.7"
@@ -47,9 +47,9 @@ ffmpeg = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/utahmobl/opencap-visualizer-cli"
-"Bug Reports" = "https://github.com/utahmobl/opencap-visualizer-cli/issues"
-"Source" = "https://github.com/utahmobl/opencap-visualizer-cli"
+"Homepage" = "https://github.com/utahmobl/opencap-visualizer"
+"Bug Reports" = "https://github.com/utahmobl/opencap-visualizer/issues"
+"Source" = "https://github.com/utahmobl/opencap-visualizer"
 "Web App" = "https://opencap-visualizer.onrender.com/"
 
 [project.scripts]

@@ -1,3 +1,0 @@
-[console_scripts]
-opencap-visualizer = opencap_visualizer.cli:main
-opencap-viz = opencap_visualizer.cli:main

@@ -18,17 +18,17 @@ def get_version():
     return "0.0.0"
 
 setup(
-    name="opencap-visualizer-cli",
+    name="opencap-visualizer",
     version=get_version(),
     author="Selim Gilon",
     author_email="selim.gilon@utah.edu",
-    description="Command-line tool for creating videos from OpenCap biomechanics data",
+    description="Tool for creating videos from OpenCap biomechanics data with both CLI and Python API",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/utahmobl/opencap-visualizer-cli",
+    url="https://github.com/utahmobl/opencap-visualizer",
     project_urls={
-        "Bug Reports": "https://github.com/utahmobl/opencap-visualizer-cli/issues",
-        "Source": "https://github.com/utahmobl/opencap-visualizer-cli",
+        "Bug Reports": "https://github.com/utahmobl/opencap-visualizer/issues",
+        "Source": "https://github.com/utahmobl/opencap-visualizer",
         "Web App": "https://opencap-visualizer.onrender.com/",
     },
     packages=find_packages(),

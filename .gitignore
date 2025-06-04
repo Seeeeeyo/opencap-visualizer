@@ -23,6 +23,16 @@ pnpm-debug.log*
 *.sln
 *.sw?
 
+# folder backup
+backup/
+venv/
+
+
+*.egg-info
+__pycache__/
+
+dist/
+
 package-lock.json
 \#*
 

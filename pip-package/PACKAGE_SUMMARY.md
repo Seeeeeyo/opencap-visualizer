@@ -1,233 +1,189 @@
-# OpenCap Visualizer CLI - Package Summary
+# OpenCap Visualizer Package Summary
 
-## 📦 Package Overview
+## Version 1.1.0 - Major Update: Python API + Naming Consistency
 
-**Package Name**: `opencap-visualizer-cli`  
-**Version**: 1.0.0  
-**Author**: Selim Gilon
-**License**: MIT  
+### 🚨 Package Renamed
+- **Old**: `opencap-visualizer-cli` 
+- **New**: `opencap-visualizer`
+- **Commands remain the same**: `opencap-visualizer` and `opencap-viz`
 
-A complete command-line tool for generating videos from biomechanics data files using the deployed OpenCap Visualizer web application.
+### ✨ New Python API
 
-## 🚀 Key Features
+#### Class-based Usage
+```python
+import opencap_visualizer as ocv
 
-- ✅ **Zero Local Setup**: Uses deployed web app at https://opencap-visualizer.onrender.com/
-- ✅ **Multiple File Formats**: JSON, .osim/.mot pairs  
-- ✅ **Subject Comparison**: Multiple subjects in single video
-- ✅ **Anatomical Camera Views**: anterior, posterior, sagittal, etc.
-- ✅ **Custom Colors**: Hex codes and color names
-- ✅ **Interactive Mode**: Browser-based exploration
-- ✅ **Professional Output**: MP4/WebM with FFmpeg support
-- ✅ **Cross-Platform**: Windows, macOS, Linux
-
-## 📁 Package Structure
-
-```
-pip-package/
-├── opencap_visualizer/           # Main package
-│   ├── __init__.py              # Package metadata and exports
-│   └── cli.py                   # Complete CLI implementation (1000+ lines)
-├── setup.py                     # Legacy setuptools configuration
-├── pyproject.toml               # Modern Python packaging configuration  
-├── requirements.txt             # Runtime dependencies
-├── MANIFEST.in                  # Additional files to include
-├── README.md                    # Comprehensive user documentation
-├── LICENSE                      # MIT license
-├── CHANGELOG.md                 # Version history and features
-├── DEVELOPMENT.md               # Developer guide
-├── PACKAGE_SUMMARY.md           # This file
-├── build.sh                     # Automated build script
-└── test_install.sh              # Installation testing script
+visualizer = ocv.OpenCapVisualizer(verbose=True)
+success = visualizer.generate_video_sync(
+    ["subject1.json", "subject2.json"],
+    "comparison.mp4",
+    camera="anterior",
+    colors=["red", "blue"]
+)
 ```
 
-## 🛠️ Built Distribution Files
+#### Convenience Functions
+```python
+import opencap_visualizer as ocv
 
-After running `./build.sh`:
-- `dist/opencap_visualizer_cli-1.0.0-py3-none-any.whl` (17KB) - Wheel package
-- `dist/opencap_visualizer_cli-1.0.0.tar.gz` (21KB) - Source distribution
+# Synchronous
+success = ocv.create_video("data.json", "output.mp4")
 
-## 🔧 Installation Commands
-
-```bash
-# From PyPI (when published)
-pip install opencap-visualizer-cli
-
-# From wheel (local testing)
-pip install dist/opencap_visualizer_cli-*.whl
-
-# With development dependencies
-pip install opencap-visualizer-cli[dev]
-
-# With FFmpeg support
-pip install opencap-visualizer-cli[ffmpeg]
+# Asynchronous  
+success = await ocv.create_video_async("data.json", "output.mp4")
 ```
 
-## 🎯 Command-Line Interface
-
-### Primary Commands
-- `opencap-visualizer` - Main command
-- `opencap-viz` - Short alias
-
-### Key Parameters
-```bash
-opencap-visualizer data.json -o video.mp4 \
-  --camera anterior \
-  --colors red blue \
-  --loops 2 \
-  --zoom 1.5 \
-  --interactive \
-  -v  # Enable verbose logs (quiet by default)
+### 📦 Package Structure
+```
+opencap_visualizer/
+├── __init__.py          # Main API exports
+├── api.py               # Python API classes/functions
+├── cli.py               # Command-line interface
+└── example_usage.py     # Usage examples
 ```
 
-## 📋 Dependencies
+### 🔄 Migration Guide
 
-### Runtime Requirements
+#### For CLI Users
+- **No changes required** - commands work exactly the same
+- Package installation: `pip install opencap-visualizer` (was `opencap-visualizer-cli`)
+
+#### For Python Users
+- **New capability** - can now call directly from Python
+- Import: `import opencap_visualizer as ocv`
+
+### 📋 Features Summary
+
+#### Command Line Interface
+- Generate videos from biomechanics data files (.json, .osim/.mot)
+- Multiple subjects comparison
+- Anatomical camera views (anterior, posterior, sagittal, etc.)
+- Custom colors, zoom, centering, loops
+- Interactive browser mode
+- Automatic fallback: deployed app → local dev → built files
+
+#### Python API
+- **OpenCapVisualizer class**: Object-oriented interface
+- **Convenience functions**: Direct function calls
+- **Async/sync support**: Choose based on your needs  
+- **Type hints**: Full typing support
+- **Comprehensive docs**: Docstrings and examples
+
+### 🛠️ Technical Details
+
+#### Dependencies
 - `playwright>=1.40.0` - Browser automation
-- `aiohttp>=3.8.0` - HTTP client for web requests
-- `pathlib2>=2.3.0` - Path utilities (Python <3.4)
+- `aiohttp>=3.8.0` - HTTP client for server detection
+- `pathlib2>=2.3.0` - Path handling (Python <3.4)
 
-### Optional Dependencies
-- **dev**: pytest, black, flake8, mypy
-- **ffmpeg**: ffmpeg-python (for MP4 conversion)
-
-### System Requirements
+#### Supported Platforms
+- Windows, macOS, Linux
 - Python 3.7+
-- Internet connection (for deployed web app)
-- Chromium browser (installed via Playwright)
 
-## 🔄 Development Workflow
+#### Video Generation
+- Uses deployed OpenCap Visualizer web app
+- Headless browser automation with Playwright
+- WebM recording with optional FFmpeg conversion to MP4
+- Configurable resolution, frame rate, timeout
 
-### 1. Build Package
-```bash
-./build.sh
+### 📖 Documentation
+
+#### Updated Files
+- `README.md` - Complete rewrite with CLI + Python API examples
+- `CHANGELOG.md` - Detailed version history
+- `example_usage.py` - Comprehensive Python API examples
+- `setup.py` - Updated package metadata and description
+
+#### Examples Provided
+1. **Basic Usage**: Simple video generation
+2. **Multiple Subjects**: Comparison videos with custom settings
+3. **Class-based**: Object-oriented approach
+4. **Async Usage**: Non-blocking video generation
+5. **OpenSim Files**: Model + motion file pairs
+6. **Batch Processing**: Multiple datasets automation
+
+### 🎯 Use Cases
+
+#### Research & Clinical
+```python
+# Generate standardized videos for publications
+for trial in walking_trials:
+    ocv.create_video(
+        trial["data_file"], 
+        f"publication_videos/{trial['subject']}_walking.mp4",
+        camera="sagittal", 
+        colors=["blue"],
+        loops=2
+    )
 ```
 
-### 2. Test Installation
-```bash
-./test_install.sh
+#### Automation & Integration
+```python
+# Integrate into larger analysis pipelines
+async def analyze_subject(subject_id):
+    # ... run biomechanics analysis ...
+    
+    # Generate visualization video
+    video_success = await ocv.create_video_async(
+        f"{subject_id}_results.json",
+        f"reports/{subject_id}_animation.mp4", 
+        camera="anterior"
+    )
+    
+    return analysis_results, video_success
 ```
 
-### 3. Publish to PyPI
+#### Interactive Development
 ```bash
-# Test PyPI first
-twine upload --repository testpypi dist/*
-
-# Production PyPI
-twine upload dist/*
+# Quick CLI testing during development
+opencap-visualizer test_data.json --interactive --camera anterior --verbose
 ```
 
-## 🌐 Architecture
+### 🚀 Installation & Setup
 
-1. **CLI Layer**: Argument parsing and user interface
-2. **Browser Automation**: Playwright-based headless browser control
-3. **Web Integration**: Connects to deployed Vue.js visualizer
-4. **File Processing**: JSON validation and .osim/.mot conversion
-5. **Video Generation**: WebM recording with MP4 conversion
-
-## 📊 Usage Examples
-
-### Basic Video Generation
 ```bash
-opencap-visualizer subject.json -o animation.mp4
+# Install package
+pip install opencap-visualizer
+
+# Install browser dependencies
+playwright install chromium
+
+# Test CLI
+opencap-visualizer --help
+
+# Test Python API
+python -c "import opencap_visualizer as ocv; print('✅ Ready to go!')"
 ```
 
-### Multi-Subject Comparison
-```bash
-opencap-visualizer s1.json s2.json --colors red blue -o comparison.mp4
-```
+### 🔍 Quality Assurance
 
-### OpenSim Workflow
-```bash
-opencap-visualizer model.osim motion.mot --camera sagittal -o sim.mp4
-```
+#### Tested Components
+- ✅ Package imports correctly
+- ✅ CLI interface works as before  
+- ✅ Python API classes instantiate
+- ✅ Function signatures are correct
+- ✅ Type hints are comprehensive
+- ✅ Documentation is complete
 
-### Interactive Exploration
-```bash
-opencap-visualizer data.json --interactive --camera anterior
-```
+#### Backward Compatibility
+- ✅ All CLI commands work identically
+- ✅ All CLI options preserved
+- ✅ Same video output quality
+- ✅ Same fallback logic (deployed → local → built)
 
-## 🔍 Quality Assurance
+### 📊 Impact
 
-### Build Validation
-- ✅ Package builds without errors
-- ✅ Dependencies resolve correctly  
-- ✅ Entry points work properly
-- ✅ Twine check passes validation
+#### For Current CLI Users
+- **Zero breaking changes** to existing workflows
+- **Enhanced**: Better package name consistency  
+- **Bonus**: Can now integrate into Python scripts
 
-### Testing Coverage
-- ✅ Help commands function
-- ✅ CLI argument parsing
-- ✅ Web app connectivity
-- ✅ File format support
-- ✅ Video output generation
+#### For New Python Users
+- **Native Python integration** without subprocess calls
+- **Type safety** with comprehensive hints
+- **Async support** for high-performance applications  
+- **Clean API** following Python best practices
 
-## 📈 Distribution Strategy
+### 🎉 Summary
 
-### Target Platforms
-- **PyPI**: Primary distribution channel
-- **GitHub Releases**: Source code and documentation
-- **Docker Hub**: Containerized version (future)
-
-### User Segments
-- **Biomechanics Researchers**: Primary users
-- **OpenSim Users**: Secondary target
-- **Motion Analysis Labs**: Institutional users
-
-## 🎨 User Experience
-
-### Installation Experience
-1. Single `pip install` command
-2. Automatic dependency resolution
-3. Post-install browser setup guide
-4. Ready-to-use CLI commands
-
-### Usage Experience
-1. Intuitive command-line interface
-2. Comprehensive help documentation
-3. Clear error messages and debugging
-4. Interactive mode for exploration
-
-## 🔐 Security & Privacy
-
-- ✅ No local data storage on web servers
-- ✅ Files processed in-browser only
-- ✅ Automatic cleanup of temporary data
-- ✅ HTTPS connections to web services
-
-## 📚 Documentation
-
-### User Documentation
-- `README.md`: Complete usage guide with examples
-- CLI help: `opencap-visualizer --help`
-- Error messages: Descriptive and actionable
-
-### Developer Documentation  
-- `DEVELOPMENT.md`: Build and contribution guide
-- `CHANGELOG.md`: Version history
-- Code comments: Inline documentation
-
-## 🚀 Future Enhancements
-
-### Planned Features
-- [ ] Batch processing of multiple files
-- [ ] Configuration file support
-- [ ] Advanced video editing options
-- [ ] Docker containerization
-- [ ] GUI version
-
-### Technical Improvements
-- [ ] Unit test suite
-- [ ] CI/CD pipeline
-- [ ] Performance optimizations
-- [ ] Error logging system
-
-## 📞 Support & Community
-
-- **Issues**: GitHub repository issue tracker
-- **Documentation**: README and help commands
-- **Contact**: selim.gilon@utah.edu
-- **Web App**: https://opencap-visualizer.onrender.com/
-
----
-
-**Ready for Distribution**: This package is production-ready and can be published to PyPI immediately. 
+This update transforms `opencap-visualizer` from a CLI-only tool into a **dual-purpose package** that maintains full backward compatibility while adding powerful Python API capabilities. The naming is now consistent (`opencap-visualizer` package → `opencap-visualizer` command), and users can choose between command-line usage and programmatic integration based on their needs. 

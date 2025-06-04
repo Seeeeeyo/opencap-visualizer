@@ -1,248 +1,297 @@
-# OpenCap Visualizer CLI
+# OpenCap Visualizer
 
-A command-line tool for generating videos from biomechanics data files using the [OpenCap Visualizer](https://opencap-visualizer.onrender.com/) web application.
+Generate videos from OpenCap biomechanics data files with both command-line interface and Python API.
 
-## 🚀 Features
+This tool uses the deployed [OpenCap Visualizer](https://opencap-visualizer.onrender.com/) to create videos from biomechanics data files (.json, .osim/.mot pairs) using headless browser automation.
 
-- **Generate videos** from OpenCap JSON files, .osim/.mot pairs, and more
-- **Multiple file support** - Compare subjects side-by-side
-- **Anatomical camera views** - anterior, posterior, sagittal, superior, etc.
-- **Custom colors** - Set subject colors with hex codes or names
-- **Interactive mode** - Open browser for manual exploration
-- **No local setup** - Uses deployed web app by default
-- **Flexible output** - MP4 and WebM video formats
+## Features
 
-## 📦 Installation
+- **Dual Interface**: Both command-line tool and Python API
+- **No Local Setup Required**: Uses deployed web application by default
+- **Multiple Data Formats**: Supports JSON files and OpenSim .osim/.mot pairs
+- **Subject Comparison**: Generate videos with multiple subjects
+- **Anatomical Camera Views**: Use biomechanics-friendly camera angles
+- **Customizable**: Colors, zoom, centering, loops, and dimensions
+- **Automatic 3D Geometry**: Loads realistic human models from cloud storage
+
+## Installation
 
 ```bash
-pip install opencap-visualizer-cli
+pip install opencap-visualizer
 ```
 
-### Prerequisites
-
-The tool requires a browser for rendering. Install Playwright browsers:
-
+**Note**: After installation, you'll need to install browser dependencies:
 ```bash
 playwright install chromium
 ```
 
-### Optional: FFmpeg for MP4 conversion
+## Command Line Usage
 
-For best MP4 compatibility, install FFmpeg:
-
-```bash
-# macOS (via Homebrew)
-brew install ffmpeg
-
-# Ubuntu/Debian
-sudo apt update && sudo apt install ffmpeg
-
-# Windows (via Chocolatey)
-choco install ffmpeg
-```
-
-## 🎯 Quick Start
-
-### Basic Usage
+### Basic Examples
 
 ```bash
-# Generate video from single subject (quiet by default)
-opencap-visualizer data.json -o animation.mp4
-# Output: /path/to/your/workspace/animation.mp4
+# Single subject
+opencap-visualizer data.json -o output.mp4
 
-# Enable verbose logging
-opencap-visualizer data.json -o animation.mp4 --verbose
-
-# Compare multiple subjects
+# Multiple subjects comparison
 opencap-visualizer subject1.json subject2.json -o comparison.mp4
 
-# Use .osim/.mot files
+# With custom settings
+opencap-visualizer data.json --camera anterior --colors red --loops 2 -o front_view.mp4
+
+# OpenSim files
 opencap-visualizer model.osim motion.mot -o simulation.mp4
 ```
 
-### Interactive Mode
+### Advanced Examples
 
 ```bash
-# Open browser for manual exploration (quiet by default)
-opencap-visualizer data.json --interactive --camera anterior --colors red
+# Multiple subjects with different colors
+opencap-visualizer s1.json s2.json s3.json --colors red green blue --camera sagittal -o side_comparison.mp4
 
-# Interactive mode with verbose logging
-opencap-visualizer data.json --interactive --camera anterior --colors red --verbose
+# High-resolution with custom zoom
+opencap-visualizer data.json --width 3840 --height 2160 --zoom 0.8 --camera superior -o 4k_top_view.mp4
+
+# Interactive mode for manual exploration
+opencap-visualizer data.json --interactive --camera anterior
 ```
-
-## 📖 Usage Examples
 
 ### Camera Views
-```bash
-# Anatomical views
-opencap-visualizer data.json --camera anterior -o front_view.mp4    # Front-facing
-opencap-visualizer data.json --camera posterior -o back_view.mp4    # Back view  
-opencap-visualizer data.json --camera sagittal -o side_view.mp4     # Side profile
-opencap-visualizer data.json --camera superior -o top_view.mp4      # Top-down
 
-# Technical views
-opencap-visualizer data.json --camera isometric -o iso_view.mp4     # 3D perspective
+#### Anatomical Views (Recommended)
+- `anterior` / `frontal` / `coronal` - Front-facing view
+- `posterior` - Back view  
+- `sagittal` / `lateral` - Side profile view
+- `superior` - Top-down view
+- `inferior` - Bottom-up view
+
+#### Technical Views
+- `top`, `bottom`, `front`, `back`, `left`, `right`
+- `isometric`, `default`
+- Corner views: `frontTopRight`, `backBottomLeft`, etc.
+
+### Command Line Options
+
+```
+positional arguments:
+  FILE                  Data files (.json, or .osim/.mot pairs)
+
+optional arguments:
+  -o, --output PATH     Output video file (default: animation_video.mp4)
+  --camera VIEW         Camera position (default: isometric)
+  --colors COLOR...     Subject colors (hex or names: red, blue, #ff0000)
+  --loops N             Animation loops to record (default: 1)
+  --width PX            Video width (default: 1920)
+  --height PX           Video height (default: 1080)
+  --zoom FACTOR         Zoom factor (>1.0 = zoom out, default: 1.5)
+  --no-center           Disable auto-centering on subjects
+  --timeout SEC         Loading timeout in seconds (default: 120)
+  --interactive         Open browser for manual exploration
+  --vue-app-path PATH   Custom Vue app index.html path
+  --dev-server-url URL  Custom Vue development server URL
+  -v, --verbose         Enable verbose output
 ```
 
-### Subject Colors
-```bash
-# Color names
-opencap-visualizer s1.json s2.json --colors red blue -o colored.mp4
+## Python API Usage
 
-# Hex colors
-opencap-visualizer s1.json s2.json --colors "#ff0000" "#0000ff" -o custom.mp4
+### Basic Examples
 
-# Mixed colors (will cycle if fewer colors than subjects)
-opencap-visualizer s1.json s2.json s3.json --colors red green -o mixed.mp4
+```python
+import opencap_visualizer as ocv
+
+# Simple usage
+success = ocv.create_video("data.json", "output.mp4")
+if success:
+    print("Video generated successfully!")
+
+# Multiple subjects with settings
+success = ocv.create_video(
+    ["subject1.json", "subject2.json"],
+    "comparison.mp4", 
+    camera="anterior",
+    colors=["red", "blue"],
+    loops=2,
+    verbose=True
+)
 ```
 
-### Animation Control
-```bash
-# Multiple loops
-opencap-visualizer data.json --loops 3 -o triple_loop.mp4
+### Class-based Usage
 
-# Custom zoom (1.0 = default, >1.0 = zoom out, <1.0 = zoom in)
-opencap-visualizer data.json --zoom 2.0 -o zoomed_out.mp4
+```python
+import opencap_visualizer as ocv
 
-# Disable auto-centering
-opencap-visualizer data.json --no-center -o no_center.mp4
+# Create visualizer instance
+visualizer = ocv.OpenCapVisualizer(verbose=True)
+
+# Generate video synchronously
+success = visualizer.generate_video_sync(
+    input_files=["subject1.json", "subject2.json"],
+    output_path="comparison.mp4",
+    camera="sagittal", 
+    colors=["#ff0000", "#00ff00"],
+    width=1920,
+    height=1080,
+    zoom=1.2
+)
+
+print(f"Success: {success}")
 ```
 
-### Advanced Examples
-```bash
-# Complete customization
-opencap-visualizer subject1.json subject2.json \
-  --camera anterior \
-  --colors red blue \
-  --loops 2 \
-  --zoom 1.5 \
-  --width 1920 \
-  --height 1080 \
-  -o custom_comparison.mp4
+### Async Usage
 
-# OpenSim workflow
-opencap-visualizer model.osim motion.mot \
-  --camera sagittal \
-  --colors green \
-  --loops 1 \
-  -o opensim_analysis.mp4
+```python
+import asyncio
+import opencap_visualizer as ocv
+
+async def generate_videos():
+    # Using convenience function
+    success = await ocv.create_video_async(
+        "data.json", 
+        "output.mp4",
+        camera="anterior",
+        colors=["blue"]
+    )
+    
+    # Using class
+    visualizer = ocv.OpenCapVisualizer(verbose=True)
+    success = await visualizer.generate_video(
+        ["s1.json", "s2.json", "s3.json"],
+        "triple_comparison.mp4",
+        camera="posterior",
+        colors=["red", "green", "blue"],
+        center_subjects=True,
+        zoom=1.5
+    )
+    
+    return success
+
+# Run async function
+success = asyncio.run(generate_videos())
 ```
 
-## 🛠️ Command-Line Options
+### API Reference
 
-### Input Files
-- **JSON files**: OpenCap format data
-- **.osim/.mot pairs**: OpenSim model and motion files
-- **Mixed inputs**: Combine JSON and .osim/.mot in same command
+#### `OpenCapVisualizer` Class
 
-### Camera Options
-| Option | Description |
-|--------|-------------|
-| `--camera anterior` | Front-facing view (person facing camera) |
-| `--camera posterior` | Back view (person's back to camera) |
-| `--camera sagittal/lateral` | Side profile view |
-| `--camera superior` | Top-down view |
-| `--camera inferior` | Bottom-up view |
-| `--camera isometric` | 3D perspective view |
-
-### Visual Options
-| Option | Description |
-|--------|-------------|
-| `--colors red blue` | Set subject colors |
-| `--zoom 1.5` | Camera zoom factor |
-| `--no-center` | Disable auto-centering |
-| `--loops 3` | Number of animation loops |
-
-### Output Options
-| Option | Description |
-|--------|-------------|
-| `-o filename.mp4` | Output video file |
-| `--width 1920` | Video width in pixels |
-| `--height 1080` | Video height in pixels |
-
-### Advanced Options
-| Option | Description |
-|--------|-------------|
-| `--interactive` | Open browser for manual exploration |
-| `-v`, `--verbose` | Enable verbose output, including script progress and browser console logs. |
-| `--timeout 120` | Timeout in seconds |
-| `--dev-server-url URL` | Use custom visualizer URL |
-
-## 🎨 Available Colors
-
-### Color Names
-- **Basic**: red, green, blue, yellow, cyan, magenta, orange, purple, white, gray
-- **Light variants**: lightred, lightgreen, lightblue, lightpink, lightcyan, lightorange
-
-### Hex Colors
-Use standard hex format: `#ff0000`, `#00ff00`, `#0000ff`, etc.
-
-## 🌐 How It Works
-
-1. **Connects** to deployed OpenCap Visualizer at https://opencap-visualizer.onrender.com/
-2. **Uploads** your data files to the web app
-3. **Configures** camera, colors, and animation settings
-4. **Records** the 3D visualization as video
-5. **Downloads** the final video file
-
-## 🔧 Troubleshooting
-
-### Common Issues
-
-**Too much log output:**
-By default, the CLI is quiet. If you are seeing too much, ensure you haven't added the `--verbose` flag.
-
-```bash
-# Verbose mode:
-opencap-visualizer data.json -o video.mp4 --verbose
+```python
+class OpenCapVisualizer:
+    def __init__(self, verbose: bool = False)
+    
+    async def generate_video(
+        self,
+        input_files: Union[str, List[str]],
+        output_path: str = "animation_video.mp4",
+        *,
+        vue_app_path: Optional[str] = None,
+        dev_server_url: Optional[str] = None,
+        width: int = 1920,
+        height: int = 1080,
+        timeout_seconds: int = 120,
+        loops: int = 1,
+        camera: Optional[str] = None,
+        center_subjects: bool = True,
+        zoom: float = 1.5,
+        colors: Optional[List[str]] = None,
+        interactive: bool = False
+    ) -> bool
+    
+    def generate_video_sync(self, ...) -> bool  # Synchronous wrapper
 ```
 
-**Browser installation:**
-```bash
-# If Playwright browsers aren't installed
-playwright install chromium
+#### Convenience Functions
+
+```python
+async def create_video_async(input_files, output_path, **kwargs) -> bool
+def create_video(input_files, output_path, **kwargs) -> bool
 ```
 
-**Network issues:**
+## Data Formats
+
+### JSON Files
+The tool accepts biomechanics JSON files with the following structure:
+```json
+{
+  "Data": {
+    "ModelScalingVars": "path/to/model.osim",
+    "Results": "path/to/motion.mot",
+    "FrameTimesOG": [0.0, 0.033, 0.066, ...]
+  }
+}
+```
+
+### OpenSim Files  
+Alternatively, provide `.osim` (model) and `.mot` (motion) file pairs:
+```bash
+opencap-visualizer model.osim motion.mot -o output.mp4
+```
+
+## Dependencies
+
+The tool automatically detects the best available option:
+
+1. **Deployed Version** (Recommended): `https://opencap-visualizer.onrender.com/`
+   - No local setup required
+   - Always up-to-date
+   - Requires internet connection
+
+2. **Local Development Server**: `http://localhost:3000`
+   - Start with `npm run serve` in the Vue.js project
+   - Faster for development/testing
+
+3. **Built Files**: Local `dist/index.html`
+   - Build with `npm run build` in the Vue.js project
+   - Works offline
+
+## Configuration
+
+### Custom Servers
 ```bash
 # Use local development server
 opencap-visualizer data.json --dev-server-url http://localhost:3000
+
+# Use custom built files
+opencap-visualizer data.json --vue-app-path /path/to/dist/index.html
 ```
 
-**Video format issues:**
+### Environment Variables
 ```bash
-# Install FFmpeg for better MP4 support
-brew install ffmpeg  # macOS
+# Set default development server
+export OPENCAP_DEV_SERVER=http://localhost:3000
 ```
 
-### Error Messages
+## Troubleshooting
 
-- **"Could not find Vue app"**: Check internet connection or install FFmpeg
-- **"No valid input files"**: Ensure JSON files are valid or .osim/.mot files are paired
-- **"Timeout waiting"**: Increase timeout with `--timeout 300`
+### Browser Installation
+If you get browser-related errors:
+```bash
+playwright install chromium
+```
 
-## 📄 File Format Support
+### Connection Issues
+- Check internet connection for deployed version
+- For local development: `npm run serve` in Vue project
+- For built files: `npm run build` in Vue project
 
-### JSON Files
-Standard OpenCap format with:
-- `time` array
-- `bodies` object with geometry data
-- Motion data for each frame
+### File Format Issues
+- Ensure JSON files contain valid biomechanics data structure
+- For OpenSim files, provide both `.osim` and `.mot` files
+- Check file paths are correct and accessible
 
-### OpenSim Files
-- **Model files**: `.osim` format
-- **Motion files**: `.mot` format
-- Must be provided as pairs (one .osim + one .mot)
+### Video Generation Issues
+- Increase timeout: `--timeout 300`
+- Enable verbose mode: `--verbose` or `verbose=True`
+- Try interactive mode: `--interactive`
 
-## 🤝 Contributing
-
-Issues and pull requests welcome! Visit the [GitHub repository](https://github.com/utahmobl/opencap-visualizer-cli) for more information.
-
-## 📜 License
+## License
 
 MIT License - see LICENSE file for details.
 
-## 🙏 Acknowledgments
+## Contributing
 
-- [OpenCap Project](https://www.opencap.ai/)
-- Built on [Three.js](https://threejs.org/) and [Vue.js](https://vuejs.org/) 
+Contributions welcome! Please see the source repository for guidelines.
+
+## Support
+
+For issues and questions:
+- GitHub Issues: [https://github.com/utahmobl/opencap-visualizer/issues](https://github.com/utahmobl/opencap-visualizer/issues)
+- Web App: [https://opencap-visualizer.onrender.com/](https://opencap-visualizer.onrender.com/) 

@@ -5,7 +5,9 @@
   "scripts": {
     "serve": "vue-cli-service serve",
     "build": "vue-cli-service build",
-    "lint": "vue-cli-service lint"
+    "lint": "vue-cli-service lint",
+    "headless": "node src/headless_render.js",
+    "headless:minimal": "node src/headless_minimal.js"
   },
   "dependencies": {
     "@fortawesome/fontawesome-free": "^6.4.0",
@@ -16,16 +18,21 @@
     "chartjs-plugin-zoom": "^2.0.1",
     "chroma-js": "^2.4.2",
     "core-js": "^3.6.5",
+    "cors": "^2.8.5",
+    "express": "^4.17.1",
     "hammerjs": "^2.0.8",
+    "http-proxy-middleware": "^3.0.5",
     "jspdf": "^2.5.1",
     "moment": "^2.29.1",
     "moment-duration-format": "^2.3.2",
+    "multer": "^1.4.5-lts.1",
+    "puppeteer": "^21.0.0",
     "register-service-worker": "^1.7.2",
     "roboto-fontface": "*",
     "svg2pdf.js": "^2.2.1",
     "three": "^0.111.0",
     "vee-validate": "^3.4.14",
-    "vue": "^2.6.11",
+    "vue": "^2.7.16",
     "vue-chartjs": "^5.3.2",
     "vue-country-dropdown": "^2.0.8",
     "vue-gl": "^0.22.1",
@@ -52,7 +59,7 @@
     "sass-loader": "^10.2.0",
     "vue-cli-plugin-vuetify": "~2.0.8",
     "vue-template-babel-compiler": "^2.0.0",
-    "vue-template-compiler": "^2.6.11"
+    "vue-template-compiler": "^2.7.16"
   },
   "eslintConfig": {
     "root": false,

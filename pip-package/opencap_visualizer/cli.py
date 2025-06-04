@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-OpenCap Visualizer CLI - Generate videos from biomechanics JSON files
+OpenCap Visualizer CLI - Generate videos from biomechanics files (.osim, .mot, .json)
 """
 
 import argparse
