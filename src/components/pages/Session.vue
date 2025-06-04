@@ -144,7 +144,7 @@
                             v-model="displayColors[index]"
                             :modes="['hex', 'rgba']"
                             show-swatches
-                            :swatches="availableColors"
+                            :swatches="Array.isArray(availableColors) ? availableColors : []"
                             @input="updateSubjectColor(index, $event)"
                             class="flex-grow-1"
                             >
@@ -345,7 +345,7 @@
                           v-model="markerFile.color"
                           :modes="['hex', 'rgba']"
                           show-swatches
-                          :swatches="availableColors"
+                          :swatches="Array.isArray(availableColors) ? availableColors : []"
                           @input="updateMarkerColor(markerIndex)"
                           class="flex-grow-1"
                         ></v-color-picker>
@@ -492,7 +492,7 @@
                           v-model="objColor"
                           :modes="['hex', 'rgba']"
                           show-swatches
-                          :swatches="availableColors"
+                          :swatches="Array.isArray(availableColors) ? availableColors : []"
                           @input="value => updateObjectColor(obj.id, '#' + value.hex)"
                           class="flex-grow-1"
                         ></v-color-picker>
@@ -1283,7 +1283,7 @@
                       v-model="backgroundColor"
                       :modes="['hex', 'rgba']"
                       show-swatches
-                      :swatches="backgroundColors"
+                      :swatches="Array.isArray(backgroundColors) ? backgroundColors : []"
                       @input="updateBackgroundColor"
                       class="flex-grow-1"
                     ></v-color-picker>
@@ -1308,7 +1308,7 @@
                       v-model="groundColor"
                       :modes="['hex', 'rgba']"
                       show-swatches
-                      :swatches="groundColors"
+                      :swatches="Array.isArray(groundColors) ? groundColors : []"
                       @input="updateGroundColor"
                       :disabled="!showGround"
                       class="flex-grow-1"
@@ -2241,10 +2241,18 @@ const axiosInstance = axios.create();
       
       // Only include optional data if specifically requested
       if (this.shareSettings.includeCamera && this.camera) {
-        data.camera = [
-          this.camera.position.x, this.camera.position.y, this.camera.position.z,
-          this.controls?.target.x || 0, this.controls?.target.y || 0, this.controls?.target.z || 0
-        ];
+        data.camera = {
+          position: {
+            x: this.camera.position.x,
+            y: this.camera.position.y,
+            z: this.camera.position.z
+          },
+          target: {
+            x: this.controls?.target.x || 0,
+            y: this.controls?.target.y || 0,
+            z: this.controls?.target.z || 0
+          }
+        };
       }
       
       if (this.shareSettings.includeColors) {
@@ -2652,6 +2660,12 @@ const axiosInstance = axios.create();
         // Set current frame
         if (shareData.currentFrame !== undefined) {
           this.frame = shareData.currentFrame;
+          // Update time to match the frame
+          if (this.frames && this.frames[this.frame] !== undefined) {
+            this.time = parseFloat(this.frames[this.frame]).toFixed(2);
+          } else if (this.frameRate) {
+            this.time = parseFloat(this.frame / this.frameRate).toFixed(2);
+          }
         }
         
         // Initialize the 3D scene
@@ -2680,6 +2694,16 @@ const axiosInstance = axios.create();
           if (modelsLoaded >= totalModelsToLoad) {
             console.log(`[loadSharedVisualization] All models loaded. Ready for animation.`);
             console.log(`[loadSharedVisualization] Current state - Frame: ${this.frame}, Playing: ${this.playing}, Frames length: ${this.frames.length}`);
+            
+            // Update time to match the current frame now that data is fully loaded
+            if (shareData.currentFrame !== undefined) {
+              if (this.frames && this.frames[this.frame] !== undefined) {
+                this.time = parseFloat(this.frames[this.frame]).toFixed(2);
+              } else if (this.frameRate) {
+                this.time = parseFloat(this.frame / this.frameRate).toFixed(2);
+              }
+            }
+            
             // All models loaded, now animate to current frame
             setTimeout(() => {
               this.animateOneFrame();
@@ -2690,6 +2714,15 @@ const axiosInstance = axios.create();
         
         // If no models to load, animate immediately
         if (totalModelsToLoad === 0) {
+          // Update time to match the current frame 
+          if (shareData.currentFrame !== undefined) {
+            if (this.frames && this.frames[this.frame] !== undefined) {
+              this.time = parseFloat(this.frames[this.frame]).toFixed(2);
+            } else if (this.frameRate) {
+              this.time = parseFloat(this.frame / this.frameRate).toFixed(2);
+            }
+          }
+          
           setTimeout(() => {
             this.animateOneFrame();
           }, 100);
