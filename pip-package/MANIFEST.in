@@ -1,7 +1,0 @@
-include README.md
-include LICENSE
-include requirements.txt
-include CHANGELOG.md
-recursive-include opencap_visualizer *.py
-global-exclude __pycache__
-global-exclude *.py[co] 
