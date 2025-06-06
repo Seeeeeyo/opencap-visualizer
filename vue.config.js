@@ -4,6 +4,24 @@ module.exports = {
     'chartjs-plugin-zoom'
   ],
   configureWebpack: {
+    // Memory optimization for build process
+    optimization: {
+      splitChunks: {
+        chunks: 'all',
+        maxInitialRequests: Infinity,
+        minSize: 0,
+        cacheGroups: {
+          vendor: {
+            test: /[\\/]node_modules[\\/]/,
+            name(module) {
+              // Get the name of the package
+              const packageName = module.context.match(/[\\/]node_modules[\\/](.*?)([\\/]|$)/)[1];
+              return `npm.${packageName.replace('@', '')}`;
+            },
+          },
+        },
+      },
+    },
     module: {
       rules: [
         {
@@ -33,7 +51,22 @@ module.exports = {
         args[0].title = 'OpenCap Visualizer'
         return args
       })
+
+    // Optimize build for production
+    if (process.env.NODE_ENV === 'production') {
+      // Disable source maps in production to save memory
+      config.devtool(false)
+      
+      // Optimize CSS
+      config.plugin('extract-css').tap((args) => {
+        args[0].ignoreOrder = true
+        return args
+      })
+    }
   },
+
+  // Disable source maps in production to reduce memory usage
+  productionSourceMap: false,
 
   // Add PWA configuration
   pwa: {

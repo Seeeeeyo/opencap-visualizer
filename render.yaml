@@ -2,8 +2,13 @@ services:
   - type: web
     name: opencap-visualizer
     env: static
-    buildCommand: npm run build
+    buildCommand: NODE_OPTIONS="--max-old-space-size=4096" npm run build
     staticPublishPath: ./dist
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: CI
+        value: false
     routes:
       - type: rewrite
         source: /*
