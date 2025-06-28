@@ -1334,6 +1334,22 @@
                       <v-icon left small>{{ useCheckerboard ? 'mdi-grid' : 'mdi-view-grid' }}</v-icon>
                       {{ useCheckerboard ? 'Use Grid' : 'Use Checkerboard' }}
                     </v-btn>
+                    <div class="mt-3">
+                      <div class="text-caption mb-2">
+                        Transparency: {{ Math.round((1 - groundOpacity) * 100) }}%
+                      </div>
+                      <v-slider 
+                        :value="(1 - groundOpacity) * 100"
+                        @input="value => updateGroundOpacity(1 - value / 100)"
+                        :min="0" 
+                        :max="100" 
+                        step="1" 
+                        hide-details 
+                        :disabled="!showGround"
+                        dense
+                        class="mt-0"
+                      ></v-slider>
+                    </div>
                   </div>
                 </v-card>
               </v-menu>
@@ -1811,6 +1827,7 @@ const axiosInstance = axios.create();
               ],
               backgroundColor: '#808080',
               groundColor: '#cccccc',
+              groundOpacity: 1.0,
               useGroundTexture: true,
               groundMesh: null,
               groundTexture: null,
@@ -3978,7 +3995,9 @@ const axiosInstance = axios.create();
         const planeMat = new THREE.MeshPhongMaterial({
             map: this.useGroundTexture ? texture : null,
             side: THREE.DoubleSide,
-            color: new THREE.Color(this.groundColor)
+            color: new THREE.Color(this.groundColor),
+            opacity: this.groundOpacity,
+            transparent: this.groundOpacity < 1.0
         });
         const groundMesh = new THREE.Mesh(planeGeo, planeMat);
         groundMesh.rotation.x = Math.PI * -.5;
@@ -4976,13 +4995,17 @@ const axiosInstance = axios.create();
             // If not using texture, just set the color
             if (!this.useGroundTexture) {
                 this.groundMesh.material.color = new THREE.Color(color);
+                this.groundMesh.material.opacity = this.groundOpacity;
+                this.groundMesh.material.transparent = this.groundOpacity < 1.0;
             } else {
                 // If using texture, create a new material with both texture and color
                 const oldMaterial = this.groundMesh.material;
                 const newMaterial = new THREE.MeshPhongMaterial({
                     map: this.groundTexture,
                     side: THREE.DoubleSide,
-                    color: new THREE.Color(color)
+                    color: new THREE.Color(color),
+                    opacity: this.groundOpacity,
+                    transparent: this.groundOpacity < 1.0
                 });
                 
                 this.groundMesh.material = newMaterial;
@@ -4990,6 +5013,17 @@ const axiosInstance = axios.create();
                 // Dispose of old material
                 if (oldMaterial) oldMaterial.dispose();
             }
+            
+            this.renderer.render(this.scene, this.camera);
+        }
+        this.saveSettings(); // Explicitly save
+    },
+    updateGroundOpacity(opacity) {
+        this.groundOpacity = opacity;
+        if (this.groundMesh && this.groundMesh.material) {
+            // Update the material's opacity and transparency
+            this.groundMesh.material.opacity = opacity;
+            this.groundMesh.material.transparent = opacity < 1.0;
             
             this.renderer.render(this.scene, this.camera);
         }
@@ -5007,13 +5041,17 @@ const axiosInstance = axios.create();
                 this.groundMesh.material = new THREE.MeshPhongMaterial({
                     map: textureToUse,
                     side: THREE.DoubleSide,
-                    color: new THREE.Color(this.groundColor)
+                    color: new THREE.Color(this.groundColor),
+                    opacity: this.groundOpacity,
+                    transparent: this.groundOpacity < 1.0
                 });
             } else {
                 // Use plain colored material
                 this.groundMesh.material = new THREE.MeshPhongMaterial({
                     color: new THREE.Color(this.groundColor),
-                    side: THREE.DoubleSide
+                    side: THREE.DoubleSide,
+                    opacity: this.groundOpacity,
+                    transparent: this.groundOpacity < 1.0
                 });
             }
             
@@ -5076,7 +5114,9 @@ const axiosInstance = axios.create();
             const newMaterial = new THREE.MeshPhongMaterial({
                 map: this.useCheckerboard ? this.groundTexture : this.gridTexture,
                 side: THREE.DoubleSide,
-                color: new THREE.Color(this.groundColor)
+                color: new THREE.Color(this.groundColor),
+                opacity: this.groundOpacity,
+                transparent: this.groundOpacity < 1.0
             });
             
             this.groundMesh.material = newMaterial;
@@ -6063,7 +6103,9 @@ const axiosInstance = axios.create();
             const planeMat = new THREE.MeshPhongMaterial({
                 map: this.useGroundTexture ? this.groundTexture : null,
                 side: THREE.DoubleSide,
-                color: new THREE.Color(this.groundColor)
+                color: new THREE.Color(this.groundColor),
+                opacity: this.groundOpacity,
+                transparent: this.groundOpacity < 1.0
             });
             this.groundMesh = new THREE.Mesh(planeGeo, planeMat);
             this.groundMesh.rotation.x = Math.PI * -.5;
@@ -7084,6 +7126,7 @@ const axiosInstance = axios.create();
           // Apply settings to data properties
           if (settings.backgroundColor) this.backgroundColor = settings.backgroundColor;
           if (settings.groundColor) this.groundColor = settings.groundColor;
+          if (settings.groundOpacity !== undefined) this.groundOpacity = settings.groundOpacity;
           if (settings.showGround !== undefined) this.showGround = settings.showGround;
           if (settings.useGroundTexture !== undefined) this.useGroundTexture = settings.useGroundTexture;
           if (settings.useCheckerboard !== undefined) this.useCheckerboard = settings.useCheckerboard;
@@ -7128,6 +7171,7 @@ const axiosInstance = axios.create();
       const settings = {
         backgroundColor: this.backgroundColor,
         groundColor: this.groundColor,
+        groundOpacity: this.groundOpacity,
         showGround: this.showGround,
         useGroundTexture: this.useGroundTexture,
         useCheckerboard: this.useCheckerboard,
@@ -7191,12 +7235,16 @@ const axiosInstance = axios.create();
               this.groundMesh.material = new THREE.MeshPhongMaterial({
                   map: this.useCheckerboard ? this.groundTexture : this.gridTexture,
                   side: THREE.DoubleSide,
-                  color: new THREE.Color(this.groundColor)
+                  color: new THREE.Color(this.groundColor),
+                  opacity: this.groundOpacity,
+                  transparent: this.groundOpacity < 1.0
                             });
                         } else {
               this.groundMesh.material = new THREE.MeshPhongMaterial({
                   color: new THREE.Color(this.groundColor),
-                  side: THREE.DoubleSide
+                  side: THREE.DoubleSide,
+                  opacity: this.groundOpacity,
+                  transparent: this.groundOpacity < 1.0
               });
           }
           if (oldMaterial && oldMaterial !== this.groundMesh.material) {
