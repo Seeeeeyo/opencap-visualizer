@@ -490,17 +490,17 @@
               </div>
 
               <!-- Forces Visualization Section -->
-              <div v-if="forcesData" class="legend-item mb-4">
+              <div v-for="(forcesData, animationIndex) in forcesDatasets" :key="`forces-${animationIndex}`" class="legend-item mb-4">
                 <div class="d-flex mb-2">
                   <div class="color-box" :style="{ backgroundColor: forceColor }"></div>
                   <div class="flex-grow-1 ml-2">
                     <div class="text-subtitle-2">Ground Reaction Forces</div>
-                    <div class="file-name text-caption">{{ forcesFile ? forcesFile.name : 'Forces Data' }}</div>
+                    <div class="file-name text-caption">{{ forcesData.fileName }}</div>
                     <div class="fps-info text-caption grey--text">
-                      Associated with {{ animations[forcesData.associatedAnimationIndex || 0]?.trialName || 'Subject ' + ((forcesData.associatedAnimationIndex || 0) + 1) }}
+                      Associated with {{ animations[animationIndex]?.trialName || 'Subject ' + (parseInt(animationIndex) + 1) }}
                     </div>
                     <div class="fps-info text-caption grey--text">
-                      {{ forceArrows.length }} Force Platforms
+                      {{ getForceArrowCount(animationIndex) }} Force Platforms
                     </div>
                   </div>
                 </div>
@@ -571,7 +571,7 @@
                     </v-card>
                   </v-menu>
                   
-                  <v-btn icon small class="mr-2" @click="clearForceArrows">
+                  <v-btn icon small class="mr-2" @click="clearForceArrowsForAnimation(animationIndex)">
                     <v-icon small color="error">mdi-delete</v-icon>
                   </v-btn>
                 </div>
@@ -1256,6 +1256,14 @@
               
               <v-alert v-if="animations.length === 0" type="warning" text dense class="mb-4">
                 Please load an animation first before importing forces.
+              </v-alert>
+              
+              <v-alert v-if="forcesDatasets[selectedAnimationForForces]" type="warning" text dense class="mb-4">
+                This animation already has forces loaded. Loading new forces will replace the existing ones.
+              </v-alert>
+              
+              <v-alert v-if="Object.keys(forcesDatasets).length > 0" type="info" text dense class="mb-4">
+                Currently loaded forces for: {{ Object.keys(forcesDatasets).map(idx => animations[idx]?.trialName || `Subject ${parseInt(idx) + 1}`).join(', ') }}
               </v-alert>
               
               <div v-if="animations.length > 0" class="mb-4">
@@ -2152,7 +2160,7 @@ const axiosInstance = axios.create();
               // Forces visualization properties
               showForcesDialog: false,
               forcesFile: null,
-              forcesData: null,
+              forcesDatasets: {}, // Object to store multiple force datasets by animation index
               forceArrows: [], // Array to store force arrow objects
               showForces: true,
               forceScale: 0.001, // Scale factor for force arrows
@@ -2183,10 +2191,14 @@ const axiosInstance = axios.create();
         },
         animationOptions() {
           // Create options for animation selection in forces dialog
-          return this.animations.map((animation, index) => ({
-            text: animation.trialName || animation.fileName || `Animation ${index + 1}`,
-            value: index
-          }));
+          return this.animations.map((animation, index) => {
+            const hasForces = this.forcesDatasets[index];
+            const baseText = animation.trialName || animation.fileName || `Animation ${index + 1}`;
+            return {
+              text: hasForces ? `${baseText} (Forces loaded)` : baseText,
+              value: index
+            };
+          });
         }
       },
     async   mounted() {
@@ -2517,14 +2529,17 @@ const axiosInstance = axios.create();
         }
       }
       
-      this.forcesData = {
+      // Store forces data for the selected animation
+      const animationIndex = this.selectedAnimationForForces;
+      this.forcesDatasets[animationIndex] = {
         time: timeData,
         columns: columnHeaders,
         data: forceData,
-        associatedAnimationIndex: this.selectedAnimationForForces
+        associatedAnimationIndex: animationIndex,
+        fileName: this.forcesFile ? this.forcesFile.name : 'Forces Data'
       };
       
-      console.log('Forces data parsed:', this.forcesData);
+      console.log(`Forces data parsed for animation ${animationIndex}:`, this.forcesDatasets[animationIndex]);
       this.createForceArrows();
     },
     
@@ -2547,7 +2562,7 @@ const axiosInstance = axios.create();
     },
     
     createForceArrows() {
-      if (!this.forcesData || !this.scene || this.animations.length === 0) return;
+      if (!this.scene || this.animations.length === 0) return;
       
       this.clearForceArrows();
       
@@ -2583,87 +2598,100 @@ const axiosInstance = axios.create();
         }
       ];
       
-      // Use the selected animation for forces
-      const animationIndex = this.forcesData.associatedAnimationIndex || 0;
-      const targetAnimation = this.animations[animationIndex];
-      
-      if (!targetAnimation) {
-        console.warn('Selected animation not found for force visualization');
-        return;
-      }
-      
-      // Check if the selected animation has required foot segments
-      const hasRequiredSegments = forceToFootMapping.some(mapping => 
-        targetAnimation.data.bodies[mapping.footSegment]
-      );
-      
-      if (!hasRequiredSegments) {
-        console.warn('Selected animation does not have required foot segments for force visualization');
-        return;
-      }
-      
-      forceToFootMapping.forEach(mapping => {
-        if (!targetAnimation.data.bodies[mapping.footSegment]) return;
+      // Create force arrows for each animation that has force data
+      Object.keys(this.forcesDatasets).forEach(animationIndexStr => {
+        const animationIndex = parseInt(animationIndexStr);
+        const forcesData = this.forcesDatasets[animationIndex];
+        const targetAnimation = this.animations[animationIndex];
         
-        // Check if force columns exist in the data
-        const hasForceData = mapping.forceColumns.some(col => this.forcesData.data[col]);
-        if (!hasForceData) return;
+        if (!targetAnimation || !forcesData) {
+          console.warn(`Animation ${animationIndex} not found or no force data`);
+          return;
+        }
         
-        // Create force arrow group for this foot
-        const footForceGroup = new THREE.Group();
-        footForceGroup.name = `forces_${mapping.platform}`;
-        footForceGroup.userData = {
-          platform: mapping.platform,
-          footSegment: mapping.footSegment,
-          animationIndex: animationIndex
-        };
+        // Check if the selected animation has required foot segments
+        const hasRequiredSegments = forceToFootMapping.some(mapping => 
+          targetAnimation.data.bodies[mapping.footSegment]
+        );
         
-        // Create single combined force arrow (resultant force vector)
-        const arrowGroup = new THREE.Group();
+        if (!hasRequiredSegments) {
+          console.warn(`Animation ${animationIndex} does not have required foot segments for force visualization`);
+          return;
+        }
         
-        // Create arrow head
-        const arrowHead = new THREE.Mesh(arrowGeometry, arrowMaterial.clone());
-        arrowGroup.add(arrowHead);
-        
-        // Create arrow shaft (cylinder)
-        const shaft = new THREE.Mesh(shaftGeometry.clone(), shaftMaterial.clone());
-        arrowGroup.add(shaft);
-        
-        arrowGroup.name = `force_${mapping.platform}_resultant`;
-        arrowGroup.userData = {
-          platform: mapping.platform,
-          forceColumns: mapping.forceColumns,
-          copColumns: mapping.copColumns
-        };
-        
-        footForceGroup.add(arrowGroup);
-        this.scene.add(footForceGroup);
-        this.forceArrows.push(footForceGroup);
+        forceToFootMapping.forEach(mapping => {
+          if (!targetAnimation.data.bodies[mapping.footSegment]) return;
+          
+          // Check if force columns exist in the data
+          const hasForceData = mapping.forceColumns.some(col => forcesData.data[col]);
+          if (!hasForceData) return;
+          
+          // Create force arrow group for this foot
+          const footForceGroup = new THREE.Group();
+          footForceGroup.name = `forces_${animationIndex}_${mapping.platform}`;
+          footForceGroup.userData = {
+            platform: mapping.platform,
+            footSegment: mapping.footSegment,
+            animationIndex: animationIndex
+          };
+          
+          // Create single combined force arrow (resultant force vector)
+          const arrowGroup = new THREE.Group();
+          
+          // Create arrow head
+          const arrowHead = new THREE.Mesh(arrowGeometry, arrowMaterial.clone());
+          arrowGroup.add(arrowHead);
+          
+          // Create arrow shaft (cylinder)
+          const shaft = new THREE.Mesh(shaftGeometry.clone(), shaftMaterial.clone());
+          arrowGroup.add(shaft);
+          
+          arrowGroup.name = `force_${animationIndex}_${mapping.platform}_resultant`;
+          arrowGroup.userData = {
+            platform: mapping.platform,
+            forceColumns: mapping.forceColumns,
+            copColumns: mapping.copColumns,
+            animationIndex: animationIndex
+          };
+          
+          footForceGroup.add(arrowGroup);
+          this.scene.add(footForceGroup);
+          this.forceArrows.push(footForceGroup);
+        });
       });
       
-      console.log(`Force arrows created: ${this.forceArrows.length} foot segments`);
+      console.log(`Force arrows created for ${Object.keys(this.forcesDatasets).length} animations: ${this.forceArrows.length} foot segments`);
+      
+      // Debug: Update for current frame immediately
+      if (this.frames && this.frame < this.frames.length) {
+        console.log('Updating force arrows for current frame:', this.frame);
+        this.updateForceArrows(this.frame);
+      }
     },
     
     updateForceArrows(frameIndex) {
-      if (!this.forcesData || !this.showForces || this.forceArrows.length === 0) return;
+      if (!this.showForces || this.forceArrows.length === 0) return;
       
-      const animationIndex = this.forcesData.associatedAnimationIndex || 0;
-      const animation = this.animations[animationIndex];
-      if (!animation) return;
-      
-      // Find the closest time index in forces data
       const currentTime = this.frames[frameIndex];
-      let forceFrameIndex = 0;
-      
-      for (let i = 0; i < this.forcesData.time.length; i++) {
-        if (Math.abs(this.forcesData.time[i] - currentTime) < Math.abs(this.forcesData.time[forceFrameIndex] - currentTime)) {
-          forceFrameIndex = i;
-        }
-      }
       
       this.forceArrows.forEach(footForceGroup => {
         const groupData = footForceGroup.userData;
-        if (!groupData) return;
+        if (!groupData || typeof groupData.animationIndex === 'undefined') return;
+        
+        // Get the force data and animation for this specific arrow group
+        const animationIndex = groupData.animationIndex;
+        const forcesData = this.forcesDatasets[animationIndex];
+        const animation = this.animations[animationIndex];
+        
+        if (!forcesData || !animation) return;
+        
+        // Find the closest time index in forces data for this animation
+        let forceFrameIndex = 0;
+        for (let i = 0; i < forcesData.time.length; i++) {
+          if (Math.abs(forcesData.time[i] - currentTime) < Math.abs(forcesData.time[forceFrameIndex] - currentTime)) {
+            forceFrameIndex = i;
+          }
+        }
         
         // Get COP position from the first child arrow (they should all have the same COP)
         const firstArrow = footForceGroup.children[0];
@@ -2676,12 +2704,12 @@ const axiosInstance = axios.create();
         let hasCopData = false;
         
         if (copColumns.length >= 3) {
-          const copX = this.forcesData.data[copColumns[0]] ? 
-                      this.forcesData.data[copColumns[0]][forceFrameIndex] || 0 : 0;
-          const copY = this.forcesData.data[copColumns[1]] ? 
-                      this.forcesData.data[copColumns[1]][forceFrameIndex] || 0 : 0;
-          const copZ = this.forcesData.data[copColumns[2]] ? 
-                      this.forcesData.data[copColumns[2]][forceFrameIndex] || 0 : 0;
+          const copX = forcesData.data[copColumns[0]] ? 
+                      forcesData.data[copColumns[0]][forceFrameIndex] || 0 : 0;
+          const copY = forcesData.data[copColumns[1]] ? 
+                      forcesData.data[copColumns[1]][forceFrameIndex] || 0 : 0;
+          const copZ = forcesData.data[copColumns[2]] ? 
+                      forcesData.data[copColumns[2]][forceFrameIndex] || 0 : 0;
           
           // Only use COP if at least one coordinate is non-zero
           if (copX !== 0 || copY !== 0 || copZ !== 0) {
@@ -2706,6 +2734,15 @@ const axiosInstance = axios.create();
         copPosition.add(animation.offset);
         footForceGroup.position.copy(copPosition);
         
+        // Debug logging for COP positioning
+        if (frameIndex === 0 || frameIndex % 30 === 0) {
+          console.log(`COP debug - Animation ${animationIndex}:`, {
+            copPosition: copPosition.toArray(),
+            hasCopData,
+            animationOffset: animation.offset
+          });
+        }
+        
         // Update each force arrow in the group
         footForceGroup.children.forEach(arrowGroup => {
           const arrowData = arrowGroup.userData;
@@ -2716,12 +2753,12 @@ const axiosInstance = axios.create();
           const forceColumns = arrowData.forceColumns;
           
           if (forceColumns.length >= 3) {
-            const fx = this.forcesData.data[forceColumns[0]] ? 
-                     this.forcesData.data[forceColumns[0]][forceFrameIndex] || 0 : 0;
-            const fy = this.forcesData.data[forceColumns[1]] ? 
-                     this.forcesData.data[forceColumns[1]][forceFrameIndex] || 0 : 0;
-            const fz = this.forcesData.data[forceColumns[2]] ? 
-                     this.forcesData.data[forceColumns[2]][forceFrameIndex] || 0 : 0;
+            const fx = forcesData.data[forceColumns[0]] ? 
+                     forcesData.data[forceColumns[0]][forceFrameIndex] || 0 : 0;
+            const fy = forcesData.data[forceColumns[1]] ? 
+                     forcesData.data[forceColumns[1]][forceFrameIndex] || 0 : 0;
+            const fz = forcesData.data[forceColumns[2]] ? 
+                     forcesData.data[forceColumns[2]][forceFrameIndex] || 0 : 0;
             
             forceVector.set(fx, fy, fz);
           }
@@ -2729,8 +2766,19 @@ const axiosInstance = axios.create();
           // Calculate original force magnitude before scaling
           const originalMagnitude = forceVector.length();
           
-          // Update arrow visibility based on original force magnitude
-          arrowGroup.visible = originalMagnitude > 1.0; // Show if force > 1N
+          // Debug logging
+          if (frameIndex === 0 || frameIndex % 30 === 0) { // Log every 30 frames to avoid spam
+            console.log(`Force debug - Animation ${animationIndex}, Platform ${arrowData.platform}:`, {
+              fx: forcesData.data[forceColumns[0]] ? forcesData.data[forceColumns[0]][forceFrameIndex] : 'missing',
+              fy: forcesData.data[forceColumns[1]] ? forcesData.data[forceColumns[1]][forceFrameIndex] : 'missing', 
+              fz: forcesData.data[forceColumns[2]] ? forcesData.data[forceColumns[2]][forceFrameIndex] : 'missing',
+              magnitude: originalMagnitude,
+              frameIndex: forceFrameIndex
+            });
+          }
+          
+          // Update arrow visibility based on original force magnitude (lowered threshold for debugging)
+          arrowGroup.visible = originalMagnitude > 0.1; // Show if force > 0.1N (was 1.0N)
           
           if (arrowGroup.visible) {
             // Scale the force vector for display
@@ -2795,6 +2843,52 @@ const axiosInstance = axios.create();
       this.forceArrows = [];
     },
     
+    clearForceArrowsForAnimation(animationIndex) {
+      // Remove force arrows for a specific animation
+      const animationIndexInt = parseInt(animationIndex);
+      
+      // Filter out force arrows belonging to this animation
+      const arrowsToRemove = this.forceArrows.filter(arrowGroup => 
+        arrowGroup.userData && arrowGroup.userData.animationIndex === animationIndexInt
+      );
+      
+      // Remove from scene and dispose resources
+      arrowsToRemove.forEach(arrowGroup => {
+        if (this.scene) {
+          this.scene.remove(arrowGroup);
+        }
+        
+        arrowGroup.traverse((child) => {
+          if (child.geometry) child.geometry.dispose();
+          if (child.material) {
+            if (Array.isArray(child.material)) {
+              child.material.forEach(mat => mat.dispose());
+            } else {
+              child.material.dispose();
+            }
+          }
+        });
+      });
+      
+      // Update forceArrows array
+      this.forceArrows = this.forceArrows.filter(arrowGroup => 
+        !arrowGroup.userData || arrowGroup.userData.animationIndex !== animationIndexInt
+      );
+      
+      // Remove from forcesDatasets
+      delete this.forcesDatasets[animationIndex];
+      
+      console.log(`Cleared force arrows for animation ${animationIndex}`);
+    },
+    
+    getForceArrowCount(animationIndex) {
+      // Count force arrows for a specific animation
+      const animationIndexInt = parseInt(animationIndex);
+      return this.forceArrows.filter(arrowGroup => 
+        arrowGroup.userData && arrowGroup.userData.animationIndex === animationIndexInt
+      ).length;
+    },
+    
     updateForceColor(colorValue) {
       // Handle v-color-picker input format
       if (colorValue && typeof colorValue === 'object') {
@@ -2830,7 +2924,7 @@ const axiosInstance = axios.create();
     
     updateForceScale() {
       // Re-create force arrows with new scale
-      if (this.forcesData) {
+      if (Object.keys(this.forcesDatasets).length > 0) {
         this.createForceArrows();
         // Update for current frame
         if (this.frames && this.frame < this.frames.length) {
@@ -3993,7 +4087,7 @@ const axiosInstance = axios.create();
           }
           
           // Update force arrows
-          if (this.forcesData && this.showForces) {
+          if (Object.keys(this.forcesDatasets).length > 0 && this.showForces) {
             this.updateForceArrows(cframe);
           }
         } else {
