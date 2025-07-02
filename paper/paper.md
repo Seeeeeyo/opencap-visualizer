@@ -1,5 +1,5 @@
 ---
-title: 'OpenCap Visualizer: A Web-Based Platform for Interactive Biomechanics Visualization and Automated Video Generation'
+title: 'OpenCap Visualizer: A Web-Based Platform for Interactive Biomechanics Visualization and Automated Video Creation'
 tags:
   - Python
   - JavaScript
@@ -23,9 +23,9 @@ bibliography: paper.bib
 
 # Summary
 
-OpenCap Visualizer is a comprehensive web-based platform for interactive visualization and automated video generation of biomechanics data. The software provides both a browser-based interface for real-time 3D visualization of human movement and a Python API for programmatic video generation from motion capture data. Built with Vue.js and Three.js, the visualizer supports multiple data formats including OpenSim models (.osim/.mot files) and JSON-based motion data, enabling researchers to analyze and share biomechanics simulations with unprecedented ease.
+OpenCap Visualizer is a comprehensive web-based platform for interactive visualization and automated video creation of biomechanics data. The software provides both a browser-based interface for real-time 3D visualization of human movement and a Python API for programmatic video generation from motion capture data. Built with Vue.js and Three.js, the visualizer supports multiple data formats including OpenSim models (.osim files), kinematics data (.mot, .json), and markers (.trc) enabling researchers to analyze and share biomechanics simulations with unprecedented ease.
 
-The platform addresses the critical need for accessible visualization tools in biomechanics research, where complex 3D motion data traditionally requires specialized software for analysis and presentation. OpenCap Visualizer democratizes access to biomechanics visualization by offering a browser-based solution requiring no local installation, alongside a Python package for reproducible, automated video generation.
+The platform addresses the critical need for accessible visualization tools in biomechanics research, where complex 3D motion data traditionally requires specialized software for analysis and presentation. OpenCap Visualizer democratizes access to biomechanics visualization by offering a browser-based solution requiring no local installation, alongside a Python package for reproducible, automated video rendering.
 
 # Statement of need
 
@@ -33,13 +33,13 @@ Biomechanics research generates complex 3D motion data that is challenging to vi
 
 OpenCap Visualizer fills this gap by providing a modern, web-based solution that combines interactive visualization with automated video generation capabilities. The software enables researchers to:
 
-1. **Visualize complex biomechanics data** without software installation through any modern web browser
+1. **Visualize complex biomechanics data** through any modern web browser without software installation
 2. **Generate publication-quality videos** programmatically using Python for reproducible research workflows  
 3. **Share visualizations** easily through URL-based sharing with advanced compression algorithms
 4. **Compare multiple subjects** simultaneously with customizable colors, transparency, and camera controls
 5. **Integrate with existing pipelines** through comprehensive Python API and command-line interface
 
-The platform particularly addresses the needs of the OpenCap ecosystem [@opencap], providing native support for OpenCap's markerless motion capture data while maintaining compatibility with traditional marker-based systems and OpenSim models [@opensim]. This dual compatibility makes it valuable for the broader biomechanics community, bridging the gap between traditional motion capture workflows and emerging markerless technologies.
+<!-- The platform particularly addresses the needs of the OpenCap ecosystem [@opencap], providing native support for OpenCap's markerless motion capture data while maintaining compatibility with traditional marker-based systems and OpenSim models [@opensim]. This dual compatibility makes it valuable for the broader biomechanics community, bridging the gap between traditional motion capture workflows and emerging markerless technologies. -->
 
 # Key Features
 
@@ -49,12 +49,16 @@ The core visualization engine is built on Three.js, providing hardware-accelerat
 
 - **Real-time 3D rendering** of skeletal models with anatomically accurate geometry
 - **Multi-subject comparison** with independent color coding and transparency controls
-- **Flexible camera controls** with preset anatomical views (anterior, posterior, sagittal, etc.)
-- **Marker visualization** supporting standard motion capture marker sets
+- **Marker visualization** supporting standard motion capture marker sets (.trc file)
+- **Ground reaction forces visualization** using .mot file
+- **Video synchronisation** with skeleton to enable simultaneous viewing of original footage and motion data 
 - **Timeline controls** with adjustable playback speed and frame-by-frame navigation
-- **Ground plane and coordinate system** visualization for spatial reference
+- **Recording capabilities** for capturing custom video segments directly from the web interface
+- **Image capture** for generating high-resolution screenshots at specific time points
+- **Timelapse mode** for creating accelerated visualizations of long-duration movements
+- **Color controls** for customizing background, ground plane, skeletal models, and markers
 
-## Python API for Automated Video Generation
+## Python API for Automated Video Creation
 
 The `opencap-visualizer` Python package provides programmatic access to video generation functionality:
 
@@ -91,7 +95,8 @@ The software supports multiple data formats common in biomechanics research:
 - **OpenSim models** (.osim) with motion files (.mot)
 - **JSON-based motion data** from OpenCap and other sources
 - **TRC marker files** for traditional motion capture data
-- **Custom JSON formats** with flexible schema support
+- **GRF files** (.mot) for ground reaction forces 
+
 
 # Implementation
 
@@ -102,7 +107,6 @@ OpenCap Visualizer is implemented as a modern web application with a complementa
 - **Vue.js 2.x** for reactive user interface components
 - **Three.js** for 3D graphics rendering and animation
 - **Vuetify** for Material Design components
-- **Custom orbit controls** for 3D navigation optimized for biomechanics viewing
 
 ## Backend Services
 
@@ -149,9 +153,8 @@ Educators can create interactive demonstrations of human movement principles, ma
 OpenCap Visualizer distinguishes itself from existing biomechanics visualization tools through its unique combination of web-based accessibility and programmatic video generation:
 
 - **OpenSim GUI** [@opensim] provides comprehensive modeling capabilities but requires local installation and lacks automated video generation
-- **Biomechanical ToolKit** [@btk] offers Python-based analysis but focuses on data processing rather than visualization
+- **Biomechanical ToolKit** [@btk] offers Python-based analysis but focuses on data processing rather than visualization and is primarily a solution for code-friendly users
 - **Visual3D** [@visual3d] provides commercial visualization but lacks web-based accessibility and open-source flexibility
-- **MoVis** [@movis] offers MATLAB-based visualization but requires commercial software and specialized expertise
 
 OpenCap Visualizer's browser-based approach eliminates installation barriers while its Python API enables seamless integration into research workflows, making it uniquely positioned to serve both interactive exploration and automated analysis needs.
 
