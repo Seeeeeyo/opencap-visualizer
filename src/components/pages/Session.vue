@@ -2062,30 +2062,10 @@ const axiosInstance = axios.create();
       },
       animations: {
         handler(newAnimations) {
+          // Update text sprites for all animations when any property changes
           newAnimations.forEach((animation, index) => {
-            const sprite = this.textSprites[`text_${index}`];
-            if (sprite) {
-              const canvas = document.createElement('canvas');
-              const context = canvas.getContext('2d');
-              canvas.width = 256;
-              canvas.height = 64;
-              
-                          context.font = 'bold 40px Arial';
-            context.textAlign = 'center';
-            context.fillStyle = this.formatColor(this.colors[index]);
-            context.fillText(animation.trialName, canvas.width/2, canvas.height/2);
-              
-              const texture = new THREE.CanvasTexture(canvas);
-              if (sprite.material.map) sprite.material.map.dispose();
-              sprite.material.map = texture;
-              sprite.material.needsUpdate = true;
-            }
+            this.updateTextSprite(index);
           });
-          
-          // Render the scene with updated text
-          if (this.renderer) {
-            this.renderer.render(this.scene, this.camera);
-          }
         },
         deep: true
       },
@@ -2143,6 +2123,20 @@ const axiosInstance = axios.create();
           if (this.showShareDialog) {
             await this.generateShareUrl();
           }
+        },
+        deep: true
+      },
+      colors: {
+        handler() {
+          // Update display colors when THREE.js colors change
+          this.displayColors = this.colors.map(color => {
+            if (color && typeof color.getHexString === 'function') {
+              return '#' + color.getHexString();
+            } else if (typeof color === 'string') {
+              return color;
+            }
+            return '#FFFFFF'; // Default fallback
+          });
         },
         deep: true
       }
@@ -2649,6 +2643,8 @@ const axiosInstance = axios.create();
           });
           
           this.initializeAlphaValue(i);
+          // Ensure all color arrays are synchronized when adding new animations
+          this.ensureColorArraysSync();
         }
         
         // Set frames from first animation
@@ -2965,6 +2961,9 @@ const axiosInstance = axios.create();
                 });
                 this.initializeAlphaValue(1);
             }
+
+            // Ensure all color arrays are synchronized
+            this.ensureColorArraysSync();
             
             // Calculate and set frame rate from the JSON file's time data
             this.frameRate = this.calculateFrameRate(res1.data.time);
@@ -3778,6 +3777,9 @@ const axiosInstance = axios.create();
                 this.initializeAlphaValue(startIndex + index);
             });
 
+            // Ensure all color arrays are synchronized after adding new animations
+            this.ensureColorArraysSync();
+
             // Keep track of loaded geometries
             let geometriesLoaded = 0;
             const totalGeometries = successfulResults.reduce((total, { data }) => {
@@ -4396,49 +4398,26 @@ const axiosInstance = axios.create();
             return;
         }
 
-        // Update displayColors for the v-color-picker
-        if (index >= this.displayColors.length) {
-            // Initialize missing entries
-            for (let i = this.displayColors.length; i <= index; i++) {
-                this.$set(this.displayColors, i, '#FFFFFF');
-            }
-        }
-        // Set the display color for the picker
-        this.$set(this.displayColors, index, colorHex);
-        
-        // IMPORTANT: The colors array must contain THREE.Color objects with getHexString method
-        // Convert the hex string to a THREE.Color object
-        const hexWithoutHash = colorHex.substring(1);
-        const threejsColor = new THREE.Color(`#${hexWithoutHash}`);
-        
-        // Update the main color array (used for THREE.js rendering)
-        // Use $set for reactivity if colors array might not have the index initially
-        if (index >= this.colors.length) {
-            // Need to expand the colors array reactively if index is new
-            for (let i = this.colors.length; i <= index; i++) {
-                this.$set(this.colors, i, new THREE.Color('#FFFFFF')); // Default THREE.Color object
-            }
-        }
-        // Set a new THREE.Color object to maintain getHexString() compatibility
-        this.$set(this.colors, index, threejsColor);
+        // Ensure arrays are properly sized before updating
+        this.ensureColorArraysSync();
 
-        // --- Update RGB values for sliders ---
-        // Convert hex to RGB (0-255)
+        // Update all color arrays
+        const threejsColor = new THREE.Color(colorHex);
+        
+        // Convert hex to RGB (0-255) for RGB sliders
         const hex = colorHex.substring(1); // Remove #
         const r = parseInt(hex.substring(0, 2), 16);
         const g = parseInt(hex.substring(2, 4), 16);
         const b = parseInt(hex.substring(4, 6), 16);
 
-        // Initialize rgbValues for this index if it doesn't exist
-        if (!this.rgbValues[index]) {
-            this.$set(this.rgbValues, index, { r: 128, g: 128, b: 128 }); // Default values
+        // Update all arrays simultaneously
+        this.$set(this.colors, index, threejsColor);
+        this.$set(this.displayColors, index, colorHex);
+        this.$set(this.rgbValues, index, { r, g, b });
+        // Keep existing alpha value if it exists
+        if (this.alphaValues[index] === undefined) {
+            this.$set(this.alphaValues, index, 1.0);
         }
-
-        // Update RGB values reactively
-        this.$set(this.rgbValues[index], 'r', r);
-        this.$set(this.rgbValues[index], 'g', g);
-        this.$set(this.rgbValues[index], 'b', b);
-        // --- End RGB update ---
 
         // Update the actual mesh colors in the scene
         Object.keys(this.meshes).forEach(key => {
@@ -4447,7 +4426,7 @@ const axiosInstance = axios.create();
                 mesh.traverse((child) => {
                     if (child instanceof THREE.Mesh) {
                         // Preserve transparency, only change color
-                        child.material.color.set(colorHex); 
+                        child.material.color.copy(threejsColor); 
                         child.material.needsUpdate = true;
                     }
                 });
@@ -4465,10 +4444,80 @@ const axiosInstance = axios.create();
         // Save settings
         this.saveSettings();
     },
+    // Helper to ensure all color-related arrays are synchronized
+    ensureColorArraysSync() {
+        const targetLength = this.animations.length;
+        
+        // Ensure all arrays have the correct length
+        while (this.colors.length < targetLength) {
+            this.colors.push(new THREE.Color('#FFFFFF'));
+        }
+        while (this.displayColors.length < targetLength) {
+            this.displayColors.push('#FFFFFF');
+        }
+        while (this.alphaValues.length < targetLength) {
+            this.alphaValues.push(1.0);
+        }
+        while (this.rgbValues.length < targetLength) {
+            this.rgbValues.push({ r: 255, g: 255, b: 255 });
+        }
+
+        // Trim arrays if they're too long
+        if (this.colors.length > targetLength) {
+            this.colors.splice(targetLength);
+        }
+        if (this.displayColors.length > targetLength) {
+            this.displayColors.splice(targetLength);
+        }
+        if (this.alphaValues.length > targetLength) {
+            this.alphaValues.splice(targetLength);
+        }
+        if (this.rgbValues.length > targetLength) {
+            this.rgbValues.splice(targetLength);
+        }
+    },
+    // Helper to initialize color arrays for a new subject
+    initializeSubjectColors(index, color = null) {
+        const defaultColor = color || this.getDefaultColor(index);
+        const threejsColor = new THREE.Color(defaultColor);
+        
+        // Convert THREE.Color to RGB values (0-255)
+        const r = Math.round(threejsColor.r * 255);
+        const g = Math.round(threejsColor.g * 255);
+        const b = Math.round(threejsColor.b * 255);
+
+        // Ensure arrays are long enough
+        while (this.colors.length <= index) {
+            this.colors.push(new THREE.Color('#FFFFFF'));
+        }
+        while (this.displayColors.length <= index) {
+            this.displayColors.push('#FFFFFF');
+        }
+        while (this.alphaValues.length <= index) {
+            this.alphaValues.push(1.0);
+        }
+        while (this.rgbValues.length <= index) {
+            this.rgbValues.push({ r: 255, g: 255, b: 255 });
+        }
+
+        // Set the specific values for this index
+        this.$set(this.colors, index, threejsColor);
+        this.$set(this.displayColors, index, defaultColor);
+        this.$set(this.alphaValues, index, 1.0);
+        this.$set(this.rgbValues, index, { r, g, b });
+    },
+    // Helper to get a default color for a subject index
+    getDefaultColor(index) {
+        const defaultColors = [
+            '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
+            '#DDA0DD', '#FFB84D', '#FF7675', '#74B9FF', '#00B894'
+        ];
+        return defaultColors[index % defaultColors.length];
+    },
     // Helper to update text sprite color separately
     updateTextSpriteColor(index, colorHex) {
         const sprite = this.textSprites[`text_${index}`];
-        if (sprite) {
+        if (sprite && this.animations[index]) {
             const canvas = document.createElement('canvas');
             const context = canvas.getContext('2d');
             canvas.width = 256;
@@ -4480,9 +4529,21 @@ const axiosInstance = axios.create();
             context.fillText(this.animations[index].trialName, canvas.width/2, canvas.height/2);
             
             const texture = new THREE.CanvasTexture(canvas);
-            sprite.material.map.dispose();
+            // Properly dispose of old texture to prevent memory leaks
+            if (sprite.material.map) sprite.material.map.dispose();
             sprite.material.map = texture;
             sprite.material.needsUpdate = true;
+        }
+    },
+    // Helper to update text sprite content (name changes)
+    updateTextSprite(index) {
+        if (this.animations[index] && this.colors[index]) {
+            this.updateTextSpriteColor(index, this.formatColor(this.colors[index]));
+            
+            // Render the scene with updated text
+            if (this.renderer) {
+                this.renderer.render(this.scene, this.camera);
+            }
         }
     },
     handleDrop(event) {
@@ -4587,9 +4648,12 @@ const axiosInstance = axios.create();
             this.deleteTimelapseGroup(index);
         }
 
-        // Remove animation and color
+        // Remove from all arrays simultaneously to maintain sync
         this.animations.splice(index, 1);
         this.colors.splice(index, 1);
+        this.displayColors.splice(index, 1);
+        this.alphaValues.splice(index, 1);
+        this.rgbValues.splice(index, 1);
 
         // Update timelapse indices for remaining animations
         if (this.timelapseGroups) {
@@ -4616,52 +4680,10 @@ const axiosInstance = axios.create();
             });
         }
 
+        // Rebuild meshes and text sprites with correct indices
+        this.reindexSubjects();
+
         if (this.animations.length > 0) {
-            // Update remaining subjects if any
-            this.animations.forEach((animation, i) => {
-                // Update mesh references to use the new animation indices
-                Object.keys(this.meshes).forEach(key => {
-                    if (key.startsWith(`anim${i + 1}_`)) {
-                        // This key needs to be updated
-                        const updatedKey = `anim${i}_${key.split('_').slice(1).join('_')}`;
-                        this.meshes[updatedKey] = this.meshes[key];
-                        delete this.meshes[key];
-                    }
-                });
-
-                // Update mesh colors based on the new indices
-                Object.keys(this.meshes).forEach(key => {
-                    if (key.startsWith(`anim${i}_`)) {
-                        const mesh = this.meshes[key];
-                        mesh.traverse((child) => {
-                            if (child instanceof THREE.Mesh) {
-                                child.material.color = this.colors[i];
-                                child.material.needsUpdate = true;
-                            }
-                        });
-                    }
-                });
-
-                // Update text sprite color
-                const sprite = this.textSprites[`text_${i}`];
-                if (sprite) {
-                    const canvas = document.createElement('canvas');
-                    const context = canvas.getContext('2d');
-                    canvas.width = 256;
-                    canvas.height = 64;
-                    
-                    context.font = 'bold 40px Arial';
-                    context.textAlign = 'center';
-                    context.fillStyle = this.formatColor(this.colors[i]);
-                    context.fillText(animation.trialName, canvas.width/2, canvas.height/2);
-                    
-                    const texture = new THREE.CanvasTexture(canvas);
-                    if (sprite.material.map) sprite.material.map.dispose();
-                    sprite.material.map = texture;
-                    sprite.material.needsUpdate = true;
-                }
-            });
-
             this.frames = this.animations[0].data.time;
             if (this.animations.length > 1) {
                 this.syncAllAnimations();
@@ -4684,8 +4706,8 @@ const axiosInstance = axios.create();
                 this.scene.traverse((object) => {
                     // Skip lights and camera
                     if (object instanceof THREE.Light || object instanceof THREE.Camera || object === this.scene) {
-                return;
-            }
+                        return;
+                    }
                     objectsToRemove.push(object);
                 });
                 
@@ -4723,6 +4745,77 @@ const axiosInstance = axios.create();
         if (this.renderer) {
             this.renderer.render(this.scene, this.camera);
         }
+
+        // Save settings after deletion
+        this.saveSettings();
+    },
+    reindexSubjects() {
+        // Reindex all mesh keys and text sprites after subject deletion
+        const oldMeshes = { ...this.meshes };
+        const oldTextSprites = { ...this.textSprites };
+        
+        // Clear existing meshes and text sprites
+        this.meshes = {};
+        this.textSprites = {};
+        
+        // Reindex meshes
+        Object.keys(oldMeshes).forEach(key => {
+            const match = key.match(/^anim(\d+)_(.+)$/);
+            if (match) {
+                const oldIndex = parseInt(match[1]);
+                const meshName = match[2];
+                
+                // Find the new index for this mesh
+                let newIndex = -1;
+                for (let i = 0; i < this.animations.length; i++) {
+                    if (i >= oldIndex) {
+                        newIndex = i;
+                        break;
+                    }
+                }
+                
+                if (newIndex !== -1) {
+                    const newKey = `anim${newIndex}_${meshName}`;
+                    this.meshes[newKey] = oldMeshes[key];
+                    
+                    // Update mesh color to match current animation color
+                    const mesh = this.meshes[newKey];
+                    if (mesh && this.colors[newIndex]) {
+                        mesh.traverse((child) => {
+                            if (child instanceof THREE.Mesh) {
+                                child.material.color.copy(this.colors[newIndex]);
+                                child.material.needsUpdate = true;
+                            }
+                        });
+                    }
+                }
+            }
+        });
+        
+        // Reindex text sprites
+        Object.keys(oldTextSprites).forEach(key => {
+            const match = key.match(/^text_(\d+)$/);
+            if (match) {
+                const oldIndex = parseInt(match[1]);
+                
+                // Find the new index for this text sprite
+                let newIndex = -1;
+                for (let i = 0; i < this.animations.length; i++) {
+                    if (i >= oldIndex) {
+                        newIndex = i;
+                        break;
+                    }
+                }
+                
+                if (newIndex !== -1) {
+                    const newKey = `text_${newIndex}`;
+                    this.textSprites[newKey] = oldTextSprites[key];
+                    
+                    // Update text sprite content and color
+                    this.updateTextSpriteColor(newIndex, this.formatColor(this.colors[newIndex]));
+                }
+            }
+        });
     },
     loadSampleFiles(sampleSet = 'STS') { // Default to 'STS' if no set is provided
         console.log(`loadSampleFiles called for set: ${sampleSet}`);
@@ -4895,7 +4988,12 @@ const axiosInstance = axios.create();
         this.animations.forEach((animation, index) => {
             // Initialize the alpha value for each sample animation
             this.initializeAlphaValue(index);
-            
+        });
+        
+        // Ensure all color arrays are synchronized after initializing alpha values
+        this.ensureColorArraysSync();
+        
+        this.animations.forEach((animation, index) => {
             for (let body in animation.data.bodies) {
                 let bd = animation.data.bodies[body];
                 bd.attachedGeometries.forEach((geom) => {
