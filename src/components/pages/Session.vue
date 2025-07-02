@@ -73,11 +73,32 @@
           <div class="pa-4">
             <h2 class="text-h6 white--text mb-4">Files</h2>
             
+            <!-- Conversion Status Indicator -->
+            <div v-if="converting" class="conversion-status mb-4">
+              <v-card class="pa-3" color="rgba(79, 70, 229, 0.2)" outlined>
+                <div class="d-flex align-center">
+                  <v-progress-circular 
+                    indeterminate 
+                    color="indigo" 
+                    size="20" 
+                    width="2"
+                    class="mr-3"
+                  />
+                  <div>
+                    <div class="text-subtitle-2 white--text">Converting OpenSim Files</div>
+                    <div class="text-caption grey--text">Processing .osim and .mot files...</div>
+                  </div>
+                </div>
+              </v-card>
+            </div>
+            
             <!-- Add Import Button Here -->
             <v-btn color="#4B5563" class="mb-4 white--text custom-btn" block @click="openImportDialog" :disabled="converting">
               <v-icon left>mdi-import</v-icon>
               Import
             </v-btn>
+            
+
             
             <!-- Add Share Button Here -->
             <v-btn color="#2563EB" class="mb-4 white--text custom-btn" block @click="openShareDialog" :disabled="!trial || animations.length === 0">
@@ -462,6 +483,97 @@
                       @input="debouncedUpdateMarkerOffset('z', markerOffsetModels[markerIndex].z, markerIndex)"
                     ></v-text-field>
                   </div>
+                </div>
+                
+                <!-- Divider -->
+                <v-divider class="mt-4" style="opacity: 0.2"></v-divider>
+              </div>
+
+              <!-- Forces Visualization Section -->
+              <div v-if="forcesData" class="legend-item mb-4">
+                <div class="d-flex mb-2">
+                  <div class="color-box" :style="{ backgroundColor: forceColor }"></div>
+                  <div class="flex-grow-1 ml-2">
+                    <div class="text-subtitle-2">Ground Reaction Forces</div>
+                    <div class="file-name text-caption">{{ forcesFile ? forcesFile.name : 'Forces Data' }}</div>
+                    <div class="fps-info text-caption grey--text">
+                      Associated with {{ animations[forcesData.associatedAnimationIndex || 0]?.trialName || 'Subject ' + ((forcesData.associatedAnimationIndex || 0) + 1) }}
+                    </div>
+                    <div class="fps-info text-caption grey--text">
+                      {{ forceArrows.length }} Force Platforms
+                    </div>
+                  </div>
+                </div>
+
+                <div class="mt-3 d-flex align-center ml-8">
+                  <v-btn icon small class="mr-2" @click="showForces = !showForces">
+                    <v-icon small :color="showForces ? 'white' : 'grey'">
+                      {{ showForces ? 'mdi-eye' : 'mdi-eye-off' }}
+                    </v-icon>
+                  </v-btn>
+                  
+                  <v-menu offset-y :close-on-content-click="false">
+                    <template v-slot:activator="{ on, attrs }">
+                      <v-btn icon small v-bind="attrs" v-on="on" class="mr-2">
+                        <v-icon small>mdi-palette</v-icon>
+                      </v-btn>
+                    </template>
+                    <v-card class="color-picker pa-2">
+                      <div class="d-flex align-center">
+                        <v-color-picker
+                          v-model="forceDisplayColor"
+                          :modes="['hex', 'rgba']"
+                          show-swatches
+                          :swatches="Array.isArray(availableColors) ? availableColors : []"
+                          @input="updateForceColor"
+                          class="flex-grow-1"
+                        ></v-color-picker>
+                        <v-btn icon small @click="openEyeDropper('force')" title="Pick color from screen" class="ml-2">
+                          <v-icon>mdi-eyedropper-variant</v-icon>
+                        </v-btn>
+                      </div>
+                    </v-card>
+                  </v-menu>
+                  
+                  <v-menu offset-y :close-on-content-click="false">
+                    <template v-slot:activator="{ on, attrs }">
+                      <v-btn icon small v-bind="attrs" v-on="on" class="mr-2">
+                        <v-icon small>mdi-arrow-expand-all</v-icon>
+                      </v-btn>
+                    </template>
+                    <v-card class="scale-picker pa-3" width="250">
+                      <div class="text-subtitle-2 mb-2">
+                        Arrow Scale
+                        <span class="text-caption ml-2">
+                          ({{ forceScale }})
+                        </span>
+                      </div>
+                      <v-slider 
+                        v-model="forceScale"
+                        :min="0.001" 
+                        :max="0.005" 
+                        step="0.001" 
+                        hide-details 
+                        :thumb-label="true"
+                        thumb-size="24"
+                        @input="updateForceScale"
+                      >
+                        <template v-slot:thumb-label="{ value }">
+                          {{ (value * 1000).toFixed(0) }}
+                        </template>
+                        <template v-slot:prepend>
+                          <div class="text-caption grey--text">Small</div>
+                        </template>
+                        <template v-slot:append>
+                          <div class="text-caption grey--text">Large</div>
+                        </template>
+                      </v-slider>
+                    </v-card>
+                  </v-menu>
+                  
+                  <v-btn icon small class="mr-2" @click="clearForceArrows">
+                    <v-icon small color="error">mdi-delete</v-icon>
+                  </v-btn>
                 </div>
                 
                 <!-- Divider -->
@@ -1044,15 +1156,13 @@
 
         <!-- File controls -->
         <div class="file-controls mb-4 position-relative">
-          <!-- Show loading overlay when converting -->
-          <div v-if="converting" class="conversion-overlay-small">
-            <v-progress-circular indeterminate color="indigo" size="24" width="3" />
-            <div class="ml-2">Converting files...</div>
-          </div>
-          
           <!-- Make controls slightly transparent when loading -->
           <div :class="{ 'opacity-reduced': converting }">
-            <!-- Removed Import button from here -->
+            <!-- Add Share Button Here -->
+            <v-btn color="#2563EB" class="mb-4 white--text custom-btn" block @click="openShareDialog" :disabled="!trial || animations.length === 0">
+              <v-icon left>mdi-share-variant</v-icon>
+              Share Visualization
+            </v-btn>
             
             <!-- Keep all the file inputs but hide them -->
             <input type="file" ref="fileInput" accept=".json,.trc" style="display: none" @change="handleFileUpload" multiple />
@@ -1066,6 +1176,13 @@
               style="display: none" 
               @change="handleModelFileSelect" 
             />
+            <input 
+              type="file" 
+              ref="forcesFileInput" 
+              accept=".mot" 
+              style="display: none" 
+              @change="handleForcesFileSelectFromImport" 
+            />
           </div>
         </div>
 
@@ -1076,6 +1193,34 @@
             <v-card-title class="headline">Import Files </v-card-title>
             <v-card-text>
               <div class="import-grid">
+                <!-- OpenSim -->
+                <div class="import-item" @click="selectFileType('osimMotFileInput')">
+                  <v-icon size="32">mdi-file-document-outline</v-icon>
+                  <div class="import-item-title">OpenSim</div>
+                  <div class="import-item-subtitle">.mot + .osim</div>
+                </div>
+                
+                <!-- Forces -->
+                <div class="import-item" @click="openForcesDialogFromImport">
+                  <v-icon size="32">mdi-vector-line</v-icon>
+                  <div class="import-item-title">Forces</div>
+                  <div class="import-item-subtitle">.mot format</div>
+                </div>
+                
+                <!-- Markers -->
+                <div class="import-item" @click="selectFileType('trcFileInput')">
+                  <v-icon size="32">mdi-vector-point</v-icon>
+                  <div class="import-item-title">Markers</div>
+                  <div class="import-item-subtitle">.trc format</div>
+                </div>
+                
+                <!-- JSON Files -->
+                <div class="import-item" @click="selectFileType('fileInput')">
+                  <v-icon size="32">mdi-file</v-icon>
+                  <div class="import-item-title">JSON Files</div>
+                  <div class="import-item-subtitle">OpenCap Format</div>
+                </div>
+                
                 <!-- Video -->
                 <div class="import-item" @click="selectFileType('videoFileInput')">
                   <v-icon size="32">mdi-play-circle-outline</v-icon>
@@ -1089,40 +1234,120 @@
                   <div class="import-item-title">3D Model</div>
                   <div class="import-item-subtitle">GLTF, STL, FBX, OBJ</div>
                 </div>
-                
-                <!-- Sound (placeholder for future) -->
-                <div class="import-item disabled">
-                  <v-icon size="32">mdi-volume-high</v-icon>
-                  <div class="import-item-title">Sound</div>
-                  <div class="import-item-subtitle">MP3, WAV</div>
-                </div>
-                
-                <!-- JSON Files -->
-                <div class="import-item" @click="selectFileType('fileInput')">
-                  <v-icon size="32">mdi-file</v-icon>
-                  <div class="import-item-title">JSON Files</div>
-                  <div class="import-item-subtitle">OpenCap Format</div>
-                </div>
-                
-                <!-- Markers -->
-                <div class="import-item" @click="selectFileType('trcFileInput')">
-                  <v-icon size="32">mdi-vector-point</v-icon>
-                  <div class="import-item-title">Markers</div>
-                  <div class="import-item-subtitle">.trc format</div>
-                </div>
-                
-                <!-- OpenSim -->
-                <div class="import-item" @click="selectFileType('osimMotFileInput')">
-                  <v-icon size="32">mdi-file-document-outline</v-icon>
-                  <div class="import-item-title">OpenSim</div>
-                  <div class="import-item-subtitle">.mot + .osim</div>
-                </div>
               </div>
        
             </v-card-text>
             <v-card-actions>
               <v-spacer></v-spacer>
               <v-btn text @click="showImportDialog = false">Cancel</v-btn>
+            </v-card-actions>
+          </v-card>
+        </v-dialog>
+
+        <!-- Add Forces Dialog -->
+        <v-dialog v-model="showForcesDialog" max-width="500" content-class="forces-dialog">
+          <v-card class="forces-dialog-card">
+            <v-card-title class="headline">Import Ground Reaction Forces</v-card-title>
+            <v-card-text>
+              <div class="text-body-1 mb-4">
+                Select a .mot forces file to visualize ground reaction forces at the subject's feet. 
+                Forces will be automatically positioned at the foot segments of the selected animation.
+              </div>
+              
+              <v-alert v-if="animations.length === 0" type="warning" text dense class="mb-4">
+                Please load an animation first before importing forces.
+              </v-alert>
+              
+              <div v-if="animations.length > 0" class="mb-4">
+                <v-select
+                  v-model="selectedAnimationForForces"
+                  :items="animationOptions"
+                  item-text="text"
+                  item-value="value"
+                  label="Associate with Animation"
+                  outlined
+                  dense
+                ></v-select>
+              </div>
+              
+              <v-file-input
+                v-model="forcesFile"
+                label="Forces File (.mot)"
+                accept=".mot"
+                prepend-icon="mdi-vector-line"
+                outlined
+                show-size
+                clearable
+                :disabled="animations.length === 0"
+                @change="handleForcesFileSelect"
+              ></v-file-input>
+
+              <div v-if="forcesFile" class="mt-4">
+                <div class="text-subtitle-2 mb-2">Force Visualization Settings</div>
+                
+                <v-row>
+                  <v-col cols="6">
+                    <v-text-field
+                      v-model.number="forceScale"
+                      label="Force Scale"
+                      type="number"
+                      step="0.001"
+                      min="0.001"
+                      max="0.01"
+                      dense
+                      outlined
+                    ></v-text-field>
+                  </v-col>
+                  <v-col cols="6">
+                    <div class="text-subtitle-2 mb-2">Arrow Color</div>
+                    <v-menu offset-y :close-on-content-click="false">
+                      <template v-slot:activator="{ on, attrs }">
+                        <v-btn v-bind="attrs" v-on="on" class="color-preview" :style="{ backgroundColor: forceColor }" block outlined>
+                          <v-icon left>mdi-palette</v-icon>
+                          Color
+                        </v-btn>
+                      </template>
+                      <v-card class="color-picker pa-2">
+                        <div class="d-flex align-center">
+                          <v-color-picker
+                            v-model="forceDisplayColor"
+                            :modes="['hex', 'rgba']"
+                            show-swatches
+                            :swatches="Array.isArray(availableColors) ? availableColors : []"
+                            @input="updateForceColor"
+                            class="flex-grow-1"
+                          ></v-color-picker>
+                          <v-btn icon small @click="openEyeDropper('force')" title="Pick color from screen" class="ml-2">
+                            <v-icon>mdi-eyedropper-variant</v-icon>
+                          </v-btn>
+                        </div>
+                      </v-card>
+                    </v-menu>
+                  </v-col>
+                </v-row>
+
+                <v-switch
+                  v-model="showForces"
+                  label="Show Forces"
+                  color="success"
+                ></v-switch>
+              </div>
+            </v-card-text>
+            
+            <v-card-actions>
+              <v-spacer></v-spacer>
+              <v-btn color="grey darken-1" text @click="closeForcesDialog">
+                Cancel
+              </v-btn>
+              <v-btn 
+                color="success" 
+                text 
+                @click="loadForcesFile" 
+                :disabled="!forcesFile || loadingForces"
+                :loading="loadingForces"
+              >
+                Load Forces
+              </v-btn>
             </v-card-actions>
           </v-card>
         </v-dialog>
@@ -1923,7 +2148,18 @@ const axiosInstance = axios.create();
               // Debounce timers for offset updates
               offsetUpdateTimers: {},
               markerOffsetUpdateTimers: {},
-              objectUpdateTimers: {}
+              objectUpdateTimers: {},
+              // Forces visualization properties
+              showForcesDialog: false,
+              forcesFile: null,
+              forcesData: null,
+              forceArrows: [], // Array to store force arrow objects
+              showForces: true,
+              forceScale: 0.001, // Scale factor for force arrows
+              forceColor: '#00ff00', // Green color for force arrows
+              forceDisplayColor: '#00ff00', // For v-color-picker display
+              loadingForces: false,
+              selectedAnimationForForces: 0
           }
       },
               computed: {
@@ -1944,6 +2180,13 @@ const axiosInstance = axios.create();
               z: markerSet?.offset?.z ?? this.markerOffset.z ?? 0
             };
           });
+        },
+        animationOptions() {
+          // Create options for animation selection in forces dialog
+          return this.animations.map((animation, index) => ({
+            text: animation.trialName || animation.fileName || `Animation ${index + 1}`,
+            value: index
+          }));
         }
       },
     async   mounted() {
@@ -2068,6 +2311,9 @@ const axiosInstance = axios.create();
 
       // Remove keyboard event listener
       window.removeEventListener('keydown', this.handleKeyDown);
+      
+      // Clean up force arrows
+      this.clearForceArrows();
     },
     watch: {
       trial() {
@@ -2159,9 +2405,440 @@ const axiosInstance = axios.create();
           });
         },
         deep: true
+      },
+      showForces: {
+        handler(newVal) {
+          // Toggle force arrow visibility
+          this.forceArrows.forEach(platformGroup => {
+            platformGroup.visible = newVal;
+          });
+          
+          // Re-render the scene
+          if (this.renderer && this.scene && this.camera) {
+            this.renderer.render(this.scene, this.camera);
+          }
+        }
       }
     },
     methods: {
+    // Forces visualization methods
+    openForcesDialog() {
+      this.showForcesDialog = true;
+    },
+    
+    openForcesDialogFromImport() {
+      this.showImportDialog = false;
+      // Trigger the hidden file input for forces files
+      this.$refs.forcesFileInput.click();
+    },
+    
+    handleForcesFileSelectFromImport(event) {
+      const file = event.target.files[0];
+      if (file) {
+        this.forcesFile = file;
+        // Open the forces dialog with the selected file
+        this.showForcesDialog = true;
+      }
+      // Clear the input value so the same file can be selected again if needed
+      event.target.value = '';
+    },
+    
+    closeForcesDialog() {
+      this.showForcesDialog = false;
+      this.forcesFile = null;
+    },
+    
+    handleForcesFileSelect(file) {
+      this.forcesFile = file;
+    },
+    
+    async loadForcesFile() {
+      if (!this.forcesFile) return;
+      
+      this.loadingForces = true;
+      try {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          this.parseForcesData(e.target.result);
+          this.showForcesDialog = false;
+          this.$toasted.success('Forces file loaded successfully!');
+        };
+        reader.readAsText(this.forcesFile);
+      } catch (error) {
+        console.error('Error loading forces file:', error);
+        this.$toasted.error('Error loading forces file');
+      } finally {
+        this.loadingForces = false;
+      }
+    },
+    
+    parseForcesData(content) {
+      console.log('Parsing forces data...');
+      const lines = content.split('\n');
+      let headerEnded = false;
+      let columnHeaders = [];
+      const timeData = [];
+      const forceData = {};
+      
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        
+        if (line === 'endheader') {
+          headerEnded = true;
+          continue;
+        }
+        
+        if (!headerEnded) continue;
+        
+        if (columnHeaders.length === 0) {
+          // This is the column headers line
+          columnHeaders = line.split(/\s+/);
+          
+          // Initialize force data arrays for each column
+          columnHeaders.forEach(header => {
+            if (header !== 'time') {
+              forceData[header] = [];
+            }
+          });
+          continue;
+        }
+        
+        // Parse data lines
+        if (line.length > 0) {
+          const values = line.split(/\s+/).map(val => parseFloat(val));
+          if (values.length === columnHeaders.length) {
+            timeData.push(values[0]); // First column is time
+            
+            // Store force data for each column
+            for (let j = 1; j < columnHeaders.length; j++) {
+              forceData[columnHeaders[j]].push(values[j]);
+            }
+          }
+        }
+      }
+      
+      this.forcesData = {
+        time: timeData,
+        columns: columnHeaders,
+        data: forceData,
+        associatedAnimationIndex: this.selectedAnimationForForces
+      };
+      
+      console.log('Forces data parsed:', this.forcesData);
+      this.createForceArrows();
+    },
+    
+    createArrowHeadGeometry() {
+      // Create a traditional arrow head using CylinderGeometry
+      // This creates a pointed arrow head that tapers to a point
+      const arrowHead = new THREE.CylinderGeometry(
+        0,        // radiusTop (pointed tip)
+        0.02,     // radiusBottom (base width)
+        0.1,      // height 
+        8,        // radialSegments
+        1,        // heightSegments
+        false     // openEnded
+      );
+      
+      // Don't rotate the geometry here - keep it aligned with Y-axis like the shaft
+      // The rotation will be applied to the mesh during updates
+      
+      return arrowHead;
+    },
+    
+    createForceArrows() {
+      if (!this.forcesData || !this.scene || this.animations.length === 0) return;
+      
+      this.clearForceArrows();
+      
+      // Create traditional arrow head geometry and material
+      const arrowGeometry = this.createArrowHeadGeometry();
+      const arrowMaterial = new THREE.MeshPhongMaterial({
+        color: new THREE.Color(this.forceColor),
+        transparent: true,
+        opacity: 0.9
+      });
+      
+      // Create line geometry for arrow shaft using cylinder for better appearance
+      const shaftGeometry = new THREE.CylinderGeometry(0.004, 0.004, 1, 8);
+      const shaftMaterial = new THREE.MeshPhongMaterial({
+        color: new THREE.Color(this.forceColor),
+        transparent: true,
+        opacity: 0.9
+      });
+      
+      // Map force platforms with both force vectors and center of pressure
+      const forceToFootMapping = [
+        { 
+          platform: 'R', 
+          footSegment: 'calcn_r',
+          forceColumns: ['R_ground_force_vx', 'R_ground_force_vy', 'R_ground_force_vz'],
+          copColumns: ['R_ground_force_px', 'R_ground_force_py', 'R_ground_force_pz']
+        },
+        { 
+          platform: 'L', 
+          footSegment: 'calcn_l',
+          forceColumns: ['L_ground_force_vx', 'L_ground_force_vy', 'L_ground_force_vz'],
+          copColumns: ['L_ground_force_px', 'L_ground_force_py', 'L_ground_force_pz']
+        }
+      ];
+      
+      // Use the selected animation for forces
+      const animationIndex = this.forcesData.associatedAnimationIndex || 0;
+      const targetAnimation = this.animations[animationIndex];
+      
+      if (!targetAnimation) {
+        console.warn('Selected animation not found for force visualization');
+        return;
+      }
+      
+      // Check if the selected animation has required foot segments
+      const hasRequiredSegments = forceToFootMapping.some(mapping => 
+        targetAnimation.data.bodies[mapping.footSegment]
+      );
+      
+      if (!hasRequiredSegments) {
+        console.warn('Selected animation does not have required foot segments for force visualization');
+        return;
+      }
+      
+      forceToFootMapping.forEach(mapping => {
+        if (!targetAnimation.data.bodies[mapping.footSegment]) return;
+        
+        // Check if force columns exist in the data
+        const hasForceData = mapping.forceColumns.some(col => this.forcesData.data[col]);
+        if (!hasForceData) return;
+        
+        // Create force arrow group for this foot
+        const footForceGroup = new THREE.Group();
+        footForceGroup.name = `forces_${mapping.platform}`;
+        footForceGroup.userData = {
+          platform: mapping.platform,
+          footSegment: mapping.footSegment,
+          animationIndex: animationIndex
+        };
+        
+        // Create single combined force arrow (resultant force vector)
+        const arrowGroup = new THREE.Group();
+        
+        // Create arrow head
+        const arrowHead = new THREE.Mesh(arrowGeometry, arrowMaterial.clone());
+        arrowGroup.add(arrowHead);
+        
+        // Create arrow shaft (cylinder)
+        const shaft = new THREE.Mesh(shaftGeometry.clone(), shaftMaterial.clone());
+        arrowGroup.add(shaft);
+        
+        arrowGroup.name = `force_${mapping.platform}_resultant`;
+        arrowGroup.userData = {
+          platform: mapping.platform,
+          forceColumns: mapping.forceColumns,
+          copColumns: mapping.copColumns
+        };
+        
+        footForceGroup.add(arrowGroup);
+        this.scene.add(footForceGroup);
+        this.forceArrows.push(footForceGroup);
+      });
+      
+      console.log(`Force arrows created: ${this.forceArrows.length} foot segments`);
+    },
+    
+    updateForceArrows(frameIndex) {
+      if (!this.forcesData || !this.showForces || this.forceArrows.length === 0) return;
+      
+      const animationIndex = this.forcesData.associatedAnimationIndex || 0;
+      const animation = this.animations[animationIndex];
+      if (!animation) return;
+      
+      // Find the closest time index in forces data
+      const currentTime = this.frames[frameIndex];
+      let forceFrameIndex = 0;
+      
+      for (let i = 0; i < this.forcesData.time.length; i++) {
+        if (Math.abs(this.forcesData.time[i] - currentTime) < Math.abs(this.forcesData.time[forceFrameIndex] - currentTime)) {
+          forceFrameIndex = i;
+        }
+      }
+      
+      this.forceArrows.forEach(footForceGroup => {
+        const groupData = footForceGroup.userData;
+        if (!groupData) return;
+        
+        // Get COP position from the first child arrow (they should all have the same COP)
+        const firstArrow = footForceGroup.children[0];
+        if (!firstArrow || !firstArrow.userData || !firstArrow.userData.copColumns) return;
+        
+        const copColumns = firstArrow.userData.copColumns;
+        
+        // Get COP position from forces data
+        let copPosition = new THREE.Vector3(0, 0, 0);
+        let hasCopData = false;
+        
+        if (copColumns.length >= 3) {
+          const copX = this.forcesData.data[copColumns[0]] ? 
+                      this.forcesData.data[copColumns[0]][forceFrameIndex] || 0 : 0;
+          const copY = this.forcesData.data[copColumns[1]] ? 
+                      this.forcesData.data[copColumns[1]][forceFrameIndex] || 0 : 0;
+          const copZ = this.forcesData.data[copColumns[2]] ? 
+                      this.forcesData.data[copColumns[2]][forceFrameIndex] || 0 : 0;
+          
+          // Only use COP if at least one coordinate is non-zero
+          if (copX !== 0 || copY !== 0 || copZ !== 0) {
+            copPosition.set(copX, copY, copZ);
+            hasCopData = true;
+          }
+        }
+        
+        // Fallback to foot position if no COP data available
+        if (!hasCopData && groupData.footSegment) {
+          const footBody = animation.data.bodies[groupData.footSegment];
+          if (footBody && footBody.translation[frameIndex]) {
+            copPosition.set(
+              footBody.translation[frameIndex][0],
+              footBody.translation[frameIndex][1],
+              footBody.translation[frameIndex][2]
+            );
+          }
+        }
+        
+        // Apply animation offset
+        copPosition.add(animation.offset);
+        footForceGroup.position.copy(copPosition);
+        
+        // Update each force arrow in the group
+        footForceGroup.children.forEach(arrowGroup => {
+          const arrowData = arrowGroup.userData;
+          if (!arrowData || !arrowData.forceColumns) return;
+          
+          // Calculate resultant force vector
+          const forceVector = new THREE.Vector3(0, 0, 0);
+          const forceColumns = arrowData.forceColumns;
+          
+          if (forceColumns.length >= 3) {
+            const fx = this.forcesData.data[forceColumns[0]] ? 
+                     this.forcesData.data[forceColumns[0]][forceFrameIndex] || 0 : 0;
+            const fy = this.forcesData.data[forceColumns[1]] ? 
+                     this.forcesData.data[forceColumns[1]][forceFrameIndex] || 0 : 0;
+            const fz = this.forcesData.data[forceColumns[2]] ? 
+                     this.forcesData.data[forceColumns[2]][forceFrameIndex] || 0 : 0;
+            
+            forceVector.set(fx, fy, fz);
+          }
+          
+          // Calculate original force magnitude before scaling
+          const originalMagnitude = forceVector.length();
+          
+          // Update arrow visibility based on original force magnitude
+          arrowGroup.visible = originalMagnitude > 1.0; // Show if force > 1N
+          
+          if (arrowGroup.visible) {
+            // Scale the force vector for display
+            forceVector.multiplyScalar(this.forceScale);
+            const scaledLength = forceVector.length();
+            
+            // Update shaft (cylinder) and arrow head
+            const arrowHead = arrowGroup.children[0]; // Arrow head is first child
+            const shaft = arrowGroup.children[1]; // Shaft is second child
+            
+            if (shaft && arrowHead && scaledLength > 0) {
+              const direction = forceVector.clone().normalize();
+              
+              // Reset transformations
+              shaft.position.set(0, 0, 0);
+              shaft.rotation.set(0, 0, 0);
+              shaft.scale.set(1, 1, 1);
+              arrowHead.position.set(0, 0, 0);
+              arrowHead.rotation.set(0, 0, 0);
+              
+              // Position shaft center at half the force vector length
+              shaft.position.copy(forceVector.clone().multiplyScalar(0.5));
+              
+              // Scale shaft to match force vector length
+              shaft.scale.set(1, scaledLength, 1);
+              
+              // Create rotation matrix to align cylinder (which points up by default) with force direction
+              const up = new THREE.Vector3(0, 1, 0);
+              const quaternion = new THREE.Quaternion();
+              quaternion.setFromUnitVectors(up, direction);
+              shaft.setRotationFromQuaternion(quaternion);
+              
+              // Position arrow head at the tip of the force vector
+              arrowHead.position.copy(forceVector);
+              
+              // Rotate arrow head to point in force direction
+              arrowHead.setRotationFromQuaternion(quaternion);
+            }
+          }
+        });
+      });
+    },
+    
+    clearForceArrows() {
+      this.forceArrows.forEach(arrowGroup => {
+        if (this.scene) {
+          this.scene.remove(arrowGroup);
+        }
+        
+        // Dispose of geometries and materials
+        arrowGroup.traverse((child) => {
+          if (child.geometry) child.geometry.dispose();
+          if (child.material) {
+            if (Array.isArray(child.material)) {
+              child.material.forEach(mat => mat.dispose());
+            } else {
+              child.material.dispose();
+            }
+          }
+        });
+      });
+      this.forceArrows = [];
+    },
+    
+    updateForceColor(colorValue) {
+      // Handle v-color-picker input format
+      if (colorValue && typeof colorValue === 'object') {
+        if (colorValue.hex) {
+          this.forceColor = '#' + colorValue.hex;
+          this.forceDisplayColor = '#' + colorValue.hex;
+        }
+      } else if (typeof colorValue === 'string') {
+        this.forceColor = colorValue;
+        this.forceDisplayColor = colorValue;
+      }
+      
+      // Create THREE.Color object for proper color handling
+      const threejsColor = new THREE.Color(this.forceColor);
+      
+      // Update arrow colors
+      this.forceArrows.forEach(platformGroup => {
+        platformGroup.children.forEach(arrowGroup => {
+          arrowGroup.children.forEach(child => {
+            if (child.material) {
+              child.material.color.copy(threejsColor);
+              child.material.needsUpdate = true;
+            }
+          });
+        });
+      });
+      
+      // Re-render the scene
+      if (this.renderer && this.scene && this.camera) {
+        this.renderer.render(this.scene, this.camera);
+      }
+    },
+    
+    updateForceScale() {
+      // Re-create force arrows with new scale
+      if (this.forcesData) {
+        this.createForceArrows();
+        // Update for current frame
+        if (this.frames && this.frame < this.frames.length) {
+          this.updateForceArrows(this.frame);
+        }
+      }
+    },
+    
     toggleCameraControls() {
       this.showCameraControls = !this.showCameraControls;
       console.log('Toggled camera controls visibility:', this.showCameraControls);
@@ -3314,6 +3991,11 @@ const axiosInstance = axios.create();
           if (this.markerSets.length > 0 && this.showMarkers && this.markersPlayable) {
             this.updateMarkerPositions(cframe);
           }
+          
+          // Update force arrows
+          if (this.forcesData && this.showForces) {
+            this.updateForceArrows(cframe);
+          }
         } else {
             // If frame is out of bounds, still render the scene
             this.renderer.render(this.scene, this.camera);
@@ -4277,6 +4959,10 @@ const axiosInstance = axios.create();
               this.$set(obj, 'color', selectedColorHex);
               this.updateObjectColor(index, selectedColorHex);
           }
+        } else if (target === 'force') {
+          this.forceColor = selectedColorHex;
+          this.forceDisplayColor = selectedColorHex;
+          this.updateForceColor(selectedColorHex);
         }
         this.saveSettings(); // Save settings after color change
         
@@ -8967,6 +9653,83 @@ const axiosInstance = axios.create();
   transform: translateX(-50%);
   z-index: 1000;
   pointer-events: auto;
+}
+
+/* Beautiful Loading UI */
+.conversion-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: linear-gradient(135deg, 
+    rgba(15, 23, 42, 0.95) 0%, 
+    rgba(30, 41, 59, 0.95) 50%, 
+    rgba(51, 65, 85, 0.95) 100%);
+  backdrop-filter: blur(8px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  color: white;
+  text-align: center;
+  padding: 40px;
+}
+
+.conversion-overlay .v-progress-circular {
+  margin-bottom: 32px;
+  filter: drop-shadow(0 4px 8px rgba(79, 70, 229, 0.4));
+}
+
+.conversion-overlay .text-h6 {
+  font-size: 1.75rem !important;
+  font-weight: 600 !important;
+  line-height: 1.4 !important;
+  margin-bottom: 16px;
+  background: linear-gradient(45deg, #e2e8f0, #cbd5e1);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.conversion-overlay .text-subtitle-1 {
+  font-size: 1.1rem !important;
+  font-weight: 400 !important;
+  color: rgba(255, 255, 255, 0.8) !important;
+  max-width: 500px;
+  margin: 0 auto;
+  line-height: 1.6;
+  opacity: 0.9;
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    filter: drop-shadow(0 4px 8px rgba(79, 70, 229, 0.4));
+  }
+  50% {
+    filter: drop-shadow(0 6px 16px rgba(79, 70, 229, 0.6));
+  }
+}
+
+.conversion-overlay .v-progress-circular {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .conversion-overlay {
+    padding: 20px;
+  }
+  
+  .conversion-overlay .text-h6 {
+    font-size: 1.5rem !important;
+  }
+  
+  .conversion-overlay .text-subtitle-1 {
+    font-size: 1rem !important;
+  }
 }
 
 /* ... rest of existing styles ... */
