@@ -231,10 +231,10 @@
                     <div class="text-caption grey--text mr-2" style="width: 12px;">X</div>
                     <v-text-field 
                       type="number" 
-                      :step="0.5" 
-                      :value="animation.offset.x" 
+                      :step="0.1" 
+                      v-model.number="animation.offset.x"
                       dense 
-                      @input="updateOffset(index, 'x', $event)" 
+                      @input="debouncedUpdateOffset(index, 'x', animation.offset.x)"
                       style="width: 70px"
                       class="grey--text text--darken-1"
                       hide-details
@@ -242,10 +242,10 @@
                     <div class="text-caption grey--text mx-2" style="width: 12px;">Y</div>
                     <v-text-field 
                       type="number" 
-                      :step="0.5" 
-                      :value="animation.offset.y" 
+                      :step="0.1" 
+                      v-model.number="animation.offset.y"
                       dense 
-                      @input="updateOffset(index, 'y', $event)" 
+                      @input="debouncedUpdateOffset(index, 'y', animation.offset.y)"
                       style="width: 70px"
                       class="grey--text text--darken-1"
                       hide-details
@@ -253,10 +253,10 @@
                     <div class="text-caption grey--text mx-2" style="width: 12px;">Z</div>
                     <v-text-field 
                       type="number" 
-                      :step="0.5" 
-                      :value="animation.offset.z" 
+                      :step="0.1" 
+                      v-model.number="animation.offset.z"
                       dense 
-                      @input="updateOffset(index, 'z', $event)" 
+                      @input="debouncedUpdateOffset(index, 'z', animation.offset.z)"
                       style="width: 70px"
                       class="grey--text text--darken-1"
                       hide-details
@@ -434,10 +434,10 @@
                       hide-details
                       type="number"
                       step="0.1"
-                      :value="markerSets[markerIndex]?.offset?.x ?? markerOffset.x"
+                      v-model.number="markerOffsetModels[markerIndex].x"
                       style="width: 70px"
                       class="grey--text text--darken-1"
-                      @input="updateMarkerOffset('x', $event, markerIndex)"
+                      @input="debouncedUpdateMarkerOffset('x', markerOffsetModels[markerIndex].x, markerIndex)"
                     ></v-text-field>
                     <div class="text-caption grey--text mx-2" style="width: 12px;">Y</div>
                     <v-text-field
@@ -445,10 +445,10 @@
                       hide-details
                       type="number"
                       step="0.1"
-                      :value="markerSets[markerIndex]?.offset?.y ?? markerOffset.y"
+                      v-model.number="markerOffsetModels[markerIndex].y"
                       style="width: 70px"
                       class="grey--text text--darken-1"
-                      @input="updateMarkerOffset('y', $event, markerIndex)"
+                      @input="debouncedUpdateMarkerOffset('y', markerOffsetModels[markerIndex].y, markerIndex)"
                     ></v-text-field>
                     <div class="text-caption grey--text mx-2" style="width: 12px;">Z</div>
                     <v-text-field
@@ -456,10 +456,10 @@
                       hide-details
                       type="number"
                       step="0.1"
-                      :value="markerSets[markerIndex]?.offset?.z ?? markerOffset.z"
+                      v-model.number="markerOffsetModels[markerIndex].z"
                       style="width: 70px"
                       class="grey--text text--darken-1"
-                      @input="updateMarkerOffset('z', $event, markerIndex)"
+                      @input="debouncedUpdateMarkerOffset('z', markerOffsetModels[markerIndex].z, markerIndex)"
                     ></v-text-field>
                   </div>
                 </div>
@@ -570,10 +570,10 @@
                       <div class="text-caption grey--text mr-2" style="width: 12px;">X</div>
                       <v-text-field 
                         type="number" 
-                        :step="0.5" 
-                        :value="obj.position.x" 
+                        :step="0.1" 
+                        v-model.number="obj.position.x"
                         dense 
-                        @input="updateObjectPosition(obj.id, 'x', $event)" 
+                        @input="debouncedUpdateObjectPosition(obj.id, 'x', obj.position.x)" 
                         style="width: 70px"
                         class="grey--text text--darken-1"
                         hide-details
@@ -581,10 +581,10 @@
                       <div class="text-caption grey--text mx-2" style="width: 12px;">Y</div>
                       <v-text-field 
                         type="number" 
-                        :step="0.5" 
-                        :value="obj.position.y" 
+                        :step="0.1" 
+                        v-model.number="obj.position.y"
                         dense 
-                        @input="updateObjectPosition(obj.id, 'y', $event)" 
+                        @input="debouncedUpdateObjectPosition(obj.id, 'y', obj.position.y)" 
                         style="width: 70px"
                         class="grey--text text--darken-1"
                         hide-details
@@ -592,10 +592,10 @@
                       <div class="text-caption grey--text mx-2" style="width: 12px;">Z</div>
                       <v-text-field 
                         type="number" 
-                        :step="0.5" 
-                        :value="obj.position.z" 
+                        :step="0.1" 
+                        v-model.number="obj.position.z"
                         dense 
-                        @input="updateObjectPosition(obj.id, 'z', $event)" 
+                        @input="debouncedUpdateObjectPosition(obj.id, 'z', obj.position.z)" 
                         style="width: 70px"
                         class="grey--text text--darken-1"
                         hide-details
@@ -613,7 +613,7 @@
                         :step="5" 
                         :value="obj.rotation ? obj.rotation.x : 0" 
                         dense 
-                        @input="updateObjectRotation(obj.id, 'x', $event)" 
+                        @input="debouncedUpdateObjectRotation(obj.id, 'x', $event)" 
                         style="width: 70px"
                         class="grey--text text--darken-1"
                         hide-details
@@ -624,7 +624,7 @@
                         :step="5" 
                         :value="obj.rotation ? obj.rotation.y : 0" 
                         dense 
-                        @input="updateObjectRotation(obj.id, 'y', $event)" 
+                        @input="debouncedUpdateObjectRotation(obj.id, 'y', $event)" 
                         style="width: 70px"
                         class="grey--text text--darken-1"
                         hide-details
@@ -635,7 +635,7 @@
                         :step="5" 
                         :value="obj.rotation ? obj.rotation.z : 0" 
                         dense 
-                        @input="updateObjectRotation(obj.id, 'z', $event)" 
+                        @input="debouncedUpdateObjectRotation(obj.id, 'z', $event)" 
                         style="width: 70px"
                         class="grey--text text--darken-1"
                         hide-details
@@ -652,7 +652,7 @@
                       :min="0.1"
                       :value="obj.scale" 
                       dense 
-                      @input="updateObjectScale(obj.id, $event)" 
+                      @input="debouncedUpdateObjectScale(obj.id, $event)" 
                       style="width: 70px"
                       class="grey--text text--darken-1"
                       hide-details
@@ -1919,16 +1919,31 @@ const axiosInstance = axios.create();
                   includeCurrentFrame: false
               },
               generatingShareUrl: false,
-              loadingInitialShare: false
+              loadingInitialShare: false,
+              // Debounce timers for offset updates
+              offsetUpdateTimers: {},
+              markerOffsetUpdateTimers: {},
+              objectUpdateTimers: {}
           }
       },
-      computed: {
+              computed: {
         videoControlsDisabled() {
           return !this.trial || this.frames.length === 0
         },
         formattedTime() {
           // Round time to 2 decimal places for display
           return parseFloat(this.time).toFixed(2);
+        },
+        markerOffsetModels() {
+          // Create reactive models for marker offset inputs
+          return this.loadedMarkerFiles.map((markerFile, index) => {
+            const markerSet = this.markerSets[index];
+            return {
+              x: markerSet?.offset?.x ?? this.markerOffset.x ?? 0,
+              y: markerSet?.offset?.y ?? this.markerOffset.y ?? 0,
+              z: markerSet?.offset?.z ?? this.markerOffset.z ?? 0
+            };
+          });
         }
       },
     async   mounted() {
@@ -2025,6 +2040,11 @@ const axiosInstance = axios.create();
       
       // Remove global click handler
       document.removeEventListener('click', this.handleGlobalClick, true);
+      
+      // Clear all debounce timers
+      Object.values(this.offsetUpdateTimers).forEach(timer => clearTimeout(timer));
+      Object.values(this.markerOffsetUpdateTimers).forEach(timer => clearTimeout(timer));
+      Object.values(this.objectUpdateTimers).forEach(timer => clearTimeout(timer));
       
       // Clean up sprites
       Object.values(this.textSprites).forEach(sprite => {
@@ -3476,6 +3496,32 @@ const axiosInstance = axios.create();
             this.renderer.render(this.scene, this.camera);
             this.animateOneFrame();
         }
+    },
+    debouncedUpdateOffset(animationIndex, axis, value) {
+        // Clear any existing timer for this combination
+        const timerKey = `${animationIndex}_${axis}`;
+        if (this.offsetUpdateTimers[timerKey]) {
+            clearTimeout(this.offsetUpdateTimers[timerKey]);
+        }
+        
+        // Set a new timer to update after 150ms of no changes
+        this.offsetUpdateTimers[timerKey] = setTimeout(() => {
+            this.updateOffset(animationIndex, axis, value);
+            delete this.offsetUpdateTimers[timerKey];
+        }, 150);
+    },
+    debouncedUpdateMarkerOffset(axis, value, markerIndex) {
+        // Clear any existing timer for this combination
+        const timerKey = `${markerIndex}_${axis}`;
+        if (this.markerOffsetUpdateTimers[timerKey]) {
+            clearTimeout(this.markerOffsetUpdateTimers[timerKey]);
+        }
+        
+        // Set a new timer to update after 150ms of no changes
+        this.markerOffsetUpdateTimers[timerKey] = setTimeout(() => {
+            this.updateMarkerOffset(axis, value, markerIndex);
+            delete this.markerOffsetUpdateTimers[timerKey];
+        }, 150);
     },
     startRecording() {
       if (!this.renderer) return;
@@ -8003,7 +8049,46 @@ const axiosInstance = axios.create();
       obj.position[axis] = Number(value);
       obj.mesh.position[axis] = Number(value);
       
-          this.renderer.render(this.scene, this.camera);
+      this.renderer.render(this.scene, this.camera);
+    },
+    debouncedUpdateObjectPosition(id, axis, value) {
+      // Clear any existing timer for this combination
+      const timerKey = `${id}_position_${axis}`;
+      if (this.objectUpdateTimers[timerKey]) {
+        clearTimeout(this.objectUpdateTimers[timerKey]);
+      }
+      
+      // Set a new timer to update after 150ms of no changes
+      this.objectUpdateTimers[timerKey] = setTimeout(() => {
+        this.updateObjectPosition(id, axis, value);
+        delete this.objectUpdateTimers[timerKey];
+      }, 150);
+    },
+    debouncedUpdateObjectRotation(id, axis, value) {
+      // Clear any existing timer for this combination
+      const timerKey = `${id}_rotation_${axis}`;
+      if (this.objectUpdateTimers[timerKey]) {
+        clearTimeout(this.objectUpdateTimers[timerKey]);
+      }
+      
+      // Set a new timer to update after 150ms of no changes
+      this.objectUpdateTimers[timerKey] = setTimeout(() => {
+        this.updateObjectRotation(id, axis, value);
+        delete this.objectUpdateTimers[timerKey];
+      }, 150);
+    },
+    debouncedUpdateObjectScale(id, value) {
+      // Clear any existing timer for this combination
+      const timerKey = `${id}_scale`;
+      if (this.objectUpdateTimers[timerKey]) {
+        clearTimeout(this.objectUpdateTimers[timerKey]);
+      }
+      
+      // Set a new timer to update after 150ms of no changes
+      this.objectUpdateTimers[timerKey] = setTimeout(() => {
+        this.updateObjectScale(id, value);
+        delete this.objectUpdateTimers[timerKey];
+      }, 150);
     },
     updateObjectScale(id, value) {
       const obj = this.customObjects.find(o => o.id === id);
