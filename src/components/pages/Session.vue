@@ -126,9 +126,9 @@
               <div v-for="(animation, index) in animations" :key="`animation-${index}`" class="legend-item mb-4">
                 <div class="d-flex mb-2">
                   <div class="color-box" :style="{ backgroundColor: formatColor(colors[index]) }"></div>
-                  <div class="ml-2" style="flex-grow: 1;">
+                  <div class="ml-2" style="flex-grow: 1; min-width: 0;">
                     <v-text-field v-model="animation.trialName" dense hide-details class="trial-name-input" />
-                    <div class="file-name text-caption">{{ animation.fileName }}</div>
+                    <div class="file-name text-caption" style="word-wrap: break-word; overflow-wrap: break-word; white-space: normal; line-height: 1.2;">{{ animation.fileName }}</div>
                     <div class="fps-info text-caption grey--text">
                       {{ animation.calculatedFps ? animation.calculatedFps.toFixed(2) + ' fps' : '' }}
                     </div>
@@ -327,9 +327,9 @@
               <div v-for="(markerFile, markerIndex) in loadedMarkerFiles" :key="`marker-${markerIndex}`" class="legend-item mb-4">
                 <div class="d-flex mb-2">
                   <div class="color-box" :style="{ backgroundColor: markerFile.color || markerColor }"></div>
-                  <div class="flex-grow-1 ml-2">
+                  <div class="flex-grow-1 ml-2" style="min-width: 0;">
                     <v-text-field v-model="markerFile.trialName" dense hide-details class="trial-name-input" />
-                    <div class="file-name text-caption">{{ markerFile.fileName }}</div>
+                    <div class="file-name text-caption" style="word-wrap: break-word; overflow-wrap: break-word; white-space: normal; line-height: 1.2;">{{ markerFile.fileName }}</div>
                     <div class="fps-info text-caption grey--text">
                       <!-- Display marker count from the corresponding markerSet -->
                       {{ markerSets[markerIndex] ? Object.keys(markerSets[markerIndex].markers).length : 0 }} Markers
@@ -493,9 +493,9 @@
               <div v-for="(forcesData, animationIndex) in forcesDatasets" :key="`forces-${animationIndex}`" class="legend-item mb-4">
                 <div class="d-flex mb-2">
                   <div class="color-box" :style="{ backgroundColor: forceColor }"></div>
-                  <div class="flex-grow-1 ml-2">
+                  <div class="flex-grow-1 ml-2" style="min-width: 0;">
                     <div class="text-subtitle-2">Ground Reaction Forces</div>
-                    <div class="file-name text-caption">{{ forcesData.fileName }}</div>
+                    <div class="file-name text-caption" style="word-wrap: break-word; overflow-wrap: break-word; white-space: normal; line-height: 1.2;">{{ forcesData.fileName }}</div>
                     <div class="fps-info text-caption grey--text">
                       Associated with {{ animations[animationIndex]?.trialName || 'Subject ' + (parseInt(animationIndex) + 1) }}
                     </div>
