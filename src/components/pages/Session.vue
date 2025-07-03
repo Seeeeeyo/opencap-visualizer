@@ -124,8 +124,23 @@
                     <v-icon left small>mdi-play-circle</v-icon>
                     Try Sample Data
                   </v-btn>
-                  <div class="text-caption grey--text mb-2">
+                  <div class="text-caption grey--text mb-3">
                     Explore with pre-loaded motion capture data
+                  </div>
+                  
+                  <v-btn 
+                    color="red" 
+                    small 
+                    outlined 
+                    block 
+                    @click="openMarkersDialogFromImport"
+                    class="mb-2"
+                  >
+                    <v-icon left small>mdi-record-circle-outline</v-icon>
+                    Load Markers (.trc)
+                  </v-btn>
+                  <div class="text-caption grey--text mb-2">
+                    Load motion capture markers directly
                   </div>
                 </div>
                 
@@ -152,7 +167,7 @@
                       <span class="font-weight-medium">Motion Data</span>
                     </div>
                     <div class="ml-5 grey--text">
-                      Load .json files
+                      Load .json files or .trc marker files
                     </div>
                   </div>
                   
@@ -173,9 +188,10 @@
                   <strong>Tips:</strong>
                 </div>
                 <ul class="text-caption grey--text pl-4 mb-0">
-                  <li class="mb-1">Drag & drop files directly into the viewer</li>
+                  <li class="mb-1">Drag & drop files directly into the viewer (.json, .trc, .osim, .mot)</li>
                   <li class="mb-1">Use Import button for batch uploads</li>
                   <li class="mb-1">Multiple subjects can be loaded together</li>
+                  <li class="mb-1">.trc files can be loaded independently</li>
                 </ul>
               </v-card>
             </div>
@@ -206,6 +222,30 @@
                     <div class="fps-info text-caption grey--text">
                       {{ animation.calculatedFps ? animation.calculatedFps.toFixed(2) + ' fps' : '' }}
                     </div>
+                    <!-- Forces section -->
+                    <div v-if="forcesDatasets[index]" class="ml-8 mb-2">
+                      <div class="d-flex align-center">
+                        <v-icon small color="green" class="mr-2">mdi-arrow-up</v-icon>
+                        <span class="text-caption">Forces</span>
+                        <v-spacer></v-spacer>
+                        <v-btn icon x-small @click="toggleForceVisibility(index)">
+                          <v-icon x-small>{{ forcesVisible[index] ? 'mdi-eye' : 'mdi-eye-off' }}</v-icon>
+                        </v-btn>
+                      </div>
+                    </div>
+
+                    <!-- Markers section -->
+                    <div v-if="markersDatasets[index]" class="ml-8 mb-2">
+                      <div class="d-flex align-center">
+                        <v-icon small color="blue" class="mr-2">mdi-record-circle</v-icon>
+                        <span class="text-caption">Markers</span>
+                        <v-spacer></v-spacer>
+                        <v-btn icon x-small @click="toggleMarkerVisibility(index)">
+                          <v-icon x-small>{{ markersVisible[index] ? 'mdi-eye' : 'mdi-eye-off' }}</v-icon>
+                        </v-btn>
+                      </div>
+                    </div>
+                    
                   </div>
                 </div>
                 
@@ -699,6 +739,111 @@
                 </div>
               </div>
             </div>
+            
+            <!-- Marker Visualization Section -->
+            <div v-for="(markersData, animationIndex) in markersDatasets" :key="`markers-${animationIndex}`" class="legend-item mb-4">
+              <div class="d-flex mb-2">
+                <div class="color-box" :style="{ backgroundColor: markerColor }"></div>
+                <div class="flex-grow-1 ml-2" style="min-width: 0;">
+                  <div class="text-subtitle-2">{{ markersData.fileName || 'Motion Capture Markers' }}</div>
+                  <div class="file-name text-caption grey--text" style="word-wrap: break-word; overflow-wrap: break-word; white-space: normal; line-height: 1.2;">Motion Capture Markers</div>
+                  <div class="fps-info text-caption grey--text">
+                    Associated with {{ animations[animationIndex]?.trialName || 'Subject ' + (parseInt(animationIndex) + 1) }}
+                  </div>
+                  <div class="fps-info text-caption grey--text">
+                    {{ markersData.markers.length }} Markers
+                  </div>
+                  
+                  <!-- Current Marker Values Display -->
+                  <div v-if="showMarkers && selectedMarker && selectedMarker.animationIndex == animationIndex" class="marker-values mt-2 pa-2" style="background: rgba(255, 0, 0, 0.1); border-radius: 4px; border-left: 3px solid #ff0000;">
+                    <div class="text-caption font-weight-bold mb-1" style="color: #ff0000;">Selected Marker</div>
+                    <div class="text-caption font-weight-medium" style="color: #cccccc;">{{ selectedMarker.name }}</div>
+                    <div class="d-flex justify-space-between text-caption" style="font-family: monospace;">
+                      <span>X: {{ selectedMarker.position.x.toFixed(3) }}</span>
+                      <span>Y: {{ selectedMarker.position.y.toFixed(3) }}</span>
+                      <span>Z: {{ selectedMarker.position.z.toFixed(3) }}</span>
+                    </div>
+                    <div class="text-caption grey--text" style="font-family: monospace;">
+                      Position (meters)
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="mt-3 d-flex align-center ml-8">
+                <v-btn icon small class="mr-2" @click="showMarkers = !showMarkers">
+                  <v-icon small :color="showMarkers ? 'white' : 'grey'">
+                    {{ showMarkers ? 'mdi-eye' : 'mdi-eye-off' }}
+                  </v-icon>
+                </v-btn>
+                
+                <v-menu offset-y :close-on-content-click="false">
+                  <template v-slot:activator="{ on, attrs }">
+                    <v-btn icon small v-bind="attrs" v-on="on" class="mr-2">
+                      <v-icon small>mdi-palette</v-icon>
+                    </v-btn>
+                  </template>
+                  <v-card class="color-picker pa-2">
+                    <div class="d-flex align-center">
+                      <v-color-picker
+                        v-model="markerDisplayColor"
+                        :modes="['hex', 'rgba']"
+                        show-swatches
+                        :swatches="Array.isArray(availableColors) ? availableColors : []"
+                        @input="updateMarkerColor"
+                        class="flex-grow-1"
+                      ></v-color-picker>
+                      <v-btn icon small @click="openEyeDropper('marker')" title="Pick color from screen" class="ml-2">
+                        <v-icon>mdi-eyedropper-variant</v-icon>
+                      </v-btn>
+                    </div>
+                  </v-card>
+                </v-menu>
+                
+                <v-menu offset-y :close-on-content-click="false">
+                  <template v-slot:activator="{ on, attrs }">
+                    <v-btn icon small v-bind="attrs" v-on="on" class="mr-2">
+                      <v-icon small>mdi-resize</v-icon>
+                    </v-btn>
+                  </template>
+                  <v-card class="size-picker pa-3" width="250">
+                    <div class="text-subtitle-2 mb-2">
+                      Marker Size
+                      <span class="text-caption ml-2">
+                        ({{ markerSize }})
+                      </span>
+                    </div>
+                    <v-slider 
+                      v-model="markerSize"
+                      :min="1" 
+                      :max="20" 
+                      step="0.5" 
+                      hide-details 
+                      :thumb-label="true"
+                      thumb-size="24"
+                      @input="updateMarkerSize"
+                    >
+                      <template v-slot:thumb-label="{ value }">
+                        {{ value }}
+                      </template>
+                      <template v-slot:prepend>
+                        <div class="text-caption grey--text">Small</div>
+                      </template>
+                      <template v-slot:append>
+                        <div class="text-caption grey--text">Large</div>
+                      </template>
+                    </v-slider>
+                  </v-card>
+                </v-menu>
+                
+                <v-btn icon small class="mr-2" @click="clearMarkersForAnimation(animationIndex)">
+                  <v-icon small color="error">mdi-delete</v-icon>
+                </v-btn>
+              </div>
+              
+              <!-- Divider -->
+              <v-divider class="mt-4" style="opacity: 0.2"></v-divider>
+            </div>
 
 
           </div>
@@ -907,7 +1052,7 @@
             </div>
             <div v-else class="text-h6 grey--text text--darken-1 mt-4">
               Drag & drop files here<br>
-              <span class="text-caption">Multiple files can be dropped together</span>
+              <span class="text-caption">Supports .json, .trc, .osim, .mot, and video files</span>
             </div>
           </div>
           
@@ -1201,7 +1346,12 @@
                   <div class="import-item-subtitle">.mot format</div>
                 </div>
                 
-
+                <!-- Markers -->
+                <div class="import-item" @click="openMarkersDialogFromImport">
+                  <v-icon size="32">mdi-record-circle-outline</v-icon>
+                  <div class="import-item-title">Markers</div>
+                  <div class="import-item-subtitle">.trc format</div>
+                </div>
                 
                 <!-- JSON Files -->
                 <div class="import-item" @click="selectFileType('fileInput')">
@@ -1347,6 +1497,121 @@
               </v-btn>
             </v-card-actions>
                       </v-card>
+        </v-dialog>
+
+        <!-- Add Markers Dialog -->
+        <v-dialog v-model="showMarkersDialog" max-width="500" content-class="markers-dialog">
+          <v-card class="markers-dialog-card">
+            <v-card-title class="headline">Import Motion Capture Markers</v-card-title>
+            <v-card-text>
+              <div class="text-body-1 mb-4">
+                Select a .trc file to visualize motion capture markers as spheres in the 3D scene. 
+                Markers will be positioned according to the data in the file.
+              </div>
+              
+              <v-alert v-if="animations.length === 0" type="info" text dense class="mb-4">
+                No animations loaded. A standalone marker visualization will be created.
+              </v-alert>
+              
+              <v-alert v-if="animations.length > 0 && markersDatasets[selectedAnimationForMarkers]" type="warning" text dense class="mb-4">
+                This animation already has markers loaded. Loading new markers will replace the existing ones.
+              </v-alert>
+              
+              <v-alert v-if="Object.keys(markersDatasets).length > 0" type="info" text dense class="mb-4">
+                Currently loaded markers for: {{ Object.keys(markersDatasets).map(idx => animations[idx]?.trialName || `Subject ${parseInt(idx) + 1}`).join(', ') }}
+              </v-alert>
+              
+              <div v-if="animations.length > 0" class="mb-4">
+                <v-select
+                  v-model="selectedAnimationForMarkers"
+                  :items="animationOptions"
+                  item-text="text"
+                  item-value="value"
+                  label="Associate with Animation"
+                  outlined
+                  dense
+                ></v-select>
+              </div>
+              
+              <v-file-input
+                v-model="markersFile"
+                label="Markers File (.trc)"
+                accept=".trc"
+                prepend-icon="mdi-record-circle-outline"
+                outlined
+                show-size
+                clearable
+                @change="handleMarkersFileSelect"
+              ></v-file-input>
+
+              <div v-if="markersFile" class="mt-4">
+                <div class="text-subtitle-2 mb-2">Marker Visualization Settings</div>
+                
+                <v-row>
+                  <v-col cols="6">
+                    <v-text-field
+                      v-model.number="markerSize"
+                      label="Marker Size"
+                      type="number"
+                      step="1"
+                      min="1"
+                      max="20"
+                      dense
+                      outlined
+                    ></v-text-field>
+                  </v-col>
+                  <v-col cols="6">
+                    <div class="text-subtitle-2 mb-2">Marker Color</div>
+                    <v-menu offset-y :close-on-content-click="false">
+                      <template v-slot:activator="{ on, attrs }">
+                        <v-btn v-bind="attrs" v-on="on" class="color-preview" :style="{ backgroundColor: markerColor }" block outlined>
+                          <v-icon left>mdi-palette</v-icon>
+                          Color
+                        </v-btn>
+                      </template>
+                      <v-card class="color-picker pa-2">
+                        <div class="d-flex align-center">
+                          <v-color-picker
+                            v-model="markerDisplayColor"
+                            :modes="['hex', 'rgba']"
+                            show-swatches
+                            :swatches="Array.isArray(availableColors) ? availableColors : []"
+                            @input="updateMarkerColor"
+                            class="flex-grow-1"
+                          ></v-color-picker>
+                          <v-btn icon small @click="openEyeDropper('marker')" title="Pick color from screen" class="ml-2">
+                            <v-icon>mdi-eyedropper-variant</v-icon>
+                          </v-btn>
+                        </div>
+                      </v-card>
+                    </v-menu>
+                  </v-col>
+                </v-row>
+
+                <v-switch
+                  v-model="showMarkers"
+                  label="Show Markers"
+                  color="success"
+                ></v-switch>
+              </div>
+            </v-card-text>
+            
+            <v-card-actions>
+              <v-spacer></v-spacer>
+              <v-btn color="grey darken-1" text @click="closeMarkersDialog">
+                Cancel
+              </v-btn>
+              <v-btn 
+                color="success" 
+                text 
+                @click="loadMarkersFile" 
+                :disabled="!markersFile || loadingMarkers"
+                :loading="loadingMarkers"
+              >
+                Load Markers
+              </v-btn>
+            </v-card-actions>
+          </v-card>
         </v-dialog>
 
         <!-- Sample Selection Dialog -->
@@ -2197,7 +2462,23 @@ const axiosInstance = axios.create();
                 { id: 'STS', name: 'Sit-to-Stand', description: 'Sit-to-stand on chair' },
                 { id: 'squat', name: 'Squats', description: 'Squat exercise movements' },
                 { id: 'walk', name: 'Walking', description: 'Normal walking' },
-              ]
+              ],
+              // Marker visualization properties
+              showMarkersDialog: false,
+              markersFile: null,
+              markersDatasets: {}, // Object to store multiple marker datasets by animation index
+              markerSpheres: [], // Array to store marker sphere objects
+              showMarkers: true,
+              markerSize: 10, // Size of marker spheres
+              markerColor: '#ff0000', // Red color for markers
+              markerDisplayColor: '#ff0000', // For v-color-picker display
+              loadingMarkers: false,
+              selectedAnimationForMarkers: 0,
+              selectedMarker: null, // Currently selected marker for sidebar display
+              markerLabels: {}, // Store marker label sprites
+              markerTimeData: null, // Store marker time data for syncing
+              forcesVisible: {}, // Per-animation force visibility
+              markersVisible: {}, // Per-animation marker visibility
           }
       },
               computed: {
@@ -2349,10 +2630,13 @@ const axiosInstance = axios.create();
           if (label.material) label.material.dispose();
       });
       
-      // Remove double-click event listener
-      if (this.renderer && this.renderer.domElement) {
-          this.renderer.domElement.removeEventListener('dblclick', this.handleMarkerDoubleClick);
+      // Remove marker click event listener
+      if (this.renderer && this.renderer.domElement && this.handleMarkerClick) {
+          this.renderer.domElement.removeEventListener('click', this.handleMarkerClick);
       }
+      
+      // Clean up marker spheres
+      this.clearMarkerSpheres();
       
       // Remove message listener
       window.removeEventListener('message', this.handleIframeMessage);
@@ -2394,6 +2678,19 @@ const axiosInstance = axios.create();
         handler(newVal) {
           if (newVal && this.osimFile && !this.converting) {
             this.convertAndLoadOpenSimFiles();
+          }
+        }
+      },
+      showMarkers: {
+        handler(newVal) {
+          // Update marker visibility
+          this.markerSpheres.forEach(sphere => {
+            sphere.visible = newVal;
+          });
+          
+          // Re-render the scene
+          if (this.renderer && this.scene && this.camera) {
+            this.renderer.render(this.scene, this.camera);
           }
         }
       },
@@ -2469,10 +2766,13 @@ const axiosInstance = axios.create();
       }
     },
     methods: {
+
+
     // Forces visualization methods
     openForcesDialog() {
       this.showForcesDialog = true;
     },
+
     
     // Get current force values for display in the sidebar
     getCurrentForceValues(animationIndex) {
@@ -2663,23 +2963,39 @@ const axiosInstance = axios.create();
         return;
       }
       
-      // Auto-select the first animation without forces
-      let targetAnimationIndex = 0;
-      for (let i = 0; i < this.animations.length; i++) {
+      // Initialize force visibility state for this animation if not set
+      if (typeof this.forcesVisible === 'undefined') {
+        this.forcesVisible = {};
+      }
+      
+      // Find the first animation without forces, starting from the most recently added
+      let targetAnimationIndex = this.animations.length - 1; // Start with newest animation
+      let foundAvailable = false;
+      
+      // Check from newest to oldest
+      for (let i = this.animations.length - 1; i >= 0; i--) {
         if (!this.forcesDatasets[i]) {
           targetAnimationIndex = i;
+          foundAvailable = true;
           break;
         }
       }
       
-      // If all animations have forces, ask user or overwrite the first one
-      if (this.forcesDatasets[targetAnimationIndex]) {
+      // If all animations have forces, use the most recent one and replace
+      if (!foundAvailable) {
+        targetAnimationIndex = this.animations.length - 1;
         const animationName = this.animations[targetAnimationIndex].trialName || `Animation ${targetAnimationIndex + 1}`;
         this.$toasted.info(`Replacing existing forces for ${animationName}`);
       }
       
       this.selectedAnimationForForces = targetAnimationIndex;
       this.forcesFile = forceFile;
+      
+      // Set initial visibility for this animation
+      this.forcesVisible[targetAnimationIndex] = true;
+      
+      // Set initial visibility for this animation
+      this.forcesVisible[targetAnimationIndex] = true;
       
       // Load the force file directly
       return new Promise((resolve) => {
@@ -2706,7 +3022,6 @@ const axiosInstance = axios.create();
     },
     
     parseForcesData(content) {
-      console.log('Parsing forces data...');
       const lines = content.split('\n');
       let headerEnded = false;
       let columnHeaders = [];
@@ -2760,14 +3075,6 @@ const axiosInstance = axios.create();
         fileName: this.forcesFile ? this.forcesFile.name : 'Forces Data'
       };
       
-      console.log(`Forces data parsed for animation ${animationIndex}:`, this.forcesDatasets[animationIndex]);
-      console.log('Force columns found:', columnHeaders);
-      console.log('Time data points:', timeData.length);
-      console.log('Sample force values:', {
-        R_ground_force_vx: forceData.R_ground_force_vx ? forceData.R_ground_force_vx.slice(0, 3) : 'not found',
-        L_ground_force_vx: forceData.L_ground_force_vx ? forceData.L_ground_force_vx.slice(0, 3) : 'not found'
-      });
-      
       this.createForceArrows();
     },
     
@@ -2790,11 +3097,6 @@ const axiosInstance = axios.create();
     },
     
     createForceArrows() {
-      console.log('createForceArrows called');
-      console.log('Scene exists:', !!this.scene);
-      console.log('Animations length:', this.animations.length);
-      console.log('Force datasets:', Object.keys(this.forcesDatasets));
-      
       if (!this.scene || this.animations.length === 0) return;
       
       this.clearForceArrows();
@@ -2837,24 +3139,16 @@ const axiosInstance = axios.create();
         const forcesData = this.forcesDatasets[animationIndex];
         const targetAnimation = this.animations[animationIndex];
         
-        if (!targetAnimation || !forcesData) {
-          console.warn(`Animation ${animationIndex} not found or no force data`);
-          return;
-        }
+                 if (!targetAnimation || !forcesData) {
+           return;
+         }
         
         // Check if the selected animation has required foot segments
         const hasRequiredSegments = forceToFootMapping.some(mapping => 
           targetAnimation.data.bodies[mapping.footSegment]
         );
         
-        console.log(`Animation ${animationIndex} body segments:`, Object.keys(targetAnimation.data.bodies));
-        console.log(`Required foot segments check:`, forceToFootMapping.map(mapping => ({
-          segment: mapping.footSegment,
-          found: !!targetAnimation.data.bodies[mapping.footSegment]
-        })));
-        
         if (!hasRequiredSegments) {
-          console.warn(`Animation ${animationIndex} does not have required foot segments for force visualization`);
           return;
         }
         
@@ -3198,9 +3492,525 @@ const axiosInstance = axios.create();
       }
     },
     
+    // Marker visualization methods
+    openMarkersDialogFromImport() {
+      this.showImportDialog = false;
+      this.showMarkersDialog = true;
+    },
+    
+    closeMarkersDialog() {
+      this.showMarkersDialog = false;
+      this.markersFile = null;
+    },
+    
+    handleMarkersFileSelect(event) {
+      const file = event.target.files[0];
+      if (file) {
+        this.markersFile = file;
+      }
+      // Clear the input value so the same file can be selected again if needed
+      event.target.value = '';
+    },
+    
+    updateMarkerColor(colorValue) {
+      // Handle v-color-picker input format
+      if (colorValue && typeof colorValue === 'object') {
+        if (colorValue.hex) {
+          this.markerColor = '#' + colorValue.hex;
+          this.markerDisplayColor = '#' + colorValue.hex;
+        }
+      } else if (typeof colorValue === 'string') {
+        this.markerColor = colorValue;
+        this.markerDisplayColor = colorValue;
+      }
+      
+      // Update existing marker colors
+      this.updateMarkerSphereColors();
+    },
+    
+    updateMarkerSphereColors() {
+      // Create THREE.Color object for proper color handling
+      const threejsColor = new THREE.Color(this.markerColor);
+      
+      // Update marker sphere colors
+      this.markerSpheres.forEach(sphere => {
+        if (sphere.material) {
+          sphere.material.color.copy(threejsColor);
+          sphere.material.needsUpdate = true;
+        }
+      });
+      
+      // Re-render the scene
+      if (this.renderer && this.scene && this.camera) {
+        this.renderer.render(this.scene, this.camera);
+      }
+    },
+    
+    async loadMarkersFile() {
+      if (!this.markersFile) return;
+      this.loadingMarkers = true;
+      
+      // Set initial visibility for this animation
+      const targetAnimationIndex = this.selectedAnimationForMarkers || 0;
+      this.markersVisible[targetAnimationIndex] = true;
+      
+      // Initialize marker visibility state if not set
+      if (typeof this.markersVisible === 'undefined') {
+        this.markersVisible = {};
+      }
+       try {
+         const reader = new FileReader();
+         reader.onload = (e) => {
+           const wasEmpty = this.animations.length === 0;
+           this.parseTrcFile(e.target.result, this.markersFile.name);
+           this.showMarkersDialog = false;
+           const message = wasEmpty ? 
+             'Markers file loaded as standalone visualization!' : 
+             'Markers file loaded successfully!';
+           this.$toasted.success(message);
+         };
+         reader.readAsText(this.markersFile);
+       } catch (error) {
+         console.error('Error loading markers file:', error);
+         this.$toasted.error('Error loading markers file');
+       } finally {
+         this.loadingMarkers = false;
+       }
+     },
+     
+     parseTrcFile(content, fileName = 'markers.trc') {
+       const lines = content.trim().split('\n');
+       
+       // Parse header information
+       const header = {};
+       let dataStartIndex = 0;
+       
+       // Find the header end and data start
+       for (let i = 0; i < lines.length; i++) {
+         const line = lines[i].trim();
+         if (line.includes('DataRate') || line.includes('CameraRate') || line.includes('NumFrames') || line.includes('NumMarkers') || line.includes('Units')) {
+           const parts = line.split('\t');
+           if (parts.length >= 2) {
+             header[parts[0]] = parts[1];
+           }
+         }
+         
+         // Check for column headers line (contains Frame# and Time)
+         if (line.includes('Frame#') && line.includes('Time')) {
+           // Skip the coordinate labels line and find the actual data start
+           for (let j = i + 1; j < lines.length; j++) {
+             const dataLine = lines[j].trim();
+             if (/^\d+\s/.test(dataLine)) {  // Line starts with a number
+               dataStartIndex = j;
+               break;
+             }
+           }
+           break;
+         }
+       }
+       
+       // Parse column headers - find the marker names line (should contain Frame# and Time)
+       let markerNamesLineIndex = -1;
+       for (let i = 0; i < dataStartIndex; i++) {
+         if (lines[i].includes('Frame#') && lines[i].includes('Time')) {
+           markerNamesLineIndex = i;
+           break;
+         }
+       }
+       
+       const headerLine = lines[markerNamesLineIndex];
+       const columnHeaders = headerLine.split('\t');
+       
+       // Extract marker names by finding non-empty columns after Frame# and Time
+       const markerNames = [];
+       for (let i = 2; i < columnHeaders.length; i++) {
+         const headerName = columnHeaders[i];
+         if (headerName && headerName.trim()) {
+           // Remove coordinate suffixes like :X, :Y, :Z
+           const markerName = headerName.replace(/:.*$/, '').trim();
+           if (markerName && markerNames.indexOf(markerName) === -1) {
+             markerNames.push(markerName);
+           }
+         }
+       }
+       
+       // Parse data rows
+       const frameData = [];
+       const timeData = [];
+       const markerData = {};
+       
+       // Initialize marker data arrays
+       markerNames.forEach(name => {
+         markerData[name] = {
+           x: [], y: [], z: []
+         };
+       });
+       
+       // Parse each data row
+       for (let i = dataStartIndex; i < lines.length; i++) {
+         const line = lines[i].trim();
+         if (!line) continue;
+         
+         const values = line.split('\t');
+         if (values.length < 2) continue;
+         
+         const frame = parseInt(values[0]);
+         const time = parseFloat(values[1]);
+         
+         frameData.push(frame);
+         timeData.push(time);
+         
+         // Parse marker positions (every 3 values after frame and time)
+         let markerIndex = 0;
+         for (let j = 2; j < values.length && markerIndex < markerNames.length; j += 3) {
+           const markerName = markerNames[markerIndex];
+           const x = parseFloat(values[j]) || 0;
+           const y = parseFloat(values[j + 1]) || 0;
+           const z = parseFloat(values[j + 2]) || 0;
+           
+
+           
+           // Convert from mm to meters (TRC files are typically in mm)
+           markerData[markerName].x.push(x / 1000);
+           markerData[markerName].y.push(y / 1000);
+           markerData[markerName].z.push(z / 1000);
+           
+           markerIndex++;
+         }
+       }
+       
+       // Store the parsed data
+       const parsedData = {
+         header: header,
+         markers: markerNames,
+         frames: frameData,
+         times: timeData,
+         data: markerData,
+         fileName: fileName
+       };
+       
+       // Handle case where no animations exist - create a standalone marker visualization
+       let animationIndex = this.selectedAnimationForMarkers;
+       
+       if (this.animations.length === 0 && animationIndex === null) {
+         // For standalone marker files, just set up the frames for animation control
+         // without creating a new animation entry
+         this.frames = timeData;
+         this.frame = 0;
+         this.time = timeData[0] || 0;
+         animationIndex = 0;
+         this.selectedAnimationForMarkers = 0;
+       } else if (animationIndex === undefined || animationIndex === null) {
+         // If no animation is selected but animations exist, use the first one
+         animationIndex = 0;
+         this.selectedAnimationForMarkers = 0;
+       }
+       
+       // Store dataset for selected animation
+       this.markersDatasets[animationIndex] = parsedData;
+       
+       // Store marker time data for syncing
+       this.markerTimeData = {
+         times: timeData,
+         frames: frameData
+       };
+       
+       // Initialize scene if it doesn't exist
+       if (!this.scene) {
+         this.initScene();
+       }
+       
+       // Create marker spheres
+       this.createMarkerSpheres();
+       
+       // Clear any existing selection
+       this.selectedMarker = null;
+     },
+     
+     createMarkerSpheres() {
+       // Clear existing marker spheres
+       this.clearMarkerSpheres();
+       
+       const animationIndex = this.selectedAnimationForMarkers;
+       const markersData = this.markersDatasets[animationIndex];
+       
+       if (!markersData) {
+         return;
+       }
+       
+       const markerNames = markersData.markers;
+       const sphereGeometry = new THREE.SphereGeometry(this.markerSize / 1000, 16, 16); // Convert to meters
+       const sphereMaterial = new THREE.MeshPhongMaterial({ 
+         color: new THREE.Color(this.markerColor),
+         transparent: true,
+         opacity: 0.8
+       });
+       
+       // Create spheres for each marker
+       markerNames.forEach(markerName => {
+         const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial.clone());
+         sphere.name = markerName;
+         sphere.userData = {
+           type: 'marker',
+           markerName: markerName,
+           animationIndex: animationIndex
+         };
+         
+         // Set initial position (frame 0)
+         if (markersData.data[markerName] && markersData.data[markerName].x.length > 0) {
+           sphere.position.set(
+             markersData.data[markerName].x[0],
+             markersData.data[markerName].y[0],
+             markersData.data[markerName].z[0]
+           );
+         }
+         
+         // Add to scene
+         this.scene.add(sphere);
+         this.markerSpheres.push(sphere);
+       });
+       
+       // Add click event listener for marker selection
+       this.addMarkerClickListener();
+       
+       // Update markers for current frame
+       this.updateMarkerPositions();
+       
+       // Re-render the scene
+       if (this.renderer && this.scene && this.camera) {
+         this.renderer.render(this.scene, this.camera);
+       }
+     },
+     
+     clearMarkerSpheres() {
+       // Remove existing marker spheres from scene
+       this.markerSpheres.forEach(sphere => {
+         if (this.scene) {
+           this.scene.remove(sphere);
+         }
+         
+         // Dispose of geometry and material
+         if (sphere.geometry) sphere.geometry.dispose();
+         if (sphere.material) sphere.material.dispose();
+       });
+       
+       this.markerSpheres = [];
+       
+       // Clear marker labels
+       Object.values(this.markerLabels).forEach(label => {
+         if (this.scene) {
+           this.scene.remove(label);
+         }
+         if (label.material && label.material.map) {
+           label.material.map.dispose();
+         }
+         if (label.material) label.material.dispose();
+       });
+       
+       this.markerLabels = {};
+     },
+     
+     updateMarkerPositions() {
+       if (!this.showMarkers || this.markerSpheres.length === 0) return;
+       
+       // Use the same time reference as forces (this.frames[this.frame])
+       if (!this.frames || this.frame >= this.frames.length) return;
+       const currentTime = parseFloat(this.frames[this.frame]);
+       
+       // Update each marker sphere position
+       this.markerSpheres.forEach(sphere => {
+         const markerName = sphere.userData.markerName;
+         const animationIndex = sphere.userData.animationIndex;
+         const markersData = this.markersDatasets[animationIndex];
+         
+         if (!markersData || !markersData.data[markerName]) {
+           return;
+         }
+         
+         // Find the closest time index in the marker data
+         const times = markersData.times;
+         let closestIndex = 0;
+         let minTimeDiff = Math.abs(times[0] - currentTime);
+         
+         for (let i = 1; i < times.length; i++) {
+           const timeDiff = Math.abs(times[i] - currentTime);
+           if (timeDiff < minTimeDiff) {
+             minTimeDiff = timeDiff;
+             closestIndex = i;
+           }
+         }
+         
+         // Update sphere position
+         const markerData = markersData.data[markerName];
+         if (closestIndex < markerData.x.length) {
+           const x = markerData.x[closestIndex];
+           const y = markerData.y[closestIndex];
+           const z = markerData.z[closestIndex];
+           
+           sphere.position.set(x, y, z);
+           
+           // Update selected marker coordinates if this is the selected marker
+           if (this.selectedMarker && 
+               this.selectedMarker.name === markerName && 
+               this.selectedMarker.animationIndex === animationIndex) {
+             this.selectedMarker.position.set(x, y, z);
+           }
+         }
+       });
+       
+       // Re-render the scene
+       if (this.renderer && this.scene && this.camera) {
+         this.renderer.render(this.scene, this.camera);
+       }
+     },
+     
+     addMarkerClickListener() {
+       if (!this.renderer || !this.renderer.domElement) return;
+       
+       // Remove existing listener if it exists
+       if (this.handleMarkerClick) {
+         this.renderer.domElement.removeEventListener('click', this.handleMarkerClick);
+       }
+       
+       // Create new click handler
+       this.handleMarkerClick = (event) => {
+         event.preventDefault();
+         
+         // Calculate mouse position in normalized device coordinates
+         const rect = this.renderer.domElement.getBoundingClientRect();
+         const mouse = new THREE.Vector2();
+         mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+         mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+         
+         // Create raycaster
+         const raycaster = new THREE.Raycaster();
+         raycaster.setFromCamera(mouse, this.camera);
+         
+         // Check for intersections with marker spheres
+         const intersects = raycaster.intersectObjects(this.markerSpheres);
+         
+         if (intersects.length > 0) {
+           const selectedSphere = intersects[0].object;
+           const markerName = selectedSphere.userData.markerName;
+           
+           // Update selected marker
+           this.selectedMarker = {
+             name: markerName,
+             position: selectedSphere.position.clone(),
+                        animationIndex: selectedSphere.userData.animationIndex
+         };
+         
+         // Optional: Highlight selected marker
+           this.highlightSelectedMarker(selectedSphere);
+         } else {
+           // Deselect if clicking empty space
+           this.selectedMarker = null;
+           this.clearMarkerHighlight();
+         }
+       };
+       
+       // Add click event listener
+       this.renderer.domElement.addEventListener('click', this.handleMarkerClick);
+     },
+     
+     highlightSelectedMarker(selectedSphere) {
+       // Reset all marker materials first
+       this.markerSpheres.forEach(sphere => {
+         sphere.material.color.setHex(this.markerColor.replace('#', '0x'));
+         sphere.material.opacity = 0.8;
+       });
+       
+       // Highlight selected marker
+       selectedSphere.material.color.setHex(0xffff00); // Yellow highlight
+       selectedSphere.material.opacity = 1.0;
+       
+       // Re-render the scene
+       if (this.renderer && this.scene && this.camera) {
+         this.renderer.render(this.scene, this.camera);
+       }
+     },
+     
+     clearMarkerHighlight() {
+       // Reset all marker materials
+       this.markerSpheres.forEach(sphere => {
+         sphere.material.color.setHex(this.markerColor.replace('#', '0x'));
+         sphere.material.opacity = 0.8;
+       });
+       
+       // Re-render the scene
+       if (this.renderer && this.scene && this.camera) {
+         this.renderer.render(this.scene, this.camera);
+       }
+     },
+     
+     updateMarkerSize(size) {
+       this.markerSize = size;
+       
+       // Update existing sphere sizes
+       this.markerSpheres.forEach(sphere => {
+         if (sphere.geometry) {
+           sphere.geometry.dispose();
+         }
+         sphere.geometry = new THREE.SphereGeometry(size / 1000, 16, 16); // Convert to meters
+       });
+       
+       // Re-render the scene
+       if (this.renderer && this.scene && this.camera) {
+         this.renderer.render(this.scene, this.camera);
+       }
+     },
+     
+     clearMarkersForAnimation(animationIndex) {
+       // Remove markers for specific animation
+       if (this.markersDatasets[animationIndex]) {
+         delete this.markersDatasets[animationIndex];
+       }
+       
+       // Clear marker spheres for this animation
+       this.markerSpheres = this.markerSpheres.filter(sphere => {
+         if (sphere.userData.animationIndex === parseInt(animationIndex)) {
+           this.scene.remove(sphere);
+           return false;
+         }
+         return true;
+       });
+       
+       // Clear selected marker if it belongs to this animation
+       if (this.selectedMarker && this.selectedMarker.animationIndex === parseInt(animationIndex)) {
+         this.selectedMarker = null;
+       }
+       
+       // Re-render the scene
+       if (this.renderer && this.scene && this.camera) {
+         this.renderer.render(this.scene, this.camera);
+       }
+       
+       this.$toasted.success('Markers cleared for animation');
+     },
+    
     toggleCameraControls() {
       this.showCameraControls = !this.showCameraControls;
       console.log('Toggled camera controls visibility:', this.showCameraControls);
+    },
+
+    toggleForceVisibility(animationIndex) {
+      this.forcesVisible[animationIndex] = !this.forcesVisible[animationIndex];
+      this.forceArrows.forEach(group => {
+        if (group.userData && group.userData.animationIndex === animationIndex) {
+          group.visible = this.forcesVisible[animationIndex];
+        }
+      });
+      this.renderer.render(this.scene, this.camera);
+    },
+
+    toggleMarkerVisibility(animationIndex) {
+      this.markersVisible[animationIndex] = !this.markersVisible[animationIndex];
+      this.markerSpheres.forEach(sphere => {
+        if (sphere.userData && sphere.userData.animationIndex === animationIndex) {
+          sphere.visible = this.markersVisible[animationIndex];
+        }
+      });
+      this.renderer.render(this.scene, this.camera);
     },
     
     // Sample selection methods
@@ -4362,7 +5172,10 @@ const axiosInstance = axios.create();
           }
   
           // Handle markers separately based on markersPlayable flag
-                      // Marker functionality removed
+          // Update marker positions if markers are loaded
+          if (this.markerSpheres.length > 0 && this.showMarkers) {
+            this.updateMarkerPositions();
+          }
           
           // Update force arrows
           if (Object.keys(this.forcesDatasets).length > 0 && this.showForces) {
@@ -5154,8 +5967,6 @@ const axiosInstance = axios.create();
                     smallestTimeStep = Math.min(smallestTimeStep, timeStep);
                 }
             }
-            
-            console.log(`Including marker data in sync - Marker times: ${markerTimes.length}`);
         }
 
         // Create a common time array with consistent step size
@@ -5205,7 +6016,6 @@ const axiosInstance = axios.create();
         
         // Sync marker data if available
         if (this.markerTimeData && Object.keys(this.markers).length > 0) {
-            console.log('Resampling marker data to common timeline');
             this.syncMarkerDataToTimeline(this.markerTimeData.times);
         }
 
@@ -5273,10 +6083,10 @@ const axiosInstance = axios.create();
           this.updateGroundColor(selectedColorHex);
         } else if (target === 'subject' && index !== null) {
           this.updateSubjectColor(index, selectedColorHex);
-        } else if (target === 'marker' && index !== null) {
-          // This part handles marker colors if needed, based on the previous apply attempt
-          this.$set(this.loadedMarkerFiles[index], 'color', selectedColorHex); 
-                      // Marker functionality removed 
+        } else if (target === 'marker') {
+          this.markerColor = selectedColorHex;
+          this.markerDisplayColor = selectedColorHex;
+          this.updateMarkerColor(selectedColorHex);
         } else if (target === 'object' && index !== null) {
            // This part handles object colors if needed, based on the previous apply attempt
           const obj = this.customObjects.find(o => o.id === index);
@@ -5609,6 +6419,10 @@ const axiosInstance = axios.create();
       const files = Array.from(event.dataTransfer.files);
       console.log('Files dropped:', files.map(f => f.name));
       
+      // Reset temporary file state variables to ensure clean state
+      this.forcesFile = null;
+      this.markersFile = null;
+      
       // Separate files by type
       const jsonFiles = files.filter(file => file.name.toLowerCase().endsWith('.json'));
       const trcFiles = files.filter(file => file.name.toLowerCase().endsWith('.trc'));
@@ -5650,15 +6464,47 @@ const axiosInstance = axios.create();
         this.handleFileUpload(fakeEvent);
       }
       
-      // Handle TRC files
+      // Handle TRC files as marker files
       if (trcFiles.length > 0) {
         for (const trcFile of trcFiles) {
-          this.trcFile = trcFile;
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            this.parseTrcFile(e.target.result);
-          };
-          reader.readAsText(trcFile);
+          // Wait to ensure animations are fully loaded if JSON files were also dropped
+          await new Promise(resolve => setTimeout(resolve, 300));
+          
+          // Load as marker file using the existing marker loading infrastructure
+          this.markersFile = trcFile;
+          
+          // Handle standalone marker files and associated marker files differently
+          if (this.animations.length === 0) {
+            // Load as standalone markers without creating an animation
+            this.selectedAnimationForMarkers = null;
+          } else {
+            // Auto-associate with first animation that doesn't have markers, starting from newest
+            let targetAnimationIndex = this.animations.length - 1; // Start with newest animation
+            let foundAvailable = false;
+            
+            // Check from newest to oldest
+            for (let i = this.animations.length - 1; i >= 0; i--) {
+              if (!this.markersDatasets[i]) {
+                targetAnimationIndex = i;
+                foundAvailable = true;
+                break;
+              }
+            }
+            
+            // If all animations have markers, use the most recent one and replace
+            if (!foundAvailable) {
+              targetAnimationIndex = this.animations.length - 1;
+              const animationName = this.animations[targetAnimationIndex].trialName || `Animation ${targetAnimationIndex + 1}`;
+              this.$toasted.info(`Replacing existing markers for ${animationName}`);
+            }
+            
+            this.selectedAnimationForMarkers = targetAnimationIndex;
+          }
+          
+          // Load the marker file
+          await this.loadMarkersFile();
+          
+          this.$toasted.success(`Marker file loaded: ${trcFile.name}`);
         }
       }
       
@@ -5697,8 +6543,8 @@ const axiosInstance = axios.create();
       // Handle force files (after animations are loaded)
       if (forceFiles.length > 0) {
         console.log('Processing force files:', forceFiles.map(f => f.name));
-        // Wait a bit to ensure animations are fully loaded
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // Wait to ensure animations are fully loaded
+        await new Promise(resolve => setTimeout(resolve, 300));
         
         for (const forceFile of forceFiles) {
           await this.processForceFile(forceFile);
@@ -7085,7 +7931,6 @@ const axiosInstance = axios.create();
         
         // Save references to marker meshes before clearing
         const markerKeys = Object.keys(this.markerMeshes);
-        console.log(`Preserving ${markerKeys.length} marker meshes during geometry cleanup`);
         
         // Process all scene objects and dispose geometries and materials
         this.scene.traverse(object => {
@@ -8528,7 +9373,7 @@ const axiosInstance = axios.create();
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
     fileInput.multiple = true;
-            fileInput.accept = '.json,.osim,.mot,video/mp4,video/webm';
+            fileInput.accept = '.json,.trc,.osim,.mot,video/mp4,video/webm';
     
     // Handle the file selection
     fileInput.onchange = async (event) => {
