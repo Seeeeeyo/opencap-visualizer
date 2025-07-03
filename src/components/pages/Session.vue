@@ -100,16 +100,90 @@
             
 
             
-            <!-- Add Share Button Here -->
-            <v-btn color="#2563EB" class="mb-4 white--text custom-btn" block @click="openShareDialog" :disabled="!trial || animations.length === 0">
-              <v-icon left>mdi-share-variant</v-icon>
-              Share Visualization
-            </v-btn>
+            <!-- Getting Started Section (shown when no files are loaded) -->
+            <div v-if="animations.length === 0 && markerSets.length === 0 && !converting" class="getting-started-section mb-4">
+              <v-card dark class="pa-4" style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1);">
+                <div class="d-flex align-center mb-3">
+                  <v-icon color="primary" class="mr-2">mdi-information-outline</v-icon>
+                  <h3 class="text-subtitle-1">Getting Started</h3>
+                </div>
+                
+                <div class="text-caption mb-3">
+                  <strong>Import Methods:</strong>
+                </div>
+                
+                <div class="mb-3">
+                  <v-btn 
+                    color="primary" 
+                    small 
+                    outlined 
+                    block 
+                    @click="showSampleSelectionDialog = true"
+                    class="mb-2"
+                  >
+                    <v-icon left small>mdi-play-circle</v-icon>
+                    Try Sample Data
+                  </v-btn>
+                  <div class="text-caption grey--text mb-2">
+                    Explore with pre-loaded motion capture data
+                  </div>
+                </div>
+                
+                <v-divider class="my-3" style="opacity: 0.3;"></v-divider>
+                
+                <div class="text-caption mb-2">
+                  <strong>Workflow Options:</strong>
+                </div>
+                
+                <div class="workflow-steps text-caption">
+                  <div class="step-item mb-2">
+                    <div class="d-flex align-center">
+                      <v-icon x-small color="orange" class="mr-2">mdi-numeric-1-circle</v-icon>
+                      <span class="font-weight-medium">OpenSim Files</span>
+                    </div>
+                    <div class="ml-5 grey--text">
+                      Upload .osim model + .mot motion files
+                    </div>
+                  </div>
+                  
+                  <div class="step-item mb-2">
+                    <div class="d-flex align-center">
+                      <v-icon x-small color="indigo" class="mr-2">mdi-numeric-2-circle</v-icon>
+                      <span class="font-weight-medium">Motion Data</span>
+                    </div>
+                    <div class="ml-5 grey--text">
+                      Load .json or .trc marker files
+                    </div>
+                  </div>
+                  
+                  <div class="step-item mb-2">
+                    <div class="d-flex align-center">
+                      <v-icon x-small color="green" class="mr-2">mdi-numeric-3-circle</v-icon>
+                      <span class="font-weight-medium">Enhance</span>
+                    </div>
+                    <div class="ml-5 grey--text">
+                      Add forces, video, or 3D models
+                    </div>
+                  </div>
+                </div>
+                
+                <v-divider class="my-3" style="opacity: 0.3;"></v-divider>
+                
+                <div class="text-caption mb-2">
+                  <strong>Tips:</strong>
+                </div>
+                <ul class="text-caption grey--text pl-4 mb-0">
+                  <li class="mb-1">Drag & drop files directly into the viewer</li>
+                  <li class="mb-1">Use Import button for batch uploads</li>
+                  <li class="mb-1">Multiple subjects can be loaded together</li>
+                </ul>
+              </v-card>
+            </div>
             
             <!-- Legend -->
             <div class="legend flex-grow-1 mb-4">
               <!-- Add animation control buttons -->
-              <div class="d-flex align-center mb-4">
+              <div class="d-flex align-center mb-4" v-if="animations.length > 0">
                 <div class="text-subtitle-2 mr-2">Animations</div>
                 <v-spacer></v-spacer>
                 <v-btn x-small text color="primary" @click="setAllAnimationsPlayable(true)" class="mr-1">
@@ -502,6 +576,22 @@
                     <div class="fps-info text-caption grey--text">
                       {{ getForceArrowCount(animationIndex) }} Force Platforms
                     </div>
+                    
+                    <!-- Current Force Values Display -->
+                    <div v-if="showForces && getCurrentForceValues(animationIndex)" class="force-values mt-2 pa-2" style="background: rgba(0, 0, 0, 0.2); border-radius: 4px; border-left: 3px solid #00ff00;">
+                      <div class="text-caption font-weight-bold mb-1" style="color: #00ff00;">Current Forces (N)</div>
+                      <div v-for="(platform, platformName) in getCurrentForceValues(animationIndex)" :key="platformName" class="platform-forces mb-1">
+                        <div class="text-caption font-weight-medium" style="color: #cccccc;">{{ platformName === 'R' ? 'Right Foot' : 'Left Foot' }}:</div>
+                        <div class="d-flex justify-space-between text-caption" style="font-family: monospace;">
+                          <span>X: {{ platform.fx.toFixed(0) }}</span>
+                          <span>Y: {{ platform.fy.toFixed(0) }}</span>
+                          <span>Z: {{ platform.fz.toFixed(0) }}</span>
+                        </div>
+                        <div class="text-caption grey--text" style="font-family: monospace;">
+                          Mag: {{ platform.magnitude.toFixed(0) }}N
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -889,7 +979,103 @@
             </v-alert>
           </div>
           
-        <div class="text-center drop-zone" :class="{ 'opacity-reduced': converting }" @click="openFileBrowser">
+          <!-- Welcome Documentation Section -->
+          <div v-if="!converting && !conversionError" class="welcome-section pa-6 text-center" style="max-width: 800px;">
+            <div class="mb-6">
+              <v-icon size="48" color="primary" class="mb-3">mdi-human-handsup</v-icon>
+              <h1 class="text-h4 white--text mb-2">Welcome to OpenCap Visualizer</h1>
+              <p class="text-subtitle-1 grey--text">
+                Visualize and analyze human motion capture data in 3D
+              </p>
+            </div>
+            
+            <v-row class="mb-6">
+              <v-col cols="12" md="6">
+                <v-card dark class="pa-4 h-100" style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1);">
+                  <v-icon size="32" color="indigo" class="mb-3">mdi-file-document-outline</v-icon>
+                  <h3 class="text-h6 mb-3">Supported File Types</h3>
+                  <div class="text-left">
+                    <div class="mb-2">
+                      <v-chip small color="indigo" dark class="mr-2">JSON</v-chip>
+                      <span class="text-caption">Pre-processed motion data</span>
+                    </div>
+                    <div class="mb-2">
+                      <v-chip small color="indigo" dark class="mr-2">TRC</v-chip>
+                      <span class="text-caption">Marker trajectory files</span>
+                    </div>
+                                         <div class="mb-2">
+                       <v-chip small color="orange" dark class="mr-2">OSIM + MOT</v-chip>
+                       <span class="text-caption">OpenSim models & motion</span>
+                     </div>
+                     <div class="mb-2">
+                       <v-chip small color="red" dark class="mr-2">Forces</v-chip>
+                       <span class="text-caption">Ground reaction forces (.mot)</span>
+                     </div>
+                     <div class="mb-2">
+                       <v-chip small color="cyan" dark class="mr-2">MP4/WebM</v-chip>
+                       <span class="text-caption">Video files for sync</span>
+                     </div>
+                  </div>
+                </v-card>
+              </v-col>
+              
+              <v-col cols="12" md="6">
+                <v-card dark class="pa-4 h-100" style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1);">
+                  <v-icon size="32" color="green" class="mb-3">mdi-play-circle-outline</v-icon>
+                  <h3 class="text-h6 mb-3">Quick Start</h3>
+                                     <div class="text-left">
+                     <ol class="text-caption pl-4">
+                       <li class="mb-1">Click "Try with Sample Files" to explore</li>
+                       <li class="mb-1">Or drag & drop multiple files at once</li>
+                       <li class="mb-1">Use the Import button for specific types</li>
+                       <li class="mb-1">Control playback with the timeline</li>
+                       <li class="mb-1">Record videos or capture screenshots</li>
+                     </ol>
+                   </div>
+                </v-card>
+              </v-col>
+            </v-row>
+            
+            <v-row class="mb-6">
+              <v-col cols="12" md="4">
+                <v-card dark class="pa-4 h-100" style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1);">
+                  <v-icon size="24" color="blue" class="mb-2">mdi-mouse-move-up</v-icon>
+                  <h4 class="text-subtitle-1 mb-2">Navigation</h4>
+                  <div class="text-caption text-left">
+                    <div class="mb-1">• Left click + drag to orbit</div>
+                    <div class="mb-1">• Right click + drag to pan</div>
+                    <div class="mb-1">• Scroll wheel to zoom</div>
+                  </div>
+                </v-card>
+              </v-col>
+              
+              <v-col cols="12" md="4">
+                <v-card dark class="pa-4 h-100" style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1);">
+                  <v-icon size="24" color="purple" class="mb-2">mdi-palette</v-icon>
+                  <h4 class="text-subtitle-1 mb-2">Customization</h4>
+                  <div class="text-caption text-left">
+                    <div class="mb-1">• Change colors & transparency</div>
+                    <div class="mb-1">• Show/hide body parts</div>
+                    <div class="mb-1">• Adjust playback speed</div>
+                  </div>
+                </v-card>
+              </v-col>
+              
+              <v-col cols="12" md="4">
+                <v-card dark class="pa-4 h-100" style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1);">
+                  <v-icon size="24" color="red" class="mb-2">mdi-record-circle</v-icon>
+                  <h4 class="text-subtitle-1 mb-2">Export</h4>
+                  <div class="text-caption text-left">
+                    <div class="mb-1">• Record high-quality videos</div>
+                    <div class="mb-1">• Capture screenshots</div>
+                    <div class="mb-1">• Share visualizations</div>
+                  </div>
+                </v-card>
+              </v-col>
+            </v-row>
+          </div>
+          
+          <div class="text-center drop-zone" :class="{ 'opacity-reduced': converting }" @click="openFileBrowser">
             <!-- Existing drop zone content -->
             <v-icon size="64" color="grey darken-1">mdi-file-upload-outline</v-icon>
             
@@ -913,11 +1099,12 @@
             </div>
             <div v-else class="text-h6 grey--text text--darken-1 mt-4">
               Drag & drop files here<br>
-              .json, .trc, .osim + .mot files, or video (mp4/webm) accepted
+              .json, .trc, .osim, .mot, .mp4, .webm accepted<br>
+              <span class="text-caption">Multiple files can be dropped together</span>
             </div>
           </div>
           
-          <v-btn color="grey darken-3" dark class="mt-6" @click="loadSampleFiles" :disabled="converting">
+          <v-btn color="grey darken-3" dark class="mt-6" @click="showSampleSelectionDialog = true" :disabled="converting">
             <v-icon left>mdi-play-circle</v-icon>
             Try with Sample Files
           </v-btn>
@@ -1356,6 +1543,57 @@
               >
                 Load Forces
               </v-btn>
+            </v-card-actions>
+                      </v-card>
+        </v-dialog>
+
+        <!-- Sample Selection Dialog -->
+        <v-dialog v-model="showSampleSelectionDialog" max-width="600" content-class="sample-selection-dialog">
+          <v-card class="sample-selection-dialog-card">
+            <v-card-title class="headline white--text">
+              <v-icon left color="primary">mdi-play-circle</v-icon>
+              Choose Sample Motion Set
+            </v-card-title>
+            <v-card-text class="white--text pt-8">
+              <div class="text-body-2 mb-4">
+                Select a motion capture set to explore the visualizer's capabilities:
+              </div>
+              
+              <v-row>
+                <v-col 
+                  cols="12" 
+                  md="6" 
+                  v-for="sampleSet in availableSampleSets" 
+                  :key="sampleSet.id"
+                  class="sample-option-col"
+                >
+                  <v-card 
+                    class="sample-option-card"
+                    :class="{ 'sample-option-hover': true }"
+                    @click="selectSampleSet(sampleSet.id)"
+                    dark
+                    outlined
+                  >
+                    <v-card-text class="pa-4 text-center">
+                      <v-icon size="48" color="primary" class="mb-3">
+                        {{ getSampleIcon(sampleSet.id) }}
+                      </v-icon>
+                      <div class="text-h6 mb-2">{{ sampleSet.name }}</div>
+                      <div class="text-caption grey--text">{{ sampleSet.description }}</div>
+                    </v-card-text>
+                  </v-card>
+                </v-col>
+              </v-row>
+              
+              <div class="text-caption grey--text mt-4 text-center">
+                <v-icon small class="mr-1">mdi-information-outline</v-icon>
+                Each set contains multiple motion capture files with different analysis methods capture methods (WHAM, OpenCap Monocular and OpenCap 2 cameras)
+              </div>
+            </v-card-text>
+            
+            <v-card-actions>
+              <v-spacer></v-spacer>
+              <v-btn text @click="showSampleSelectionDialog = false">Cancel</v-btn>
             </v-card-actions>
           </v-card>
         </v-dialog>
@@ -2131,7 +2369,7 @@ const axiosInstance = axios.create();
               objColor: '#ffffff',
               customObjects: [], // Track loaded custom objects
               showCustomObjectsManager: false, // Dialog to manage custom objects
-              showLeftSidebar: false, // Add this line to control left sidebar visibility
+              showLeftSidebar: true, // Add this line to control left sidebar visibility
               showImportDialog: false, // Add this line to control the import dialog
               markersPlayable: true,
               markerSets: [], // Array to store multiple marker sets
@@ -2167,7 +2405,14 @@ const axiosInstance = axios.create();
               forceColor: '#00ff00', // Green color for force arrows
               forceDisplayColor: '#00ff00', // For v-color-picker display
               loadingForces: false,
-              selectedAnimationForForces: 0
+              selectedAnimationForForces: 0,
+              // Sample selection dialog
+              showSampleSelectionDialog: false,
+              availableSampleSets: [
+                { id: 'STS', name: 'Sit-to-Stand', description: 'Sit-to-stand on chair' },
+                { id: 'squat', name: 'Squats', description: 'Squat exercise movements' },
+                { id: 'walk', name: 'Walking', description: 'Normal walking' },
+              ]
           }
       },
               computed: {
@@ -2438,6 +2683,54 @@ const axiosInstance = axios.create();
       this.showForcesDialog = true;
     },
     
+    // Get current force values for display in the sidebar
+    getCurrentForceValues(animationIndex) {
+      if (!this.forcesDatasets[animationIndex] || !this.frames || this.frame >= this.frames.length) {
+        return null;
+      }
+      
+      const forcesData = this.forcesDatasets[animationIndex];
+      const currentTime = parseFloat(this.frames[this.frame]);
+      
+      // Find the closest time index in the forces data
+      let closestIndex = 0;
+      let minTimeDiff = Math.abs(forcesData.time[0] - currentTime);
+      
+      for (let i = 1; i < forcesData.time.length; i++) {
+        const timeDiff = Math.abs(forcesData.time[i] - currentTime);
+        if (timeDiff < minTimeDiff) {
+          minTimeDiff = timeDiff;
+          closestIndex = i;
+        }
+      }
+      
+      // Extract force values for the current frame
+      const result = {};
+      
+      // Check for right foot forces
+      if (forcesData.data.R_ground_force_vx && forcesData.data.R_ground_force_vy && forcesData.data.R_ground_force_vz) {
+        const fx = forcesData.data.R_ground_force_vx[closestIndex] || 0;
+        const fy = forcesData.data.R_ground_force_vy[closestIndex] || 0;
+        const fz = forcesData.data.R_ground_force_vz[closestIndex] || 0;
+        const magnitude = Math.sqrt(fx * fx + fy * fy + fz * fz);
+        
+        result.R = { fx, fy, fz, magnitude };
+      }
+      
+      // Check for left foot forces
+      if (forcesData.data.L_ground_force_vx && forcesData.data.L_ground_force_vy && forcesData.data.L_ground_force_vz) {
+        const fx = forcesData.data.L_ground_force_vx[closestIndex] || 0;
+        const fy = forcesData.data.L_ground_force_vy[closestIndex] || 0;
+        const fz = forcesData.data.L_ground_force_vz[closestIndex] || 0;
+        const magnitude = Math.sqrt(fx * fx + fy * fy + fz * fz);
+        
+        result.L = { fx, fy, fz, magnitude };
+      }
+      
+      // Return null if no valid force data found
+      return Object.keys(result).length > 0 ? result : null;
+    },
+    
     openForcesDialogFromImport() {
       this.showImportDialog = false;
       // Trigger the hidden file input for forces files
@@ -2482,6 +2775,143 @@ const axiosInstance = axios.create();
       } finally {
         this.loadingForces = false;
       }
+    },
+    
+    // Helper method to categorize .mot files as motion or force files
+    async categorizeMotFiles(motFiles) {
+      const motionFiles = [];
+      const forceFiles = [];
+      
+      for (const file of motFiles) {
+        const isForceFile = await this.isForceMotFile(file);
+        if (isForceFile) {
+          forceFiles.push(file);
+        } else {
+          motionFiles.push(file);
+        }
+      }
+      
+      return { motionFiles, forceFiles };
+    },
+    
+    // Check if a .mot file is a force file based on filename and content
+    async isForceMotFile(file) {
+      const fileName = file.name.toLowerCase();
+      console.log(`Checking if ${file.name} is a force file...`);
+      
+      // First check: filename contains "force"
+      if (fileName.includes('force')) {
+        console.log(`${file.name} identified as force file by filename`);
+        return true;
+      }
+      
+      // Second check: examine column headers
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const content = e.target.result;
+          const lines = content.split('\n');
+          
+          let headerEnded = false;
+          let columnHeaders = [];
+          
+          for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].trim();
+            
+            if (line === 'endheader') {
+              headerEnded = true;
+              continue;
+            }
+            
+            if (!headerEnded) continue;
+            
+            if (columnHeaders.length === 0) {
+              // This is the column headers line
+              columnHeaders = line.split(/\s+/);
+              break;
+            }
+          }
+          
+          // Check for force-related column names
+          const forceKeywords = [
+            'force', 'ground_force', 'grf',
+            'force_vx', 'force_vy', 'force_vz',
+            'force_px', 'force_py', 'force_pz',
+            'moment', 'torque', 'cop'
+          ];
+          
+          const hasForceColumns = columnHeaders.some(header => 
+            forceKeywords.some(keyword => 
+              header.toLowerCase().includes(keyword)
+            )
+          );
+          
+          if (hasForceColumns) {
+            console.log(`${file.name} identified as force file by column headers:`, columnHeaders);
+          } else {
+            console.log(`${file.name} identified as motion file - no force columns found`);
+          }
+          
+          resolve(hasForceColumns);
+        };
+        
+        reader.onerror = () => {
+          console.log(`Could not read ${file.name}, assuming motion file`);
+          resolve(false);
+        };
+        
+        reader.readAsText(file);
+      });
+    },
+    
+    // Process a force file (automatically associate with best animation)
+    async processForceFile(forceFile) {
+      console.log('Processing force file:', forceFile.name);
+      if (this.animations.length === 0) {
+        this.$toasted.warning('Please load an animation first before importing forces');
+        return;
+      }
+      
+      // Auto-select the first animation without forces
+      let targetAnimationIndex = 0;
+      for (let i = 0; i < this.animations.length; i++) {
+        if (!this.forcesDatasets[i]) {
+          targetAnimationIndex = i;
+          break;
+        }
+      }
+      
+      // If all animations have forces, ask user or overwrite the first one
+      if (this.forcesDatasets[targetAnimationIndex]) {
+        const animationName = this.animations[targetAnimationIndex].trialName || `Animation ${targetAnimationIndex + 1}`;
+        this.$toasted.info(`Replacing existing forces for ${animationName}`);
+      }
+      
+      this.selectedAnimationForForces = targetAnimationIndex;
+      this.forcesFile = forceFile;
+      
+      // Load the force file directly
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          this.parseForcesData(e.target.result);
+          this.$toasted.success(`Forces loaded for ${this.animations[targetAnimationIndex].trialName || 'Animation ' + (targetAnimationIndex + 1)}`);
+          
+          // Ensure scene is rendered after force creation
+          this.$nextTick(() => {
+            if (this.renderer && this.scene && this.camera) {
+              this.renderer.render(this.scene, this.camera);
+            }
+          });
+          
+          resolve();
+        };
+        reader.onerror = () => {
+          this.$toasted.error(`Error reading force file: ${forceFile.name}`);
+          resolve();
+        };
+        reader.readAsText(forceFile);
+      });
     },
     
     parseForcesData(content) {
@@ -2540,6 +2970,13 @@ const axiosInstance = axios.create();
       };
       
       console.log(`Forces data parsed for animation ${animationIndex}:`, this.forcesDatasets[animationIndex]);
+      console.log('Force columns found:', columnHeaders);
+      console.log('Time data points:', timeData.length);
+      console.log('Sample force values:', {
+        R_ground_force_vx: forceData.R_ground_force_vx ? forceData.R_ground_force_vx.slice(0, 3) : 'not found',
+        L_ground_force_vx: forceData.L_ground_force_vx ? forceData.L_ground_force_vx.slice(0, 3) : 'not found'
+      });
+      
       this.createForceArrows();
     },
     
@@ -2562,6 +2999,11 @@ const axiosInstance = axios.create();
     },
     
     createForceArrows() {
+      console.log('createForceArrows called');
+      console.log('Scene exists:', !!this.scene);
+      console.log('Animations length:', this.animations.length);
+      console.log('Force datasets:', Object.keys(this.forcesDatasets));
+      
       if (!this.scene || this.animations.length === 0) return;
       
       this.clearForceArrows();
@@ -2614,6 +3056,12 @@ const axiosInstance = axios.create();
           targetAnimation.data.bodies[mapping.footSegment]
         );
         
+        console.log(`Animation ${animationIndex} body segments:`, Object.keys(targetAnimation.data.bodies));
+        console.log(`Required foot segments check:`, forceToFootMapping.map(mapping => ({
+          segment: mapping.footSegment,
+          found: !!targetAnimation.data.bodies[mapping.footSegment]
+        })));
+        
         if (!hasRequiredSegments) {
           console.warn(`Animation ${animationIndex} does not have required foot segments for force visualization`);
           return;
@@ -2637,6 +3085,7 @@ const axiosInstance = axios.create();
           
           // Create single combined force arrow (resultant force vector)
           const arrowGroup = new THREE.Group();
+          arrowGroup.visible = true; // Ensure initially visible
           
           // Create arrow head
           const arrowHead = new THREE.Mesh(arrowGeometry, arrowMaterial.clone());
@@ -2655,24 +3104,40 @@ const axiosInstance = axios.create();
           };
           
           footForceGroup.add(arrowGroup);
+          footForceGroup.visible = true; // Ensure parent group is visible
           this.scene.add(footForceGroup);
           this.forceArrows.push(footForceGroup);
         });
       });
       
       console.log(`Force arrows created for ${Object.keys(this.forcesDatasets).length} animations: ${this.forceArrows.length} foot segments`);
+      console.log('Force arrows list:', this.forceArrows.map(arrow => ({
+        name: arrow.name,
+        userData: arrow.userData,
+        visible: arrow.visible,
+        children: arrow.children.length
+      })));
       
       // Debug: Update for current frame immediately
       if (this.frames && this.frame < this.frames.length) {
         console.log('Updating force arrows for current frame:', this.frame);
         this.updateForceArrows(this.frame);
       }
+      
+      // Render the scene after creating force arrows
+      if (this.renderer && this.scene && this.camera) {
+        this.renderer.render(this.scene, this.camera);
+      }
     },
     
     updateForceArrows(frameIndex) {
-      if (!this.showForces || this.forceArrows.length === 0) return;
+      if (!this.showForces || this.forceArrows.length === 0) {
+        console.log('updateForceArrows skipped:', { showForces: this.showForces, forceArrowsLength: this.forceArrows.length });
+        return;
+      }
       
       const currentTime = this.frames[frameIndex];
+      console.log('updateForceArrows called for frame:', frameIndex, 'time:', currentTime);
       
       this.forceArrows.forEach(footForceGroup => {
         const groupData = footForceGroup.userData;
@@ -2780,6 +3245,10 @@ const axiosInstance = axios.create();
           // Update arrow visibility based on original force magnitude (lowered threshold for debugging)
           arrowGroup.visible = originalMagnitude > 0.1; // Show if force > 0.1N (was 1.0N)
           
+          if (frameIndex === 0 || frameIndex % 30 === 0) {
+            console.log(`Arrow visibility - Animation ${animationIndex}, Platform ${arrowData.platform}: visible=${arrowGroup.visible}, magnitude=${originalMagnitude}`);
+          }
+          
           if (arrowGroup.visible) {
             // Scale the force vector for display
             forceVector.multiplyScalar(this.forceScale);
@@ -2820,6 +3289,11 @@ const axiosInstance = axios.create();
           }
         });
       });
+      
+      // Render the scene after updating force arrows
+      if (this.renderer && this.scene && this.camera) {
+        this.renderer.render(this.scene, this.camera);
+      }
     },
     
     clearForceArrows() {
@@ -2936,6 +3410,23 @@ const axiosInstance = axios.create();
     toggleCameraControls() {
       this.showCameraControls = !this.showCameraControls;
       console.log('Toggled camera controls visibility:', this.showCameraControls);
+    },
+    
+    // Sample selection methods
+    selectSampleSet(sampleSetId) {
+      console.log('Selected sample set:', sampleSetId);
+      this.showSampleSelectionDialog = false;
+      this.loadSampleFiles(sampleSetId);
+    },
+    
+    getSampleIcon(sampleSetId) {
+      const iconMap = {
+        'STS': 'mdi-chair-rolling',
+        'squat': 'mdi-human-handsdown', 
+        'walk': 'mdi-walk',
+        'rmasb': 'mdi-run-fast'
+      };
+      return iconMap[sampleSetId] || 'mdi-play-circle';
     },
     
     // Share functionality methods
@@ -4090,6 +4581,9 @@ const axiosInstance = axios.create();
           if (Object.keys(this.forcesDatasets).length > 0 && this.showForces) {
             this.updateForceArrows(cframe);
           }
+          
+          // Render the scene again after force updates
+          this.renderer.render(this.scene, this.camera);
         } else {
             // If frame is out of bounds, still render the scene
             this.renderer.render(this.scene, this.camera);
@@ -4101,6 +4595,9 @@ const axiosInstance = axios.create();
         if (this.markerSets.length === 0 || Object.keys(this.markerMeshes).length === 0) {
             return;
         }
+        
+        // Debug: Log marker position update
+        console.log(`[updateMarkerPositions] Updating markers for frame ${frame}, markersPlayable: ${this.markersPlayable}, showMarkers: ${this.showMarkers}`);
         
         // Update position of each marker mesh for the current frame
         this.markerSets.forEach((markerSet, setIndex) => {
@@ -4135,6 +4632,11 @@ const axiosInstance = axios.create();
 
                     // Visibility depends on global setting, set-specific setting, marker toggle, and valid data
                     mesh.visible = this.showMarkers && setVisible && markerVisibleToggle && dataIsValid; 
+                    
+                    // Debug: Log marker visibility and position
+                    if (setIndex === 0 && markerName === Object.keys(markerSet.markers)[0]) {
+                        console.log(`[updateMarkerPositions] First marker (${markerName}) visible: ${mesh.visible}, position: ${mesh.position.x}, ${mesh.position.y}, ${mesh.position.z}`);
+                    }
                 }
             });
         });
@@ -5372,67 +5874,117 @@ const axiosInstance = axios.create();
             }
         }
     },
-    handleDrop(event) {
+    async handleDrop(event) {
       event.preventDefault();
       
-        const files = Array.from(event.dataTransfer.files);
-        
-        // Separate files by type
-        const markerFiles = files.filter(file => {
-          const lowerCaseName = file.name.toLowerCase();
-          return lowerCaseName.endsWith('.json') || lowerCaseName.endsWith('.trc');
-        });
-        const osimFiles = files.filter(file => file.name.toLowerCase().endsWith('.osim'));
-        const motFiles = files.filter(file => file.name.toLowerCase().endsWith('.mot'));
+      const files = Array.from(event.dataTransfer.files);
+      console.log('Files dropped:', files.map(f => f.name));
+      
+      // Separate files by type
+      const jsonFiles = files.filter(file => file.name.toLowerCase().endsWith('.json'));
+      const trcFiles = files.filter(file => file.name.toLowerCase().endsWith('.trc'));
+      const osimFiles = files.filter(file => file.name.toLowerCase().endsWith('.osim'));
+      const motFiles = files.filter(file => file.name.toLowerCase().endsWith('.mot'));
       const videoFiles = files.filter(file => file.type === 'video/mp4' || file.type === 'video/webm');
+      
+      // Categorize .mot files as either motion or force files
+      const { motionFiles, forceFiles } = await this.categorizeMotFiles(motFiles);
+      
+      console.log('Categorized files:', {
+        json: jsonFiles.length,
+        trc: trcFiles.length,
+        osim: osimFiles.length,
+        motion: motionFiles.length,
+        force: forceFiles.length,
+        video: videoFiles.length
+      });
       
       // Handle video files
       if (videoFiles.length > 0) {
         this.videoFile = videoFiles[0];
         this.videoUrl = URL.createObjectURL(this.videoFile);
+        this.$toasted.success(`Video loaded: ${videoFiles[0].name}`);
       }
-        
-        // Handle JSON and TRC files directly
-        if (markerFiles.length > 0) {
-            const dataTransfer = new DataTransfer();
-            markerFiles.forEach(file => dataTransfer.items.add(file));
+      
+      // Handle JSON files
+      if (jsonFiles.length > 0) {
+        const dataTransfer = new DataTransfer();
+        jsonFiles.forEach(file => dataTransfer.items.add(file));
 
-            const fakeEvent = {
-                target: {
-                    files: dataTransfer.files,
-                    value: ''
-                }
-            };
+        const fakeEvent = {
+          target: {
+            files: dataTransfer.files,
+            value: ''
+          }
+        };
 
-            this.handleFileUpload(fakeEvent);
+        this.handleFileUpload(fakeEvent);
+      }
+      
+      // Handle TRC files
+      if (trcFiles.length > 0) {
+        for (const trcFile of trcFiles) {
+          this.trcFile = trcFile;
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            this.parseTrcFile(e.target.result);
+          };
+          reader.readAsText(trcFile);
+        }
+      }
+      
+      // Handle OpenSim files (.osim + motion .mot)
+      if (osimFiles.length > 0 && motionFiles.length > 0) {
+        // Process each pair of osim and mot files
+        const minPairs = Math.min(osimFiles.length, motionFiles.length);
+        for (let i = 0; i < minPairs; i++) {
+          this.osimFile = osimFiles[i];
+          this.motFile = motionFiles[i];
+          await this.convertAndLoadOpenSimFiles();
         }
         
-        // Handle OpenSim files
-        if (osimFiles.length > 0 || motFiles.length > 0) {
-            // If we have exactly one of each type, process them
-            if (osimFiles.length === 1 && motFiles.length === 1) {
-                this.osimFile = osimFiles[0];
-                this.motFile = motFiles[0];
-                this.convertAndLoadOpenSimFiles();
-            } 
-            // Otherwise, just store what we got and wait for the user to provide the missing file
-            else {
-                if (osimFiles.length === 1) {
-                    this.osimFile = osimFiles[0];
-                }
-                if (motFiles.length === 1) {
-                    this.motFile = motFiles[0];
-                }
-                
-                if (osimFiles.length > 1 || motFiles.length > 1) {
-                    alert('Please drop exactly one .osim file and one .mot file');
-                }
-            }
+        // Warn about unpaired files
+        if (osimFiles.length > motionFiles.length) {
+          this.$toasted.warning(`${osimFiles.length - motionFiles.length} .osim files have no matching .mot files`);
+        } else if (motionFiles.length > osimFiles.length) {
+          this.$toasted.warning(`${motionFiles.length - osimFiles.length} .mot files have no matching .osim files`);
+        }
+      } else if (osimFiles.length > 0 || motionFiles.length > 0) {
+        // Store individual files if we don't have pairs
+        if (osimFiles.length > 0) {
+          this.osimFile = osimFiles[0];
+        }
+        if (motionFiles.length > 0) {
+          this.motFile = motionFiles[0];
         }
         
-      if (files.length === 0 || (markerFiles.length === 0 && osimFiles.length === 0 && motFiles.length === 0 && videoFiles.length === 0)) {
-        console.warn('Please drop JSON, TRC, OSIM, MOT, or video files');
+        if (osimFiles.length > 0 && motionFiles.length === 0) {
+          this.$toasted.info('OSIM file loaded. Drop a .mot file to complete the pair.');
+        } else if (osimFiles.length === 0 && motionFiles.length > 0) {
+          this.$toasted.info('Motion file loaded. Drop an .osim file to complete the pair.');
         }
+      }
+      
+      // Handle force files (after animations are loaded)
+      if (forceFiles.length > 0) {
+        console.log('Processing force files:', forceFiles.map(f => f.name));
+        // Wait a bit to ensure animations are fully loaded
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        for (const forceFile of forceFiles) {
+          await this.processForceFile(forceFile);
+        }
+      }
+      
+      // Show completion message
+      if (files.length > 0) {
+        this.$toasted.success(`Processed ${files.length} files successfully`);
+      }
+      
+      // Initialize scene if needed
+      if (!this.scene && (jsonFiles.length > 0 || trcFiles.length > 0 || (osimFiles.length > 0 && motionFiles.length > 0))) {
+        this.initScene();
+      }
     },
     deleteSubject(index) {
         // Remove meshes for this animation
@@ -7018,6 +7570,12 @@ const axiosInstance = axios.create();
             console.log('Initializing scene for TRC file');
             this.initScene();
         }
+        
+        // Debug: Check scene state
+        console.log(`[processTrcContent] Scene initialized: ${!!this.scene}, Camera: ${!!this.camera}, Renderer: ${!!this.renderer}`);
+        if (this.scene) {
+            console.log(`[processTrcContent] Scene children count: ${this.scene.children.length}`);
+        }
 
         // Ensure ground plane exists if scene exists but ground doesn't
         if (this.scene && !this.groundMesh) {
@@ -7039,6 +7597,9 @@ const axiosInstance = axios.create();
 
         // Ensure markers are shown by default
         this.showMarkers = true;
+        
+        // Enable markers for animation
+        this.markersPlayable = true;
         
         // Determine marker columns and their X,Y,Z patterns
         // Skip Frame# and Time columns (first two)
@@ -7094,6 +7655,11 @@ const axiosInstance = axios.create();
                     markerSet.markers[markerName].positions.push({...pos});
                     // Also store in original positions
                     markerSet.markers[markerName].originalPositions.push({...pos});
+                    
+                    // Debug: Log first few positions for first few markers
+                    if (i < 3 && rowIndex < 3) {
+                        console.log(`[processTrcContent] Marker ${markerName} frame ${rowIndex}: x=${x}, y=${y}, z=${z}, valid=${pos.x !== null}`);
+                    }
                 } else {
                     // Add null position if row doesn't have enough data
                     const nullPos = { x: null, y: null, z: null };
@@ -7105,6 +7671,8 @@ const axiosInstance = axios.create();
 
         console.log(`[processTrcContent] Finished processing all potential markers based on header names. Found ${Object.keys(markerSet.markers).length} markers.`);
         console.log('[processTrcContent] Marker keys found:', Object.keys(markerSet.markers));
+        console.log(`[processTrcContent] Marker set scale: ${markerSet.scale}, offset: ${JSON.stringify(markerSet.offset)}`);
+        console.log(`[processTrcContent] Current frame: ${this.frame}, showMarkers: ${this.showMarkers}, markersPlayable: ${this.markersPlayable}`);
 
         // Add marker data to the list of loaded marker files *before* checking if markers were found
         // This ensures the file appears in the list even if parsing fails
@@ -7153,6 +7721,11 @@ const axiosInstance = axios.create();
         // Make sure the scene is initialized properly and create marker meshes
         this.createMarkerMeshes(); // This will now handle multiple sets
 
+        // Don't auto-center camera for now - let's see if that's causing the black screen
+        // setTimeout(() => {
+        //     this.centerCameraOnMarkers();
+        // }, 100);
+
         // Start animation loop if this is the first data loaded
         if (!this.playing && (!this.animations || this.animations.length === 0)) {
             console.log('Starting animation loop for markers');
@@ -7160,6 +7733,10 @@ const axiosInstance = axios.create();
             this.frame = 0;
             this.animateOneFrame();
             this.togglePlay(true);
+        } else {
+            // If animation is already playing, just update the current frame
+            console.log('Animation already playing, updating current frame for markers');
+            this.animateOneFrame();
         }
     },
     
@@ -7257,8 +7834,9 @@ const axiosInstance = axios.create();
 
         console.log(`[createMarkerMeshes] Creating meshes for ${this.markerSets.length} marker sets. Current frame: ${this.frame}. Show markers: ${this.showMarkers}`);
 
-        // Create geometry for marker spheres - shared by all markers
-        const geometry = new THREE.SphereGeometry(this.markerSize, 16, 16); 
+        // Create geometry for marker spheres - shared by all markers (temporarily make them larger for debugging)
+        const geometry = new THREE.SphereGeometry(Math.max(this.markerSize, 0.1), 16, 16);
+        console.log(`[createMarkerMeshes] Using marker size: ${Math.max(this.markerSize, 0.1)}`); 
         
         // Iterate over each marker set
         this.markerSets.forEach((markerSet, setIndex) => {
@@ -7303,6 +7881,12 @@ const axiosInstance = axios.create();
                             pos.y * markerSet.scale + markerSet.offset.y, 
                             pos.z * markerSet.scale + markerSet.offset.z
                         );
+                        
+                        // Debug: Log initial position for first few markers
+                        if (setIndex === 0 && Object.keys(markerSet.markers).indexOf(markerName) < 3) {
+                            console.log(`[createMarkerMeshes] Initial position for ${markerName}: x=${pos.x}, y=${pos.y}, z=${pos.z}`);
+                            console.log(`[createMarkerMeshes] After scaling/offset: x=${mesh.position.x}, y=${mesh.position.y}, z=${mesh.position.z}`);
+                        }
                     }
                 } else {
                     mesh.visible = false;
@@ -7313,6 +7897,11 @@ const axiosInstance = axios.create();
                 
                 // Store reference to mesh using the unique key
                 this.markerMeshes[meshKey] = mesh;
+                
+                // Debug: Log mesh creation
+                if (setIndex === 0 && Object.keys(markerSet.markers).indexOf(markerName) < 3) {
+                    console.log(`[createMarkerMeshes] Created mesh for ${markerName}, added to scene: ${this.scene.children.includes(mesh)}`);
+                }
             });
         });
 
@@ -7327,8 +7916,14 @@ const axiosInstance = axios.create();
 
         // Render the scene to show the markers
         if (this.renderer) {
+            console.log('[createMarkerMeshes] Rendering scene...');
             this.renderer.render(this.scene, this.camera);
         }
+        
+        // Debug: Log marker mesh creation success
+        console.log(`[createMarkerMeshes] Created ${Object.keys(this.markerMeshes).length} marker meshes`);
+        console.log(`[createMarkerMeshes] Marker meshes:`, Object.keys(this.markerMeshes));
+        console.log(`[createMarkerMeshes] Scene children after creation: ${this.scene.children.length}`);
     },
 
     handleMarkerDoubleClick(event) {
@@ -8965,18 +9560,30 @@ const axiosInstance = axios.create();
     },
 
     centerCameraOnMarkers() {
-      if (!this.scene || !this.camera || !this.controls || Object.keys(this.markers).length === 0) return;
+      if (!this.scene || !this.camera || !this.controls || this.markerSets.length === 0 || Object.keys(this.markerMeshes).length === 0) return;
+
+      console.log(`[centerCameraOnMarkers] Centering camera on ${Object.keys(this.markerMeshes).length} marker meshes`);
 
       // Calculate bounding box of all visible markers
       const boundingBox = new THREE.Box3();
+      let visibleMarkerCount = 0;
+      
       Object.values(this.markerMeshes).forEach(mesh => {
         if (mesh && mesh.visible) {
           boundingBox.expandByObject(mesh);
+          visibleMarkerCount++;
         }
       });
 
+      if (visibleMarkerCount === 0) {
+        console.warn('[centerCameraOnMarkers] No visible markers found');
+        return;
+      }
+
       const center = new THREE.Vector3();
       boundingBox.getCenter(center);
+
+      console.log(`[centerCameraOnMarkers] Center of ${visibleMarkerCount} visible markers: ${center.x.toFixed(2)}, ${center.y.toFixed(2)}, ${center.z.toFixed(2)}`);
 
       // Calculate optimal distance
       const size = new THREE.Vector3();
@@ -8989,6 +9596,8 @@ const axiosInstance = axios.create();
       const direction = new THREE.Vector3(1, 1, 1).normalize();
       const position = center.clone().add(direction.multiplyScalar(distance));
 
+      console.log(`[centerCameraOnMarkers] Setting camera position to: ${position.x.toFixed(2)}, ${position.y.toFixed(2)}, ${position.z.toFixed(2)}`);
+
       // Update camera and controls
       this.camera.position.copy(position);
       this.controls.target.copy(center);
@@ -8997,6 +9606,134 @@ const axiosInstance = axios.create();
       // Render the scene
       this.renderer.render(this.scene, this.camera);
     },
+    
+    debugMarkers() {
+      console.log('=== MARKER DEBUG INFO ===');
+      console.log(`Scene exists: ${!!this.scene}`);
+      console.log(`Camera exists: ${!!this.camera}`);
+      console.log(`Renderer exists: ${!!this.renderer}`);
+      console.log(`Controls exists: ${!!this.controls}`);
+      
+      if (this.scene) {
+        console.log(`Scene children: ${this.scene.children.length}`);
+        console.log('Scene children types:', this.scene.children.map(child => child.type || child.constructor.name));
+      }
+      
+      if (this.camera) {
+        console.log(`Camera position: ${this.camera.position.x.toFixed(2)}, ${this.camera.position.y.toFixed(2)}, ${this.camera.position.z.toFixed(2)}`);
+      }
+      
+      if (this.controls) {
+        console.log(`Controls target: ${this.controls.target.x.toFixed(2)}, ${this.controls.target.y.toFixed(2)}, ${this.controls.target.z.toFixed(2)}`);
+      }
+      
+      console.log(`markerSets.length: ${this.markerSets.length}`);
+      console.log(`markerMeshes count: ${Object.keys(this.markerMeshes).length}`);
+      console.log(`showMarkers: ${this.showMarkers}`);
+      console.log(`markersPlayable: ${this.markersPlayable}`);
+      console.log(`current frame: ${this.frame}`);
+      
+      if (this.markerSets.length > 0) {
+        this.markerSets.forEach((markerSet, setIndex) => {
+          console.log(`Set ${setIndex}:`, {
+            markerCount: Object.keys(markerSet.markers).length,
+            scale: markerSet.scale,
+            offset: markerSet.offset,
+            color: markerSet.color
+          });
+          
+          // Show first few markers
+          Object.keys(markerSet.markers).slice(0, 3).forEach(markerName => {
+            const marker = markerSet.markers[markerName];
+            const meshKey = `set${setIndex}_${markerName}`;
+            const mesh = this.markerMeshes[meshKey];
+            
+            console.log(`  ${markerName}:`, {
+              positions: marker.positions.length,
+              currentPos: marker.positions[this.frame],
+              meshExists: !!mesh,
+              meshVisible: mesh ? mesh.visible : false,
+              meshPosition: mesh ? {x: mesh.position.x, y: mesh.position.y, z: mesh.position.z} : null
+            });
+          });
+        });
+      }
+      
+      // Force render
+      if (this.renderer && this.scene && this.camera) {
+        console.log('Forcing render...');
+        this.renderer.render(this.scene, this.camera);
+      }
+      
+      // Try to center camera on markers
+      this.centerCameraOnMarkers();
+    },
+    
+    resetScene() {
+      console.log('Resetting scene...');
+      
+      // Reset camera to default position
+      if (this.camera) {
+        this.camera.position.set(3.33, 3.5, -2.30);
+        this.camera.lookAt(0, 1, 0);
+      }
+      
+      // Reset controls
+      if (this.controls) {
+        this.controls.target.set(0, 1, 0);
+        this.controls.update();
+      }
+      
+      // Force render
+      if (this.renderer && this.scene && this.camera) {
+        this.renderer.render(this.scene, this.camera);
+      }
+      
+      console.log('Scene reset complete');
+    },
+    
+    testScene() {
+      console.log('Testing scene with a simple cube...');
+      
+      if (!this.scene) {
+        console.log('Scene not initialized, initializing...');
+        this.initScene();
+      }
+      
+      // Create a simple test cube
+      const geometry = new THREE.BoxGeometry(1, 1, 1);
+      const material = new THREE.MeshLambertMaterial({ color: 0xff0000 });
+      const cube = new THREE.Mesh(geometry, material);
+      cube.position.set(0, 1, 0);
+      
+      // Remove any existing test cube
+      const existingCube = this.scene.getObjectByName('testCube');
+      if (existingCube) {
+        this.scene.remove(existingCube);
+      }
+      
+      cube.name = 'testCube';
+      this.scene.add(cube);
+      
+      // Reset camera to look at the cube
+      if (this.camera) {
+        this.camera.position.set(3.33, 3.5, -2.30);
+        this.camera.lookAt(0, 1, 0);
+      }
+      
+      if (this.controls) {
+        this.controls.target.set(0, 1, 0);
+        this.controls.update();
+      }
+      
+      // Force render
+      if (this.renderer && this.scene && this.camera) {
+        this.renderer.render(this.scene, this.camera);
+      }
+      
+      console.log('Test cube added to scene');
+    },
+    
     openImportDialog() {
       this.showImportDialog = true;
     },
@@ -9147,7 +9884,7 @@ const axiosInstance = axios.create();
         this.renderer.render(this.scene, this.camera);
       }
   },
-  openFileBrowser() {
+  async openFileBrowser() {
     // If already converting files, don't allow another file selection
     if (this.converting) return;
     
@@ -9158,30 +9895,18 @@ const axiosInstance = axios.create();
     fileInput.accept = '.json,.trc,.osim,.mot,video/mp4,video/webm';
     
     // Handle the file selection
-    fileInput.onchange = (event) => {
+    fileInput.onchange = async (event) => {
       const files = Array.from(event.target.files);
       
       if (files.length === 0) return;
       
-      // Process files based on their types
-      files.forEach(file => {
-        const fileExt = file.name.split('.').pop().toLowerCase();
-        
-        if (fileExt === 'json' || fileExt === 'trc') {
-          this.handleFileUpload({ target: { files: [file] } });
-        } else if (fileExt === 'osim') {
-          this.osimFile = file;
-        } else if (fileExt === 'mot') {
-          this.motFile = file;
-        } else if (file.type.startsWith('video/')) {
-          this.handleVideoUpload({ target: { files: [file] } });
-        }
-      });
+      // Use the same logic as handleDrop for consistency
+      const fakeDropEvent = {
+        preventDefault: () => {},
+        dataTransfer: { files: files }
+      };
       
-      // If we have osim and mot files, process them
-      if (this.osimFile && this.motFile) {
-        this.convertAndLoadOpenSimFiles();
-      }
+      await this.handleDrop(fakeDropEvent);
     };
     
     // Trigger file selection dialog
@@ -9824,6 +10549,49 @@ const axiosInstance = axios.create();
   .conversion-overlay .text-subtitle-1 {
     font-size: 1rem !important;
   }
+}
+
+/* Sample Selection Dialog Styles */
+.sample-selection-dialog .v-dialog {
+  background: rgba(30, 30, 30, 0.95);
+  backdrop-filter: blur(10px);
+}
+
+.sample-selection-dialog-card {
+  background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.sample-option-col {
+  padding: 8px !important;
+}
+
+.sample-option-card {
+  height: 160px;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+.sample-option-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 25px rgba(33, 150, 243, 0.3) !important;
+  border-color: rgba(33, 150, 243, 0.5) !important;
+  background: rgba(33, 150, 243, 0.1) !important;
+}
+
+.sample-option-card .v-icon {
+  transition: all 0.3s ease;
+}
+
+.sample-option-card:hover .v-icon {
+  transform: scale(1.1);
+  color: #2196F3 !important;
+}
+
+.sample-option-card .text-h6 {
+  font-weight: 600;
 }
 
 /* ... rest of existing styles ... */
