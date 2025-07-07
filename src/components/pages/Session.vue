@@ -8434,7 +8434,8 @@ const axiosInstance = axios.create();
           if (settings.videoPosition) this.videoPosition = settings.videoPosition;
           if (settings.videoSize) this.videoSize = settings.videoSize;
           if (settings.videoMinimized !== undefined) this.videoMinimized = settings.videoMinimized;
-          if (settings.timelapseMode !== undefined) this.timelapseMode = settings.timelapseMode;
+          // Force timelapseMode to false by default
+          this.timelapseMode = false;
           if (settings.timelapseInterval) this.timelapseInterval = settings.timelapseInterval;
           if (settings.timelapseOpacity !== undefined) this.timelapseOpacity = settings.timelapseOpacity;
         if (settings.showTimelapseSettings !== undefined) this.showTimelapseSettings = settings.showTimelapseSettings;
