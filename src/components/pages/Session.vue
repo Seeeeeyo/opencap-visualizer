@@ -216,7 +216,7 @@
                         <span class="text-caption">Forces</span>
                         <v-spacer></v-spacer>
                         <v-btn icon x-small @click="toggleForceVisibility(index)">
-                          <v-icon x-small>{{ forcesVisible[index] ? 'mdi-eye' : 'mdi-eye-off' }}</v-icon>
+                          <v-icon x-small>{{ forcesVisible[String(index)] ? 'mdi-eye' : 'mdi-eye-off' }}</v-icon>
                         </v-btn>
                       </div>
                     </div>
@@ -429,7 +429,7 @@
               <!-- Forces Visualization Section -->
               <div v-for="(forcesData, animationIndex) in forcesDatasets" :key="`forces-${animationIndex}`" class="legend-item mb-4">
                 <div class="d-flex mb-2">
-                  <div class="color-box" :style="{ backgroundColor: forceColor }"></div>
+                  <div class="color-box" :style="{ backgroundColor: getForceColor(animationIndex) }"></div>
                   <div class="flex-grow-1 ml-2" style="min-width: 0;">
                     <div class="text-subtitle-2">Ground Reaction Forces</div>
                     <div class="file-name text-caption" style="word-wrap: break-word; overflow-wrap: break-word; white-space: normal; line-height: 1.2;">{{ forcesData.fileName }}</div>
@@ -441,8 +441,8 @@
                     </div>
                     
                     <!-- Current Force Values Display -->
-                    <div v-if="showForces && getCurrentForceValues(animationIndex)" class="force-values mt-2 pa-2" style="background: rgba(0, 0, 0, 0.2); border-radius: 4px; border-left: 3px solid #00ff00;">
-                      <div class="text-caption font-weight-bold mb-1" style="color: #00ff00;">Current Forces (N)</div>
+                    <div v-if="showForces && getCurrentForceValues(animationIndex)" class="force-values mt-2 pa-2" :style="{ background: 'rgba(0, 0, 0, 0.2)', borderRadius: '4px', borderLeft: `3px solid ${getForceColor(animationIndex)}` }">
+                      <div class="text-caption font-weight-bold mb-1" :style="{ color: getForceColor(animationIndex) }">Current Forces (N)</div>
                       <div v-for="(platform, platformName) in getCurrentForceValues(animationIndex)" :key="platformName" class="platform-forces mb-1">
                         <div class="text-caption font-weight-medium" style="color: #cccccc;">{{ platformName === 'R' ? 'Right Foot' : 'Left Foot' }}:</div>
                         <div class="d-flex justify-space-between text-caption" style="font-family: monospace;">
@@ -474,14 +474,14 @@
                     <v-card class="color-picker pa-2">
                       <div class="d-flex align-center">
                         <v-color-picker
-                          v-model="forceDisplayColor"
+                          :value="getForceDisplayColor(animationIndex)"
                           :modes="['hex', 'rgba']"
                           show-swatches
                           :swatches="Array.isArray(availableColors) ? availableColors : []"
-                          @input="updateForceColor"
+                          @input="(color) => updateForceColor(color, animationIndex)"
                           class="flex-grow-1"
                         ></v-color-picker>
-                        <v-btn icon small @click="openEyeDropper('force')" title="Pick color from screen" class="ml-2">
+                        <v-btn icon small @click="openEyeDropper('force', animationIndex)" title="Pick color from screen" class="ml-2">
                           <v-icon>mdi-eyedropper-variant</v-icon>
                         </v-btn>
                       </div>
@@ -728,14 +728,15 @@
             </div>
             
             <!-- Standalone Marker Visualization Section (when no animations exist) -->
-            <div v-if="animations.length === 0 && Object.keys(markersDatasets).length > 0" class="legend-item mb-4">
+            <template v-if="animations.length === 0 && Object.keys(markersDatasets).length > 0">
+              <div v-for="(markersData, animationIndex) in markersDatasets" :key="`standalone-markers-${animationIndex}`" class="legend-item mb-4">
               <div class="d-flex mb-2">
-                <div class="color-box" :style="{ backgroundColor: markerColor }"></div>
+                <div class="color-box" :style="{ backgroundColor: getMarkerColor(animationIndex) }"></div>
                 <div class="flex-grow-1 ml-2" style="min-width: 0;">
-                  <div class="text-subtitle-2">{{ Object.values(markersDatasets)[0].fileName || 'Motion Capture Markers' }}</div>
+                  <div class="text-subtitle-2">{{ markersData.fileName || 'Motion Capture Markers' }}</div>
                   <div class="file-name text-caption grey--text" style="word-wrap: break-word; overflow-wrap: break-word; white-space: normal; line-height: 1.2;">Standalone Markers</div>
                   <div class="fps-info text-caption grey--text">
-                    {{ Object.values(markersDatasets)[0].markers.length }} Markers
+                    {{ markersData.markers.length }} Markers
                   </div>
                   
                   <!-- Current Marker Values Display for standalone -->
@@ -769,9 +770,9 @@
               </div>
 
               <div class="mt-3 d-flex align-center ml-8">
-                <v-btn icon small class="mr-2" @click="showMarkers = !showMarkers">
-                  <v-icon small :color="showMarkers ? 'white' : 'grey'">
-                    {{ showMarkers ? 'mdi-eye' : 'mdi-eye-off' }}
+                <v-btn icon small class="mr-2" @click="toggleMarkerVisibility(animationIndex)">
+                  <v-icon small :color="getMarkerVisibility(animationIndex) ? 'white' : 'grey'">
+                    {{ getMarkerVisibility(animationIndex) ? 'mdi-eye' : 'mdi-eye-off' }}
                   </v-icon>
                 </v-btn>
                 
@@ -784,14 +785,14 @@
                   <v-card class="color-picker pa-2">
                     <div class="d-flex align-center">
                       <v-color-picker
-                        v-model="markerDisplayColor"
+                        :value="getMarkerDisplayColor(animationIndex)"
                         :modes="['hex', 'rgba']"
                         show-swatches
                         :swatches="Array.isArray(availableColors) ? availableColors : []"
-                        @input="updateMarkerColor"
+                        @input="(color) => updateMarkerColor(color, animationIndex)"
                         class="flex-grow-1"
                       ></v-color-picker>
-                      <v-btn icon small @click="openEyeDropper('marker')" title="Pick color from screen" class="ml-2">
+                      <v-btn icon small @click="openEyeDropper('marker', animationIndex)" title="Pick color from screen" class="ml-2">
                         <v-icon>mdi-eyedropper-variant</v-icon>
                       </v-btn>
                     </div>
@@ -843,20 +844,35 @@
                   <span>{{ measurementMode ? 'Disable distance measurement' : 'Enable distance measurement' }}</span>
                 </v-tooltip>
                 
-                <v-btn icon small class="mr-2" @click="clearAllMarkers">
+                <v-btn icon small class="mr-2" @click="clearMarkersForAnimation(animationIndex)">
                   <v-icon small color="error">mdi-delete</v-icon>
                 </v-btn>
               </div>
               
               <!-- Divider -->
               <v-divider class="mt-4" style="opacity: 0.2"></v-divider>
+              </div>
+            </template>
+            
+            <!-- Clear All Markers Button (only show when there are multiple marker files) -->
+            <div v-if="animations.length === 0 && Object.keys(markersDatasets).length > 1" class="mb-4">
+              <v-btn
+                color="error"
+                small
+                outlined
+                block
+                @click="clearAllMarkers"
+              >
+                <v-icon left small>mdi-delete-sweep</v-icon>
+                Clear All Marker Files
+              </v-btn>
             </div>
 
             <!-- Marker Visualization Section (only when animations exist) -->
             <template v-if="animations.length > 0">
               <div v-for="(markersData, animationIndex) in markersDatasets" :key="`markers-${animationIndex}`" class="legend-item mb-4">
               <div class="d-flex mb-2">
-                <div class="color-box" :style="{ backgroundColor: markerColor }"></div>
+                <div class="color-box" :style="{ backgroundColor: getMarkerColor(animationIndex) }"></div>
                 <div class="flex-grow-1 ml-2" style="min-width: 0;">
                   <div class="text-subtitle-2">{{ markersData.fileName || 'Motion Capture Markers' }}</div>
                   <div class="file-name text-caption grey--text" style="word-wrap: break-word; overflow-wrap: break-word; white-space: normal; line-height: 1.2;">Motion Capture Markers</div>
@@ -913,14 +929,14 @@
                   <v-card class="color-picker pa-2">
                     <div class="d-flex align-center">
                       <v-color-picker
-                        v-model="markerDisplayColor"
+                        :value="getMarkerDisplayColor(animationIndex)"
                         :modes="['hex', 'rgba']"
                         show-swatches
                         :swatches="Array.isArray(availableColors) ? availableColors : []"
-                        @input="updateMarkerColor"
+                        @input="(color) => updateMarkerColor(color, animationIndex)"
                         class="flex-grow-1"
                       ></v-color-picker>
-                      <v-btn icon small @click="openEyeDropper('marker')" title="Pick color from screen" class="ml-2">
+                      <v-btn icon small @click="openEyeDropper('marker', animationIndex)" title="Pick color from screen" class="ml-2">
                         <v-icon>mdi-eyedropper-variant</v-icon>
                       </v-btn>
                     </div>
@@ -1103,6 +1119,10 @@
                          <span class="text-caption">Ground reaction forces (.mot)</span>
                        </div>
                        <div class="mb-2">
+                         <v-chip small color="purple" dark class="mr-2">TRC</v-chip>
+                         <span class="text-caption">Motion capture marker files</span>
+                       </div>
+                       <div class="mb-2">
                          <v-chip small color="cyan" dark class="mr-2">MP4/WebM</v-chip>
                          <span class="text-caption">Video files for sync</span>
                        </div>
@@ -1192,11 +1212,6 @@
               <span class="text-caption">Supports .json, .trc, .osim, .mot, and video files</span>
             </div>
           </div>
-          
-          <v-btn color="grey darken-3" dark class="mt-6" @click="showSampleSelectionDialog = true" :disabled="converting">
-            <v-icon left>mdi-play-circle</v-icon>
-            Try with Sample Files
-          </v-btn>
         </div>
       </div>
 
@@ -1593,7 +1608,7 @@
                     <div class="text-subtitle-2 mb-2">Arrow Color</div>
                     <v-menu offset-y :close-on-content-click="false">
                       <template v-slot:activator="{ on, attrs }">
-                        <v-btn v-bind="attrs" v-on="on" class="color-preview" :style="{ backgroundColor: forceColor }" block outlined>
+                        <v-btn v-bind="attrs" v-on="on" class="color-preview" :style="{ backgroundColor: getForceColor(selectedAnimationForForces || 0) }" block outlined>
                           <v-icon left>mdi-palette</v-icon>
                           Color
                         </v-btn>
@@ -1601,14 +1616,14 @@
                       <v-card class="color-picker pa-2">
                         <div class="d-flex align-center">
                           <v-color-picker
-                            v-model="forceDisplayColor"
+                            :value="getForceDisplayColor(selectedAnimationForForces || 0)"
                             :modes="['hex', 'rgba']"
                             show-swatches
                             :swatches="Array.isArray(availableColors) ? availableColors : []"
-                            @input="updateForceColor"
+                            @input="(color) => updateForceColor(color, selectedAnimationForForces || 0)"
                             class="flex-grow-1"
                           ></v-color-picker>
-                          <v-btn icon small @click="openEyeDropper('force')" title="Pick color from screen" class="ml-2">
+                          <v-btn icon small @click="openEyeDropper('force', selectedAnimationForForces || 0)" title="Pick color from screen" class="ml-2">
                             <v-icon>mdi-eyedropper-variant</v-icon>
                           </v-btn>
                         </div>
@@ -1661,7 +1676,7 @@
                 This animation already has markers loaded. Loading new markers will replace the existing ones.
               </v-alert>
               
-              <v-alert v-if="Object.keys(markersDatasets).length > 0" type="info" text dense class="mb-4">
+              <v-alert v-if="Object.keys(markersDatasets).length > 0 && animations.length > 0" type="info" text dense class="mb-4">
                 Currently loaded markers for: {{ Object.keys(markersDatasets).map(idx => animations[idx]?.trialName || `Subject ${parseInt(idx) + 1}`).join(', ') }}
               </v-alert>
               
@@ -1708,7 +1723,7 @@
                     <div class="text-subtitle-2 mb-2">Marker Color</div>
                     <v-menu offset-y :close-on-content-click="false">
                       <template v-slot:activator="{ on, attrs }">
-                        <v-btn v-bind="attrs" v-on="on" class="color-preview" :style="{ backgroundColor: markerColor }" block outlined>
+                        <v-btn v-bind="attrs" v-on="on" class="color-preview" :style="{ backgroundColor: getMarkerColor(selectedAnimationForMarkers || 0) }" block outlined>
                           <v-icon left>mdi-palette</v-icon>
                           Color
                         </v-btn>
@@ -1716,14 +1731,14 @@
                       <v-card class="color-picker pa-2">
                         <div class="d-flex align-center">
                           <v-color-picker
-                            v-model="markerDisplayColor"
+                            :value="getMarkerDisplayColor(selectedAnimationForMarkers || 0)"
                             :modes="['hex', 'rgba']"
                             show-swatches
                             :swatches="Array.isArray(availableColors) ? availableColors : []"
-                            @input="updateMarkerColor"
+                            @input="(color) => updateMarkerColor(color, selectedAnimationForMarkers || 0)"
                             class="flex-grow-1"
                           ></v-color-picker>
-                          <v-btn icon small @click="openEyeDropper('marker')" title="Pick color from screen" class="ml-2">
+                          <v-btn icon small @click="openEyeDropper('marker', selectedAnimationForMarkers || 0)" title="Pick color from screen" class="ml-2">
                             <v-icon>mdi-eyedropper-variant</v-icon>
                           </v-btn>
                         </div>
@@ -2596,8 +2611,8 @@ const axiosInstance = axios.create();
               forceArrows: [], // Array to store force arrow objects
               showForces: true,
               forceScale: 0.001, // Scale factor for force arrows
-              forceColor: '#00ff00', // Green color for force arrows
-              forceDisplayColor: '#00ff00', // For v-color-picker display
+                    forceColors: {}, // Object to store colors per animation index
+      forceDisplayColors: {}, // Object to store display colors for v-color-picker by animation index
               loadingForces: false,
               selectedAnimationForForces: 0,
               // Sample selection dialog
@@ -2614,8 +2629,8 @@ const axiosInstance = axios.create();
               markerSpheres: [], // Array to store marker sphere objects
               showMarkers: true,
               markerSize: 10, // Size of marker spheres
-              markerColor: '#ff0000', // Red color for markers
-              markerDisplayColor: '#ff0000', // For v-color-picker display
+              markerColors: {}, // Object to store marker colors by animation index
+              markerDisplayColors: {}, // Object to store display colors for v-color-picker by animation index
               loadingMarkers: false,
               selectedAnimationForMarkers: 0,
               selectedMarker: null, // Currently selected marker for sidebar display
@@ -3141,10 +3156,7 @@ const axiosInstance = axios.create();
       this.forcesFile = forceFile;
       
       // Set initial visibility for this animation
-      this.forcesVisible[targetAnimationIndex] = true;
-      
-      // Set initial visibility for this animation
-      this.forcesVisible[targetAnimationIndex] = true;
+      this.$set(this.forcesVisible, String(targetAnimationIndex), true);
       
       // Load the force file directly
       return new Promise((resolve) => {
@@ -3224,6 +3236,15 @@ const axiosInstance = axios.create();
         fileName: this.forcesFile ? this.forcesFile.name : 'Forces Data'
       };
       
+      // Initialize colors for new force dataset
+      if (!this.forceColors[animationIndex]) {
+        this.$set(this.forceColors, animationIndex, '#00ff00'); // Default green color
+        this.$set(this.forceDisplayColors, animationIndex, '#00ff00');
+      }
+      
+      // Set initial visibility for this animation
+      this.$set(this.forcesVisible, String(animationIndex), true);
+      
       this.createForceArrows();
     },
     
@@ -3250,21 +3271,11 @@ const axiosInstance = axios.create();
       
       this.clearForceArrows();
       
-      // Create traditional arrow head geometry and material
+      // Create traditional arrow head geometry (shared across animations)
       const arrowGeometry = this.createArrowHeadGeometry();
-      const arrowMaterial = new THREE.MeshPhongMaterial({
-        color: new THREE.Color(this.forceColor),
-        transparent: true,
-        opacity: 0.9
-      });
       
-      // Create line geometry for arrow shaft using cylinder for better appearance
+      // Create line geometry for arrow shaft using cylinder for better appearance (shared across animations)
       const shaftGeometry = new THREE.CylinderGeometry(0.004, 0.004, 1, 8);
-      const shaftMaterial = new THREE.MeshPhongMaterial({
-        color: new THREE.Color(this.forceColor),
-        transparent: true,
-        opacity: 0.9
-      });
       
       // Map force platforms with both force vectors and center of pressure
       const forceToFootMapping = [
@@ -3321,12 +3332,25 @@ const axiosInstance = axios.create();
           const arrowGroup = new THREE.Group();
           arrowGroup.visible = true; // Ensure initially visible
           
+          // Create materials with per-animation colors
+          const arrowMaterial = new THREE.MeshPhongMaterial({
+            color: new THREE.Color(this.getForceColor(animationIndex)),
+            transparent: true,
+            opacity: 0.9
+          });
+          
+          const shaftMaterial = new THREE.MeshPhongMaterial({
+            color: new THREE.Color(this.getForceColor(animationIndex)),
+            transparent: true,
+            opacity: 0.9
+          });
+          
           // Create arrow head
-          const arrowHead = new THREE.Mesh(arrowGeometry, arrowMaterial.clone());
+          const arrowHead = new THREE.Mesh(arrowGeometry, arrowMaterial);
           arrowGroup.add(arrowHead);
           
           // Create arrow shaft (cylinder)
-          const shaft = new THREE.Mesh(shaftGeometry.clone(), shaftMaterial.clone());
+          const shaft = new THREE.Mesh(shaftGeometry.clone(), shaftMaterial);
           arrowGroup.add(shaft);
           
           arrowGroup.name = `force_${animationIndex}_${mapping.platform}_resultant`;
@@ -3597,38 +3621,51 @@ const axiosInstance = axios.create();
       ).length;
     },
     
-    updateForceColor(colorValue) {
+    updateForceColor(colorValue, animationIndex) {
+      let colorHex;
+      
       // Handle v-color-picker input format
       if (colorValue && typeof colorValue === 'object') {
         if (colorValue.hex) {
-          this.forceColor = '#' + colorValue.hex;
-          this.forceDisplayColor = '#' + colorValue.hex;
+          colorHex = '#' + colorValue.hex;
         }
       } else if (typeof colorValue === 'string') {
-        this.forceColor = colorValue;
-        this.forceDisplayColor = colorValue;
+        colorHex = colorValue;
       }
       
-      // Create THREE.Color object for proper color handling
-      const threejsColor = new THREE.Color(this.forceColor);
-      
-      // Update arrow colors
-      this.forceArrows.forEach(platformGroup => {
-        platformGroup.children.forEach(arrowGroup => {
-          arrowGroup.children.forEach(child => {
-            if (child.material) {
-              child.material.color.copy(threejsColor);
-              child.material.needsUpdate = true;
-            }
-          });
-        });
-      });
-      
-      // Re-render the scene
-      if (this.renderer && this.scene && this.camera) {
-        this.renderer.render(this.scene, this.camera);
-      }
-    },
+      if (colorHex) {
+        // Update color for specific animation index using $set for reactivity
+        this.$set(this.forceColors, animationIndex, colorHex);
+        this.$set(this.forceDisplayColors, animationIndex, colorHex);
+        
+                 // Update existing force colors for this specific animation
+         this.updateForceArrowColors(animationIndex);
+       }
+     },
+     
+     updateForceArrowColors(animationIndex) {
+       // Create THREE.Color object for proper color handling
+       const threejsColor = new THREE.Color(this.getForceColor(animationIndex));
+       
+       // Update arrow colors for specific animation index
+       this.forceArrows.forEach(platformGroup => {
+         if (platformGroup.userData && platformGroup.userData.animationIndex === parseInt(animationIndex)) {
+           platformGroup.children.forEach(arrowGroup => {
+             arrowGroup.children.forEach(child => {
+               if (child.material) {
+                 child.material.color.copy(threejsColor);
+                 child.material.needsUpdate = true;
+               }
+             });
+           });
+         }
+       });
+       
+       // Re-render the scene
+       if (this.renderer && this.scene && this.camera) {
+         this.renderer.render(this.scene, this.camera);
+       }
+     },
     
     updateForceScale() {
       // Re-create force arrows with new scale
@@ -3673,29 +3710,35 @@ const axiosInstance = axios.create();
       event.target.value = '';
     },
     
-    updateMarkerColor(colorValue) {
+    updateMarkerColor(colorValue, animationIndex) {
+      let colorHex;
+      
       // Handle v-color-picker input format
       if (colorValue && typeof colorValue === 'object') {
         if (colorValue.hex) {
-          this.markerColor = '#' + colorValue.hex;
-          this.markerDisplayColor = '#' + colorValue.hex;
+          colorHex = '#' + colorValue.hex;
         }
       } else if (typeof colorValue === 'string') {
-        this.markerColor = colorValue;
-        this.markerDisplayColor = colorValue;
+        colorHex = colorValue;
       }
       
-      // Update existing marker colors
-      this.updateMarkerSphereColors();
+      if (colorHex) {
+        // Update color for specific animation index using $set for reactivity
+        this.$set(this.markerColors, animationIndex, colorHex);
+        this.$set(this.markerDisplayColors, animationIndex, colorHex);
+        
+        // Update existing marker colors for this specific animation
+        this.updateMarkerSphereColors(animationIndex);
+      }
     },
     
-    updateMarkerSphereColors() {
+    updateMarkerSphereColors(animationIndex) {
       // Create THREE.Color object for proper color handling
-      const threejsColor = new THREE.Color(this.markerColor);
+      const threejsColor = new THREE.Color(this.getMarkerColor(animationIndex));
       
-      // Update marker sphere colors
+      // Update marker sphere colors for specific animation index
       this.markerSpheres.forEach(sphere => {
-        if (sphere.material) {
+        if (sphere.material && sphere.userData.animationIndex === parseInt(animationIndex)) {
           sphere.material.color.copy(threejsColor);
           sphere.material.needsUpdate = true;
         }
@@ -3713,7 +3756,7 @@ const axiosInstance = axios.create();
       
       // Set initial visibility for this animation
       const targetAnimationIndex = this.selectedAnimationForMarkers || 0;
-      this.markersVisible[targetAnimationIndex] = true;
+      this.$set(this.markersVisible, String(targetAnimationIndex), true);
       
       // Initialize marker visibility state if not set
       if (typeof this.markersVisible === 'undefined') {
@@ -3878,7 +3921,8 @@ const axiosInstance = axios.create();
          
          // Set animation index for markers
          if (this.animations.length === 0) {
-           animationIndex = 0;
+           // Find next available index for standalone markers
+           animationIndex = this.getNextAvailableMarkerIndex();
          } else {
            animationIndex = this.selectedAnimationForMarkers || 0;
          }
@@ -3892,6 +3936,15 @@ const axiosInstance = axios.create();
        
        // Store dataset for selected animation
        this.markersDatasets[animationIndex] = parsedData;
+       
+       // Set visibility to true for new marker dataset
+       this.$set(this.markersVisible, String(animationIndex), true);
+       
+       // Initialize colors for new marker dataset
+       if (!this.markerColors[animationIndex]) {
+         this.$set(this.markerColors, animationIndex, '#ff0000'); // Default red color
+         this.$set(this.markerDisplayColors, animationIndex, '#ff0000');
+       }
        
        // Store marker time data for syncing
        this.markerTimeData = {
@@ -3939,6 +3992,57 @@ const axiosInstance = axios.create();
         this.selectedMarker = null;
       },
      
+     getNextAvailableMarkerIndex() {
+       // Find the next available index for standalone markers
+       let index = 0;
+       while (this.markersDatasets[index]) {
+         index++;
+       }
+       return index;
+     },
+     
+     getMarkerVisibility(animationIndex) {
+       // Return visibility for specific marker dataset
+       // Ensure consistent key type (convert to string)
+       const key = String(animationIndex);
+       if (this.markersVisible[key] === undefined) {
+         return true; // Default to visible
+       }
+       return this.markersVisible[key];
+     },
+     
+     getMarkerColor(animationIndex) {
+       // Return color for specific marker dataset
+       if (this.markerColors[animationIndex] === undefined) {
+         return '#ff0000'; // Default red color
+       }
+       return this.markerColors[animationIndex];
+     },
+     
+     getMarkerDisplayColor(animationIndex) {
+       // Ensure display color exists for color picker
+       if (this.markerDisplayColors[animationIndex] === undefined) {
+         this.$set(this.markerDisplayColors, animationIndex, this.getMarkerColor(animationIndex));
+       }
+       return this.markerDisplayColors[animationIndex];
+     },
+     
+     getForceColor(animationIndex) {
+       // Return color for specific force dataset
+       if (this.forceColors[animationIndex] === undefined) {
+         return '#00ff00'; // Default green color
+       }
+       return this.forceColors[animationIndex];
+     },
+     
+     getForceDisplayColor(animationIndex) {
+       // Ensure display color exists for color picker
+       if (this.forceDisplayColors[animationIndex] === undefined) {
+         this.$set(this.forceDisplayColors, animationIndex, this.getForceColor(animationIndex));
+       }
+       return this.forceDisplayColors[animationIndex];
+     },
+     
      createMarkerSpheres() {
        // Clear existing marker spheres
        this.clearMarkerSpheres();
@@ -3949,49 +4053,54 @@ const axiosInstance = axios.create();
          throw new Error('Scene not initialized');
        }
        
-       const animationIndex = this.selectedAnimationForMarkers;
-       const markersData = this.markersDatasets[animationIndex];
-       
-       if (!markersData) {
-         console.error('No markers data found for animation index:', animationIndex);
-         return;
-       }
-       
-       const markerNames = markersData.markers;
-       const sphereGeometry = new THREE.SphereGeometry(this.markerSize / 1000, 16, 16); // Convert to meters
-       const sphereMaterial = new THREE.MeshPhongMaterial({ 
-         color: new THREE.Color(this.markerColor),
-         transparent: true,
-         opacity: 0.8
-       });
-       
-       // Create spheres for each marker
-       markerNames.forEach(markerName => {
-         const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial.clone());
-         sphere.name = markerName;
-         sphere.userData = {
-           type: 'marker',
-           markerName: markerName,
-           animationIndex: animationIndex
-         };
+       // Create spheres for all marker datasets
+       Object.keys(this.markersDatasets).forEach(animationIndex => {
+         const markersData = this.markersDatasets[animationIndex];
          
-         // Set initial position (frame 0)
-         if (markersData.data[markerName] && markersData.data[markerName].x.length > 0) {
-           const x = markersData.data[markerName].x[0];
-           const y = markersData.data[markerName].y[0];
-           const z = markersData.data[markerName].z[0];
-           sphere.position.set(x, y, z);
-           console.log(`Created marker ${markerName} at position (${x.toFixed(3)}, ${y.toFixed(3)}, ${z.toFixed(3)})`);
-         } else {
-           console.warn(`No data found for marker ${markerName}`);
+         if (!markersData) {
+           console.error('No markers data found for animation index:', animationIndex);
+           return;
          }
          
-         // Add to scene
-         this.scene.add(sphere);
-         this.markerSpheres.push(sphere);
+         const markerNames = markersData.markers;
+         const sphereGeometry = new THREE.SphereGeometry(this.markerSize / 1000, 16, 16); // Convert to meters
+         const sphereMaterial = new THREE.MeshPhongMaterial({ 
+           color: new THREE.Color(this.getMarkerColor(animationIndex)),
+           transparent: true,
+           opacity: 0.8
+         });
+         
+         // Create spheres for each marker in this dataset
+         markerNames.forEach(markerName => {
+           const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial.clone());
+           sphere.name = `${markerName}_${animationIndex}`;
+           sphere.userData = {
+             type: 'marker',
+             markerName: markerName,
+             animationIndex: parseInt(animationIndex)
+           };
+           
+           // Set initial position (frame 0)
+           if (markersData.data[markerName] && markersData.data[markerName].x.length > 0) {
+             const x = markersData.data[markerName].x[0];
+             const y = markersData.data[markerName].y[0];
+             const z = markersData.data[markerName].z[0];
+             sphere.position.set(x, y, z);
+             console.log(`Created marker ${markerName} (dataset ${animationIndex}) at position (${x.toFixed(3)}, ${y.toFixed(3)}, ${z.toFixed(3)})`);
+           } else {
+             console.warn(`No data found for marker ${markerName} in dataset ${animationIndex}`);
+           }
+           
+           // Set visibility based on marker visibility state
+           sphere.visible = this.getMarkerVisibility(parseInt(animationIndex));
+           
+           // Add to scene
+           this.scene.add(sphere);
+           this.markerSpheres.push(sphere);
+         });
        });
        
-       console.log(`Created ${markerNames.length} marker spheres. Total spheres: ${this.markerSpheres.length}`);
+       console.log(`Created marker spheres for ${Object.keys(this.markersDatasets).length} datasets. Total spheres: ${this.markerSpheres.length}`);
        
        // Add click event listener for marker selection
        this.addMarkerClickListener();
@@ -4442,20 +4551,23 @@ const axiosInstance = axios.create();
     },
 
     toggleForceVisibility(animationIndex) {
-      this.forcesVisible[animationIndex] = !this.forcesVisible[animationIndex];
+      const key = String(animationIndex);
+      this.$set(this.forcesVisible, key, !this.forcesVisible[key]);
       this.forceArrows.forEach(group => {
-        if (group.userData && group.userData.animationIndex === animationIndex) {
-          group.visible = this.forcesVisible[animationIndex];
+        if (group.userData && group.userData.animationIndex === parseInt(animationIndex)) {
+          group.visible = this.forcesVisible[key];
         }
       });
       this.renderer.render(this.scene, this.camera);
     },
 
     toggleMarkerVisibility(animationIndex) {
-      this.markersVisible[animationIndex] = !this.markersVisible[animationIndex];
+      // Ensure consistent key type (convert to string)
+      const key = String(animationIndex);
+      this.$set(this.markersVisible, key, !this.markersVisible[key]);
       this.markerSpheres.forEach(sphere => {
-        if (sphere.userData && sphere.userData.animationIndex === animationIndex) {
-          sphere.visible = this.markersVisible[animationIndex];
+        if (sphere.userData && sphere.userData.animationIndex === parseInt(animationIndex)) {
+          sphere.visible = this.markersVisible[key];
         }
       });
       this.renderer.render(this.scene, this.camera);
@@ -6537,10 +6649,8 @@ const axiosInstance = axios.create();
           this.updateGroundColor(selectedColorHex);
         } else if (target === 'subject' && index !== null) {
           this.updateSubjectColor(index, selectedColorHex);
-        } else if (target === 'marker') {
-          this.markerColor = selectedColorHex;
-          this.markerDisplayColor = selectedColorHex;
-          this.updateMarkerColor(selectedColorHex);
+        } else if (target === 'marker' && index !== null) {
+          this.updateMarkerColor(selectedColorHex, index);
         } else if (target === 'object' && index !== null) {
            // This part handles object colors if needed, based on the previous apply attempt
           const obj = this.customObjects.find(o => o.id === index);
@@ -6548,10 +6658,8 @@ const axiosInstance = axios.create();
               this.$set(obj, 'color', selectedColorHex);
               this.updateObjectColor(index, selectedColorHex);
           }
-        } else if (target === 'force') {
-          this.forceColor = selectedColorHex;
-          this.forceDisplayColor = selectedColorHex;
-          this.updateForceColor(selectedColorHex);
+        } else if (target === 'force' && index !== null) {
+          this.updateForceColor(selectedColorHex, index);
         }
         this.saveSettings(); // Save settings after color change
         
