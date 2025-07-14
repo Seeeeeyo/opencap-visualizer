@@ -17,9 +17,12 @@
     "chroma-js": "^2.4.2",
     "core-js": "^3.6.5",
     "hammerjs": "^2.0.8",
+    "js-file-downloader": "^1.1.25",
     "jspdf": "^2.5.1",
     "moment": "^2.29.1",
     "moment-duration-format": "^2.3.2",
+    "npyjs": "^0.7.0",
+    "pako": "^2.1.0",
     "register-service-worker": "^1.7.2",
     "roboto-fontface": "*",
     "svg2pdf.js": "^2.2.1",
@@ -37,8 +40,10 @@
     "vuex": "^3.6.2"
   },
   "devDependencies": {
+    "@babel/plugin-proposal-class-properties": "^7.18.6",
     "@babel/plugin-proposal-nullish-coalescing-operator": "^7.18.6",
     "@babel/plugin-proposal-optional-chaining": "^7.21.0",
+    "@babel/plugin-transform-class-properties": "^7.27.1",
     "@babel/preset-env": "^7.26.0",
     "@vue/cli": "^5.0.8",
     "@vue/cli-plugin-babel": "~4.5.0",

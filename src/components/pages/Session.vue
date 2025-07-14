@@ -6522,7 +6522,7 @@ const axiosInstance = axios.create();
         // Initialize scene if it doesn't exist
         if (!this.scene) {
             this.$nextTick(() => {
-                this.initScene();
+            this.initScene();
             });
         }
 

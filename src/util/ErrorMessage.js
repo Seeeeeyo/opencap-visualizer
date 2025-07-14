@@ -85,14 +85,14 @@ function apiError (error, operation) {
   if (error == "Error: Network Error") {
     error = "Could not reach server. Check your internet connection and try again."
   }
-  Vue.toasted.error(processErrorMessage(error, operation),{duration: 10000})
+  Vue.toasted.error(processErrorMessage(error, operation),{duration: 3000})
 }
 /**
  * Shorthand for successful toast message
  * @param {String} text - message text
  */
 function apiSuccess (text) {
-  Vue.toasted.success(text, {duration: 10000})
+  Vue.toasted.success(text, {duration: 3000})
 }
 /**
  * Shorthand for info toast message

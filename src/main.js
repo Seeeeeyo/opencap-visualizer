@@ -64,7 +64,7 @@ import Toasted from 'vue-toasted'
 import './registerServiceWorker'
 Vue.use(Toasted, { 
   position: 'bottom-center', 
-  duration: 10000,
+  duration: 1000,
   className: 'vue-toasted',
   // Show all toasts with Close button
   action : {
