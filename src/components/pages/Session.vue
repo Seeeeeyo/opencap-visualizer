@@ -870,7 +870,7 @@
 
             <!-- Marker Visualization Section (only when animations exist) -->
             <template v-if="animations.length > 0">
-              <div v-for="(markersData, animationIndex) in markersDatasets" :key="`markers-${animationIndex}`" class="legend-item mb-4">
+            <div v-for="(markersData, animationIndex) in markersDatasets" :key="`markers-${animationIndex}`" class="legend-item mb-4">
               <div class="d-flex mb-2">
                 <div class="color-box" :style="{ backgroundColor: getMarkerColor(animationIndex) }"></div>
                 <div class="flex-grow-1 ml-2" style="min-width: 0;">
@@ -995,7 +995,7 @@
               
               <!-- Divider -->
               <v-divider class="mt-4" style="opacity: 0.2"></v-divider>
-              </div>
+            </div>
             </template>
 
 
@@ -1026,7 +1026,7 @@
         </div>
 
         <!-- Main Content -->
-        <div v-if="trial || (markerSpheres.length > 0)" class="d-flex flex-column h-100">
+        <div v-if="trial || (markerSpheres.length > 0) || (animations.length > 0) || trialLoading || converting || conversionError" class="d-flex flex-column h-100">
           <div id="mocap" ref="mocap" class="flex-grow-1 position-relative">
             <div v-if="videoFile && !$refs.videoPreview" class="debug-info">
               Video file loaded but preview not mounted
@@ -1453,6 +1453,11 @@
             <v-btn color="#2563EB" class="mb-4 white--text custom-btn" block @click="openShareDialog" :disabled="!trial || animations.length === 0">
               <v-icon left>mdi-share-variant</v-icon>
               Share Visualization
+            </v-btn>
+            
+            <v-btn color="#4B5563" class="mb-4 white--text custom-btn" block @click="showPlottingDialog = true" :disabled="!trial && animations.length === 0">
+              <v-icon left>mdi-chart-line</v-icon>
+              Real-time Plots
             </v-btn>
             
             <!-- Keep all the file inputs but hide them -->
@@ -1961,6 +1966,193 @@
               <v-spacer></v-spacer>
               <v-btn text @click="showShareDialog = false">Close</v-btn>
             </v-card-actions>
+          </v-card>
+        </v-dialog>
+
+        <!-- Real-time Plotting Dialog -->
+        <v-dialog 
+          v-model="showPlottingDialog" 
+          max-width="1200" 
+          persistent
+          content-class="plotting-dialog"
+          :overlay="false"
+        >
+          <v-card 
+            class="plotting-dialog-card" 
+            :style="{ 
+              position: 'fixed', 
+              top: plottingDialogPosition.y + 'px', 
+              left: plottingDialogPosition.x + 'px',
+              width: plottingDialogSize.width + 'px',
+              height: plottingDialogSize.height + 'px',
+              maxWidth: 'none',
+              maxHeight: 'none',
+              zIndex: 1000,
+              resize: 'both',
+              overflow: 'hidden'
+            }"
+          >
+            <!-- Header with drag handle -->
+            <v-card-title 
+              class="plotting-header d-flex align-center pa-3"
+              style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); cursor: move; user-select: none;"
+              @mousedown="startDragPlotDialog"
+              @touchstart="startDragPlotDialog"
+            >
+              <v-icon color="white" class="mr-3">mdi-chart-line</v-icon>
+              <span class="white--text font-weight-bold text-h6">Real-time Data Plots</span>
+              <v-spacer></v-spacer>
+              
+              <!-- Plot Controls -->
+              <v-btn icon small @click="togglePlotUpdates" class="mr-2">
+                <v-icon color="white">{{ plotUpdatesEnabled ? 'mdi-pause' : 'mdi-play' }}</v-icon>
+              </v-btn>
+              
+              <v-btn icon small @click="exportPlot" class="mr-2">
+                <v-icon color="white">mdi-download</v-icon>
+              </v-btn>
+              
+              <v-btn icon small @click="showPlottingDialog = false">
+                <v-icon color="white">mdi-close</v-icon>
+              </v-btn>
+            </v-card-title>
+
+            <!-- Plot Content -->
+            <v-card-text class="pa-0" style="height: calc(100% - 64px); overflow: hidden;">
+              <div class="d-flex" style="height: 100%;">
+                <!-- Left Panel - Plot Controls -->
+                <div class="plot-controls-panel pa-3" style="width: 280px; background: rgba(0, 0, 0, 0.05); border-right: 1px solid rgba(0, 0, 0, 0.1); overflow-y: auto;">
+                  <div class="text-subtitle-2 mb-3 font-weight-bold">Plot Configuration</div>
+                  
+                  <!-- Plot Type Selection -->
+                  <div class="mb-4">
+                    <div class="text-caption font-weight-bold mb-2">Plot Type:</div>
+                    <v-select
+                      v-model="selectedPlotType"
+                      :items="plotTypes"
+                      item-text="label"
+                      item-value="value"
+                      outlined
+                      dense
+                      @change="updatePlotType"
+                    ></v-select>
+                  </div>
+
+                  <!-- Variable Selection -->
+                  <div class="mb-4" v-if="availableVariables.length > 0">
+                    <div class="text-caption font-weight-bold mb-2">Variables:</div>
+                    <v-select
+                      v-model="selectedVariables"
+                      :items="availableVariables"
+                      item-text="label"
+                      item-value="value"
+                      outlined
+                      dense
+                      multiple
+                      chips
+                      small-chips
+                      @change="updateSelectedVariables"
+                    ></v-select>
+                  </div>
+
+                  <!-- Marker Selection for marker-related plots -->
+                  <div class="mb-4" v-if="selectedPlotType === 'marker_position' || selectedPlotType === 'marker_distance'">
+                    <div class="text-caption font-weight-bold mb-2">Markers:</div>
+                    <v-select
+                      v-model="selectedMarkers"
+                      :items="availableMarkers"
+                      item-text="label"
+                      item-value="value"
+                      outlined
+                      dense
+                      multiple
+                      chips
+                      small-chips
+                      @change="updateSelectedMarkers"
+                    ></v-select>
+                  </div>
+
+                  <!-- Animation Selection -->
+                  <div class="mb-4" v-if="animations.length > 1">
+                    <div class="text-caption font-weight-bold mb-2">Animation:</div>
+                    <v-select
+                      v-model="selectedPlotAnimation"
+                      :items="animationOptions"
+                      item-text="text"
+                      item-value="value"
+                      outlined
+                      dense
+                      @change="updatePlotAnimation"
+                    ></v-select>
+                  </div>
+
+                  <!-- Plot Appearance -->
+                  <div class="mb-4">
+                    <div class="text-caption font-weight-bold mb-2">Appearance:</div>
+                    <v-checkbox
+                      v-model="plotSettings.showGrid"
+                      label="Show Grid"
+                      dense
+                      hide-details
+                      class="mb-1"
+                    ></v-checkbox>
+                    <v-checkbox
+                      v-model="plotSettings.showLegend"
+                      label="Show Legend"
+                      dense
+                      hide-details
+                      class="mb-1"
+                    ></v-checkbox>
+                    <v-checkbox
+                      v-model="plotSettings.showCurrentTime"
+                      label="Show Current Time"
+                      dense
+                      hide-details
+                    ></v-checkbox>
+                  </div>
+
+                  <!-- Time Range -->
+                  <div class="mb-4">
+                    <div class="text-caption font-weight-bold mb-2">Time Range (s):</div>
+                    <v-range-slider
+                      v-model="plotTimeRange"
+                      :min="0"
+                      :max="maxTime"
+                      :step="0.1"
+                      dense
+                      hide-details
+                      class="mb-2"
+                    ></v-range-slider>
+                    <div class="text-caption text-center">
+                      {{ plotTimeRange[0].toFixed(1) }}s - {{ plotTimeRange[1].toFixed(1) }}s
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Right Panel - Plot Display -->
+                <div class="plot-display-panel" style="flex: 1; position: relative;">
+                  <div v-if="!selectedPlotType || selectedVariables.length === 0" class="d-flex align-center justify-center" style="height: 100%;">
+                    <div class="text-center text--disabled">
+                      <v-icon size="64" color="grey">mdi-chart-line</v-icon>
+                      <div class="text-h6 mt-2">Select plot type and variables to begin</div>
+                    </div>
+                  </div>
+                  
+                  <!-- Chart Container -->
+                  <div v-else style="width: 100%; height: 100%; position: relative;">
+                    <canvas id="plotChart" ref="plotChart" style="width: 100%; height: 100%;"></canvas>
+                  </div>
+                </div>
+              </div>
+            </v-card-text>
+
+            <!-- Resize Handle -->
+            <div 
+              class="resize-handle"
+              style="position: absolute; bottom: 0; right: 0; width: 20px; height: 20px; cursor: nw-resize; background: linear-gradient(135deg, transparent 50%, rgba(255,255,255,0.3) 50%);"
+              @mousedown="startResizePlotDialog"
+              @touchstart="startResizePlotDialog"
+            ></div>
           </v-card>
         </v-dialog>
 
@@ -2604,6 +2796,36 @@ const axiosInstance = axios.create();
               // Debounce timers for offset updates
               offsetUpdateTimers: {},
               objectUpdateTimers: {},
+              
+              // Real-time plotting properties
+              showPlottingDialog: false,
+              plotChart: null,
+              plotUpdatesEnabled: true,
+              plottingDialogPosition: { x: 100, y: 100 },
+              plottingDialogSize: { width: 1000, height: 600 },
+              isDraggingPlotDialog: false,
+              isResizingPlotDialog: false,
+              plotDragOffset: { x: 0, y: 0 },
+              plotResizeStartPosition: { x: 0, y: 0 },
+              plotResizeStartSize: { width: 0, height: 0 },
+              
+              // Plot configuration
+              selectedPlotType: null,
+              selectedVariables: [],
+              selectedMarkers: [],
+              selectedPlotAnimation: 0,
+              plotTimeRange: [0, 10],
+              plotSettings: {
+                showGrid: true,
+                showLegend: true,
+                showCurrentTime: true
+              },
+              
+              // Plot data
+              plotData: {
+                labels: [],
+                datasets: []
+              },
               // Forces visualization properties
               showForcesDialog: false,
               forcesFile: null,
@@ -2664,6 +2886,82 @@ const axiosInstance = axios.create();
               value: index
             };
           });
+        },
+        
+        // Plotting computed properties
+        plotTypes() {
+          return [
+            { label: 'Marker Positions', value: 'marker_position' },
+            { label: 'Force Magnitudes', value: 'force_magnitude' },
+            { label: 'Force Components', value: 'force_components' },
+            { label: 'Marker Distances', value: 'marker_distance' },
+            { label: 'Joint Angles', value: 'joint_angles' },
+            { label: 'Pelvis Translations', value: 'pelvis_translations' }
+          ];
+        },
+        
+        availableVariables() {
+          if (!this.selectedPlotType) return [];
+          
+          switch (this.selectedPlotType) {
+            case 'marker_position':
+              return [
+                { label: 'X Position', value: 'x' },
+                { label: 'Y Position', value: 'y' },
+                { label: 'Z Position', value: 'z' }
+              ];
+            case 'force_magnitude':
+              return [
+                { label: 'Left Foot Force', value: 'left_magnitude' },
+                { label: 'Right Foot Force', value: 'right_magnitude' },
+                { label: 'Total Force', value: 'total_magnitude' }
+              ];
+            case 'force_components':
+              return [
+                { label: 'Left Fx', value: 'left_fx' },
+                { label: 'Left Fy', value: 'left_fy' },
+                { label: 'Left Fz', value: 'left_fz' },
+                { label: 'Right Fx', value: 'right_fx' },
+                { label: 'Right Fy', value: 'right_fy' },
+                { label: 'Right Fz', value: 'right_fz' }
+              ];
+            case 'marker_distance':
+              return [
+                { label: 'Distance', value: 'distance' }
+              ];
+            case 'joint_angles':
+              return this.getAvailableJointAngles();
+            case 'pelvis_translations':
+              return [
+                { label: 'Pelvis TX', value: 'pelvis_tx' },
+                { label: 'Pelvis TY', value: 'pelvis_ty' },
+                { label: 'Pelvis TZ', value: 'pelvis_tz' }
+              ];
+            default:
+              return [];
+          }
+        },
+        
+        availableMarkers() {
+          const animation = this.animations[this.selectedPlotAnimation];
+          const markersData = this.markersDatasets[this.selectedPlotAnimation];
+          
+          if (markersData && markersData.markers) {
+            return markersData.markers.map(marker => ({
+              label: marker,
+              value: marker
+            }));
+          }
+          
+          return [];
+        },
+        
+        maxTime() {
+          const animation = this.animations[this.selectedPlotAnimation];
+          if (animation && animation.data && animation.data.time) {
+            return Math.max(...animation.data.time);
+          }
+          return 10;
         }
       },
     async   mounted() {
@@ -2713,8 +3011,10 @@ const axiosInstance = axios.create();
         // Add keyboard event listeners
         window.addEventListener('keydown', this.handleKeyDown);
 
-        // Initialize the scene first
+        // Initialize the scene first (after DOM is ready)
+        this.$nextTick(() => {
         this.initScene(); // initScene will now call applyLoadedSceneSettings
+        });
 
         // Check for shared visualization first
         if (this.$route.query.share || this.$route.query.shareId) {
@@ -3644,28 +3944,28 @@ const axiosInstance = axios.create();
      },
      
      updateForceArrowColors(animationIndex) {
-       // Create THREE.Color object for proper color handling
+      // Create THREE.Color object for proper color handling
        const threejsColor = new THREE.Color(this.getForceColor(animationIndex));
-       
+      
        // Update arrow colors for specific animation index
-       this.forceArrows.forEach(platformGroup => {
+      this.forceArrows.forEach(platformGroup => {
          if (platformGroup.userData && platformGroup.userData.animationIndex === parseInt(animationIndex)) {
-           platformGroup.children.forEach(arrowGroup => {
-             arrowGroup.children.forEach(child => {
-               if (child.material) {
-                 child.material.color.copy(threejsColor);
-                 child.material.needsUpdate = true;
-               }
-             });
-           });
+        platformGroup.children.forEach(arrowGroup => {
+          arrowGroup.children.forEach(child => {
+            if (child.material) {
+              child.material.color.copy(threejsColor);
+              child.material.needsUpdate = true;
+            }
+          });
+        });
          }
-       });
-       
-       // Re-render the scene
-       if (this.renderer && this.scene && this.camera) {
-         this.renderer.render(this.scene, this.camera);
-       }
-     },
+      });
+      
+      // Re-render the scene
+      if (this.renderer && this.scene && this.camera) {
+        this.renderer.render(this.scene, this.camera);
+      }
+    },
     
     updateForceScale() {
       // Re-create force arrows with new scale
@@ -3675,6 +3975,102 @@ const axiosInstance = axios.create();
         if (this.frames && this.frame < this.frames.length) {
           this.updateForceArrows(this.frame);
         }
+      }
+    },
+    
+    // Extract marker data from JSON animation files for plotting
+    extractMarkerDataFromJson(jsonData, animationIndex, fileName) {
+      // Check if the JSON contains marker data
+      if (!jsonData || !jsonData.time || !jsonData.bodies) return;
+      
+      // Look for marker data in the JSON structure
+      const markerData = {};
+      const markerNames = [];
+      
+      // Find all bodies that have translation data (potential markers)
+      Object.keys(jsonData.bodies).forEach(bodyKey => {
+        const body = jsonData.bodies[bodyKey];
+        
+        // Check if this body has translation data
+        if (body.translation && Array.isArray(body.translation) && body.translation.length > 0) {
+                     // Only extract explicit markers - be very restrictive
+           
+           // 1. Check if the body name explicitly suggests it's a marker
+           const nameIndicatesMarker = bodyKey && bodyKey.toLowerCase && (
+             bodyKey.toLowerCase().includes('marker') || 
+             bodyKey.toLowerCase().includes('sphere') ||
+             bodyKey.toLowerCase().includes('point')
+           );
+           
+           // 2. Check if it has geometry that explicitly suggests it's a marker
+           let geometryIndicatesMarker = false;
+           if (body.attachedGeometries && body.attachedGeometries.length > 0) {
+             geometryIndicatesMarker = body.attachedGeometries.some(geom => 
+               geom && geom.meshName && geom.meshName.toLowerCase && (
+                 geom.meshName.toLowerCase().includes('marker') || 
+                 geom.meshName.toLowerCase().includes('sphere') ||
+                 geom.meshName.toLowerCase().includes('point')
+               )
+             );
+           }
+           
+           // Only include if explicitly marked as a marker (no general body parts)
+           if (nameIndicatesMarker || geometryIndicatesMarker) {
+             // Extract marker name from body key
+             const markerName = bodyKey && bodyKey.replace ? bodyKey.replace(/[^a-zA-Z0-9_]/g, '_') : 'unknown_marker';
+             if (markerName) {
+               markerNames.push(markerName);
+               
+               // Initialize marker data arrays
+               markerData[markerName] = {
+                 x: [],
+                 y: [],
+                 z: []
+               };
+               
+               // Extract position data for each frame
+               for (let frameIndex = 0; frameIndex < jsonData.time.length; frameIndex++) {
+                 if (body.translation[frameIndex] && Array.isArray(body.translation[frameIndex])) {
+                   markerData[markerName].x.push(body.translation[frameIndex][0] || 0);
+                   markerData[markerName].y.push(body.translation[frameIndex][1] || 0);
+                   markerData[markerName].z.push(body.translation[frameIndex][2] || 0);
+                 } else {
+                   markerData[markerName].x.push(0);
+                   markerData[markerName].y.push(0);
+                   markerData[markerName].z.push(0);
+                 }
+               }
+             }
+           }
+        }
+      });
+      
+      // If we found marker data, store it in markersDatasets
+      if (markerNames.length > 0) {
+        const parsedData = {
+          header: { source: 'JSON file' },
+          markers: markerNames,
+          frames: jsonData.time.map((_, index) => index),
+          times: jsonData.time,
+          data: markerData,
+          fileName: fileName
+        };
+        
+        // Store dataset for this animation
+        this.markersDatasets[animationIndex] = parsedData;
+        
+        // Set visibility to true for new marker dataset
+        this.$set(this.markersVisible, String(animationIndex), true);
+        
+        // Initialize colors for new marker dataset
+        if (!this.markerColors[animationIndex]) {
+          this.$set(this.markerColors, animationIndex, '#ff0000'); // Default red color
+          this.$set(this.markerDisplayColors, animationIndex, '#ff0000');
+        }
+        
+        console.log(`Extracted ${markerNames.length} markers from JSON file ${fileName} for animation ${animationIndex}:`, markerNames);
+      } else {
+        console.log(`No marker data found in JSON file ${fileName}`);
       }
     },
     
@@ -3690,7 +4086,7 @@ const axiosInstance = axios.create();
       if (file) {
         this.markersFile = file;
         // Open the markers dialog with the selected file
-        this.showMarkersDialog = true;
+      this.showMarkersDialog = true;
       }
       // Clear the input value so the same file can be selected again if needed
       event.target.value = '';
@@ -3766,13 +4162,13 @@ const axiosInstance = axios.create();
          const reader = new FileReader();
          reader.onload = (e) => {
            try {
-             const wasEmpty = this.animations.length === 0;
-             this.parseTrcFile(e.target.result, this.markersFile.name);
-             this.showMarkersDialog = false;
-             const message = wasEmpty ? 
-               'Markers file loaded as standalone visualization!' : 
-               'Markers file loaded successfully!';
-             this.$toasted.success(message);
+           const wasEmpty = this.animations.length === 0;
+           this.parseTrcFile(e.target.result, this.markersFile.name);
+           this.showMarkersDialog = false;
+           const message = wasEmpty ? 
+             'Markers file loaded as standalone visualization!' : 
+             'Markers file loaded successfully!';
+           this.$toasted.success(message);
            } catch (parseError) {
              console.error('Error parsing markers file:', parseError);
              this.$toasted.error('Error parsing markers file');
@@ -3957,15 +4353,15 @@ const axiosInstance = axios.create();
          console.log('Initializing scene for standalone markers...');
          // Wait for DOM to be ready before initializing scene
          this.$nextTick(() => {
-           this.initScene();
+         this.initScene();
            // Create marker spheres after scene is initialized
            this.createMarkerSpheres();
            this.handlePostMarkerCreation();
          });
        } else {
          console.log('Scene already exists, using existing scene');
-         // Create marker spheres
-         this.createMarkerSpheres();
+       // Create marker spheres
+       this.createMarkerSpheres();
          this.handlePostMarkerCreation();
        }
      },
@@ -3987,9 +4383,9 @@ const axiosInstance = axios.create();
           // Signal that all visuals are loaded for headless operation
           window.allVisualsLoaded = true;
         }
-        
-        // Clear any existing selection
-        this.selectedMarker = null;
+       
+       // Clear any existing selection
+       this.selectedMarker = null;
       },
      
      getNextAvailableMarkerIndex() {
@@ -4055,33 +4451,33 @@ const axiosInstance = axios.create();
        
        // Create spheres for all marker datasets
        Object.keys(this.markersDatasets).forEach(animationIndex => {
-         const markersData = this.markersDatasets[animationIndex];
-         
-         if (!markersData) {
+       const markersData = this.markersDatasets[animationIndex];
+       
+       if (!markersData) {
            console.error('No markers data found for animation index:', animationIndex);
-           return;
-         }
-         
-         const markerNames = markersData.markers;
-         const sphereGeometry = new THREE.SphereGeometry(this.markerSize / 1000, 16, 16); // Convert to meters
-         const sphereMaterial = new THREE.MeshPhongMaterial({ 
+         return;
+       }
+       
+       const markerNames = markersData.markers;
+       const sphereGeometry = new THREE.SphereGeometry(this.markerSize / 1000, 16, 16); // Convert to meters
+       const sphereMaterial = new THREE.MeshPhongMaterial({ 
            color: new THREE.Color(this.getMarkerColor(animationIndex)),
-           transparent: true,
-           opacity: 0.8
-         });
-         
+         transparent: true,
+         opacity: 0.8
+       });
+       
          // Create spheres for each marker in this dataset
-         markerNames.forEach(markerName => {
-           const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial.clone());
+       markerNames.forEach(markerName => {
+         const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial.clone());
            sphere.name = `${markerName}_${animationIndex}`;
-           sphere.userData = {
-             type: 'marker',
-             markerName: markerName,
+         sphere.userData = {
+           type: 'marker',
+           markerName: markerName,
              animationIndex: parseInt(animationIndex)
-           };
-           
-           // Set initial position (frame 0)
-           if (markersData.data[markerName] && markersData.data[markerName].x.length > 0) {
+         };
+         
+         // Set initial position (frame 0)
+         if (markersData.data[markerName] && markersData.data[markerName].x.length > 0) {
              const x = markersData.data[markerName].x[0];
              const y = markersData.data[markerName].y[0];
              const z = markersData.data[markerName].z[0];
@@ -4093,10 +4489,10 @@ const axiosInstance = axios.create();
            
            // Set visibility based on marker visibility state
            sphere.visible = this.getMarkerVisibility(parseInt(animationIndex));
-           
-           // Add to scene
-           this.scene.add(sphere);
-           this.markerSpheres.push(sphere);
+         
+         // Add to scene
+         this.scene.add(sphere);
+         this.markerSpheres.push(sphere);
          });
        });
        
@@ -4174,13 +4570,13 @@ const axiosInstance = axios.create();
          } else {
            // For marker files with animations, find closest time
            const times = markersData.times;
-           let minTimeDiff = Math.abs(times[0] - currentTime);
-           
-           for (let i = 1; i < times.length; i++) {
-             const timeDiff = Math.abs(times[i] - currentTime);
-             if (timeDiff < minTimeDiff) {
-               minTimeDiff = timeDiff;
-               closestIndex = i;
+         let minTimeDiff = Math.abs(times[0] - currentTime);
+         
+         for (let i = 1; i < times.length; i++) {
+           const timeDiff = Math.abs(times[i] - currentTime);
+           if (timeDiff < minTimeDiff) {
+             minTimeDiff = timeDiff;
+             closestIndex = i;
              }
            }
          }
@@ -4220,7 +4616,7 @@ const axiosInstance = axios.create();
          this.renderer.domElement.removeEventListener('click', this.handleMarkerClick);
        }
        
-              // Create new click handler
+       // Create new click handler
        this.handleMarkerClick = (event) => {
          event.preventDefault();
          
@@ -4251,14 +4647,14 @@ const axiosInstance = axios.create();
              );
            } else {
              // Normal marker selection
-             this.selectedMarker = {
-               name: markerName,
-               position: selectedSphere.position.clone(),
-               animationIndex: selectedSphere.userData.animationIndex
-             };
-             
-             // Optional: Highlight selected marker
-             this.highlightSelectedMarker(selectedSphere);
+           this.selectedMarker = {
+             name: markerName,
+             position: selectedSphere.position.clone(),
+                        animationIndex: selectedSphere.userData.animationIndex
+         };
+         
+         // Optional: Highlight selected marker
+           this.highlightSelectedMarker(selectedSphere);
            }
          } else {
            // Deselect if clicking empty space
@@ -5753,6 +6149,11 @@ const axiosInstance = axios.create();
               this.renderer.render(this.scene, this.camera);
             }
         }
+        
+        // Update real-time plot if enabled
+        if (this.showPlottingDialog && this.plotUpdatesEnabled) {
+          this.updatePlotInRealTime();
+        }
       },
       
       
@@ -6120,7 +6521,9 @@ const axiosInstance = axios.create();
 
         // Initialize scene if it doesn't exist
         if (!this.scene) {
-            this.initScene();
+            this.$nextTick(() => {
+                this.initScene();
+            });
         }
 
         // Get the current number of animations for offset calculation
@@ -6198,10 +6601,16 @@ const axiosInstance = axios.create();
                     this.trial = { results: [] };
                     // Set the global frameRate based on the first file loaded
                     this.frameRate = fileFps;
+                    // Reset frame counter to 0 and set initial time
+                    this.frame = 0;
+                    this.time = data.time && data.time.length > 0 ? parseFloat(data.time[0]).toFixed(2) : "0.00";
                 }
 
                 // Initialize the alpha value for the new animation
                 this.initializeAlphaValue(startIndex + index);
+                
+                // Extract marker data from JSON file for plotting
+                this.extractMarkerDataFromJson(data, startIndex + index, file.name);
             });
 
             // Ensure all color arrays are synchronized after adding new animations
@@ -6294,6 +6703,21 @@ const axiosInstance = axios.create();
         const container = this.$refs.mocap;
         if (!container) {
           console.error('Container not found in initScene');
+          console.log('Available refs:', Object.keys(this.$refs));
+          console.log('DOM ready?', document.readyState);
+          console.log('Trial:', !!this.trial);
+          console.log('Animations:', this.animations.length);
+          console.log('MarkerSpheres:', this.markerSpheres.length);
+          console.log('TrialLoading:', this.trialLoading);
+          console.log('Converting:', this.converting);
+          
+          // Try again in the next tick if we're in a loading state
+          if (this.trialLoading || this.converting || this.animations.length > 0) {
+            console.log('Retrying initScene in next tick...');
+            this.$nextTick(() => {
+              this.initScene();
+            });
+          }
           return;
         }
 
@@ -7120,7 +7544,9 @@ const axiosInstance = axios.create();
       
       // Initialize scene if needed
       if (!this.scene && (jsonFiles.length > 0 || trcFiles.length > 0 || (osimFiles.length > 0 && motionFiles.length > 0))) {
+        this.$nextTick(() => {
         this.initScene();
+        });
       }
     },
     deleteSubject(index) {
@@ -7408,6 +7834,9 @@ const axiosInstance = axios.create();
                     playable: true, // Add playable property, default to true
                     calculatedFps: fileFps // Store calculated FPS
                 });
+                
+                // Extract marker data from sample JSON file for plotting
+                this.extractMarkerDataFromJson(data, this.animations.length - 1, fileName);
                 
                 // Set up the trial and frames from the *first successfully loaded* animation
                 if (index === 0) {
@@ -8038,6 +8467,9 @@ const axiosInstance = axios.create();
             // Clear the selected files after successful conversion
             this.osimFile = null;
             this.motFile = null;
+            
+            // Give time for scene initialization before clearing converting flag
+            await new Promise(resolve => setTimeout(resolve, 100));
             
         } catch (error) {
             console.error('Error converting OpenSim files:', error);
@@ -9785,7 +10217,9 @@ const axiosInstance = axios.create();
       
       if (!this.scene) {
         console.log('Scene not initialized, initializing...');
+        this.$nextTick(() => {
         this.initScene();
+        });
       }
       
       // Create a simple test cube
@@ -9974,6 +10408,809 @@ const axiosInstance = axios.create();
     
     // Trigger file selection dialog
     fileInput.click();
+  },
+  
+  // Plotting methods
+  openPlottingDialog() {
+    this.showPlottingDialog = true;
+    this.$nextTick(() => {
+      this.initializePlotChart();
+    });
+  },
+  
+  async initializePlotChart() {
+    if (!this.$refs.plotChart) {
+      console.warn('plotChart ref not found');
+      return;
+    }
+    
+    console.log('Initializing plot chart:', {
+      canvasElement: this.$refs.plotChart,
+      canvasSize: {
+        width: this.$refs.plotChart.offsetWidth,
+        height: this.$refs.plotChart.offsetHeight
+      }
+    });
+    
+    const Chart = await import('chart.js/auto');
+    
+    this.plotChart = new Chart.default(this.$refs.plotChart, {
+      type: 'line',
+      data: this.plotData,
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: this.plotSettings.showLegend,
+            labels: {
+              color: '#ffffff',
+              font: {
+                size: 12
+              }
+            }
+          },
+          title: {
+            display: true,
+            text: this.getPlotTitle(),
+            color: '#ffffff',
+            font: {
+              size: 16,
+              weight: 'bold'
+            }
+          }
+        },
+        scales: {
+          x: {
+            display: true,
+            title: {
+              display: true,
+              text: 'Time (s)',
+              color: '#ffffff',
+              font: {
+                size: 14,
+                weight: 'bold'
+              }
+            },
+            grid: {
+              display: this.plotSettings.showGrid,
+              color: 'rgba(255, 255, 255, 0.1)'
+            },
+            ticks: {
+              color: '#ffffff',
+              font: {
+                size: 12
+              }
+            }
+          },
+          y: {
+            display: true,
+            title: {
+              display: true,
+              text: this.getYAxisLabel(),
+              color: '#ffffff',
+              font: {
+                size: 14,
+                weight: 'bold'
+              }
+            },
+            grid: {
+              display: this.plotSettings.showGrid,
+              color: 'rgba(255, 255, 255, 0.1)'
+            },
+            ticks: {
+              color: '#ffffff',
+              font: {
+                size: 12
+              }
+            }
+          }
+        },
+        animation: {
+          duration: 0
+        },
+        interaction: {
+          intersect: false
+        },
+        backgroundColor: '#1e1e1e'
+      }
+    });
+    
+    console.log('Chart created successfully:', {
+      chartExists: !!this.plotChart,
+      canvasSize: {
+        width: this.$refs.plotChart.offsetWidth,
+        height: this.$refs.plotChart.offsetHeight
+      },
+      chartData: this.plotChart.data
+    });
+    
+    // Update plot data immediately after chart initialization
+    await this.updatePlotData();
+  },
+  
+  getPlotTitle() {
+    if (!this.selectedPlotType) return 'Data Plot';
+    
+    const plotType = this.plotTypes.find(type => type.value === this.selectedPlotType);
+    return plotType ? plotType.label : 'Data Plot';
+  },
+  
+  getYAxisLabel() {
+    if (!this.selectedPlotType) return 'Value';
+    
+    switch (this.selectedPlotType) {
+      case 'marker_position':
+        return 'Position (m)';
+      case 'force_magnitude':
+      case 'force_components':
+        return 'Force (N)';
+      case 'marker_distance':
+        return 'Distance (m)';
+      case 'joint_angles':
+        return 'Angle (deg)';
+      case 'pelvis_translations':
+        return 'Translation (m)';
+      default:
+        return 'Value';
+    }
+  },
+  
+  async updatePlotType() {
+    this.selectedVariables = [];
+    this.selectedMarkers = [];
+    await this.updatePlotData();
+  },
+  
+  async updateSelectedVariables() {
+    await this.updatePlotData();
+  },
+  
+  async updateSelectedMarkers() {
+    await this.updatePlotData();
+  },
+  
+  generateSampleData() {
+    // Generate sample data for testing
+    const sampleData = {
+      labels: Array.from({length: 100}, (_, i) => i * 0.1),
+      datasets: [{
+        label: 'Sample Data',
+        data: Array.from({length: 100}, (_, i) => Math.sin(i * 0.1) * 10 + Math.random() * 2),
+        borderColor: '#FF6384',
+        backgroundColor: '#FF638420',
+        fill: false,
+        tension: 0.1
+      }]
+    };
+    
+    return sampleData;
+  },
+  
+  async updatePlotAnimation() {
+    await this.updatePlotData();
+  },
+  
+  async updatePlotData() {
+    console.log('updatePlotData called', {
+      selectedPlotType: this.selectedPlotType,
+      selectedVariables: this.selectedVariables,
+      selectedMarkers: this.selectedMarkers,
+      animations: this.animations.length,
+      markersDatasets: Object.keys(this.markersDatasets)
+    });
+    
+    if (!this.selectedPlotType || this.selectedVariables.length === 0) {
+      this.plotData = { labels: [], datasets: [] };
+      if (this.plotChart) {
+        this.plotChart.data = this.plotData;
+        this.plotChart.update();
+      }
+      return;
+    }
+    
+    // For marker-based plots, use marker data time
+    let timeData = [];
+    if (this.selectedPlotType === 'marker_position' || this.selectedPlotType === 'marker_distance') {
+      const markersData = this.markersDatasets[this.selectedPlotAnimation];
+      if (markersData && markersData.times) {
+        timeData = markersData.times;
+      }
+    } else {
+      // For other plots, use animation data time
+      const animation = this.animations[this.selectedPlotAnimation];
+      if (animation && animation.data && animation.data.time) {
+        timeData = animation.data.time;
+      }
+    }
+    
+    if (timeData.length === 0) {
+      console.warn('No time data available, using sample data');
+      const sampleData = this.generateSampleData();
+      this.plotData = sampleData;
+      
+      if (this.plotChart) {
+        this.plotChart.data = this.plotData;
+        this.plotChart.update();
+      }
+      return;
+    }
+    
+    // Initialize plot time range if not set
+    if (this.plotTimeRange[1] === 10) {
+      this.plotTimeRange = [0, Math.max(...timeData)];
+    }
+    
+    const filteredTimeData = timeData.filter(time => 
+      time >= this.plotTimeRange[0] && time <= this.plotTimeRange[1]
+    );
+    
+    this.plotData.labels = filteredTimeData;
+    this.plotData.datasets = this.generateDatasets(filteredTimeData);
+    
+    console.log('Generated plot data:', {
+      labels: this.plotData.labels.length,
+      datasets: this.plotData.datasets.length,
+      firstDataset: this.plotData.datasets[0]
+    });
+    
+    // Ensure chart is initialized before updating
+    if (!this.plotChart) {
+      console.log('Chart not found, initializing...');
+      await this.initializePlotChart();
+    }
+    
+    if (this.plotChart) {
+      console.log('Updating chart with data:', {
+        labelsLength: this.plotData.labels.length,
+        datasetsLength: this.plotData.datasets.length,
+        chartExists: !!this.plotChart
+      });
+      
+      this.plotChart.data = this.plotData;
+      this.plotChart.update();
+      
+      console.log('Chart updated successfully');
+    } else {
+      console.warn('plotChart not found - chart not updated');
+    }
+  },
+  
+  generateDatasets(timeData) {
+    const datasets = [];
+    
+    switch (this.selectedPlotType) {
+      case 'marker_position':
+        datasets.push(...this.generateMarkerPositionDatasets(timeData));
+        break;
+      case 'force_magnitude':
+        datasets.push(...this.generateForceMagnitudeDatasets(timeData));
+        break;
+      case 'force_components':
+        datasets.push(...this.generateForceComponentDatasets(timeData));
+        break;
+      case 'marker_distance':
+        datasets.push(...this.generateMarkerDistanceDatasets(timeData));
+        break;
+      case 'joint_angles':
+        datasets.push(...this.generateJointAngleDatasets(timeData));
+        break;
+      case 'pelvis_translations':
+        datasets.push(...this.generatePelvisTranslationDatasets(timeData));
+        break;
+    }
+    
+    return datasets;
+  },
+  
+  generateMarkerPositionDatasets(timeData) {
+    const datasets = [];
+    const markersData = this.markersDatasets[this.selectedPlotAnimation];
+    
+    if (!markersData || this.selectedMarkers.length === 0) return datasets;
+    
+    const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'];
+    let colorIndex = 0;
+    
+    this.selectedMarkers.forEach(markerName => {
+      if (!markersData.data[markerName]) return;
+      
+      this.selectedVariables.forEach(variable => {
+        const data = [];
+        const markerData = markersData.data[markerName][variable];
+        
+        if (markerData && markersData.times) {
+          for (let i = 0; i < timeData.length; i++) {
+            // Find the closest time index in the marker data
+            const targetTime = timeData[i];
+            let closestIndex = 0;
+            let minDiff = Math.abs(markersData.times[0] - targetTime);
+            
+            for (let j = 1; j < markersData.times.length; j++) {
+              const diff = Math.abs(markersData.times[j] - targetTime);
+              if (diff < minDiff) {
+                minDiff = diff;
+                closestIndex = j;
+              }
+            }
+            
+            if (markerData[closestIndex] !== undefined) {
+              data.push(markerData[closestIndex]);
+            } else {
+              data.push(null);
+            }
+          }
+        }
+        
+        datasets.push({
+          label: `${markerName} ${variable.toUpperCase()}`,
+          data: data,
+          borderColor: colors[colorIndex % colors.length],
+          backgroundColor: colors[colorIndex % colors.length] + '20',
+          fill: false,
+          tension: 0.1
+        });
+        
+        colorIndex++;
+      });
+    });
+    
+    return datasets;
+  },
+  
+  generateForceMagnitudeDatasets(timeData) {
+    const datasets = [];
+    const forcesData = this.forcesDatasets[this.selectedPlotAnimation];
+    
+    console.log('generateForceMagnitudeDatasets called:', {
+      selectedPlotAnimation: this.selectedPlotAnimation,
+      forcesData: forcesData ? 'present' : 'missing',
+      timeDataLength: timeData.length,
+      selectedVariables: this.selectedVariables
+    });
+    
+    if (!forcesData) {
+      console.warn('No forces data available for animation', this.selectedPlotAnimation);
+      return datasets;
+    }
+    
+    console.log('Forces data details:', {
+      timeRange: [Math.min(...forcesData.time), Math.max(...forcesData.time)],
+      columns: Object.keys(forcesData.data),
+      firstFewTimes: forcesData.time.slice(0, 5)
+    });
+    
+    const colors = ['#FF6384', '#36A2EB', '#FFCE56'];
+    let colorIndex = 0;
+    
+    this.selectedVariables.forEach(variable => {
+      const data = [];
+      
+      for (let i = 0; i < timeData.length; i++) {
+        const targetTime = timeData[i];
+        
+        // Find closest time index using more robust algorithm
+        let closestIndex = 0;
+        let minDiff = Math.abs(forcesData.time[0] - targetTime);
+        
+        for (let j = 1; j < forcesData.time.length; j++) {
+          const diff = Math.abs(forcesData.time[j] - targetTime);
+          if (diff < minDiff) {
+            minDiff = diff;
+            closestIndex = j;
+          }
+        }
+        
+        const timeIndex = closestIndex;
+        if (i < 5) { // Log first few time matches
+          console.log(`Time matching [${i}]:`, {
+            targetTime,
+            closestForceTime: forcesData.time[closestIndex],
+            minDiff,
+            timeIndex: closestIndex
+          });
+        }
+        
+        if (minDiff < 0.1) { // Allow up to 0.1 second difference
+          let magnitude = 0;
+          
+          switch (variable) {
+            case 'left_magnitude': {
+              const leftFx = forcesData.data['L_ground_force_vx']?.[timeIndex] || 0;
+              const leftFy = forcesData.data['L_ground_force_vy']?.[timeIndex] || 0;
+              const leftFz = forcesData.data['L_ground_force_vz']?.[timeIndex] || 0;
+              magnitude = Math.sqrt(leftFx * leftFx + leftFy * leftFy + leftFz * leftFz);
+              break;
+            }
+            case 'right_magnitude': {
+              const rightFx = forcesData.data['R_ground_force_vx']?.[timeIndex] || 0;
+              const rightFy = forcesData.data['R_ground_force_vy']?.[timeIndex] || 0;
+              const rightFz = forcesData.data['R_ground_force_vz']?.[timeIndex] || 0;
+              magnitude = Math.sqrt(rightFx * rightFx + rightFy * rightFy + rightFz * rightFz);
+              break;
+            }
+            case 'total_magnitude': {
+              const totalFx = (forcesData.data['L_ground_force_vx']?.[timeIndex] || 0) + 
+                            (forcesData.data['R_ground_force_vx']?.[timeIndex] || 0);
+              const totalFy = (forcesData.data['L_ground_force_vy']?.[timeIndex] || 0) + 
+                            (forcesData.data['R_ground_force_vy']?.[timeIndex] || 0);
+              const totalFz = (forcesData.data['L_ground_force_vz']?.[timeIndex] || 0) + 
+                            (forcesData.data['R_ground_force_vz']?.[timeIndex] || 0);
+              magnitude = Math.sqrt(totalFx * totalFx + totalFy * totalFy + totalFz * totalFz);
+              
+              if (i < 5) { // Log first few values
+                console.log(`Total magnitude calculation [${i}]:`, {
+                  targetTime,
+                  timeIndex,
+                  totalFx,
+                  totalFy,
+                  totalFz,
+                  magnitude
+                });
+              }
+              break;
+            }
+          }
+          
+          data.push(magnitude);
+        } else {
+          data.push(null);
+        }
+      }
+      
+      const variableLabel = this.availableVariables.find(v => v.value === variable)?.label || variable;
+      const dataset = {
+        label: variableLabel,
+        data: data,
+        borderColor: colors[colorIndex % colors.length],
+        backgroundColor: colors[colorIndex % colors.length] + '20',
+        fill: false,
+        tension: 0.1
+      };
+      
+      console.log(`Generated force dataset for ${variable}:`, {
+        label: dataset.label,
+        dataLength: data.length,
+        firstFewValues: data.slice(0, 5),
+        nonNullCount: data.filter(d => d !== null).length
+      });
+      
+      datasets.push(dataset);
+      colorIndex++;
+    });
+    
+    console.log('Final force datasets:', datasets.length, 'datasets generated');
+    return datasets;
+  },
+  
+  generateForceComponentDatasets(timeData) {
+    const datasets = [];
+    const forcesData = this.forcesDatasets[this.selectedPlotAnimation];
+    
+    if (!forcesData) return datasets;
+    
+    const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'];
+    let colorIndex = 0;
+    
+    this.selectedVariables.forEach(variable => {
+      const data = [];
+      const columnMap = {
+        'left_fx': 'L_ground_force_vx',
+        'left_fy': 'L_ground_force_vy',
+        'left_fz': 'L_ground_force_vz',
+        'right_fx': 'R_ground_force_vx',
+        'right_fy': 'R_ground_force_vy',
+        'right_fz': 'R_ground_force_vz'
+      };
+      
+      const columnName = columnMap[variable];
+      if (!columnName || !forcesData.data[columnName]) return;
+      
+      for (let i = 0; i < timeData.length; i++) {
+        const timeIndex = forcesData.time.findIndex(t => Math.abs(t - timeData[i]) < 0.001);
+        if (timeIndex !== -1) {
+          data.push(forcesData.data[columnName][timeIndex] || 0);
+        } else {
+          data.push(null);
+        }
+      }
+      
+      const variableLabel = this.availableVariables.find(v => v.value === variable)?.label || variable;
+      datasets.push({
+        label: variableLabel,
+        data: data,
+        borderColor: colors[colorIndex % colors.length],
+        backgroundColor: colors[colorIndex % colors.length] + '20',
+        fill: false,
+        tension: 0.1
+      });
+      
+      colorIndex++;
+    });
+    
+    return datasets;
+  },
+  
+  generateMarkerDistanceDatasets(timeData) {
+    const datasets = [];
+    const markersData = this.markersDatasets[this.selectedPlotAnimation];
+    
+    if (!markersData || this.selectedMarkers.length < 2) return datasets;
+    
+    const data = [];
+    const marker1 = this.selectedMarkers[0];
+    const marker2 = this.selectedMarkers[1];
+    
+    if (!markersData.data[marker1] || !markersData.data[marker2]) return datasets;
+    
+    for (let i = 0; i < timeData.length; i++) {
+      const targetTime = timeData[i];
+      let closestIndex = 0;
+      let minDiff = Math.abs(markersData.times[0] - targetTime);
+      
+      for (let j = 1; j < markersData.times.length; j++) {
+        const diff = Math.abs(markersData.times[j] - targetTime);
+        if (diff < minDiff) {
+          minDiff = diff;
+          closestIndex = j;
+        }
+      }
+      
+      const x1 = markersData.data[marker1].x[closestIndex];
+      const y1 = markersData.data[marker1].y[closestIndex];
+      const z1 = markersData.data[marker1].z[closestIndex];
+      const x2 = markersData.data[marker2].x[closestIndex];
+      const y2 = markersData.data[marker2].y[closestIndex];
+      const z2 = markersData.data[marker2].z[closestIndex];
+      
+      if (x1 !== undefined && y1 !== undefined && z1 !== undefined &&
+          x2 !== undefined && y2 !== undefined && z2 !== undefined) {
+        const distance = Math.sqrt(
+          Math.pow(x2 - x1, 2) + 
+          Math.pow(y2 - y1, 2) + 
+          Math.pow(z2 - z1, 2)
+        );
+        data.push(distance);
+      } else {
+        data.push(null);
+      }
+    }
+    
+    datasets.push({
+      label: `Distance: ${marker1} - ${marker2}`,
+      data: data,
+      borderColor: '#FF6384',
+      backgroundColor: '#FF638420',
+      fill: false,
+      tension: 0.1
+    });
+    
+    return datasets;
+  },
+  
+  generateJointAngleDatasets(timeData) {
+    const datasets = [];
+    const animation = this.animations[this.selectedPlotAnimation];
+    
+    if (!animation || !animation.data) return datasets;
+    
+    const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'];
+    let colorIndex = 0;
+    
+    this.selectedVariables.forEach(variable => {
+      if (!animation.data[variable]) return;
+      
+      const data = [];
+      for (let i = 0; i < timeData.length; i++) {
+        const timeIndex = animation.data.time.findIndex(t => Math.abs(t - timeData[i]) < 0.001);
+        if (timeIndex !== -1) {
+          // Convert radians to degrees for display
+          const angleRad = animation.data[variable][timeIndex];
+          const angleDeg = angleRad * (180 / Math.PI);
+          data.push(angleDeg);
+        } else {
+          data.push(null);
+        }
+      }
+      
+      const variableLabel = this.availableVariables.find(v => v.value === variable)?.label || variable;
+      datasets.push({
+        label: variableLabel,
+        data: data,
+        borderColor: colors[colorIndex % colors.length],
+        backgroundColor: colors[colorIndex % colors.length] + '20',
+        fill: false,
+        tension: 0.1
+      });
+      
+      colorIndex++;
+    });
+    
+    return datasets;
+  },
+  
+  generatePelvisTranslationDatasets(timeData) {
+    const datasets = [];
+    const animation = this.animations[this.selectedPlotAnimation];
+    
+    if (!animation || !animation.data) return datasets;
+    
+    const colors = ['#FF6384', '#36A2EB', '#FFCE56'];
+    let colorIndex = 0;
+    
+    this.selectedVariables.forEach(variable => {
+      if (!animation.data[variable]) return;
+      
+      const data = [];
+      for (let i = 0; i < timeData.length; i++) {
+        const timeIndex = animation.data.time.findIndex(t => Math.abs(t - timeData[i]) < 0.001);
+        if (timeIndex !== -1) {
+          data.push(animation.data[variable][timeIndex]);
+        } else {
+          data.push(null);
+        }
+      }
+      
+      const variableLabel = this.availableVariables.find(v => v.value === variable)?.label || variable;
+      datasets.push({
+        label: variableLabel,
+        data: data,
+        borderColor: colors[colorIndex % colors.length],
+        backgroundColor: colors[colorIndex % colors.length] + '20',
+        fill: false,
+        tension: 0.1
+      });
+      
+      colorIndex++;
+    });
+    
+    return datasets;
+  },
+  
+  getAvailableJointAngles() {
+    const animation = this.animations[this.selectedPlotAnimation];
+    if (!animation || !animation.data) return [];
+    
+    const angleColumns = Object.keys(animation.data).filter(key => 
+      key.includes('_r') || key.includes('_l') || key.includes('_angle')
+    );
+    
+    return angleColumns.map(column => ({
+      label: column.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+      value: column
+    }));
+  },
+  
+  updatePlotInRealTime() {
+    if (!this.plotUpdatesEnabled || !this.plotChart || !this.plotSettings.showCurrentTime) {
+      return;
+    }
+    
+    const currentTime = this.time;
+    
+    // Update vertical line annotation for current time
+    if (this.plotChart.options.plugins.annotation) {
+      this.plotChart.options.plugins.annotation.annotations.currentTime.value = currentTime;
+    } else {
+      this.plotChart.options.plugins.annotation = {
+        annotations: {
+          currentTime: {
+            type: 'line',
+            xMin: currentTime,
+            xMax: currentTime,
+            borderColor: '#FF0000',
+            borderWidth: 2,
+            label: {
+              content: 'Current Time',
+              enabled: true,
+              position: 'top'
+            }
+          }
+        }
+      };
+    }
+    
+    this.plotChart.update('none');
+  },
+  
+  togglePlotUpdates() {
+    this.plotUpdatesEnabled = !this.plotUpdatesEnabled;
+  },
+  
+  exportPlot() {
+    if (!this.plotChart) return;
+    
+    const link = document.createElement('a');
+    link.download = `plot_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.png`;
+    link.href = this.plotChart.toBase64Image();
+    link.click();
+  },
+  
+  // Dialog drag and resize methods
+  startDragPlotDialog(event) {
+    event.preventDefault();
+    this.isDraggingPlotDialog = true;
+    
+    const clientX = event.clientX || event.touches[0].clientX;
+    const clientY = event.clientY || event.touches[0].clientY;
+    
+    this.plotDragOffset = {
+      x: clientX - this.plottingDialogPosition.x,
+      y: clientY - this.plottingDialogPosition.y
+    };
+    
+    document.addEventListener('mousemove', this.onDragPlotDialog);
+    document.addEventListener('mouseup', this.stopDragPlotDialog);
+    document.addEventListener('touchmove', this.onDragPlotDialog);
+    document.addEventListener('touchend', this.stopDragPlotDialog);
+  },
+  
+  onDragPlotDialog(event) {
+    if (!this.isDraggingPlotDialog) return;
+    
+    const clientX = event.clientX || event.touches[0].clientX;
+    const clientY = event.clientY || event.touches[0].clientY;
+    
+    this.plottingDialogPosition = {
+      x: Math.max(0, Math.min(window.innerWidth - 300, clientX - this.plotDragOffset.x)),
+      y: Math.max(0, Math.min(window.innerHeight - 100, clientY - this.plotDragOffset.y))
+    };
+  },
+  
+  stopDragPlotDialog() {
+    this.isDraggingPlotDialog = false;
+    document.removeEventListener('mousemove', this.onDragPlotDialog);
+    document.removeEventListener('mouseup', this.stopDragPlotDialog);
+    document.removeEventListener('touchmove', this.onDragPlotDialog);
+    document.removeEventListener('touchend', this.stopDragPlotDialog);
+  },
+  
+  startResizePlotDialog(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    this.isResizingPlotDialog = true;
+    
+    const clientX = event.clientX || event.touches[0].clientX;
+    const clientY = event.clientY || event.touches[0].clientY;
+    
+    this.plotResizeStartPosition = { x: clientX, y: clientY };
+    this.plotResizeStartSize = { ...this.plottingDialogSize };
+    
+    document.addEventListener('mousemove', this.onResizePlotDialog);
+    document.addEventListener('mouseup', this.stopResizePlotDialog);
+    document.addEventListener('touchmove', this.onResizePlotDialog);
+    document.addEventListener('touchend', this.stopResizePlotDialog);
+  },
+  
+  onResizePlotDialog(event) {
+    if (!this.isResizingPlotDialog) return;
+    
+    const clientX = event.clientX || event.touches[0].clientX;
+    const clientY = event.clientY || event.touches[0].clientY;
+    
+    const deltaX = clientX - this.plotResizeStartPosition.x;
+    const deltaY = clientY - this.plotResizeStartPosition.y;
+    
+    this.plottingDialogSize = {
+      width: Math.max(600, this.plotResizeStartSize.width + deltaX),
+      height: Math.max(400, this.plotResizeStartSize.height + deltaY)
+    };
+    
+    // Update chart size
+    this.$nextTick(() => {
+      if (this.plotChart) {
+        this.plotChart.resize();
+      }
+    });
+  },
+  
+  stopResizePlotDialog() {
+    this.isResizingPlotDialog = false;
+    document.removeEventListener('mousemove', this.onResizePlotDialog);
+    document.removeEventListener('mouseup', this.stopResizePlotDialog);
+    document.removeEventListener('touchmove', this.onResizePlotDialog);
+    document.removeEventListener('touchend', this.stopResizePlotDialog);
   }
   }
 }
@@ -10659,6 +11896,122 @@ const axiosInstance = axios.create();
 
 .sample-option-card .text-h6 {
   font-weight: 600;
+}
+
+/* Plotting dialog styles */
+.plotting-dialog {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.plotting-dialog-card {
+  background: #1e1e1e !important;
+  border-radius: 12px !important;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  color: #ffffff !important;
+}
+
+.plotting-header {
+  border-top-left-radius: 12px !important;
+  border-top-right-radius: 12px !important;
+  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%) !important;
+}
+
+.plot-controls-panel {
+  background: #2a2a2a !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
+  color: #ffffff !important;
+}
+
+.plot-display-panel {
+  background: #1e1e1e !important;
+  color: #ffffff !important;
+}
+
+.plotting-dialog .v-input--selection-controls {
+  margin-top: 0 !important;
+}
+
+.plotting-dialog .v-input--selection-controls .v-input__slot {
+  margin-bottom: 0 !important;
+}
+
+.plotting-dialog .v-select--chips .v-chip {
+  margin: 2px !important;
+}
+
+/* Dark theme styles for plotting dialog form controls */
+.plotting-dialog .v-select {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-radius: 4px !important;
+}
+
+.plotting-dialog .v-input {
+  color: #ffffff !important;
+}
+
+.plotting-dialog .v-input input {
+  color: #ffffff !important;
+}
+
+.plotting-dialog .v-input .v-label {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.plotting-dialog .v-select__selections {
+  color: #ffffff !important;
+}
+
+.plotting-dialog .v-select__selection {
+  color: #ffffff !important;
+}
+
+.plotting-dialog .v-chip {
+  background: rgba(33, 150, 243, 0.2) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(33, 150, 243, 0.3) !important;
+}
+
+.plotting-dialog .v-checkbox {
+  color: #ffffff !important;
+}
+
+.plotting-dialog .v-checkbox .v-label {
+  color: #ffffff !important;
+}
+
+.plotting-dialog .v-range-slider {
+  color: #2196F3 !important;
+}
+
+.plotting-dialog .text-caption {
+  color: rgba(255, 255, 255, 0.8) !important;
+}
+
+.plotting-dialog .text-subtitle-2 {
+  color: #ffffff !important;
+}
+
+.plotting-dialog .text--disabled {
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+
+.plotting-dialog .v-icon {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.plotting-dialog .text-h6 {
+  color: rgba(255, 255, 255, 0.8) !important;
+}
+
+.resize-handle {
+  opacity: 0.5;
+  transition: opacity 0.2s ease;
+}
+
+.resize-handle:hover {
+  opacity: 1;
 }
 
 /* ... rest of existing styles ... */
