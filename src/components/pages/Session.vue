@@ -101,7 +101,7 @@
 
             
             <!-- Getting Started Section (shown when no files are loaded) -->
-            <div v-if="animations.length === 0 && !converting" class="getting-started-section mb-4">
+            <div v-if="animations.length === 0 && !converting && Object.keys(markersDatasets).length === 0" class="getting-started-section mb-4">
               <v-card dark class="pa-4" style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1);">
                 <div class="d-flex align-center mb-3">
                   <v-icon color="primary" class="mr-2">mdi-information-outline</v-icon>
@@ -128,20 +128,7 @@
                     Explore with pre-loaded motion capture data
                   </div>
                   
-                  <v-btn 
-                    color="red" 
-                    small 
-                    outlined 
-                    block 
-                    @click="openMarkersDialogFromImport"
-                    class="mb-2"
-                  >
-                    <v-icon left small>mdi-record-circle-outline</v-icon>
-                    Load Markers (.trc)
-                  </v-btn>
-                  <div class="text-caption grey--text mb-2">
-                    Load motion capture markers directly
-                  </div>
+
                 </div>
                 
                 <v-divider class="my-3" style="opacity: 0.3;"></v-divider>
@@ -740,22 +727,19 @@
               </div>
             </div>
             
-            <!-- Marker Visualization Section -->
-            <div v-for="(markersData, animationIndex) in markersDatasets" :key="`markers-${animationIndex}`" class="legend-item mb-4">
+            <!-- Standalone Marker Visualization Section (when no animations exist) -->
+            <div v-if="animations.length === 0 && Object.keys(markersDatasets).length > 0" class="legend-item mb-4">
               <div class="d-flex mb-2">
                 <div class="color-box" :style="{ backgroundColor: markerColor }"></div>
                 <div class="flex-grow-1 ml-2" style="min-width: 0;">
-                  <div class="text-subtitle-2">{{ markersData.fileName || 'Motion Capture Markers' }}</div>
-                  <div class="file-name text-caption grey--text" style="word-wrap: break-word; overflow-wrap: break-word; white-space: normal; line-height: 1.2;">Motion Capture Markers</div>
+                  <div class="text-subtitle-2">{{ Object.values(markersDatasets)[0].fileName || 'Motion Capture Markers' }}</div>
+                  <div class="file-name text-caption grey--text" style="word-wrap: break-word; overflow-wrap: break-word; white-space: normal; line-height: 1.2;">Standalone Markers</div>
                   <div class="fps-info text-caption grey--text">
-                    Associated with {{ animations[animationIndex]?.trialName || 'Subject ' + (parseInt(animationIndex) + 1) }}
-                  </div>
-                  <div class="fps-info text-caption grey--text">
-                    {{ markersData.markers.length }} Markers
+                    {{ Object.values(markersDatasets)[0].markers.length }} Markers
                   </div>
                   
-                  <!-- Current Marker Values Display -->
-                  <div v-if="showMarkers && selectedMarker && selectedMarker.animationIndex == animationIndex" class="marker-values mt-2 pa-2" style="background: rgba(255, 0, 0, 0.1); border-radius: 4px; border-left: 3px solid #ff0000;">
+                  <!-- Current Marker Values Display for standalone -->
+                  <div v-if="showMarkers && selectedMarker" class="marker-values mt-2 pa-2" style="background: rgba(255, 0, 0, 0.1); border-radius: 4px; border-left: 3px solid #ff0000;">
                     <div class="text-caption font-weight-bold mb-1" style="color: #ff0000;">Selected Marker</div>
                     <div class="text-caption font-weight-medium" style="color: #cccccc;">{{ selectedMarker.name }}</div>
                     <div class="d-flex justify-space-between text-caption" style="font-family: monospace;">
@@ -765,6 +749,20 @@
                     </div>
                     <div class="text-caption grey--text" style="font-family: monospace;">
                       Position (meters)
+                    </div>
+                  </div>
+                  
+                  <!-- Distance Measurement Display for standalone -->
+                  <div v-if="measurementMode && measurementMarkers.length > 0" class="measurement-display mt-2 pa-2" style="background: rgba(0, 255, 0, 0.1); border-radius: 4px; border-left: 3px solid #00ff00;">
+                    <div class="text-caption font-weight-bold mb-1" style="color: #00ff00;">Distance Measurement</div>
+                    <div v-if="measurementMarkers.length === 1" class="text-caption" style="color: #cccccc;">
+                      Selected: {{ measurementMarkers[0].name }}
+                      <br><span class="grey--text">Hold Cmd/Shift + Click another marker</span>
+                    </div>
+                    <div v-else-if="measurementMarkers.length === 2" class="text-caption" style="color: #cccccc;">
+                      <div class="font-weight-medium">{{ measurementMarkers[0].name }} ↔ {{ measurementMarkers[1].name }}</div>
+                      <div class="text-h6 mt-1" style="color: #00ff00; font-family: monospace;">{{ currentDistance.toFixed(3) }} m</div>
+                      <div class="grey--text">Distance (meters)</div>
                     </div>
                   </div>
                 </div>
@@ -836,7 +834,16 @@
                   </v-card>
                 </v-menu>
                 
-                <v-btn icon small class="mr-2" @click="clearMarkersForAnimation(animationIndex)">
+                <v-tooltip bottom>
+                  <template v-slot:activator="{ on, attrs }">
+                    <v-btn icon small class="mr-2" @click="toggleMeasurementMode" :color="measurementMode ? 'success' : 'grey'" v-bind="attrs" v-on="on">
+                      <v-icon small>mdi-ruler</v-icon>
+                    </v-btn>
+                  </template>
+                  <span>{{ measurementMode ? 'Disable distance measurement' : 'Enable distance measurement' }}</span>
+                </v-tooltip>
+                
+                <v-btn icon small class="mr-2" @click="clearAllMarkers">
                   <v-icon small color="error">mdi-delete</v-icon>
                 </v-btn>
               </div>
@@ -844,6 +851,136 @@
               <!-- Divider -->
               <v-divider class="mt-4" style="opacity: 0.2"></v-divider>
             </div>
+
+            <!-- Marker Visualization Section (only when animations exist) -->
+            <template v-if="animations.length > 0">
+              <div v-for="(markersData, animationIndex) in markersDatasets" :key="`markers-${animationIndex}`" class="legend-item mb-4">
+              <div class="d-flex mb-2">
+                <div class="color-box" :style="{ backgroundColor: markerColor }"></div>
+                <div class="flex-grow-1 ml-2" style="min-width: 0;">
+                  <div class="text-subtitle-2">{{ markersData.fileName || 'Motion Capture Markers' }}</div>
+                  <div class="file-name text-caption grey--text" style="word-wrap: break-word; overflow-wrap: break-word; white-space: normal; line-height: 1.2;">Motion Capture Markers</div>
+                  <div class="fps-info text-caption grey--text">
+                    Associated with {{ animations[animationIndex]?.trialName || 'Subject ' + (parseInt(animationIndex) + 1) }}
+                  </div>
+                  <div class="fps-info text-caption grey--text">
+                    {{ markersData.markers.length }} Markers
+                  </div>
+                  
+                  <!-- Current Marker Values Display -->
+                  <div v-if="showMarkers && selectedMarker && selectedMarker.animationIndex == animationIndex" class="marker-values mt-2 pa-2" style="background: rgba(255, 0, 0, 0.1); border-radius: 4px; border-left: 3px solid #ff0000;">
+                    <div class="text-caption font-weight-bold mb-1" style="color: #ff0000;">Selected Marker</div>
+                    <div class="text-caption font-weight-medium" style="color: #cccccc;">{{ selectedMarker.name }}</div>
+                    <div class="d-flex justify-space-between text-caption" style="font-family: monospace;">
+                      <span>X: {{ selectedMarker.position.x.toFixed(3) }}</span>
+                      <span>Y: {{ selectedMarker.position.y.toFixed(3) }}</span>
+                      <span>Z: {{ selectedMarker.position.z.toFixed(3) }}</span>
+                    </div>
+                    <div class="text-caption grey--text" style="font-family: monospace;">
+                      Position (meters)
+                    </div>
+                  </div>
+                  
+                  <!-- Distance Measurement Display for animations -->
+                  <div v-if="measurementMode && measurementMarkers.length > 0" class="measurement-display mt-2 pa-2" style="background: rgba(0, 255, 0, 0.1); border-radius: 4px; border-left: 3px solid #00ff00;">
+                    <div class="text-caption font-weight-bold mb-1" style="color: #00ff00;">Distance Measurement</div>
+                    <div v-if="measurementMarkers.length === 1" class="text-caption" style="color: #cccccc;">
+                      Selected: {{ measurementMarkers[0].name }}
+                      <br><span class="grey--text">Hold Cmd/Shift + Click another marker</span>
+                    </div>
+                    <div v-else-if="measurementMarkers.length === 2" class="text-caption" style="color: #cccccc;">
+                      <div class="font-weight-medium">{{ measurementMarkers[0].name }} ↔ {{ measurementMarkers[1].name }}</div>
+                      <div class="text-h6 mt-1" style="color: #00ff00; font-family: monospace;">{{ currentDistance.toFixed(3) }} m</div>
+                      <div class="grey--text">Distance (meters)</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="mt-3 d-flex align-center ml-8">
+                <v-btn icon small class="mr-2" @click="showMarkers = !showMarkers">
+                  <v-icon small :color="showMarkers ? 'white' : 'grey'">
+                    {{ showMarkers ? 'mdi-eye' : 'mdi-eye-off' }}
+                  </v-icon>
+                </v-btn>
+                
+                <v-menu offset-y :close-on-content-click="false">
+                  <template v-slot:activator="{ on, attrs }">
+                    <v-btn icon small v-bind="attrs" v-on="on" class="mr-2">
+                      <v-icon small>mdi-palette</v-icon>
+                    </v-btn>
+                  </template>
+                  <v-card class="color-picker pa-2">
+                    <div class="d-flex align-center">
+                      <v-color-picker
+                        v-model="markerDisplayColor"
+                        :modes="['hex', 'rgba']"
+                        show-swatches
+                        :swatches="Array.isArray(availableColors) ? availableColors : []"
+                        @input="updateMarkerColor"
+                        class="flex-grow-1"
+                      ></v-color-picker>
+                      <v-btn icon small @click="openEyeDropper('marker')" title="Pick color from screen" class="ml-2">
+                        <v-icon>mdi-eyedropper-variant</v-icon>
+                      </v-btn>
+                    </div>
+                  </v-card>
+                </v-menu>
+                
+                <v-menu offset-y :close-on-content-click="false">
+                  <template v-slot:activator="{ on, attrs }">
+                    <v-btn icon small v-bind="attrs" v-on="on" class="mr-2">
+                      <v-icon small>mdi-resize</v-icon>
+                    </v-btn>
+                  </template>
+                  <v-card class="size-picker pa-3" width="250">
+                    <div class="text-subtitle-2 mb-2">
+                      Marker Size
+                      <span class="text-caption ml-2">
+                        ({{ markerSize }})
+                      </span>
+                    </div>
+                    <v-slider 
+                      v-model="markerSize"
+                      :min="1" 
+                      :max="20" 
+                      step="0.5" 
+                      hide-details 
+                      :thumb-label="true"
+                      thumb-size="24"
+                      @input="updateMarkerSize"
+                    >
+                      <template v-slot:thumb-label="{ value }">
+                        {{ value }}
+                      </template>
+                      <template v-slot:prepend>
+                        <div class="text-caption grey--text">Small</div>
+                      </template>
+                      <template v-slot:append>
+                        <div class="text-caption grey--text">Large</div>
+                      </template>
+                    </v-slider>
+                  </v-card>
+                </v-menu>
+                
+                <v-tooltip bottom>
+                  <template v-slot:activator="{ on, attrs }">
+                    <v-btn icon small class="mr-2" @click="toggleMeasurementMode" :color="measurementMode ? 'success' : 'grey'" v-bind="attrs" v-on="on">
+                      <v-icon small>mdi-ruler</v-icon>
+                    </v-btn>
+                  </template>
+                  <span>{{ measurementMode ? 'Disable distance measurement' : 'Enable distance measurement' }}</span>
+                </v-tooltip>
+                
+                <v-btn icon small class="mr-2" @click="clearMarkersForAnimation(animationIndex)">
+                  <v-icon small color="error">mdi-delete</v-icon>
+                </v-btn>
+              </div>
+              
+              <!-- Divider -->
+              <v-divider class="mt-4" style="opacity: 0.2"></v-divider>
+              </div>
+            </template>
 
 
           </div>
@@ -873,7 +1010,7 @@
         </div>
 
         <!-- Main Content -->
-        <div v-if="trial" class="d-flex flex-column h-100">
+        <div v-if="trial || (markerSpheres.length > 0)" class="d-flex flex-column h-100">
           <div id="mocap" ref="mocap" class="flex-grow-1 position-relative">
             <div v-if="videoFile && !$refs.videoPreview" class="debug-info">
               Video file loaded but preview not mounted
@@ -1321,6 +1458,13 @@
               accept=".mot" 
               style="display: none" 
               @change="handleForcesFileSelectFromImport" 
+            />
+            <input 
+              type="file" 
+              ref="markersFileInput" 
+              accept=".trc" 
+              style="display: none" 
+              @change="handleMarkersFileSelectFromImport" 
             />
           </div>
         </div>
@@ -2477,13 +2621,18 @@ const axiosInstance = axios.create();
               selectedMarker: null, // Currently selected marker for sidebar display
               markerLabels: {}, // Store marker label sprites
               markerTimeData: null, // Store marker time data for syncing
+              // Distance measurement properties
+              measurementMode: false, // Whether measurement mode is active
+              measurementMarkers: [], // Array to store selected markers for measurement (max 2)
+              measurementLine: null, // Line object connecting the two markers
+              currentDistance: 0, // Current distance between markers
               forcesVisible: {}, // Per-animation force visibility
               markersVisible: {}, // Per-animation marker visibility
           }
       },
               computed: {
         videoControlsDisabled() {
-          return !this.trial || this.frames.length === 0
+          return (!this.trial && this.markerSpheres.length === 0) || this.frames.length === 0
         },
         formattedTime() {
           // Round time to 2 decimal places for display
@@ -3495,7 +3644,19 @@ const axiosInstance = axios.create();
     // Marker visualization methods
     openMarkersDialogFromImport() {
       this.showImportDialog = false;
-      this.showMarkersDialog = true;
+      // Trigger the hidden file input for markers files
+      this.$refs.markersFileInput.click();
+    },
+    
+    handleMarkersFileSelectFromImport(event) {
+      const file = event.target.files[0];
+      if (file) {
+        this.markersFile = file;
+        // Open the markers dialog with the selected file
+        this.showMarkersDialog = true;
+      }
+      // Clear the input value so the same file can be selected again if needed
+      event.target.value = '';
     },
     
     closeMarkersDialog() {
@@ -3561,19 +3722,30 @@ const axiosInstance = axios.create();
        try {
          const reader = new FileReader();
          reader.onload = (e) => {
-           const wasEmpty = this.animations.length === 0;
-           this.parseTrcFile(e.target.result, this.markersFile.name);
-           this.showMarkersDialog = false;
-           const message = wasEmpty ? 
-             'Markers file loaded as standalone visualization!' : 
-             'Markers file loaded successfully!';
-           this.$toasted.success(message);
+           try {
+             const wasEmpty = this.animations.length === 0;
+             this.parseTrcFile(e.target.result, this.markersFile.name);
+             this.showMarkersDialog = false;
+             const message = wasEmpty ? 
+               'Markers file loaded as standalone visualization!' : 
+               'Markers file loaded successfully!';
+             this.$toasted.success(message);
+           } catch (parseError) {
+             console.error('Error parsing markers file:', parseError);
+             this.$toasted.error('Error parsing markers file');
+           } finally {
+             this.loadingMarkers = false;
+           }
+         };
+         reader.onerror = () => {
+           console.error('Error reading markers file');
+           this.$toasted.error('Error reading markers file');
+           this.loadingMarkers = false;
          };
          reader.readAsText(this.markersFile);
        } catch (error) {
          console.error('Error loading markers file:', error);
          this.$toasted.error('Error loading markers file');
-       } finally {
          this.loadingMarkers = false;
        }
      },
@@ -3692,15 +3864,27 @@ const axiosInstance = axios.create();
        // Handle case where no animations exist - create a standalone marker visualization
        let animationIndex = this.selectedAnimationForMarkers;
        
-       if (this.animations.length === 0 && animationIndex === null) {
-         // For standalone marker files, just set up the frames for animation control
-         // without creating a new animation entry
+       if (this.animations.length === 0 || animationIndex === null) {
+         // For standalone marker files, set up the frames for animation control
          this.frames = timeData;
          this.frame = 0;
-         this.time = timeData[0] || 0;
-         animationIndex = 0;
-         this.selectedAnimationForMarkers = 0;
-       } else if (animationIndex === undefined || animationIndex === null) {
+         this.time = (timeData[0] || 0).toFixed(2);
+         
+         // Calculate frame rate for marker data
+         this.frameRate = this.calculateFrameRate(timeData);
+         
+         // Initialize the trial object for standalone markers
+         this.trial = { results: [] };
+         
+         // Set animation index for markers
+         if (this.animations.length === 0) {
+           animationIndex = 0;
+         } else {
+           animationIndex = this.selectedAnimationForMarkers || 0;
+         }
+         
+         this.selectedAnimationForMarkers = animationIndex;
+       } else if (animationIndex === undefined) {
          // If no animation is selected but animations exist, use the first one
          animationIndex = 0;
          this.selectedAnimationForMarkers = 0;
@@ -3717,24 +3901,59 @@ const axiosInstance = axios.create();
        
        // Initialize scene if it doesn't exist
        if (!this.scene) {
-         this.initScene();
+         console.log('Initializing scene for standalone markers...');
+         // Wait for DOM to be ready before initializing scene
+         this.$nextTick(() => {
+           this.initScene();
+           // Create marker spheres after scene is initialized
+           this.createMarkerSpheres();
+           this.handlePostMarkerCreation();
+         });
+       } else {
+         console.log('Scene already exists, using existing scene');
+         // Create marker spheres
+         this.createMarkerSpheres();
+         this.handlePostMarkerCreation();
        }
-       
-       // Create marker spheres
-       this.createMarkerSpheres();
-       
-       // Clear any existing selection
-       this.selectedMarker = null;
      },
+     
+           handlePostMarkerCreation() {
+        // For standalone marker files, start the animation loop and render first frame
+        if (this.animations.length === 0) {
+          this.animate();
+          this.animateOneFrame();
+          
+          // Position camera to view markers
+          this.positionCameraForMarkers();
+          
+          // Calculate animation duration for headless operation
+          if (this.frames && this.frames.length > 0 && this.frameRate > 0) {
+            this.animationDurationInSeconds = (this.frames.length - 1) / this.frameRate;
+          }
+          
+          // Signal that all visuals are loaded for headless operation
+          window.allVisualsLoaded = true;
+        }
+        
+        // Clear any existing selection
+        this.selectedMarker = null;
+      },
      
      createMarkerSpheres() {
        // Clear existing marker spheres
        this.clearMarkerSpheres();
        
+       // Check if scene is initialized
+       if (!this.scene) {
+         console.error('Scene not initialized when creating marker spheres');
+         throw new Error('Scene not initialized');
+       }
+       
        const animationIndex = this.selectedAnimationForMarkers;
        const markersData = this.markersDatasets[animationIndex];
        
        if (!markersData) {
+         console.error('No markers data found for animation index:', animationIndex);
          return;
        }
        
@@ -3758,17 +3977,21 @@ const axiosInstance = axios.create();
          
          // Set initial position (frame 0)
          if (markersData.data[markerName] && markersData.data[markerName].x.length > 0) {
-           sphere.position.set(
-             markersData.data[markerName].x[0],
-             markersData.data[markerName].y[0],
-             markersData.data[markerName].z[0]
-           );
+           const x = markersData.data[markerName].x[0];
+           const y = markersData.data[markerName].y[0];
+           const z = markersData.data[markerName].z[0];
+           sphere.position.set(x, y, z);
+           console.log(`Created marker ${markerName} at position (${x.toFixed(3)}, ${y.toFixed(3)}, ${z.toFixed(3)})`);
+         } else {
+           console.warn(`No data found for marker ${markerName}`);
          }
          
          // Add to scene
          this.scene.add(sphere);
          this.markerSpheres.push(sphere);
        });
+       
+       console.log(`Created ${markerNames.length} marker spheres. Total spheres: ${this.markerSpheres.length}`);
        
        // Add click event listener for marker selection
        this.addMarkerClickListener();
@@ -3796,6 +4019,9 @@ const axiosInstance = axios.create();
        
        this.markerSpheres = [];
        
+       // Clear measurement data
+       this.clearMeasurement();
+       
        // Clear marker labels
        Object.values(this.markerLabels).forEach(label => {
          if (this.scene) {
@@ -3813,9 +4039,12 @@ const axiosInstance = axios.create();
      updateMarkerPositions() {
        if (!this.showMarkers || this.markerSpheres.length === 0) return;
        
-       // Use the same time reference as forces (this.frames[this.frame])
-       if (!this.frames || this.frame >= this.frames.length) return;
-       const currentTime = parseFloat(this.frames[this.frame]);
+       // Use the frame reference for marker data
+       if (!this.frames || this.frame >= this.frames.length || this.frame < 0) return;
+       
+       // For standalone marker files, use frame index directly
+       const useFrameIndex = this.animations.length === 0;
+       const currentTime = useFrameIndex ? this.frame : parseFloat(this.frames[this.frame]);
        
        // Update each marker sphere position
        this.markerSpheres.forEach(sphere => {
@@ -3827,16 +4056,23 @@ const axiosInstance = axios.create();
            return;
          }
          
-         // Find the closest time index in the marker data
-         const times = markersData.times;
+         // Find the appropriate index in the marker data
          let closestIndex = 0;
-         let minTimeDiff = Math.abs(times[0] - currentTime);
          
-         for (let i = 1; i < times.length; i++) {
-           const timeDiff = Math.abs(times[i] - currentTime);
-           if (timeDiff < minTimeDiff) {
-             minTimeDiff = timeDiff;
-             closestIndex = i;
+         if (useFrameIndex) {
+           // For standalone marker files, use frame index directly
+           closestIndex = Math.min(this.frame, markersData.data[markerName].x.length - 1);
+         } else {
+           // For marker files with animations, find closest time
+           const times = markersData.times;
+           let minTimeDiff = Math.abs(times[0] - currentTime);
+           
+           for (let i = 1; i < times.length; i++) {
+             const timeDiff = Math.abs(times[i] - currentTime);
+             if (timeDiff < minTimeDiff) {
+               minTimeDiff = timeDiff;
+               closestIndex = i;
+             }
            }
          }
          
@@ -3858,6 +4094,9 @@ const axiosInstance = axios.create();
          }
        });
        
+       // Update measurement positions if in measurement mode
+       this.updateMeasurementPositions();
+       
        // Re-render the scene
        if (this.renderer && this.scene && this.camera) {
          this.renderer.render(this.scene, this.camera);
@@ -3872,7 +4111,7 @@ const axiosInstance = axios.create();
          this.renderer.domElement.removeEventListener('click', this.handleMarkerClick);
        }
        
-       // Create new click handler
+              // Create new click handler
        this.handleMarkerClick = (event) => {
          event.preventDefault();
          
@@ -3893,15 +4132,25 @@ const axiosInstance = axios.create();
            const selectedSphere = intersects[0].object;
            const markerName = selectedSphere.userData.markerName;
            
-           // Update selected marker
-           this.selectedMarker = {
-             name: markerName,
-             position: selectedSphere.position.clone(),
-                        animationIndex: selectedSphere.userData.animationIndex
-         };
-         
-         // Optional: Highlight selected marker
-           this.highlightSelectedMarker(selectedSphere);
+           // Check if in measurement mode and modifier keys are pressed
+           if (this.measurementMode && (event.metaKey || event.ctrlKey || event.shiftKey)) {
+             // Add/remove marker from measurement
+             this.addMeasurementMarker(
+               markerName,
+               selectedSphere.position,
+               selectedSphere.userData.animationIndex
+             );
+           } else {
+             // Normal marker selection
+             this.selectedMarker = {
+               name: markerName,
+               position: selectedSphere.position.clone(),
+               animationIndex: selectedSphere.userData.animationIndex
+             };
+             
+             // Optional: Highlight selected marker
+             this.highlightSelectedMarker(selectedSphere);
+           }
          } else {
            // Deselect if clicking empty space
            this.selectedMarker = null;
@@ -3986,6 +4235,205 @@ const axiosInstance = axios.create();
        }
        
        this.$toasted.success('Markers cleared for animation');
+     },
+     
+     clearAllMarkers() {
+       // Clear all marker datasets
+       this.markersDatasets = {};
+       
+       // Clear all marker spheres
+       this.clearMarkerSpheres();
+       
+       // Clear selected marker
+       this.selectedMarker = null;
+       
+       // Clear marker time data
+       this.markerTimeData = null;
+       
+       // Clear measurement data
+       this.clearMeasurement();
+       
+       this.$toasted.success('All markers cleared');
+     },
+     
+     // Distance measurement methods
+     toggleMeasurementMode() {
+       this.measurementMode = !this.measurementMode;
+       
+       if (this.measurementMode) {
+         this.$toasted.info('Measurement mode enabled. Hold Cmd/Shift + Click on markers to measure distance.');
+       } else {
+         this.$toasted.info('Measurement mode disabled.');
+         this.clearMeasurement();
+       }
+     },
+     
+     clearMeasurement() {
+       // Clear measurement markers
+       this.measurementMarkers = [];
+       
+       // Remove measurement line from scene
+       if (this.measurementLine) {
+         this.scene.remove(this.measurementLine);
+         this.measurementLine.geometry.dispose();
+         this.measurementLine.material.dispose();
+         this.measurementLine = null;
+       }
+       
+       // Reset distance
+       this.currentDistance = 0;
+       
+       // Re-render the scene
+       if (this.renderer && this.scene && this.camera) {
+         this.renderer.render(this.scene, this.camera);
+       }
+     },
+     
+     addMeasurementMarker(markerName, position, animationIndex) {
+       // Check if this marker is already selected
+       const existingIndex = this.measurementMarkers.findIndex(m => m.name === markerName);
+       
+       if (existingIndex !== -1) {
+         // If marker is already selected, remove it
+         this.measurementMarkers.splice(existingIndex, 1);
+         this.$toasted.info(`Removed ${markerName} from measurement`);
+       } else {
+         // Add new marker
+         if (this.measurementMarkers.length >= 2) {
+           // Replace the first marker with the new one
+           this.measurementMarkers.shift();
+         }
+         
+         this.measurementMarkers.push({
+           name: markerName,
+           position: position.clone(),
+           animationIndex: animationIndex
+         });
+         
+         this.$toasted.info(`Added ${markerName} to measurement`);
+       }
+       
+       // Update measurement line and distance
+       this.updateMeasurementLine();
+     },
+     
+     updateMeasurementLine() {
+       // Remove existing line
+       if (this.measurementLine) {
+         this.scene.remove(this.measurementLine);
+         this.measurementLine.geometry.dispose();
+         this.measurementLine.material.dispose();
+         this.measurementLine = null;
+       }
+       
+       // Create new line if we have exactly 2 markers
+       if (this.measurementMarkers.length === 2) {
+         const marker1 = this.measurementMarkers[0];
+         const marker2 = this.measurementMarkers[1];
+         
+         // Calculate distance
+         this.currentDistance = marker1.position.distanceTo(marker2.position);
+         
+         // Create line geometry
+         const lineGeometry = new THREE.BufferGeometry().setFromPoints([
+           marker1.position,
+           marker2.position
+         ]);
+         
+         // Create line material
+         const lineMaterial = new THREE.LineBasicMaterial({ 
+           color: 0x00ff00,
+           linewidth: 3,
+           transparent: true,
+           opacity: 0.8
+         });
+         
+         // Create line mesh
+         this.measurementLine = new THREE.Line(lineGeometry, lineMaterial);
+         this.measurementLine.userData = { type: 'measurement' };
+         
+         // Add to scene
+         this.scene.add(this.measurementLine);
+         
+         // Re-render the scene
+         if (this.renderer && this.scene && this.camera) {
+           this.renderer.render(this.scene, this.camera);
+         }
+       } else {
+         this.currentDistance = 0;
+       }
+     },
+     
+     updateMeasurementPositions() {
+       if (!this.measurementMode || this.measurementMarkers.length !== 2) return;
+       
+       // Update marker positions in measurement array
+       this.measurementMarkers.forEach((measurementMarker, index) => {
+         // Find the corresponding sphere in the scene
+         const sphere = this.markerSpheres.find(s => 
+           s.userData.markerName === measurementMarker.name &&
+           s.userData.animationIndex === measurementMarker.animationIndex
+         );
+         
+         if (sphere) {
+           this.measurementMarkers[index].position.copy(sphere.position);
+         }
+       });
+       
+       // Update the measurement line with new positions
+       this.updateMeasurementLine();
+     },
+     
+     positionCameraForMarkers() {
+       if (!this.markerSpheres || this.markerSpheres.length === 0) {
+         console.log('No markers to position camera for');
+         return;
+       }
+       
+       // Calculate bounding box of all markers
+       const box = new THREE.Box3();
+       this.markerSpheres.forEach(sphere => {
+         box.expandByObject(sphere);
+       });
+       
+       if (box.isEmpty()) {
+         console.log('Marker bounding box is empty');
+         return;
+       }
+       
+       // Get the center and size of the bounding box
+       const center = box.getCenter(new THREE.Vector3());
+       const size = box.getSize(new THREE.Vector3());
+       
+       // Calculate the maximum dimension to determine camera distance
+       const maxDim = Math.max(size.x, size.y, size.z);
+       
+       // Position camera at a comfortable distance
+       const distance = maxDim * 3; // Adjust multiplier as needed
+       const height = Math.max(center.y + size.y, 2); // Ensure camera is above ground
+       
+       // Set camera position
+       this.camera.position.set(
+         center.x + distance * 0.7,
+         height,
+         center.z + distance * 0.7
+       );
+       
+       // Point camera at the center of the markers
+       this.camera.lookAt(center);
+       
+       // Update camera controls target
+       if (this.controls) {
+         this.controls.target.copy(center);
+         this.controls.update();
+       }
+       
+       console.log(`Camera positioned for markers at distance ${distance.toFixed(2)} from center:`, center);
+       
+       // Render the scene
+       if (this.renderer && this.scene && this.camera) {
+         this.renderer.render(this.scene, this.camera);
+       }
      },
     
     toggleCameraControls() {
@@ -4990,9 +5438,10 @@ const axiosInstance = axios.create();
         const deltaTime = (currentTime - this.lastFrameTime) / 1000; // Convert to seconds
 
         // Check if we have markers or animations to animate
-        // Refined check for clarity: Checks if any animation is playable OR if marker sets exist and are playable
+        // Refined check for clarity: Checks if any animation is playable OR if markers exist
         const hasAnimatedContent = this.animations.some(a => a.playable !== false) || 
-                                 (this.markerSets.length > 0 && this.markersPlayable);
+                                 (this.markerSpheres.length > 0) ||
+                                 (Object.keys(this.markersDatasets).length > 0);
         
         // Note: Debug removed - animation loop should now work for shared visualizations
 
@@ -5729,8 +6178,12 @@ const axiosInstance = axios.create();
         event.target.value = '';
     },
     initScene() {
+        console.log('initScene called');
         const container = this.$refs.mocap;
-        if (!container) return;
+        if (!container) {
+          console.error('Container not found in initScene');
+          return;
+        }
 
         let ratio = container.clientWidth / container.clientHeight;
         this.camera = new THREE.PerspectiveCamera(35, ratio, 0.1, 125);
@@ -5739,6 +6192,7 @@ const axiosInstance = axios.create();
         this.camera.position.y = 3.5;
 
         this.scene = new THREE.Scene();
+        console.log('Scene and camera initialized');
 
         // Create group for axes objects
         this.axesGroup = new THREE.Group();
@@ -8656,7 +9110,26 @@ const axiosInstance = axios.create();
             }
         }
       }
-      // Marker functionality removed
+      
+      // Priority 2: Use markers if no animations exist
+      if (!foundSubject && this.markerSpheres.length > 0) {
+        // Find center of all marker positions at current frame
+        const center = new THREE.Vector3();
+        let count = 0;
+        
+        this.markerSpheres.forEach(sphere => {
+          if (sphere.visible && sphere.position) {
+            center.add(sphere.position);
+            count++;
+          }
+        });
+        
+        if (count > 0) {
+          targetPosition = center.divideScalar(count);
+          foundSubject = true;
+          console.log('Centering on marker cluster center.');
+        }
+      }
 
       // Set camera position relative to the target
       // Maintain current camera distance if possible, otherwise use default
