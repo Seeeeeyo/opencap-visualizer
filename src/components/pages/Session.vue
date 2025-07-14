@@ -2782,6 +2782,7 @@ const axiosInstance = axios.create();
               // Share functionality
               showShareDialog: false,
               shareUrl: '',
+              shareId: null, // Add this to store the generated shareId
               shareUrlSize: 0,
               shareMethod: 0, // 0 for URL, 1 for file
               shareFileName: 'visualization-share',
@@ -5006,9 +5007,12 @@ const axiosInstance = axios.create();
         
         // If the compressed data is still too large, use hash-based storage
         if (compressed.length > 1000) {
-          const shareId = this.generateShareId();
-          await this.storeShareData(shareId, shareData);
-          this.shareUrl = `${baseUrl}?shareId=${shareId}`;
+          // Only generate a new shareId if one doesn't already exist
+          if (!this.shareId) {
+            this.shareId = this.generateShareId();
+          }
+          await this.storeShareData(this.shareId, shareData);
+          this.shareUrl = `${baseUrl}?shareId=${this.shareId}`;
         } else {
           this.shareUrl = `${baseUrl}?share=${compressed}`;
         }
@@ -5099,7 +5103,9 @@ const axiosInstance = axios.create();
           trialName: anim.trialName,
           fileName: anim.fileName,
           offset: [anim.offset.x, anim.offset.y, anim.offset.z] // Use array instead of object
-        }))
+        })),
+        forces: this.forcesDatasets,
+        markers: this.markersDatasets
       };
       
       // Only include optional data if specifically requested
@@ -5486,6 +5492,14 @@ const axiosInstance = axios.create();
           this.ensureColorArraysSync();
         }
         
+        // Load forces and markers if they exist
+        if (shareData.forces) {
+          this.forcesDatasets = shareData.forces;
+        }
+        if (shareData.markers) {
+          this.markersDatasets = shareData.markers;
+        }
+        
         // Set frames from first animation
         if (this.animations.length > 0) {
           this.frames = this.animations[0].data.time;
@@ -5534,6 +5548,14 @@ const axiosInstance = axios.create();
         await this.$nextTick();
         this.initScene();
         
+        // After scene is initialized, create markers and forces if they exist
+        if (this.markersDatasets && Object.keys(this.markersDatasets).length > 0) {
+          this.createMarkerSpheres();
+        }
+        if (this.forcesDatasets && Object.keys(this.forcesDatasets).length > 0) {
+          this.createForceArrows();
+        }
+
         // Start the animation loop for shared visualizations
         this.animate();
         
