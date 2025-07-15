@@ -1015,7 +1015,7 @@
         <v-icon>{{ showLeftSidebar ? 'mdi-chevron-left' : 'mdi-chevron-right' }}</v-icon>
       </v-btn>
       
-      <div class="viewer flex-grow-1" :class="{ 'sidebar-hidden': !showSidebar, 'left-sidebar-shown': showLeftSidebar, 'right-sidebar-shown': showSidebar, 'is-embedded': $route.query.embed === 'true' }" @dragover.prevent @drop.prevent="handleDrop">
+      <div class="viewer flex-grow-1" :class="{ 'sidebar-hidden': !showSidebar, 'left-sidebar-shown': showLeftSidebar, 'is-embedded': $route.query.embed === 'true' }" @dragover.prevent @drop.prevent="handleDrop">
         <!-- Camera Controls - Always show when renderer exists -->
         <div class="camera-controls-wrapper" v-if="renderer">
           <camera-controls 
@@ -1088,14 +1088,7 @@
             </v-alert>
           </div>
           
-          <div 
-            class="text-center drop-zone" 
-            :class="{ 
-              'opacity-reduced': converting,
-              'with-sidebars': showLeftSidebar || showSidebar
-            }" 
-            @click="openFileBrowser"
-          >
+          <div class="text-center drop-zone" :class="{ 'opacity-reduced': converting }" @click="openFileBrowser">
             <!-- Welcome Documentation Section -->
             <div v-if="!converting && !conversionError" class="welcome-section pa-6 text-center" style="max-width: 800px;">
               <div class="mb-6">
@@ -11362,7 +11355,7 @@ const axiosInstance = axios.create();
   position: absolute;
   top: 10px;
   width: 330px;
-  max-height: calc(100vh - 100px); /* Reduced bottom margin to provide appropriate clearance */
+  max-height: calc(100vh - 120px); /* Set max height to leave more space at bottom */
   background: rgba(28, 28, 30, 0.9); /* Dark semi-transparent */
   backdrop-filter: blur(10px);
   border-radius: 12px;
@@ -11392,7 +11385,7 @@ const axiosInstance = axios.create();
 
 .left {
   left: 10px;
-  height: calc(100vh - 100px); /* Adjusted to match max-height */
+  height: calc(100vh - 120px); /* Adjust height to leave more space at bottom */
   overflow-y: auto;
 }
 
@@ -11402,21 +11395,11 @@ const axiosInstance = axios.create();
   pointer-events: none;
 }
 
-.viewer {
-  transition: margin 0.3s ease-in-out;
-}
 
-.viewer.left-sidebar-shown {
-  margin-left: 340px; /* sidebar width */
-}
-
-.viewer.right-sidebar-shown {
-  margin-right: 340px; /* sidebar width */
-}
 
 .right {
   right: 10px;
-  height: calc(100vh - 100px); /* Adjusted to match max-height */
+  height: calc(100vh - 120px); /* Match left sidebar height */
   overflow-y: auto;
 }
 
@@ -11537,7 +11520,7 @@ const axiosInstance = axios.create();
     max-height: calc(100vh - 120px);
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
+    justify-content: flex-start;
     align-items: center;
     border: 3px dashed rgba(255, 255, 255, 0.2);
     border-radius: 12px;
@@ -11553,10 +11536,7 @@ const axiosInstance = axios.create();
         background: rgba(255, 255, 255, 0.08);
   }
 
-.drop-zone.with-sidebars {
-  width: calc(100% - 20px);
-  margin: 10px;
-}
+
 
 .custom-btn {
   border-radius: 8px !important;
