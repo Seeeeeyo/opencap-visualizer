@@ -19,7 +19,7 @@
             display: 'flex',
             justifyContent: 'space-between',
             padding: '4px',
-            background: 'rgba(0,0,0,0.8)',
+            background: 'rgba(0, 0, 0, 0.8)',
             cursor: 'grab'
           }"
           @mousedown="startDrag"
@@ -1015,7 +1015,7 @@
         <v-icon>{{ showLeftSidebar ? 'mdi-chevron-left' : 'mdi-chevron-right' }}</v-icon>
       </v-btn>
       
-      <div class="viewer flex-grow-1" :class="{ 'sidebar-hidden': !showSidebar, 'left-sidebar-shown': showLeftSidebar, 'is-embedded': $route.query.embed === 'true' }" @dragover.prevent @drop.prevent="handleDrop">
+      <div class="viewer flex-grow-1" :class="{ 'sidebar-hidden': !showSidebar, 'left-sidebar-shown': showLeftSidebar, 'right-sidebar-shown': showSidebar, 'is-embedded': $route.query.embed === 'true' }" @dragover.prevent @drop.prevent="handleDrop">
         <!-- Camera Controls - Always show when renderer exists -->
         <div class="camera-controls-wrapper" v-if="renderer">
           <camera-controls 
@@ -1088,7 +1088,14 @@
             </v-alert>
           </div>
           
-          <div class="text-center drop-zone" :class="{ 'opacity-reduced': converting }" @click="openFileBrowser">
+          <div 
+            class="text-center drop-zone" 
+            :class="{ 
+              'opacity-reduced': converting,
+              'with-sidebars': showLeftSidebar || showSidebar
+            }" 
+            @click="openFileBrowser"
+          >
             <!-- Welcome Documentation Section -->
             <div v-if="!converting && !conversionError" class="welcome-section pa-6 text-center" style="max-width: 800px;">
               <div class="mb-6">
@@ -1186,30 +1193,32 @@
               </v-row>
             </div>
             
-            <!-- Existing drop zone content -->
-            <v-icon size="64" color="grey darken-1">mdi-file-upload-outline</v-icon>
-            
-            <!-- Show selected files if any, otherwise show the default prompt -->
-            <div v-if="osimFile || motFile || videoFile" class="text-h6 grey--text text--darken-1 mt-4">
-              <div v-if="osimFile" class="selected-file mb-2">
-                <v-chip small color="indigo" dark>{{ osimFile.name }}</v-chip>
+            <div class="text-center">
+              <!-- Existing drop zone content -->
+              <v-icon size="64" color="grey darken-1">mdi-file-upload-outline</v-icon>
+              
+              <!-- Show selected files if any, otherwise show the default prompt -->
+              <div v-if="osimFile || motFile || videoFile" class="text-h6 grey--text text--darken-1 mt-4">
+                <div v-if="osimFile" class="selected-file mb-2">
+                  <v-chip small color="indigo" dark>{{ osimFile.name }}</v-chip>
+                </div>
+                <div v-if="motFile" class="selected-file mb-2">
+                  <v-chip small color="indigo" dark>{{ motFile.name }}</v-chip>
+                </div>
+                <div v-if="videoFile" class="selected-file mb-2">
+                  <v-chip small color="cyan" dark>{{ videoFile.name }}</v-chip>
+                </div>
+                <div v-if="osimFile && !motFile" class="missing-file-prompt">
+                  Please add a .mot file to complete the pair
+                </div>
+                <div v-if="!osimFile && motFile" class="missing-file-prompt">
+                  Please add an .osim file to complete the pair
+                </div>
               </div>
-              <div v-if="motFile" class="selected-file mb-2">
-                <v-chip small color="indigo" dark>{{ motFile.name }}</v-chip>
+              <div v-else class="text-h6 grey--text text--darken-1 mt-4">
+                Drag & drop files here<br>
+                <span class="text-caption">Supports .json, .trc, .osim, .mot, and video files</span>
               </div>
-              <div v-if="videoFile" class="selected-file mb-2">
-                <v-chip small color="cyan" dark>{{ videoFile.name }}</v-chip>
-              </div>
-              <div v-if="osimFile && !motFile" class="missing-file-prompt">
-                Please add a .mot file to complete the pair
-              </div>
-              <div v-if="!osimFile && motFile" class="missing-file-prompt">
-                Please add an .osim file to complete the pair
-              </div>
-            </div>
-            <div v-else class="text-h6 grey--text text--darken-1 mt-4">
-              Drag & drop files here<br>
-              <span class="text-caption">Supports .json, .trc, .osim, .mot, and video files</span>
             </div>
           </div>
         </div>
@@ -1792,20 +1801,29 @@
               
               <v-row>
                 <v-col 
-                  cols="12" 
-                  md="4" 
                   v-for="sampleSet in availableSampleSets" 
                   :key="sampleSet.id"
+                  cols="12" 
+                  :md="sampleSet.id === 'default' ? 12 : 4" 
                   class="sample-option-col"
                 >
                   <v-card 
                     class="sample-option-card"
-                    :class="{ 'sample-option-hover': true }"
+                    :class="{ 'sample-option-hover': true, 'full-width-sample': sampleSet.id === 'default' }"
                     @click="selectSampleSet(sampleSet.id)"
                     dark
                     outlined
                   >
-                    <v-card-text class="pa-4 text-center">
+                    <v-card-text v-if="sampleSet.id === 'default'" class="pa-4 d-flex align-center">
+                      <v-icon size="48" color="primary" class="mr-4">
+                        {{ getSampleIcon(sampleSet.id) }}
+                      </v-icon>
+                      <div>
+                        <div class="text-h6 mb-1">{{ sampleSet.name }}</div>
+                        <div class="text-caption grey--text">{{ sampleSet.description }}</div>
+                      </div>
+                    </v-card-text>
+                    <v-card-text v-else class="pa-4 text-center">
                       <v-icon size="48" color="primary" class="mb-3">
                         {{ getSampleIcon(sampleSet.id) }}
                       </v-icon>
@@ -1868,27 +1886,6 @@
                       </v-btn>
                     </div>
 
-                    <v-alert
-                      v-if="shareUrl.includes('shareId=')"
-                      type="info"
-                      dense
-                      text
-                      class="mb-3"
-                    >
-                      <v-icon left small>mdi-information</v-icon>
-                      Using compact share ID. This link works as long as you don't clear browser data.
-                    </v-alert>
-                    
-                    <v-alert
-                      v-else-if="shareUrlSize > 8000"
-                      type="warning"
-                      dense
-                      text
-                      class="mb-3"
-                    >
-                      <v-icon left small>mdi-alert</v-icon>
-                      Large URL ({{ Math.round(shareUrlSize / 1000) }}KB). Consider using file sharing instead.
-                    </v-alert>
                   </v-tab-item>
 
                   <!-- File Sharing -->
@@ -2787,10 +2784,10 @@ const axiosInstance = axios.create();
               shareMethod: 0, // 0 for URL, 1 for file
               shareFileName: 'visualization-share',
               shareSettings: {
-                  includeCamera: false, // Changed to false for smaller URLs
-                  includeColors: false, // Changed to false for smaller URLs
-                  includeSettings: false, // Removed entirely from getShareData
-                  includeCurrentFrame: false
+                  includeCamera: true,
+                  includeColors: true,
+                  includeSettings: true,
+                  includeCurrentFrame: true
               },
               generatingShareUrl: false,
               loadingInitialShare: false,
@@ -2841,6 +2838,7 @@ const axiosInstance = axios.create();
               // Sample selection dialog
               showSampleSelectionDialog: false,
               availableSampleSets: [
+                { id: 'default', name: 'Default', description: 'Default motion set' },
                 { id: 'STS', name: 'Sit-to-Stand', description: 'Sit-to-stand on chair' },
                 { id: 'squat', name: 'Squats', description: 'Squat exercise movements' },
                 { id: 'walk', name: 'Walking', description: 'Normal walking' },
@@ -3043,7 +3041,7 @@ const axiosInstance = axios.create();
 
         // Determine if we need to load samples and which set
         let sampleSetToLoad = null;
-        if (this.$route.query.sample_set && ['squat', 'walk', 'STS', 'rmasb'].includes(this.$route.query.sample_set)) {
+        if (this.$route.query.sample_set && ['squat', 'walk', 'STS', 'rmasb', 'default'].includes(this.$route.query.sample_set)) {
             sampleSetToLoad = this.$route.query.sample_set;
             console.log(`Query parameter found, loading sample set: ${sampleSetToLoad}`);
         } else if (this.$route.query.load_samples === 'true') {
@@ -3424,8 +3422,32 @@ const axiosInstance = axios.create();
     async processForceFile(forceFile) {
       console.log('Processing force file:', forceFile.name);
       if (this.animations.length === 0) {
-        this.$toasted.warning('Please load an animation first before importing forces');
-        return;
+        // Handle standalone force file - this is a simplified case
+        this.selectedAnimationForForces = 0; // Use a default index
+        this.forcesFile = forceFile;
+        // Temporarily create a dummy animation if none exist
+        if (!this.animations[0]) {
+          this.animations[0] = { trialName: 'Standalone Forces', offset: new THREE.Vector3(), data: { bodies: {} } };
+        }
+        this.$set(this.forcesVisible, '0', true);
+        return new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            this.parseForcesData(e.target.result);
+            this.$toasted.success(`Standalone forces loaded`);
+            this.$nextTick(() => {
+              if (this.renderer && this.scene && this.camera) {
+                this.renderer.render(this.scene, this.camera);
+              }
+            });
+            resolve();
+          };
+          reader.onerror = () => {
+            this.$toasted.error(`Error reading force file: ${forceFile.name}`);
+            resolve();
+          };
+          reader.readAsText(forceFile);
+        });
       }
       
       // Initialize force visibility state for this animation if not set
@@ -4152,7 +4174,7 @@ const axiosInstance = axios.create();
       this.loadingMarkers = true;
       
       // Set initial visibility for this animation
-      const targetAnimationIndex = this.selectedAnimationForMarkers || 0;
+      const targetAnimationIndex = this.selectedAnimationForMarkers === null ? 0 : this.selectedAnimationForMarkers;
       this.$set(this.markersVisible, String(targetAnimationIndex), true);
       
       // Initialize marker visibility state if not set
@@ -4306,12 +4328,16 @@ const axiosInstance = axios.create();
        
        if (this.animations.length === 0 || animationIndex === null) {
          // For standalone marker files, set up the frames for animation control
-         this.frames = timeData;
-         this.frame = 0;
-         this.time = (timeData[0] || 0).toFixed(2);
+         if (this.frames.length === 0) {
+          this.frames = timeData;
+          this.frame = 0;
+          this.time = (timeData[0] || 0).toFixed(2);
+         }
          
          // Calculate frame rate for marker data
-         this.frameRate = this.calculateFrameRate(timeData);
+         if(!this.frameRate) {
+           this.frameRate = this.calculateFrameRate(timeData);
+         }
          
          // Initialize the trial object for standalone markers
          this.trial = { results: [] };
@@ -4982,7 +5008,8 @@ const axiosInstance = axios.create();
         'STS': 'mdi-chair-rolling',
         'squat': 'mdi-human-handsdown', 
         'walk': 'mdi-walk',
-        'rmasb': 'mdi-run-fast'
+        'rmasb': 'mdi-run-fast',
+        'default': 'mdi-play-circle-outline'
       };
       return iconMap[sampleSetId] || 'mdi-play-circle';
     },
@@ -7784,18 +7811,24 @@ const axiosInstance = axios.create();
         console.log(`loadSampleFiles called for set: ${sampleSet}`);
         
         // Validate sample set name, default to 'STS' if invalid
-        const validSets = ['squat', 'walk', 'STS', 'rmasb']; // Added rmasb here too
+        const validSets = ['squat', 'walk', 'STS', 'rmasb', 'default']; // Added rmasb here too
         if (!validSets.includes(sampleSet)) {
             console.warn(`Invalid sample set "${sampleSet}" provided. Defaulting to 'STS'.`);
             sampleSet = 'STS';
         }
 
         // Define the URLs for the sample files relative to the root and the specific set
-        const sampleFiles = [
-            `/samples/${sampleSet}/sample_mocap.json`,
-            `/samples/${sampleSet}/sample_mono.json`,
-            `/samples/${sampleSet}/sample_wham.json`
-        ];
+        const sampleFiles = sampleSet === 'default' 
+          ? [
+              '/samples/default/sample.json',
+              '/samples/default/sample_forces.mot',
+              '/samples/default/sample_markers.trc',
+            ]
+          : [
+              `/samples/${sampleSet}/sample_mocap.json`,
+              `/samples/${sampleSet}/sample_mono.json`,
+              `/samples/${sampleSet}/sample_wham.json`
+            ];
         
         console.log('Attempting to fetch potential sample files:', sampleFiles);
 
@@ -7807,23 +7840,27 @@ const axiosInstance = axios.create();
         this.clearExistingObjects(); // Clear meshes and sprites from previous loads
         
         // Fetch all potential sample files, handling individual failures
-        Promise.all(sampleFiles.map(url => 
-            fetch(url)
-                .then(response => {
-                    if (!response.ok) {
-                        // Log warning but don't throw error, return null to indicate failure
-                        console.warn(`Sample file not found or failed to load: ${url} (${response.status})`);
-                        return null; 
-                    }
-                    // If response is OK, parse JSON and pair with URL
-                    return response.json().then(data => ({ data, url }));
-                })
-                .catch(error => {
-                    // Catch network or other fetch errors
-                    console.warn(`Error fetching sample file ${url}:`, error);
-                    return null; // Indicate failure
-                })
-        ))
+        Promise.all(sampleFiles.map(url => {
+          const isMotOrTrc = url.endsWith('.mot') || url.endsWith('.trc');
+          return fetch(url)
+              .then(response => {
+                  if (!response.ok) {
+                      // Log warning but don't throw error, return null to indicate failure
+                      console.warn(`Sample file not found or failed to load: ${url} (${response.status})`);
+                      return null; 
+                  }
+                  // If response is OK, parse based on file type
+                  if (isMotOrTrc) {
+                    return response.blob().then(blob => ({ blob, url }));
+                  }
+                  return response.json().then(data => ({ data, url }));
+              })
+              .catch(error => {
+                  // Catch network or other fetch errors
+                  console.warn(`Error fetching sample file ${url}:`, error);
+                  return null; // Indicate failure
+              })
+        }))
         .then(results => {
             // Filter out null results (failed fetches)
             const successfulResults = results.filter(r => r !== null);
@@ -7839,9 +7876,20 @@ const axiosInstance = axios.create();
             }
 
             // Process the successfully loaded files
-            successfulResults.forEach(({ data, url }, index) => {
+            successfulResults.forEach(async ({ data, blob, url }) => {
                 // Get the filename from the URL
                 const fileName = url.split('/').pop();
+
+                if (blob) { // Handle .mot and .trc files
+                  const file = new File([blob], fileName);
+                  if (fileName.endsWith('.mot')) {
+                    await this.processForceFile(file);
+                  } else if (fileName.endsWith('.trc')) {
+                    this.markersFile = file;
+                    await this.loadMarkersFile();
+                  }
+                  return;
+                }
                 
                 // Calculate FPS for this specific file
                 const fileFps = this.calculateFrameRate(data.time);
@@ -7861,7 +7909,7 @@ const axiosInstance = axios.create();
                 this.extractMarkerDataFromJson(data, this.animations.length - 1, fileName);
                 
                 // Set up the trial and frames from the *first successfully loaded* animation
-                if (index === 0) {
+                if (this.animations.length === 1) {
                     this.frames = data.time;
                     this.trial = { results: [] };
                     // Set the global frameRate based on the first sample file loaded
@@ -11314,7 +11362,7 @@ const axiosInstance = axios.create();
   position: absolute;
   top: 10px;
   width: 330px;
-  max-height: calc(100vh - 80px); /* Set max height to match height */
+  max-height: calc(100vh - 100px); /* Reduced bottom margin to provide appropriate clearance */
   background: rgba(28, 28, 30, 0.9); /* Dark semi-transparent */
   backdrop-filter: blur(10px);
   border-radius: 12px;
@@ -11344,7 +11392,7 @@ const axiosInstance = axios.create();
 
 .left {
   left: 10px;
-  height: calc(100vh - 80px); /* Adjust height to leave space at bottom */
+  height: calc(100vh - 100px); /* Adjusted to match max-height */
   overflow-y: auto;
 }
 
@@ -11354,9 +11402,21 @@ const axiosInstance = axios.create();
   pointer-events: none;
 }
 
+.viewer {
+  transition: margin 0.3s ease-in-out;
+}
+
+.viewer.left-sidebar-shown {
+  margin-left: 340px; /* sidebar width */
+}
+
+.viewer.right-sidebar-shown {
+  margin-right: 340px; /* sidebar width */
+}
+
 .right {
   right: 10px;
-  height: calc(100vh - 80px); /* Match left sidebar height */
+  height: calc(100vh - 100px); /* Adjusted to match max-height */
   overflow-y: auto;
 }
 
@@ -11477,7 +11537,7 @@ const axiosInstance = axios.create();
     max-height: calc(100vh - 120px);
     display: flex;
     flex-direction: column;
-    justify-content: flex-start;
+    justify-content: space-between;
     align-items: center;
     border: 3px dashed rgba(255, 255, 255, 0.2);
     border-radius: 12px;
@@ -11492,6 +11552,11 @@ const axiosInstance = axios.create();
         border-color: rgba(255, 255, 255, 0.4);
         background: rgba(255, 255, 255, 0.08);
   }
+
+.drop-zone.with-sidebars {
+  width: calc(100% - 20px);
+  margin: 10px;
+}
 
 .custom-btn {
   border-radius: 8px !important;
@@ -11900,6 +11965,10 @@ const axiosInstance = axios.create();
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
 }
 
+.sample-option-card.full-width-sample {
+  height: auto;
+}
+
 .sample-option-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 8px 25px rgba(33, 150, 243, 0.3) !important;
@@ -11932,12 +12001,6 @@ const axiosInstance = axios.create();
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4) !important;
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
   color: #ffffff !important;
-}
-
-.plotting-header {
-  border-top-left-radius: 12px !important;
-  border-top-right-radius: 12px !important;
-  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%) !important;
 }
 
 .plot-controls-panel {
@@ -12025,6 +12088,12 @@ const axiosInstance = axios.create();
 
 .plotting-dialog .text-h6 {
   color: rgba(255, 255, 255, 0.8) !important;
+}
+
+.plotting-header {
+  border-top-left-radius: 12px !important;
+  border-top-right-radius: 12px !important;
+  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%) !important;
 }
 
 .resize-handle {
