@@ -8254,98 +8254,85 @@ const axiosInstance = axios.create();
         const originalGroundVisibility = this.groundMesh ? this.groundMesh.visible : false;
         const originalClearColor = this.renderer.getClearColor();
         const originalClearAlpha = this.renderer.getClearAlpha();
-        const originalPreserveDrawingBuffer = this.renderer.preserveDrawingBuffer;
         
         // Set to high resolution for screenshot (4x)
         const scale = 4;
+        const width = originalWidth * scale;
+        const height = originalHeight * scale;
         
-        // Create a new renderer for the transparent version
-        const transparentRenderer = new THREE.WebGLRenderer({
-            antialias: true,
-            alpha: true,
-            preserveDrawingBuffer: true
-        });
-        transparentRenderer.setSize(originalWidth * scale, originalHeight * scale);
+        // Helper to create an offscreen renderer
+        const createOffscreenRenderer = (transparent = false) => {
+            const renderer = new THREE.WebGLRenderer({
+                antialias: true,
+                alpha: transparent,
+                preserveDrawingBuffer: true
+            });
+            renderer.setSize(width, height, false);
+            renderer.setClearColor(transparent ? 0x000000 : originalClearColor, transparent ? 0 : originalClearAlpha);
+            return renderer;
+        };
         
         // Determine which captures to create based on user selection
         let captures = [];
-        
         if (this.captureMode === 'both' || this.captureMode === 'normal') {
             captures.push({ 
                 name: 'mocap-capture.png', 
                 background: originalBackground,
                 showGround: originalGroundVisibility,
-                transparent: false,
-                useMainRenderer: true
+                transparent: false
             });
         }
-        
         if (this.captureMode === 'both' || this.captureMode === 'transparent') {
             captures.push({ 
                 name: 'mocap-capture-transparent.png', 
                 background: null,
                 showGround: false,
-                transparent: true,
-                useMainRenderer: false
+                transparent: true
             });
         }
         
-        // Set main renderer to high resolution
-        this.renderer.setSize(originalWidth * scale, originalHeight * scale);
+        // Save camera state
+        const originalAspect = this.camera.aspect;
+        const originalProjectionMatrix = this.camera.projectionMatrix.clone();
         
-        // Force camera aspect ratio update
-        this.camera.aspect = (originalWidth * scale) / (originalHeight * scale);
+        // Force camera aspect ratio update for screenshot
+        this.camera.aspect = width / height;
         this.camera.updateProjectionMatrix();
         
         // Create download links for the selected version(s)
         captures.forEach(capture => {
             // Set background (null for transparent)
             this.scene.background = capture.background;
-            
             // Set ground visibility
             if (this.groundMesh) {
                 this.groundMesh.visible = capture.showGround;
             }
-            
-            const currentRenderer = capture.useMainRenderer ? this.renderer : transparentRenderer;
-            
-            // Set renderer properties for transparency
-            if (capture.transparent) {
-                currentRenderer.setClearColor(0x000000, 0);
-                currentRenderer.setClearAlpha(0);
-            } else {
-                currentRenderer.setClearColor(originalClearColor, originalClearAlpha);
+            // Use offscreen renderer for all captures
+            const offscreenRenderer = createOffscreenRenderer(capture.transparent);
+            offscreenRenderer.render(this.scene, this.camera);
+            try {
+                const dataURL = offscreenRenderer.domElement.toDataURL('image/png');
+                // Create and trigger download
+                const link = document.createElement('a');
+                link.href = dataURL;
+                link.download = capture.name;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } catch (e) {
+                alert('Screenshot failed: ' + e.message);
             }
-            
-            // Render the scene
-            currentRenderer.render(this.scene, this.camera);
-            
-            // Capture the image
-            const dataURL = currentRenderer.domElement.toDataURL('image/png');
-            
-            // Create and trigger download
-            const link = document.createElement('a');
-            link.href = dataURL;
-            link.download = capture.name;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            offscreenRenderer.dispose();
         });
         
-        // Clean up transparent renderer
-        transparentRenderer.dispose();
-        
         // Restore original settings
-        this.renderer.setSize(originalWidth, originalHeight);
-        this.camera.aspect = originalWidth / originalHeight;
-        this.camera.updateProjectionMatrix();
         this.scene.background = originalBackground;
         if (this.groundMesh) {
             this.groundMesh.visible = originalGroundVisibility;
         }
+        this.camera.aspect = originalAspect;
+        this.camera.projectionMatrix.copy(originalProjectionMatrix);
         this.renderer.setClearColor(originalClearColor, originalClearAlpha);
-        
-        // Re-render at original size
         this.renderer.render(this.scene, this.camera);
         
         // Show a success message with appropriate text based on capture mode
