@@ -14,7 +14,7 @@
         overflow: 'hidden',
         cursor: isDragging ? 'grabbing' : 'default'
       }">
-        <div 
+        <div
           :style="{
             display: 'flex',
             justifyContent: 'space-between',
@@ -38,8 +38,8 @@
             </v-btn>
           </div>
         </div>
-        <video 
-          ref="videoPreview" 
+        <video
+          ref="videoPreview"
           :style="{ width: '100%', height: 'auto', minHeight: videoMinimized ? '120px' : '200px' }"
           @loadedmetadata="handleVideoMetadata"
           @timeupdate="handleVideoTimeUpdate"
@@ -49,9 +49,9 @@
           <source :src="videoUrl" :type="videoFile.type">
           Your browser does not support the video tag.
         </video>
-        
+
         <!-- Resize handle -->
-        <div 
+        <div
           :style="{
             position: 'absolute',
             bottom: '0',
@@ -65,22 +65,22 @@
           @touchstart="startResize"
         ></div>
       </div>
-      
+
       <!-- Left Sidebar -->
       <div class="left d-flex flex-column" :class="{ 'hidden': !showLeftSidebar }" v-if="$route.query.embed !== 'true'">
         <!-- Empty left sidebar - will be populated later -->
         <div class="left-content flex-grow-1">
           <div class="pa-4">
             <h2 class="text-h6 white--text mb-4">Files</h2>
-            
+
             <!-- Conversion Status Indicator -->
             <div v-if="converting" class="conversion-status mb-4">
               <v-card class="pa-3" color="rgba(79, 70, 229, 0.2)" outlined>
                 <div class="d-flex align-center">
-                  <v-progress-circular 
-                    indeterminate 
-                    color="indigo" 
-                    size="20" 
+                  <v-progress-circular
+                    indeterminate
+                    color="indigo"
+                    size="20"
                     width="2"
                     class="mr-3"
                   />
@@ -91,15 +91,15 @@
                 </div>
               </v-card>
             </div>
-            
+
             <!-- Add Import Button Here -->
             <v-btn color="#4B5563" class="mb-4 white--text custom-btn" block @click="openImportDialog" :disabled="converting">
               <v-icon left>mdi-import</v-icon>
               Import
             </v-btn>
-            
 
-            
+
+
             <!-- Getting Started Section (shown when no files are loaded) -->
             <div v-if="animations.length === 0 && !converting && Object.keys(markersDatasets).length === 0" class="getting-started-section mb-4">
               <v-card dark class="pa-4" style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1);">
@@ -107,17 +107,17 @@
                   <v-icon color="primary" class="mr-2">mdi-information-outline</v-icon>
                   <h3 class="text-subtitle-1">Getting Started</h3>
                 </div>
-                
+
                 <div class="text-caption mb-3">
                   <strong>Import Methods:</strong>
                 </div>
-                
+
                 <div class="mb-3">
-                  <v-btn 
-                    color="primary" 
-                    small 
-                    outlined 
-                    block 
+                  <v-btn
+                    color="primary"
+                    small
+                    outlined
+                    block
                     @click="showSampleSelectionDialog = true"
                     class="mb-2"
                   >
@@ -127,16 +127,16 @@
                   <div class="text-caption grey--text mb-3">
                     Explore with pre-loaded motion capture data
                   </div>
-                  
+
 
                 </div>
-                
+
                 <v-divider class="my-3" style="opacity: 0.3;"></v-divider>
-                
+
                 <div class="text-caption mb-2">
                   <strong>Workflow Options:</strong>
                 </div>
-                
+
                 <div class="workflow-steps text-caption">
                   <div class="step-item mb-2">
                     <div class="d-flex align-center">
@@ -147,7 +147,7 @@
                       Upload .osim model + .mot motion files
                     </div>
                   </div>
-                  
+
                   <div class="step-item mb-2">
                     <div class="d-flex align-center">
                       <v-icon x-small color="indigo" class="mr-2">mdi-numeric-2-circle</v-icon>
@@ -157,7 +157,7 @@
                       Load .json files or .trc marker files
                     </div>
                   </div>
-                  
+
                   <div class="step-item mb-2">
                     <div class="d-flex align-center">
                       <v-icon x-small color="green" class="mr-2">mdi-numeric-3-circle</v-icon>
@@ -168,9 +168,9 @@
                     </div>
                   </div>
                 </div>
-                
+
                 <v-divider class="my-3" style="opacity: 0.3;"></v-divider>
-                
+
                 <div class="text-caption mb-2">
                   <strong>Tips:</strong>
                 </div>
@@ -182,7 +182,7 @@
                 </ul>
               </v-card>
             </div>
-            
+
             <!-- Legend -->
             <div class="legend flex-grow-1 mb-4">
               <!-- Add animation control buttons -->
@@ -198,7 +198,7 @@
                   None
                 </v-btn>
               </div>
-              
+
               <!-- Animation Files List -->
               <div v-for="(animation, index) in animations" :key="`animation-${index}`" class="legend-item mb-4">
                 <div class="d-flex mb-2">
@@ -232,27 +232,27 @@
                         </v-btn>
                       </div>
                     </div>
-                    
+
                   </div>
                 </div>
-                
+
                 <!-- Buttons row - add checkbox here -->
                 <div class="d-flex align-center ml-8" style="min-width: 300px;">
                   <v-tooltip bottom>
                     <template v-slot:activator="{ on, attrs }">
                       <div v-bind="attrs" v-on="on">
-                        <v-checkbox 
-                          v-model="animation.playable" 
-                          hide-details 
-                          dense 
-                          color="primary" 
+                        <v-checkbox
+                          v-model="animation.playable"
+                          hide-details
+                          dense
+                          color="primary"
                           class="mt-0 mr-2 playable-checkbox"
                         ></v-checkbox>
                       </div>
                     </template>
                     <span>{{ animation.playable ? 'Animation enabled' : 'Static display (visible but not animating)' }}</span>
                   </v-tooltip>
-                  
+
                   <v-menu offset-y :close-on-content-click="false">
                     <template v-slot:activator="{ on, attrs }">
                       <v-btn icon small v-bind="attrs" v-on="on" class="mr-2">
@@ -260,7 +260,7 @@
                       </v-btn>
                     </template>
                     <v-card class="color-picker pa-2">
-            
+
                         <div class="d-flex align-center">
                           <v-color-picker
                             v-model="displayColors[index]"
@@ -287,10 +287,10 @@
                   </v-btn>
                   <v-tooltip bottom>
                     <template v-slot:activator="{ on, attrs }">
-                      <v-btn 
-                        icon 
-                        small 
-                        class="mr-2" 
+                      <v-btn
+                        icon
+                        small
+                        class="mr-2"
                         v-bind="attrs"
                         v-on="on"
                         @click="centerCameraOnAnimation(index)"
@@ -313,13 +313,13 @@
                           ({{ Math.round((1 - alphaValues[index]) * 100) }}%)
                         </span>
                       </div>
-                      <v-slider 
+                      <v-slider
                         :value="(1 - alphaValues[index]) * 100"
                         @input="value => updateAlpha(index, 1 - value / 100)"
-                        :min="0" 
-                        :max="100" 
-                        step="1" 
-                        hide-details 
+                        :min="0"
+                        :max="100"
+                        step="1"
+                        hide-details
                         :thumb-label="true"
                         thumb-size="24"
                       >
@@ -336,48 +336,48 @@
                     </v-card>
                   </v-menu>
 
-                  <v-btn 
+                  <v-btn
                     icon
-                    small 
-                    class="mr-2" 
+                    small
+                    class="mr-2"
                     v-if="animations[index].visible"
                     @click="openMeshDialog(index)"
                   >
                     <v-icon small>mdi-cube-outline</v-icon>
                   </v-btn>
                 </div>
-                
+
                 <!-- Offset controls -->
                 <div class="offset-controls mt-2" style="margin-left: 44px;">
                   <div class="d-flex align-center" style="border-bottom: 1px solid rgba(255, 255, 255, 0.12);">
                     <div class="text-caption grey--text mr-2" style="width: 12px;">X</div>
-                    <v-text-field 
-                      type="number" 
-                      :step="0.1" 
+                    <v-text-field
+                      type="number"
+                      :step="0.1"
                       v-model.number="animation.offset.x"
-                      dense 
+                      dense
                       @input="debouncedUpdateOffset(index, 'x', animation.offset.x)"
                       style="width: 70px"
                       class="grey--text text--darken-1"
                       hide-details
                     />
                     <div class="text-caption grey--text mx-2" style="width: 12px;">Y</div>
-                    <v-text-field 
-                      type="number" 
-                      :step="0.1" 
+                    <v-text-field
+                      type="number"
+                      :step="0.1"
                       v-model.number="animation.offset.y"
-                      dense 
+                      dense
                       @input="debouncedUpdateOffset(index, 'y', animation.offset.y)"
                       style="width: 70px"
                       class="grey--text text--darken-1"
                       hide-details
                     />
                     <div class="text-caption grey--text mx-2" style="width: 12px;">Z</div>
-                    <v-text-field 
-                      type="number" 
-                      :step="0.1" 
+                    <v-text-field
+                      type="number"
+                      :step="0.1"
                       v-model.number="animation.offset.z"
-                      dense 
+                      dense
                       @input="debouncedUpdateOffset(index, 'z', animation.offset.z)"
                       style="width: 70px"
                       class="grey--text text--darken-1"
@@ -439,7 +439,7 @@
                     <div class="fps-info text-caption grey--text">
                       {{ getForceArrowCount(animationIndex) }} Force Platforms
                     </div>
-                    
+
                     <!-- Current Force Values Display -->
                     <div v-if="showForces && getCurrentForceValues(animationIndex)" class="force-values mt-2 pa-2" :style="{ background: 'rgba(0, 0, 0, 0.2)', borderRadius: '4px', borderLeft: `3px solid ${getForceColor(animationIndex)}` }">
                       <div class="text-caption font-weight-bold mb-1" :style="{ color: getForceColor(animationIndex) }">Current Forces (N)</div>
@@ -464,7 +464,7 @@
                       {{ showForces ? 'mdi-eye' : 'mdi-eye-off' }}
                     </v-icon>
                   </v-btn>
-                  
+
                   <v-menu offset-y :close-on-content-click="false">
                     <template v-slot:activator="{ on, attrs }">
                       <v-btn icon small v-bind="attrs" v-on="on" class="mr-2">
@@ -487,7 +487,7 @@
                       </div>
                     </v-card>
                   </v-menu>
-                  
+
                   <v-menu offset-y :close-on-content-click="false">
                     <template v-slot:activator="{ on, attrs }">
                       <v-btn icon small v-bind="attrs" v-on="on" class="mr-2">
@@ -501,12 +501,12 @@
                           ({{ forceScale }})
                         </span>
                       </div>
-                      <v-slider 
+                      <v-slider
                         v-model="forceScale"
-                        :min="0.001" 
-                        :max="0.005" 
-                        step="0.001" 
-                        hide-details 
+                        :min="0.001"
+                        :max="0.005"
+                        step="0.001"
+                        hide-details
                         :thumb-label="true"
                         thumb-size="24"
                         @input="updateForceScale"
@@ -523,12 +523,12 @@
                       </v-slider>
                     </v-card>
                   </v-menu>
-                  
+
                   <v-btn icon small class="mr-2" @click="clearForceArrowsForAnimation(animationIndex)">
                     <v-icon small color="error">mdi-delete</v-icon>
                   </v-btn>
                 </div>
-                
+
                 <!-- Divider -->
                 <v-divider class="mt-4" style="opacity: 0.2"></v-divider>
               </div>
@@ -542,7 +542,7 @@
                     <div class="file-name text-caption">{{ obj.name }}</div>
                   </div>
                 </div>
-                
+
                 <!-- Buttons row -->
                 <div class="d-flex align-center ml-8" style="min-width: 300px;">
                   <v-menu offset-y :close-on-content-click="false">
@@ -577,10 +577,10 @@
                   </v-btn>
                   <v-tooltip bottom>
                     <template v-slot:activator="{ on, attrs }">
-                      <v-btn 
-                        icon 
-                        small 
-                        class="mr-2" 
+                      <v-btn
+                        icon
+                        small
+                        class="mr-2"
                         v-bind="attrs"
                         v-on="on"
                         @click="centerCameraOnObject(obj.id)"
@@ -603,13 +603,13 @@
                           ({{ Math.round((1 - obj.opacity) * 100) }}%)
                         </span>
                       </div>
-                      <v-slider 
+                      <v-slider
                         :value="(1 - (obj.opacity || 1)) * 100"
                         @input="value => updateObjectOpacity(obj.id, 1 - value / 100)"
-                        :min="0" 
-                        :max="100" 
-                        step="1" 
-                        hide-details 
+                        :min="0"
+                        :max="100"
+                        step="1"
+                        hide-details
                         :thumb-label="true"
                         thumb-size="24"
                       >
@@ -626,98 +626,98 @@
                     </v-card>
                   </v-menu>
                 </div>
-                
+
                 <!-- Position controls -->
                 <div class="offset-controls mt-2" style="margin-left: 44px;">
                   <div class="d-flex align-center mb-2" style="border-bottom: 1px solid rgba(255, 255, 255, 0.12);">
                     <div class="text-caption grey--text mr-2">Position</div>
                     <div class="d-flex align-center">
                       <div class="text-caption grey--text mr-2" style="width: 12px;">X</div>
-                      <v-text-field 
-                        type="number" 
-                        :step="0.1" 
+                      <v-text-field
+                        type="number"
+                        :step="0.1"
                         v-model.number="obj.position.x"
-                        dense 
-                        @input="debouncedUpdateObjectPosition(obj.id, 'x', obj.position.x)" 
+                        dense
+                        @input="debouncedUpdateObjectPosition(obj.id, 'x', obj.position.x)"
                         style="width: 70px"
                         class="grey--text text--darken-1"
                         hide-details
                       />
                       <div class="text-caption grey--text mx-2" style="width: 12px;">Y</div>
-                      <v-text-field 
-                        type="number" 
-                        :step="0.1" 
+                      <v-text-field
+                        type="number"
+                        :step="0.1"
                         v-model.number="obj.position.y"
-                        dense 
-                        @input="debouncedUpdateObjectPosition(obj.id, 'y', obj.position.y)" 
+                        dense
+                        @input="debouncedUpdateObjectPosition(obj.id, 'y', obj.position.y)"
                         style="width: 70px"
                         class="grey--text text--darken-1"
                         hide-details
                       />
                       <div class="text-caption grey--text mx-2" style="width: 12px;">Z</div>
-                      <v-text-field 
-                        type="number" 
-                        :step="0.1" 
+                      <v-text-field
+                        type="number"
+                        :step="0.1"
                         v-model.number="obj.position.z"
-                        dense 
-                        @input="debouncedUpdateObjectPosition(obj.id, 'z', obj.position.z)" 
+                        dense
+                        @input="debouncedUpdateObjectPosition(obj.id, 'z', obj.position.z)"
                         style="width: 70px"
                         class="grey--text text--darken-1"
                         hide-details
                       />
                     </div>
                   </div>
-                  
+
                   <!-- Rotation controls -->
                   <div class="d-flex align-center mb-2" style="border-bottom: 1px solid rgba(255, 255, 255, 0.12);">
                     <div class="text-caption grey--text mr-2">Rotation</div>
                     <div class="d-flex align-center">
                       <div class="text-caption grey--text mr-2" style="width: 12px;">X</div>
-                      <v-text-field 
-                        type="number" 
-                        :step="5" 
-                        :value="obj.rotation ? obj.rotation.x : 0" 
-                        dense 
-                        @input="debouncedUpdateObjectRotation(obj.id, 'x', $event)" 
+                      <v-text-field
+                        type="number"
+                        :step="5"
+                        :value="obj.rotation ? obj.rotation.x : 0"
+                        dense
+                        @input="debouncedUpdateObjectRotation(obj.id, 'x', $event)"
                         style="width: 70px"
                         class="grey--text text--darken-1"
                         hide-details
                       />
                       <div class="text-caption grey--text mx-2" style="width: 12px;">Y</div>
-                      <v-text-field 
-                        type="number" 
-                        :step="5" 
-                        :value="obj.rotation ? obj.rotation.y : 0" 
-                        dense 
-                        @input="debouncedUpdateObjectRotation(obj.id, 'y', $event)" 
+                      <v-text-field
+                        type="number"
+                        :step="5"
+                        :value="obj.rotation ? obj.rotation.y : 0"
+                        dense
+                        @input="debouncedUpdateObjectRotation(obj.id, 'y', $event)"
                         style="width: 70px"
                         class="grey--text text--darken-1"
                         hide-details
                       />
                       <div class="text-caption grey--text mx-2" style="width: 12px;">Z</div>
-                      <v-text-field 
-                        type="number" 
-                        :step="5" 
-                        :value="obj.rotation ? obj.rotation.z : 0" 
-                        dense 
-                        @input="debouncedUpdateObjectRotation(obj.id, 'z', $event)" 
+                      <v-text-field
+                        type="number"
+                        :step="5"
+                        :value="obj.rotation ? obj.rotation.z : 0"
+                        dense
+                        @input="debouncedUpdateObjectRotation(obj.id, 'z', $event)"
                         style="width: 70px"
                         class="grey--text text--darken-1"
                         hide-details
                       />
                     </div>
                   </div>
-                  
+
                   <!-- Scale control -->
                   <div class="d-flex align-center">
                     <div class="text-caption grey--text mr-2">Scale</div>
-                    <v-text-field 
-                      type="number" 
-                      :step="0.1" 
+                    <v-text-field
+                      type="number"
+                      :step="0.1"
                       :min="0.1"
-                      :value="obj.scale" 
-                      dense 
-                      @input="debouncedUpdateObjectScale(obj.id, $event)" 
+                      :value="obj.scale"
+                      dense
+                      @input="debouncedUpdateObjectScale(obj.id, $event)"
                       style="width: 70px"
                       class="grey--text text--darken-1"
                       hide-details
@@ -726,7 +726,7 @@
                 </div>
               </div>
             </div>
-            
+
             <!-- Standalone Marker Visualization Section (when no animations exist) -->
             <template v-if="animations.length === 0 && Object.keys(markersDatasets).length > 0">
               <div v-for="(markersData, animationIndex) in markersDatasets" :key="`standalone-markers-${animationIndex}`" class="legend-item mb-4">
@@ -738,7 +738,7 @@
                   <div class="fps-info text-caption grey--text">
                     {{ markersData.markers.length }} Markers
                   </div>
-                  
+
                   <!-- Current Marker Values Display for standalone -->
                   <div v-if="showMarkers && selectedMarker" class="marker-values mt-2 pa-2" style="background: rgba(255, 0, 0, 0.1); border-radius: 4px; border-left: 3px solid #ff0000;">
                     <div class="text-caption font-weight-bold mb-1" style="color: #ff0000;">Selected Marker</div>
@@ -752,7 +752,7 @@
                       Position (meters)
                     </div>
                   </div>
-                  
+
                   <!-- Distance Measurement Display for standalone -->
                   <div v-if="measurementMode && measurementMarkers.length > 0" class="measurement-display mt-2 pa-2" style="background: rgba(0, 255, 0, 0.1); border-radius: 4px; border-left: 3px solid #00ff00;">
                     <div class="text-caption font-weight-bold mb-1" style="color: #00ff00;">Distance Measurement</div>
@@ -775,7 +775,7 @@
                     {{ getMarkerVisibility(animationIndex) ? 'mdi-eye' : 'mdi-eye-off' }}
                   </v-icon>
                 </v-btn>
-                
+
                 <v-menu offset-y :close-on-content-click="false">
                   <template v-slot:activator="{ on, attrs }">
                     <v-btn icon small v-bind="attrs" v-on="on" class="mr-2">
@@ -798,7 +798,7 @@
                     </div>
                   </v-card>
                 </v-menu>
-                
+
                 <v-menu offset-y :close-on-content-click="false">
                   <template v-slot:activator="{ on, attrs }">
                     <v-btn icon small v-bind="attrs" v-on="on" class="mr-2">
@@ -812,12 +812,12 @@
                         ({{ markerSize }})
                       </span>
                     </div>
-                    <v-slider 
+                    <v-slider
                       v-model="markerSize"
-                      :min="1" 
-                      :max="20" 
-                      step="0.5" 
-                      hide-details 
+                      :min="1"
+                      :max="20"
+                      step="0.5"
+                      hide-details
                       :thumb-label="true"
                       thumb-size="24"
                       @input="updateMarkerSize"
@@ -834,7 +834,7 @@
                     </v-slider>
                   </v-card>
                 </v-menu>
-                
+
                 <v-tooltip bottom>
                   <template v-slot:activator="{ on, attrs }">
                     <v-btn icon small class="mr-2" @click="toggleMeasurementMode" :color="measurementMode ? 'success' : 'grey'" v-bind="attrs" v-on="on">
@@ -843,17 +843,17 @@
                   </template>
                   <span>{{ measurementMode ? 'Disable distance measurement' : 'Enable distance measurement' }}</span>
                 </v-tooltip>
-                
+
                 <v-btn icon small class="mr-2" @click="clearMarkersForAnimation(animationIndex)">
                   <v-icon small color="error">mdi-delete</v-icon>
                 </v-btn>
               </div>
-              
+
               <!-- Divider -->
               <v-divider class="mt-4" style="opacity: 0.2"></v-divider>
               </div>
             </template>
-            
+
             <!-- Clear All Markers Button (only show when there are multiple marker files) -->
             <div v-if="animations.length === 0 && Object.keys(markersDatasets).length > 1" class="mb-4">
               <v-btn
@@ -882,7 +882,7 @@
                   <div class="fps-info text-caption grey--text">
                     {{ markersData.markers.length }} Markers
                   </div>
-                  
+
                   <!-- Current Marker Values Display -->
                   <div v-if="showMarkers && selectedMarker && selectedMarker.animationIndex == animationIndex" class="marker-values mt-2 pa-2" style="background: rgba(255, 0, 0, 0.1); border-radius: 4px; border-left: 3px solid #ff0000;">
                     <div class="text-caption font-weight-bold mb-1" style="color: #ff0000;">Selected Marker</div>
@@ -896,7 +896,7 @@
                       Position (meters)
                     </div>
                   </div>
-                  
+
                   <!-- Distance Measurement Display for animations -->
                   <div v-if="measurementMode && measurementMarkers.length > 0" class="measurement-display mt-2 pa-2" style="background: rgba(0, 255, 0, 0.1); border-radius: 4px; border-left: 3px solid #00ff00;">
                     <div class="text-caption font-weight-bold mb-1" style="color: #00ff00;">Distance Measurement</div>
@@ -919,7 +919,7 @@
                     {{ showMarkers ? 'mdi-eye' : 'mdi-eye-off' }}
                   </v-icon>
                 </v-btn>
-                
+
                 <v-menu offset-y :close-on-content-click="false">
                   <template v-slot:activator="{ on, attrs }">
                     <v-btn icon small v-bind="attrs" v-on="on" class="mr-2">
@@ -942,7 +942,7 @@
                     </div>
                   </v-card>
                 </v-menu>
-                
+
                 <v-menu offset-y :close-on-content-click="false">
                   <template v-slot:activator="{ on, attrs }">
                     <v-btn icon small v-bind="attrs" v-on="on" class="mr-2">
@@ -956,12 +956,12 @@
                         ({{ markerSize }})
                       </span>
                     </div>
-                    <v-slider 
+                    <v-slider
                       v-model="markerSize"
-                      :min="1" 
-                      :max="20" 
-                      step="0.5" 
-                      hide-details 
+                      :min="1"
+                      :max="20"
+                      step="0.5"
+                      hide-details
                       :thumb-label="true"
                       thumb-size="24"
                       @input="updateMarkerSize"
@@ -978,7 +978,7 @@
                     </v-slider>
                   </v-card>
                 </v-menu>
-                
+
                 <v-tooltip bottom>
                   <template v-slot:activator="{ on, attrs }">
                     <v-btn icon small class="mr-2" @click="toggleMeasurementMode" :color="measurementMode ? 'success' : 'grey'" v-bind="attrs" v-on="on">
@@ -987,12 +987,12 @@
                   </template>
                   <span>{{ measurementMode ? 'Disable distance measurement' : 'Enable distance measurement' }}</span>
                 </v-tooltip>
-                
+
                 <v-btn icon small class="mr-2" @click="clearMarkersForAnimation(animationIndex)">
                   <v-icon small color="error">mdi-delete</v-icon>
                 </v-btn>
               </div>
-              
+
               <!-- Divider -->
               <v-divider class="mt-4" style="opacity: 0.2"></v-divider>
             </div>
@@ -1008,25 +1008,25 @@
         icon
         dark
         class="left-sidebar-toggle"
-        :class="{ 'sidebar-open': showLeftSidebar }" 
+        :class="{ 'sidebar-open': showLeftSidebar }"
         @click="showLeftSidebar = !showLeftSidebar"
         v-if="$route.query.embed !== 'true'"
       >
         <v-icon>{{ showLeftSidebar ? 'mdi-chevron-left' : 'mdi-chevron-right' }}</v-icon>
       </v-btn>
-      
+
       <div class="viewer flex-grow-1" :class="{ 'sidebar-hidden': !showSidebar, 'left-sidebar-shown': showLeftSidebar, 'is-embedded': $route.query.embed === 'true' }" @dragover.prevent @drop.prevent="handleDrop">
         <!-- Camera Controls - Always show when renderer exists -->
         <div class="camera-controls-wrapper" v-if="renderer">
-          <camera-controls 
+          <camera-controls
             v-if="showCameraControls"
-            @setView="setCameraView" 
+            @setView="setCameraView"
             @resetCamera="resetCameraView"
           />
         </div>
 
         <!-- Main Content -->
-        <div v-if="trial || (markerSpheres.length > 0) || (animations.length > 0) || trialLoading || converting || conversionError" class="d-flex flex-column h-100">
+        <div v-if="trial || (markerSpheres.length > 0) || (animations.length > 0) || trialLoading || converting || conversionError || loadingMarkers" class="d-flex flex-column h-100">
           <div id="mocap" ref="mocap" class="flex-grow-1 position-relative">
             <div v-if="videoFile && !$refs.videoPreview" class="debug-info">
               Video file loaded but preview not mounted
@@ -1034,15 +1034,15 @@
           </div>
           <div class="controls-container" style="display: flex; align-items: center; padding: 0 10px;">
             <!-- Video controls on the left -->
-            <VideoNavigation 
-              :playing="playing" 
-              :value="frame" 
-              :maxFrame="frames.length - 1" 
-              :disabled="videoControlsDisabled" 
-              @play="togglePlay(true)" 
-              @pause="togglePlay(false)" 
-              @input="onNavigate" 
-              class="mr-3" 
+            <VideoNavigation
+              :playing="playing"
+              :value="frame"
+              :maxFrame="frames.length - 1"
+              :disabled="videoControlsDisabled"
+              @play="togglePlay(true)"
+              @pause="togglePlay(false)"
+              @input="onNavigate"
+              class="mr-3"
             />
             <!-- Add Loop button here -->
             <v-btn icon dark @click="toggleLooping" :disabled="videoControlsDisabled" class="mr-2">
@@ -1074,7 +1074,7 @@
               <span class="text-subtitle-1">This may take a moment...</span>
             </div>
           </div>
-          
+
           <!-- Display API error message if it exists -->
           <div v-if="conversionError" class="text-center my-3">
             <v-alert type="error" dense dismissible @input="clearConversionError" prominent>
@@ -1087,7 +1087,7 @@
               </div>
             </v-alert>
           </div>
-          
+
           <div class="text-center drop-zone" :class="{ 'opacity-reduced': converting }" @click="openFileBrowser">
             <!-- Welcome Documentation Section -->
             <div v-if="!converting && !conversionError" class="welcome-section pa-6 text-center" style="max-width: 800px;">
@@ -1098,7 +1098,7 @@
                   Visualize and analyze human motion capture data in 3D
                 </p>
               </div>
-              
+
               <v-row class="mb-6">
                 <v-col cols="12" md="6">
                   <v-card dark class="pa-4 h-100" style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1);">
@@ -1129,7 +1129,7 @@
                     </div>
                   </v-card>
                 </v-col>
-                
+
                 <v-col cols="12" md="6">
                   <v-card dark class="pa-4 h-100" style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1);">
                     <v-icon size="32" color="green" class="mb-3">mdi-play-circle-outline</v-icon>
@@ -1146,7 +1146,7 @@
                   </v-card>
                 </v-col>
               </v-row>
-              
+
               <v-row class="mb-6">
                 <v-col cols="12" md="4">
                   <v-card dark class="pa-4 h-100" style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1);">
@@ -1159,7 +1159,7 @@
                     </div>
                   </v-card>
                 </v-col>
-                
+
                 <v-col cols="12" md="4">
                   <v-card dark class="pa-4 h-100" style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1);">
                     <v-icon size="24" color="purple" class="mb-2">mdi-palette</v-icon>
@@ -1171,7 +1171,7 @@
                     </div>
                   </v-card>
                 </v-col>
-                
+
                 <v-col cols="12" md="4">
                   <v-card dark class="pa-4 h-100" style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1);">
                     <v-icon size="24" color="red" class="mb-2">mdi-record-circle</v-icon>
@@ -1185,11 +1185,11 @@
                 </v-col>
               </v-row>
             </div>
-            
+
             <div class="text-center">
               <!-- Existing drop zone content -->
               <v-icon size="64" color="grey darken-1">mdi-file-upload-outline</v-icon>
-              
+
               <!-- Show selected files if any, otherwise show the default prompt -->
               <div v-if="osimFile || motFile || videoFile" class="text-h6 grey--text text--darken-1 mt-4">
                 <div v-if="osimFile" class="selected-file mb-2">
@@ -1247,8 +1247,8 @@
               <span class="font-weight-bold">RECORDING</span>
                 <span v-if="loopCount !== Infinity" class="caption ml-1">({{ currentLoop }}/{{ loopCount }})</span>
               </v-btn>
-            
-            <v-btn 
+
+            <v-btn
               small
               outlined
               color="white"
@@ -1259,7 +1259,7 @@
               Settings
             </v-btn>
             </div>
-            
+
           <!-- Recording settings summary -->
           <div class="d-flex align-center recording-summary">
             <div class="text-caption text-center" style="flex: 1;">
@@ -1272,7 +1272,7 @@
               <span class="font-weight-bold">Loops:</span> {{ loopCount === Infinity ? '∞' : loopCount }}
             </div>
           </div>
-          
+
           <!-- Recording settings dialog -->
           <v-dialog
             v-model="showRecordingSettings"
@@ -1301,7 +1301,7 @@
                       class="mb-4"
               ></v-select>
                   </v-col>
-              
+
                   <v-col cols="12">
               <v-select
                 v-model="recordingFormat"
@@ -1317,7 +1317,7 @@
                       class="mb-4"
               ></v-select>
                   </v-col>
-              
+
                   <v-col cols="12">
               <v-select
                 v-model="videoBitrate"
@@ -1337,7 +1337,7 @@
                       class="mb-4"
               ></v-select>
                   </v-col>
-                  
+
                   <v-col cols="12">
                     <div class="info-box pa-3 mt-2">
                       <div class="d-flex align-center mb-2">
@@ -1366,18 +1366,18 @@
             <div class="section-title mb-3" style="font-size: 0.9rem; color: rgba(255, 255, 255, 0.7);">Image Capture</div>
           <!-- Capture button row with settings button -->
             <div class="d-flex align-center mb-3">
-              <v-btn 
-                color="#6B7280" 
-                dark 
-                @click="captureScreenshot" 
-                class="custom-btn" 
+              <v-btn
+                color="#6B7280"
+                dark
+                @click="captureScreenshot"
+                class="custom-btn"
                 style="flex: 1;"
               >
                 <v-icon left>mdi-camera</v-icon>
                 Capture Image
               </v-btn>
-            
-            <v-btn 
+
+            <v-btn
               small
               outlined
               color="white"
@@ -1387,16 +1387,16 @@
               Settings
             </v-btn>
             </div>
-            
+
           <!-- Capture settings summary -->
           <div class="d-flex align-center recording-summary">
             <div class="text-caption text-center" style="flex: 1;">
-              <span class="font-weight-bold">Background:</span> 
-              {{ captureMode === 'both' ? 'Both Types' : 
+              <span class="font-weight-bold">Background:</span>
+              {{ captureMode === 'both' ? 'Both Types' :
                  captureMode === 'normal' ? 'Normal' : 'Transparent' }}
             </div>
           </div>
-          
+
           <!-- Image capture settings dialog -->
           <v-dialog
             v-model="showCaptureSettings"
@@ -1422,7 +1422,7 @@
                       class="mb-4"
               ></v-select>
                   </v-col>
-                  
+
                   <v-col cols="12">
                     <div class="info-box pa-3 mt-2">
                       <div class="d-flex align-center mb-2">
@@ -1456,37 +1456,37 @@
               <v-icon left>mdi-share-variant</v-icon>
               Share Visualization
             </v-btn>
-            
+
             <v-btn color="#4B5563" class="mb-4 white--text custom-btn" block @click="showPlottingDialog = true" :disabled="!trial && animations.length === 0">
               <v-icon left>mdi-chart-line</v-icon>
               Real-time Plots
             </v-btn>
-            
+
             <!-- Keep all the file inputs but hide them -->
             <input type="file" ref="fileInput" accept=".json" style="display: none" @change="handleFileUpload" multiple />
 
             <input type="file" ref="osimMotFileInput" accept=".osim,.mot" style="display: none" @change="handleOpenSimFiles" multiple />
             <input type="file" ref="videoFileInput" accept="video/mp4,video/webm" style="display: none" @change="handleVideoUpload" />
-            <input 
-              type="file" 
-              ref="objFileInput" 
-              accept=".obj,.gltf,.glb,.fbx,.stl,.dae" 
-              style="display: none" 
-              @change="handleModelFileSelect" 
+            <input
+              type="file"
+              ref="objFileInput"
+              accept=".obj,.gltf,.glb,.fbx,.stl,.dae"
+              style="display: none"
+              @change="handleModelFileSelect"
             />
-            <input 
-              type="file" 
-              ref="forcesFileInput" 
-              accept=".mot" 
-              style="display: none" 
-              @change="handleForcesFileSelectFromImport" 
+            <input
+              type="file"
+              ref="forcesFileInput"
+              accept=".mot"
+              style="display: none"
+              @change="handleForcesFileSelectFromImport"
             />
-            <input 
-              type="file" 
-              ref="markersFileInput" 
-              accept=".trc" 
-              style="display: none" 
-              @change="handleMarkersFileSelectFromImport" 
+            <input
+              type="file"
+              ref="markersFileInput"
+              accept=".trc"
+              style="display: none"
+              @change="handleMarkersFileSelectFromImport"
             />
           </div>
         </div>
@@ -1504,35 +1504,35 @@
                   <div class="import-item-title">OpenSim</div>
                   <div class="import-item-subtitle">.mot + .osim</div>
                 </div>
-                
+
                 <!-- Forces -->
                 <div class="import-item" @click="openForcesDialogFromImport">
                   <v-icon size="32">mdi-vector-line</v-icon>
                   <div class="import-item-title">Forces</div>
                   <div class="import-item-subtitle">.mot format</div>
                 </div>
-                
+
                 <!-- Markers -->
                 <div class="import-item" @click="openMarkersDialogFromImport">
                   <v-icon size="32">mdi-record-circle-outline</v-icon>
                   <div class="import-item-title">Markers</div>
                   <div class="import-item-subtitle">.trc format</div>
                 </div>
-                
+
                 <!-- JSON Files -->
                 <div class="import-item" @click="selectFileType('fileInput')">
                   <v-icon size="32">mdi-file</v-icon>
                   <div class="import-item-title">JSON Files</div>
                   <div class="import-item-subtitle">OpenCap Format</div>
                 </div>
-                
+
                 <!-- Video -->
                 <div class="import-item" @click="selectFileType('videoFileInput')">
                   <v-icon size="32">mdi-play-circle-outline</v-icon>
                   <div class="import-item-title">Video</div>
                   <div class="import-item-subtitle">MP4, WEBM</div>
                 </div>
-                
+
                 <!-- 3D Model -->
                 <div class="import-item" @click="selectFileType('objFileInput')">
                   <v-icon size="32">mdi-cube-outline</v-icon>
@@ -1540,7 +1540,7 @@
                   <div class="import-item-subtitle">GLTF, STL, FBX, OBJ</div>
                 </div>
               </div>
-       
+
             </v-card-text>
             <v-card-actions>
               <v-spacer></v-spacer>
@@ -1555,22 +1555,22 @@
             <v-card-title class="headline">Import Ground Reaction Forces</v-card-title>
             <v-card-text>
               <div class="text-body-1 mb-4">
-                Select a .mot forces file to visualize ground reaction forces at the subject's feet. 
+                Select a .mot forces file to visualize ground reaction forces at the subject's feet.
                 Forces will be automatically positioned at the foot segments of the selected animation.
               </div>
-              
+
               <v-alert v-if="animations.length === 0" type="warning" text dense class="mb-4">
                 Please load an animation first before importing forces.
               </v-alert>
-              
+
               <v-alert v-if="forcesDatasets[selectedAnimationForForces]" type="warning" text dense class="mb-4">
                 This animation already has forces loaded. Loading new forces will replace the existing ones.
               </v-alert>
-              
+
               <v-alert v-if="Object.keys(forcesDatasets).length > 0" type="info" text dense class="mb-4">
                 Currently loaded forces for: {{ Object.keys(forcesDatasets).map(idx => animations[idx]?.trialName || `Subject ${parseInt(idx) + 1}`).join(', ') }}
               </v-alert>
-              
+
               <div v-if="animations.length > 0" class="mb-4">
                 <v-select
                   v-model="selectedAnimationForForces"
@@ -1582,7 +1582,7 @@
                   dense
                 ></v-select>
               </div>
-              
+
               <v-file-input
                 v-model="forcesFile"
                 label="Forces File (.mot)"
@@ -1597,7 +1597,7 @@
 
               <div v-if="forcesFile" class="mt-4">
                 <div class="text-subtitle-2 mb-2">Force Visualization Settings</div>
-                
+
                 <v-row>
                   <v-col cols="6">
                     <v-text-field
@@ -1646,16 +1646,16 @@
                 ></v-switch>
               </div>
             </v-card-text>
-            
+
             <v-card-actions>
               <v-spacer></v-spacer>
               <v-btn color="grey darken-1" text @click="closeForcesDialog">
                 Cancel
               </v-btn>
-              <v-btn 
-                color="success" 
-                text 
-                @click="loadForcesFile" 
+              <v-btn
+                color="success"
+                text
+                @click="loadForcesFile"
                 :disabled="!forcesFile || loadingForces"
                 :loading="loadingForces"
               >
@@ -1671,22 +1671,22 @@
             <v-card-title class="headline">Import Motion Capture Markers</v-card-title>
             <v-card-text>
               <div class="text-body-1 mb-4">
-                Select a .trc file to visualize motion capture markers as spheres in the 3D scene. 
+                Select a .trc file to visualize motion capture markers as spheres in the 3D scene.
                 Markers will be positioned according to the data in the file.
               </div>
-              
+
               <v-alert v-if="animations.length === 0" type="info" text dense class="mb-4">
                 No animations loaded. A standalone marker visualization will be created.
               </v-alert>
-              
+
               <v-alert v-if="animations.length > 0 && markersDatasets[selectedAnimationForMarkers]" type="warning" text dense class="mb-4">
                 This animation already has markers loaded. Loading new markers will replace the existing ones.
               </v-alert>
-              
+
               <v-alert v-if="Object.keys(markersDatasets).length > 0 && animations.length > 0" type="info" text dense class="mb-4">
                 Currently loaded markers for: {{ Object.keys(markersDatasets).map(idx => animations[idx]?.trialName || `Subject ${parseInt(idx) + 1}`).join(', ') }}
               </v-alert>
-              
+
               <div v-if="animations.length > 0" class="mb-4">
                 <v-select
                   v-model="selectedAnimationForMarkers"
@@ -1698,7 +1698,7 @@
                   dense
                 ></v-select>
               </div>
-              
+
               <v-file-input
                 v-model="markersFile"
                 label="Markers File (.trc)"
@@ -1712,7 +1712,7 @@
 
               <div v-if="markersFile" class="mt-4">
                 <div class="text-subtitle-2 mb-2">Marker Visualization Settings</div>
-                
+
                 <v-row>
                   <v-col cols="6">
                     <v-text-field
@@ -1761,16 +1761,16 @@
                 ></v-switch>
               </div>
             </v-card-text>
-            
+
             <v-card-actions>
               <v-spacer></v-spacer>
               <v-btn color="grey darken-1" text @click="closeMarkersDialog">
                 Cancel
               </v-btn>
-              <v-btn 
-                color="success" 
-                text 
-                @click="loadMarkersFile" 
+              <v-btn
+                color="success"
+                text
+                @click="loadMarkersFile"
                 :disabled="!markersFile || loadingMarkers"
                 :loading="loadingMarkers"
               >
@@ -1791,16 +1791,16 @@
               <div class="text-body-2 mb-4">
                 Select a motion capture set to explore the visualizer's capabilities:
               </div>
-              
+
               <v-row>
-                <v-col 
-                  v-for="sampleSet in availableSampleSets" 
+                <v-col
+                  v-for="sampleSet in availableSampleSets"
                   :key="sampleSet.id"
-                  cols="12" 
-                  :md="sampleSet.id === 'default' ? 12 : 4" 
+                  cols="12"
+                  :md="sampleSet.id === 'default' ? 12 : 4"
                   class="sample-option-col"
                 >
-                  <v-card 
+                  <v-card
                     class="sample-option-card"
                     :class="{ 'sample-option-hover': true, 'full-width-sample': sampleSet.id === 'default' }"
                     @click="selectSampleSet(sampleSet.id)"
@@ -1826,13 +1826,13 @@
                   </v-card>
                 </v-col>
               </v-row>
-              
+
               <div class="text-caption grey--text mt-4 text-center">
                 <v-icon small class="mr-1">mdi-information-outline</v-icon>
                 Each set contains multiple motion capture files with different analysis methods capture methods (WHAM, OpenCap Monocular and OpenCap 2 cameras)
               </div>
             </v-card-text>
-            
+
             <v-card-actions>
               <v-spacer></v-spacer>
               <v-btn text @click="showSampleSelectionDialog = false">Cancel</v-btn>
@@ -1847,7 +1847,7 @@
             <v-card-text class="white--text pt-8">
               <div class="mb-4">
                 <p class="text-body-2 mb-3">Share your visualization with others using a direct link:</p>
-                
+
                 <!-- Share Options Tabs -->
                 <v-tabs v-model="shareMethod" background-color="transparent" color="primary" class="mb-4 mt-8">
                   <v-tab key="url">Share URL</v-tab>
@@ -1871,7 +1871,7 @@
                       :placeholder="loadingInitialShare ? 'Generating share URL...' : ''"
                       :append-icon-disabled="loadingInitialShare || !shareUrl"
                     />
-                    
+
                     <div class="d-flex flex-wrap gap-2 mb-3">
                       <v-btn small color="green" @click="openInNewTab(shareUrl)" :disabled="loadingInitialShare || !shareUrl">
                         <v-icon left small>mdi-open-in-new</v-icon>
@@ -1884,7 +1884,7 @@
                   <!-- File Sharing -->
                   <v-tab-item key="file">
                     <p class="text-body-2 mb-3">Download a share file that others can import:</p>
-                    
+
                     <v-text-field
                       v-model="shareFileName"
                       label="File name"
@@ -1894,7 +1894,7 @@
                       class="mb-3"
                       hide-details
                     />
-                    
+
                     <div class="d-flex flex-wrap gap-2 mb-3">
                       <v-btn small color="success" @click="downloadShareFile">
                         <v-icon left small>mdi-download</v-icon>
@@ -1913,7 +1913,7 @@
                     </v-alert>
                   </v-tab-item>
                 </v-tabs-items>
-                
+
                 <!-- Share Settings -->
                 <v-expansion-panels flat>
                   <v-expansion-panel>
@@ -1960,18 +1960,18 @@
         </v-dialog>
 
         <!-- Real-time Plotting Dialog -->
-        <v-dialog 
-          v-model="showPlottingDialog" 
-          max-width="1200" 
+        <v-dialog
+          v-model="showPlottingDialog"
+          max-width="1200"
           persistent
           content-class="plotting-dialog"
           :overlay="false"
         >
-          <v-card 
-            class="plotting-dialog-card" 
-            :style="{ 
-              position: 'fixed', 
-              top: plottingDialogPosition.y + 'px', 
+          <v-card
+            class="plotting-dialog-card"
+            :style="{
+              position: 'fixed',
+              top: plottingDialogPosition.y + 'px',
               left: plottingDialogPosition.x + 'px',
               width: plottingDialogSize.width + 'px',
               height: plottingDialogSize.height + 'px',
@@ -1983,7 +1983,7 @@
             }"
           >
             <!-- Header with drag handle -->
-            <v-card-title 
+            <v-card-title
               class="plotting-header d-flex align-center pa-3"
               style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); cursor: move; user-select: none;"
               @mousedown="startDragPlotDialog"
@@ -1992,16 +1992,16 @@
               <v-icon color="white" class="mr-3">mdi-chart-line</v-icon>
               <span class="white--text font-weight-bold text-h6">Real-time Data Plots</span>
               <v-spacer></v-spacer>
-              
+
               <!-- Plot Controls -->
               <v-btn icon small @click="togglePlotUpdates" class="mr-2">
                 <v-icon color="white">{{ plotUpdatesEnabled ? 'mdi-pause' : 'mdi-play' }}</v-icon>
               </v-btn>
-              
+
               <v-btn icon small @click="exportPlot" class="mr-2">
                 <v-icon color="white">mdi-download</v-icon>
               </v-btn>
-              
+
               <v-btn icon small @click="showPlottingDialog = false">
                 <v-icon color="white">mdi-close</v-icon>
               </v-btn>
@@ -2013,7 +2013,7 @@
                 <!-- Left Panel - Plot Controls -->
                 <div class="plot-controls-panel pa-3" style="width: 280px; background: rgba(0, 0, 0, 0.05); border-right: 1px solid rgba(0, 0, 0, 0.1); overflow-y: auto;">
                   <div class="text-subtitle-2 mb-3 font-weight-bold">Plot Configuration</div>
-                  
+
                   <!-- Plot Type Selection -->
                   <div class="mb-4">
                     <div class="text-caption font-weight-bold mb-2">Plot Type:</div>
@@ -2127,7 +2127,7 @@
                       <div class="text-h6 mt-2">Select plot type and variables to begin</div>
                     </div>
                   </div>
-                  
+
                   <!-- Chart Container -->
                   <div v-else style="width: 100%; height: 100%; position: relative;">
                     <canvas id="plotChart" ref="plotChart" style="width: 100%; height: 100%;"></canvas>
@@ -2137,7 +2137,7 @@
             </v-card-text>
 
             <!-- Resize Handle -->
-            <div 
+            <div
               class="resize-handle"
               style="position: absolute; bottom: 0; right: 0; width: 20px; height: 20px; cursor: nw-resize; background: linear-gradient(135deg, transparent 50%, rgba(255,255,255,0.3) 50%);"
               @mousedown="startResizePlotDialog"
@@ -2149,7 +2149,7 @@
         <!-- Scene Controls Card -->
         <div class="scene-section mb-4 pa-3" style="background: rgba(0, 0, 0, 0.3); border-radius: 8px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1);">
           <div class="section-title mb-3" style="font-size: 0.9rem; color: rgba(255, 255, 255, 0.7);">Scene Settings</div>
-          
+
           <!-- Scene settings row -->
           <div class="scene-settings">
             <!-- Background setting -->
@@ -2176,7 +2176,7 @@
                 </v-card>
               </v-menu>
             </div>
-            
+
             <!-- Ground setting -->
             <div class="d-flex align-center mb-3">
               <div class="mr-2 text-caption" style="width: 80px; flex-shrink: 0;">Ground:</div>
@@ -2217,13 +2217,13 @@
                       <div class="text-caption mb-2">
                         Transparency: {{ Math.round((1 - groundOpacity) * 100) }}%
                       </div>
-                      <v-slider 
+                      <v-slider
                         :value="(1 - groundOpacity) * 100"
                         @input="value => updateGroundOpacity(1 - value / 100)"
-                        :min="0" 
-                        :max="100" 
-                        step="1" 
-                        hide-details 
+                        :min="0"
+                        :max="100"
+                        step="1"
+                        hide-details
                         :disabled="!showGround"
                         dense
                         class="mt-0"
@@ -2233,7 +2233,7 @@
                 </v-card>
               </v-menu>
             </div>
-            
+
             <!-- Axes setting -->
             <div class="d-flex align-center mb-3">
               <div class="mr-2 text-caption" style="width: 80px; flex-shrink: 0;">Axes:</div>
@@ -2241,7 +2241,7 @@
                 <v-icon small :color="showAxes ? 'white' : 'grey'">{{ showAxes ? 'mdi-axis-arrow' : 'mdi-axis-arrow-lock' }}</v-icon>
               </v-btn>
             </div>
-            
+
             <!-- Camera setting -->
             <div class="d-flex align-center">
               <div class="mr-2 text-caption" style="width: 80px; flex-shrink: 0;">Camera:</div>
@@ -2257,7 +2257,7 @@
         <!-- Timelapse Controls -->
       <div class="timelapse-section mb-4 pa-3" style="background: rgba(0, 0, 0, 0.3); border-radius: 8px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1);">
         <div class="section-title mb-3" style="font-size: 0.9rem; color: rgba(255, 255, 255, 0.7);">Timelapse Mode</div>
-        
+
         <!-- Timelapse toggle with settings button -->
         <div class="d-flex align-center mb-3">
           <v-switch
@@ -2268,8 +2268,8 @@
             hide-details
             style="flex: 1;"
           ></v-switch>
-          
-          <v-btn 
+
+          <v-btn
             small
             outlined
             color="white"
@@ -2280,7 +2280,7 @@
             Settings
           </v-btn>
             </div>
-        
+
         <!-- Timelapse settings summary -->
         <div v-if="timelapseMode" class="d-flex align-center recording-summary">
           <div class="text-caption text-center" style="flex: 1;">
@@ -2290,7 +2290,7 @@
             <span class="font-weight-bold">Opacity:</span> {{ Math.round(timelapseOpacity * 100) }}%
           </div>
         </div>
-        
+
         <!-- Quick action buttons when timelapse mode is enabled -->
         <div v-if="timelapseMode" class="d-flex justify-space-between align-center mt-2">
           <v-btn small text @click="clearTimelapse" class="mt-1">
@@ -2301,7 +2301,7 @@
           </v-btn>
         </div>
       </div>
-      
+
       <!-- Timelapse Settings Dialog -->
       <v-dialog
         v-model="showTimelapseSettings"
@@ -2361,7 +2361,7 @@
               </template>
             </v-slider>
               </v-col>
-              
+
               <v-col cols="12">
                 <div class="info-box pa-3 mt-2">
                   <div class="d-flex align-center mb-2">
@@ -2448,7 +2448,7 @@
                 dense
                 show-size
               ></v-file-input>
-              
+
               <div class="mt-4">
                 <div class="text-subtitle-1 mb-2">Position</div>
                 <div class="d-flex">
@@ -2477,7 +2477,7 @@
                   ></v-text-field>
                     </div>
                       </div>
-              
+
               <div class="mt-4">
                 <div class="text-subtitle-1 mb-2">Scale</div>
                       <v-slider
@@ -2489,21 +2489,21 @@
                   thumb-label
                       ></v-slider>
                       </div>
-              
+
               <div class="mt-4">
                 <div class="text-subtitle-1 mb-2">Color</div>
                 <div class="d-flex flex-wrap">
-                <v-btn 
-                    v-for="color in availableColors.filter(c => c !== 'original')" 
+                <v-btn
+                    v-for="color in availableColors.filter(c => c !== 'original')"
                     :key="color"
-                  small 
+                  small
                     icon
                     class="ma-1"
                     @click="objColor = color"
                   >
-                    <div 
-                      class="color-sample" 
-                      :style="{ 
+                    <div
+                      class="color-sample"
+                      :style="{
                         backgroundColor: color,
                         border: objColor === color ? '2px solid white' : 'none'
                       }"
@@ -2539,9 +2539,9 @@
                   </v-list-item-content>
                   <v-list-item-action>
                     <div class="d-flex">
-                      <v-btn 
-                        icon 
-                        small 
+                      <v-btn
+                        icon
+                        small
                         @click="toggleObjectVisibility(obj.id)"
                         class="mr-1"
                       >
@@ -2549,9 +2549,9 @@
                           {{ isObjectVisible(obj.id) ? 'mdi-eye' : 'mdi-eye-off' }}
                           </v-icon>
                       </v-btn>
-                      <v-btn 
-                        icon 
-                          small 
+                      <v-btn
+                        icon
+                          small
                         @click="removeCustomObject(obj.id)"
                         color="error"
                       >
@@ -2571,7 +2571,7 @@
       </div>
     </div>
   </template>
-  
+
   <script>
   import axios from 'axios'
   import * as THREE from 'three'
@@ -2590,22 +2590,22 @@
   import { Line2 } from 'three/examples/jsm/lines/Line2.js'
   import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue';
   import { apiError } from '@/util/ErrorMessage.js';
-  
+
 // Create a new axios instance without a base URL
 const axiosInstance = axios.create();
-  
+
   // Initialize loaders
   const objLoader = new OBJLoader();
   const gltfLoader = new GLTFLoader();
   const fbxLoader = new FBXLoader();
   const stlLoader = new STLLoader();
   const colladaLoader = new ColladaLoader();
-  
+
   // Optional: Setup DRACO compression support for GLTF
   const dracoLoader = new DRACOLoader();
   dracoLoader.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
   gltfLoader.setDRACOLoader(dracoLoader);
-  
+
   export default {
       name: 'Session',
       components: {
@@ -2787,7 +2787,7 @@ const axiosInstance = axios.create();
               // Debounce timers for offset updates
               offsetUpdateTimers: {},
               objectUpdateTimers: {},
-              
+
               // Real-time plotting properties
               showPlottingDialog: false,
               plotChart: null,
@@ -2799,7 +2799,7 @@ const axiosInstance = axios.create();
               plotDragOffset: { x: 0, y: 0 },
               plotResizeStartPosition: { x: 0, y: 0 },
               plotResizeStartSize: { width: 0, height: 0 },
-              
+
               // Plot configuration
               selectedPlotType: null,
               selectedVariables: [],
@@ -2811,7 +2811,7 @@ const axiosInstance = axios.create();
                 showLegend: true,
                 showCurrentTime: true
               },
-              
+
               // Plot data
               plotData: {
                 labels: [],
@@ -2879,7 +2879,7 @@ const axiosInstance = axios.create();
             };
           });
         },
-        
+
         // Plotting computed properties
         plotTypes() {
           return [
@@ -2891,10 +2891,10 @@ const axiosInstance = axios.create();
             { label: 'Pelvis Translations', value: 'pelvis_translations' }
           ];
         },
-        
+
         availableVariables() {
           if (!this.selectedPlotType) return [];
-          
+
           switch (this.selectedPlotType) {
             case 'marker_position':
               return [
@@ -2933,21 +2933,21 @@ const axiosInstance = axios.create();
               return [];
           }
         },
-        
+
         availableMarkers() {
           const animation = this.animations[this.selectedPlotAnimation];
           const markersData = this.markersDatasets[this.selectedPlotAnimation];
-          
+
           if (markersData && markersData.markers) {
             return markersData.markers.map(marker => ({
               label: marker,
               value: marker
             }));
           }
-          
+
           return [];
         },
-        
+
         maxTime() {
           const animation = this.animations[this.selectedPlotAnimation];
           if (animation && animation.data && animation.data.time) {
@@ -2963,29 +2963,29 @@ const axiosInstance = axios.create();
 
         // Load settings from localStorage first
         this.loadSettings();
-        
+
         // Initialize displayColors from THREE.Color objects
         this.initializeDisplayColors();
-        
+
         // Expose component instance globally for headless operation
         window.sessionComponent = this;
-        
+
         // Expose debug functions globally for manual debugging
         window.setBackgroundWhite = () => { this.backgroundColor = '#FFFFFF'; this.updateBackgroundColor(); };
         window.setBackgroundBlack = () => { this.backgroundColor = '#000000'; this.updateBackgroundColor(); };
         window.clearSettings = () => { localStorage.removeItem('opencapVisualizerSettings'); console.log('Cleared localStorage settings'); };
-        window.toggleFog = () => { 
-          if (this.scene.fog) { 
-            this.scene.fog = null; 
-            console.log('Fog disabled'); 
-          } else { 
-            this.scene.fog = new THREE.FogExp2(this.backgroundColor, 0.025); 
-            console.log('Fog enabled'); 
-          } 
-          this.renderer.render(this.scene, this.camera); 
+        window.toggleFog = () => {
+          if (this.scene.fog) {
+            this.scene.fog = null;
+            console.log('Fog disabled');
+          } else {
+            this.scene.fog = new THREE.FogExp2(this.backgroundColor, 0.025);
+            console.log('Fog enabled');
+          }
+          this.renderer.render(this.scene, this.camera);
         };
         console.log('🔧 Debug functions available: window.setBackgroundWhite(), window.setBackgroundBlack(), window.clearSettings(), window.toggleFog()');
-        
+
         // Add global click handler to help with UI debugging
         document.addEventListener('click', this.handleGlobalClick, true);
 
@@ -3020,7 +3020,7 @@ const axiosInstance = axios.create();
                     // Load from compressed URL data
                     shareData = this.decompressShareData(this.$route.query.share);
                 }
-                
+
                 // Load shared visualization instead of default samples
                 setTimeout(() => {
                     this.loadSharedVisualization(shareData);
@@ -3052,7 +3052,7 @@ const axiosInstance = axios.create();
                 this.loadSampleFiles(sampleSetToLoad);
             }, 100);
         }
-        
+
         // Add message listener for iframe communication
         window.addEventListener('message', this.handleIframeMessage);
     },
@@ -3061,45 +3061,45 @@ const axiosInstance = axios.create();
       if (this.videoUrl) {
         URL.revokeObjectURL(this.videoUrl);
       }
-      
+
       if (this.resizeObserver) {
         this.resizeObserver.unobserve(this.$refs.mocap)
       }
-      
+
       // Remove global click handler
       document.removeEventListener('click', this.handleGlobalClick, true);
-      
+
       // Clear all debounce timers
       Object.values(this.offsetUpdateTimers).forEach(timer => clearTimeout(timer));
               // Marker timer cleanup removed
       Object.values(this.objectUpdateTimers).forEach(timer => clearTimeout(timer));
-      
+
       // Clean up sprites
       Object.values(this.textSprites).forEach(sprite => {
           if (sprite.material.map) sprite.material.map.dispose();
           if (sprite.material) sprite.material.dispose();
       });
-      
+
       // Clean up marker labels
       Object.values(this.markerLabels).forEach(label => {
           if (label.material.map) label.material.map.dispose();
           if (label.material) label.material.dispose();
       });
-      
+
       // Remove marker click event listener
       if (this.renderer && this.renderer.domElement && this.handleMarkerClick) {
           this.renderer.domElement.removeEventListener('click', this.handleMarkerClick);
       }
-      
+
       // Clean up marker spheres
       this.clearMarkerSpheres();
-      
+
       // Remove message listener
       window.removeEventListener('message', this.handleIframeMessage);
 
       // Remove keyboard event listener
       window.removeEventListener('keydown', this.handleKeyDown);
-      
+
       // Clean up force arrows
       this.clearForceArrows();
     },
@@ -3143,7 +3143,7 @@ const axiosInstance = axios.create();
           this.markerSpheres.forEach(sphere => {
             sphere.visible = newVal;
           });
-          
+
           // Re-render the scene
           if (this.renderer && this.scene && this.camera) {
             this.renderer.render(this.scene, this.camera);
@@ -3152,7 +3152,7 @@ const axiosInstance = axios.create();
       },
       $route(to) {
         console.log('Route changed to:', to.path);
-        
+
         // Handle black and black_background parameters
         if (to.query.black === 'true') {
             console.log('Setting black background AND hiding ground due to black=true');
@@ -3176,7 +3176,7 @@ const axiosInstance = axios.create();
                 this.renderer.render(this.scene, this.camera);
             }
         }
-        
+
         if (to.path === '/samples' || to.path === '/samples/') {
           console.log('Loading sample files from route watcher');
           // Add a small delay to ensure scene is ready
@@ -3213,7 +3213,7 @@ const axiosInstance = axios.create();
           this.forceArrows.forEach(platformGroup => {
             platformGroup.visible = newVal;
           });
-          
+
           // Re-render the scene
           if (this.renderer && this.scene && this.camera) {
             this.renderer.render(this.scene, this.camera);
@@ -3229,20 +3229,20 @@ const axiosInstance = axios.create();
       this.showForcesDialog = true;
     },
 
-    
+
     // Get current force values for display in the sidebar
     getCurrentForceValues(animationIndex) {
       if (!this.forcesDatasets[animationIndex] || !this.frames || this.frame >= this.frames.length) {
         return null;
       }
-      
+
       const forcesData = this.forcesDatasets[animationIndex];
       const currentTime = parseFloat(this.frames[this.frame]);
-      
+
       // Find the closest time index in the forces data
       let closestIndex = 0;
       let minTimeDiff = Math.abs(forcesData.time[0] - currentTime);
-      
+
       for (let i = 1; i < forcesData.time.length; i++) {
         const timeDiff = Math.abs(forcesData.time[i] - currentTime);
         if (timeDiff < minTimeDiff) {
@@ -3250,40 +3250,40 @@ const axiosInstance = axios.create();
           closestIndex = i;
         }
       }
-      
+
       // Extract force values for the current frame
       const result = {};
-      
+
       // Check for right foot forces
       if (forcesData.data.R_ground_force_vx && forcesData.data.R_ground_force_vy && forcesData.data.R_ground_force_vz) {
         const fx = forcesData.data.R_ground_force_vx[closestIndex] || 0;
         const fy = forcesData.data.R_ground_force_vy[closestIndex] || 0;
         const fz = forcesData.data.R_ground_force_vz[closestIndex] || 0;
         const magnitude = Math.sqrt(fx * fx + fy * fy + fz * fz);
-        
+
         result.R = { fx, fy, fz, magnitude };
       }
-      
+
       // Check for left foot forces
       if (forcesData.data.L_ground_force_vx && forcesData.data.L_ground_force_vy && forcesData.data.L_ground_force_vz) {
         const fx = forcesData.data.L_ground_force_vx[closestIndex] || 0;
         const fy = forcesData.data.L_ground_force_vy[closestIndex] || 0;
         const fz = forcesData.data.L_ground_force_vz[closestIndex] || 0;
         const magnitude = Math.sqrt(fx * fx + fy * fy + fz * fz);
-        
+
         result.L = { fx, fy, fz, magnitude };
       }
-      
+
       // Return null if no valid force data found
       return Object.keys(result).length > 0 ? result : null;
     },
-    
+
     openForcesDialogFromImport() {
       this.showImportDialog = false;
       // Trigger the hidden file input for forces files
       this.$refs.forcesFileInput.click();
     },
-    
+
     handleForcesFileSelectFromImport(event) {
       const file = event.target.files[0];
       if (file) {
@@ -3294,19 +3294,19 @@ const axiosInstance = axios.create();
       // Clear the input value so the same file can be selected again if needed
       event.target.value = '';
     },
-    
+
     closeForcesDialog() {
       this.showForcesDialog = false;
       this.forcesFile = null;
     },
-    
+
     handleForcesFileSelect(file) {
       this.forcesFile = file;
     },
-    
+
     async loadForcesFile() {
       if (!this.forcesFile) return;
-      
+
       this.loadingForces = true;
       try {
         const reader = new FileReader();
@@ -3323,12 +3323,12 @@ const axiosInstance = axios.create();
         this.loadingForces = false;
       }
     },
-    
+
     // Helper method to categorize .mot files as motion or force files
     async categorizeMotFiles(motFiles) {
       const motionFiles = [];
       const forceFiles = [];
-      
+
       for (const file of motFiles) {
         const isForceFile = await this.isForceMotFile(file);
         if (isForceFile) {
@@ -3337,48 +3337,48 @@ const axiosInstance = axios.create();
           motionFiles.push(file);
         }
       }
-      
+
       return { motionFiles, forceFiles };
     },
-    
+
     // Check if a .mot file is a force file based on filename and content
     async isForceMotFile(file) {
       const fileName = file.name.toLowerCase();
       console.log(`Checking if ${file.name} is a force file...`);
-      
+
       // First check: filename contains "force"
       if (fileName.includes('force')) {
         console.log(`${file.name} identified as force file by filename`);
         return true;
       }
-      
+
       // Second check: examine column headers
       return new Promise((resolve) => {
         const reader = new FileReader();
         reader.onload = (e) => {
           const content = e.target.result;
           const lines = content.split('\n');
-          
+
           let headerEnded = false;
           let columnHeaders = [];
-          
+
           for (let i = 0; i < lines.length; i++) {
             const line = lines[i].trim();
-            
+
             if (line === 'endheader') {
               headerEnded = true;
               continue;
             }
-            
+
             if (!headerEnded) continue;
-            
+
             if (columnHeaders.length === 0) {
               // This is the column headers line
               columnHeaders = line.split(/\s+/);
               break;
             }
           }
-          
+
           // Check for force-related column names
           const forceKeywords = [
             'force', 'ground_force', 'grf',
@@ -3386,31 +3386,31 @@ const axiosInstance = axios.create();
             'force_px', 'force_py', 'force_pz',
             'moment', 'torque', 'cop'
           ];
-          
-          const hasForceColumns = columnHeaders.some(header => 
-            forceKeywords.some(keyword => 
+
+          const hasForceColumns = columnHeaders.some(header =>
+            forceKeywords.some(keyword =>
               header.toLowerCase().includes(keyword)
             )
           );
-          
+
           if (hasForceColumns) {
             console.log(`${file.name} identified as force file by column headers:`, columnHeaders);
           } else {
             console.log(`${file.name} identified as motion file - no force columns found`);
           }
-          
+
           resolve(hasForceColumns);
         };
-        
+
         reader.onerror = () => {
           console.log(`Could not read ${file.name}, assuming motion file`);
           resolve(false);
         };
-        
+
         reader.readAsText(file);
       });
     },
-    
+
     // Process a force file (automatically associate with best animation)
     async processForceFile(forceFile) {
       console.log('Processing force file:', forceFile.name);
@@ -3442,16 +3442,16 @@ const axiosInstance = axios.create();
           reader.readAsText(forceFile);
         });
       }
-      
+
       // Initialize force visibility state for this animation if not set
       if (typeof this.forcesVisible === 'undefined') {
         this.forcesVisible = {};
       }
-      
+
       // Find the first animation without forces, starting from the most recently added
       let targetAnimationIndex = this.animations.length - 1; // Start with newest animation
       let foundAvailable = false;
-      
+
       // Check from newest to oldest
       for (let i = this.animations.length - 1; i >= 0; i--) {
         if (!this.forcesDatasets[i]) {
@@ -3460,34 +3460,34 @@ const axiosInstance = axios.create();
           break;
         }
       }
-      
+
       // If all animations have forces, use the most recent one and replace
       if (!foundAvailable) {
         targetAnimationIndex = this.animations.length - 1;
         const animationName = this.animations[targetAnimationIndex].trialName || `Animation ${targetAnimationIndex + 1}`;
         this.$toasted.info(`Replacing existing forces for ${animationName}`);
       }
-      
+
       this.selectedAnimationForForces = targetAnimationIndex;
       this.forcesFile = forceFile;
-      
+
       // Set initial visibility for this animation
       this.$set(this.forcesVisible, String(targetAnimationIndex), true);
-      
+
       // Load the force file directly
       return new Promise((resolve) => {
         const reader = new FileReader();
         reader.onload = (e) => {
           this.parseForcesData(e.target.result);
           this.$toasted.success(`Forces loaded for ${this.animations[targetAnimationIndex].trialName || 'Animation ' + (targetAnimationIndex + 1)}`);
-          
+
           // Ensure scene is rendered after force creation
           this.$nextTick(() => {
             if (this.renderer && this.scene && this.camera) {
               this.renderer.render(this.scene, this.camera);
             }
           });
-          
+
           resolve();
         };
         reader.onerror = () => {
@@ -3497,28 +3497,28 @@ const axiosInstance = axios.create();
         reader.readAsText(forceFile);
       });
     },
-    
+
     parseForcesData(content) {
       const lines = content.split('\n');
       let headerEnded = false;
       let columnHeaders = [];
       const timeData = [];
       const forceData = {};
-      
+
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i].trim();
-        
+
         if (line === 'endheader') {
           headerEnded = true;
           continue;
         }
-        
+
         if (!headerEnded) continue;
-        
+
         if (columnHeaders.length === 0) {
           // This is the column headers line
           columnHeaders = line.split(/\s+/);
-          
+
           // Initialize force data arrays for each column
           columnHeaders.forEach(header => {
             if (header !== 'time') {
@@ -3527,13 +3527,13 @@ const axiosInstance = axios.create();
           });
           continue;
         }
-        
+
         // Parse data lines
         if (line.length > 0) {
           const values = line.split(/\s+/).map(val => parseFloat(val));
           if (values.length === columnHeaders.length) {
             timeData.push(values[0]); // First column is time
-            
+
             // Store force data for each column
             for (let j = 1; j < columnHeaders.length; j++) {
               forceData[columnHeaders[j]].push(values[j]);
@@ -3541,7 +3541,7 @@ const axiosInstance = axios.create();
           }
         }
       }
-      
+
       // Store forces data for the selected animation
       const animationIndex = this.selectedAnimationForForces;
       this.forcesDatasets[animationIndex] = {
@@ -3551,90 +3551,90 @@ const axiosInstance = axios.create();
         associatedAnimationIndex: animationIndex,
         fileName: this.forcesFile ? this.forcesFile.name : 'Forces Data'
       };
-      
+
       // Initialize colors for new force dataset
       if (!this.forceColors[animationIndex]) {
         this.$set(this.forceColors, animationIndex, '#00ff00'); // Default green color
         this.$set(this.forceDisplayColors, animationIndex, '#00ff00');
       }
-      
+
       // Set initial visibility for this animation
       this.$set(this.forcesVisible, String(animationIndex), true);
-      
+
       this.createForceArrows();
     },
-    
+
     createArrowHeadGeometry() {
       // Create a traditional arrow head using CylinderGeometry
       // This creates a pointed arrow head that tapers to a point
       const arrowHead = new THREE.CylinderGeometry(
         0,        // radiusTop (pointed tip)
         0.02,     // radiusBottom (base width)
-        0.1,      // height 
+        0.1,      // height
         8,        // radialSegments
         1,        // heightSegments
         false     // openEnded
       );
-      
+
       // Don't rotate the geometry here - keep it aligned with Y-axis like the shaft
       // The rotation will be applied to the mesh during updates
-      
+
       return arrowHead;
     },
-    
+
     createForceArrows() {
       if (!this.scene || this.animations.length === 0) return;
-      
+
       this.clearForceArrows();
-      
+
       // Create traditional arrow head geometry (shared across animations)
       const arrowGeometry = this.createArrowHeadGeometry();
-      
+
       // Create line geometry for arrow shaft using cylinder for better appearance (shared across animations)
       const shaftGeometry = new THREE.CylinderGeometry(0.004, 0.004, 1, 8);
-      
+
       // Map force platforms with both force vectors and center of pressure
       const forceToFootMapping = [
-        { 
-          platform: 'R', 
+        {
+          platform: 'R',
           footSegment: 'calcn_r',
           forceColumns: ['R_ground_force_vx', 'R_ground_force_vy', 'R_ground_force_vz'],
           copColumns: ['R_ground_force_px', 'R_ground_force_py', 'R_ground_force_pz']
         },
-        { 
-          platform: 'L', 
+        {
+          platform: 'L',
           footSegment: 'calcn_l',
           forceColumns: ['L_ground_force_vx', 'L_ground_force_vy', 'L_ground_force_vz'],
           copColumns: ['L_ground_force_px', 'L_ground_force_py', 'L_ground_force_pz']
         }
       ];
-      
+
       // Create force arrows for each animation that has force data
       Object.keys(this.forcesDatasets).forEach(animationIndexStr => {
         const animationIndex = parseInt(animationIndexStr);
         const forcesData = this.forcesDatasets[animationIndex];
         const targetAnimation = this.animations[animationIndex];
-        
+
                  if (!targetAnimation || !forcesData) {
            return;
          }
-        
+
         // Check if the selected animation has required foot segments
-        const hasRequiredSegments = forceToFootMapping.some(mapping => 
+        const hasRequiredSegments = forceToFootMapping.some(mapping =>
           targetAnimation.data.bodies[mapping.footSegment]
         );
-        
+
         if (!hasRequiredSegments) {
           return;
         }
-        
+
         forceToFootMapping.forEach(mapping => {
           if (!targetAnimation.data.bodies[mapping.footSegment]) return;
-          
+
           // Check if force columns exist in the data
           const hasForceData = mapping.forceColumns.some(col => forcesData.data[col]);
           if (!hasForceData) return;
-          
+
           // Create force arrow group for this foot
           const footForceGroup = new THREE.Group();
           footForceGroup.name = `forces_${animationIndex}_${mapping.platform}`;
@@ -3643,32 +3643,32 @@ const axiosInstance = axios.create();
             footSegment: mapping.footSegment,
             animationIndex: animationIndex
           };
-          
+
           // Create single combined force arrow (resultant force vector)
           const arrowGroup = new THREE.Group();
           arrowGroup.visible = true; // Ensure initially visible
-          
+
           // Create materials with per-animation colors
           const arrowMaterial = new THREE.MeshPhongMaterial({
             color: new THREE.Color(this.getForceColor(animationIndex)),
             transparent: true,
             opacity: 0.9
           });
-          
+
           const shaftMaterial = new THREE.MeshPhongMaterial({
             color: new THREE.Color(this.getForceColor(animationIndex)),
             transparent: true,
             opacity: 0.9
           });
-          
+
           // Create arrow head
           const arrowHead = new THREE.Mesh(arrowGeometry, arrowMaterial);
           arrowGroup.add(arrowHead);
-          
+
           // Create arrow shaft (cylinder)
           const shaft = new THREE.Mesh(shaftGeometry.clone(), shaftMaterial);
           arrowGroup.add(shaft);
-          
+
           arrowGroup.name = `force_${animationIndex}_${mapping.platform}_resultant`;
           arrowGroup.userData = {
             platform: mapping.platform,
@@ -3676,14 +3676,14 @@ const axiosInstance = axios.create();
             copColumns: mapping.copColumns,
             animationIndex: animationIndex
           };
-          
+
           footForceGroup.add(arrowGroup);
           footForceGroup.visible = true; // Ensure parent group is visible
           this.scene.add(footForceGroup);
           this.forceArrows.push(footForceGroup);
         });
       });
-      
+
       console.log(`Force arrows created for ${Object.keys(this.forcesDatasets).length} animations: ${this.forceArrows.length} foot segments`);
       console.log('Force arrows list:', this.forceArrows.map(arrow => ({
         name: arrow.name,
@@ -3691,39 +3691,39 @@ const axiosInstance = axios.create();
         visible: arrow.visible,
         children: arrow.children.length
       })));
-      
+
       // Debug: Update for current frame immediately
       if (this.frames && this.frame < this.frames.length) {
         console.log('Updating force arrows for current frame:', this.frame);
         this.updateForceArrows(this.frame);
       }
-      
+
       // Render the scene after creating force arrows
       if (this.renderer && this.scene && this.camera) {
         this.renderer.render(this.scene, this.camera);
       }
     },
-    
+
     updateForceArrows(frameIndex) {
       if (!this.showForces || this.forceArrows.length === 0) {
         console.log('updateForceArrows skipped:', { showForces: this.showForces, forceArrowsLength: this.forceArrows.length });
         return;
       }
-      
+
       const currentTime = this.frames[frameIndex];
       console.log('updateForceArrows called for frame:', frameIndex, 'time:', currentTime);
-      
+
       this.forceArrows.forEach(footForceGroup => {
         const groupData = footForceGroup.userData;
         if (!groupData || typeof groupData.animationIndex === 'undefined') return;
-        
+
         // Get the force data and animation for this specific arrow group
         const animationIndex = groupData.animationIndex;
         const forcesData = this.forcesDatasets[animationIndex];
         const animation = this.animations[animationIndex];
-        
+
         if (!forcesData || !animation) return;
-        
+
         // Find the closest time index in forces data for this animation
         let forceFrameIndex = 0;
         for (let i = 0; i < forcesData.time.length; i++) {
@@ -3731,32 +3731,32 @@ const axiosInstance = axios.create();
             forceFrameIndex = i;
           }
         }
-        
+
         // Get COP position from the first child arrow (they should all have the same COP)
         const firstArrow = footForceGroup.children[0];
         if (!firstArrow || !firstArrow.userData || !firstArrow.userData.copColumns) return;
-        
+
         const copColumns = firstArrow.userData.copColumns;
-        
+
         // Get COP position from forces data
         let copPosition = new THREE.Vector3(0, 0, 0);
         let hasCopData = false;
-        
+
         if (copColumns.length >= 3) {
-          const copX = forcesData.data[copColumns[0]] ? 
+          const copX = forcesData.data[copColumns[0]] ?
                       forcesData.data[copColumns[0]][forceFrameIndex] || 0 : 0;
-          const copY = forcesData.data[copColumns[1]] ? 
+          const copY = forcesData.data[copColumns[1]] ?
                       forcesData.data[copColumns[1]][forceFrameIndex] || 0 : 0;
-          const copZ = forcesData.data[copColumns[2]] ? 
+          const copZ = forcesData.data[copColumns[2]] ?
                       forcesData.data[copColumns[2]][forceFrameIndex] || 0 : 0;
-          
+
           // Only use COP if at least one coordinate is non-zero
           if (copX !== 0 || copY !== 0 || copZ !== 0) {
             copPosition.set(copX, copY, copZ);
             hasCopData = true;
           }
         }
-        
+
         // Fallback to foot position if no COP data available
         if (!hasCopData && groupData.footSegment) {
           const footBody = animation.data.bodies[groupData.footSegment];
@@ -3768,11 +3768,11 @@ const axiosInstance = axios.create();
             );
           }
         }
-        
+
         // Apply animation offset
         copPosition.add(animation.offset);
         footForceGroup.position.copy(copPosition);
-        
+
         // Debug logging for COP positioning
         if (frameIndex === 0 || frameIndex % 30 === 0) {
           console.log(`COP debug - Animation ${animationIndex}:`, {
@@ -3781,101 +3781,101 @@ const axiosInstance = axios.create();
             animationOffset: animation.offset
           });
         }
-        
+
         // Update each force arrow in the group
         footForceGroup.children.forEach(arrowGroup => {
           const arrowData = arrowGroup.userData;
           if (!arrowData || !arrowData.forceColumns) return;
-          
+
           // Calculate resultant force vector
           const forceVector = new THREE.Vector3(0, 0, 0);
           const forceColumns = arrowData.forceColumns;
-          
+
           if (forceColumns.length >= 3) {
-            const fx = forcesData.data[forceColumns[0]] ? 
+            const fx = forcesData.data[forceColumns[0]] ?
                      forcesData.data[forceColumns[0]][forceFrameIndex] || 0 : 0;
-            const fy = forcesData.data[forceColumns[1]] ? 
+            const fy = forcesData.data[forceColumns[1]] ?
                      forcesData.data[forceColumns[1]][forceFrameIndex] || 0 : 0;
-            const fz = forcesData.data[forceColumns[2]] ? 
+            const fz = forcesData.data[forceColumns[2]] ?
                      forcesData.data[forceColumns[2]][forceFrameIndex] || 0 : 0;
-            
+
             forceVector.set(fx, fy, fz);
           }
-          
+
           // Calculate original force magnitude before scaling
           const originalMagnitude = forceVector.length();
-          
+
           // Debug logging
           if (frameIndex === 0 || frameIndex % 30 === 0) { // Log every 30 frames to avoid spam
             console.log(`Force debug - Animation ${animationIndex}, Platform ${arrowData.platform}:`, {
               fx: forcesData.data[forceColumns[0]] ? forcesData.data[forceColumns[0]][forceFrameIndex] : 'missing',
-              fy: forcesData.data[forceColumns[1]] ? forcesData.data[forceColumns[1]][forceFrameIndex] : 'missing', 
+              fy: forcesData.data[forceColumns[1]] ? forcesData.data[forceColumns[1]][forceFrameIndex] : 'missing',
               fz: forcesData.data[forceColumns[2]] ? forcesData.data[forceColumns[2]][forceFrameIndex] : 'missing',
               magnitude: originalMagnitude,
               frameIndex: forceFrameIndex
             });
           }
-          
+
           // Update arrow visibility based on original force magnitude (lowered threshold for debugging)
           arrowGroup.visible = originalMagnitude > 0.1; // Show if force > 0.1N (was 1.0N)
-          
+
           if (frameIndex === 0 || frameIndex % 30 === 0) {
             console.log(`Arrow visibility - Animation ${animationIndex}, Platform ${arrowData.platform}: visible=${arrowGroup.visible}, magnitude=${originalMagnitude}`);
           }
-          
+
           if (arrowGroup.visible) {
             // Scale the force vector for display
             forceVector.multiplyScalar(this.forceScale);
             const scaledLength = forceVector.length();
-            
+
             // Update shaft (cylinder) and arrow head
             const arrowHead = arrowGroup.children[0]; // Arrow head is first child
             const shaft = arrowGroup.children[1]; // Shaft is second child
-            
+
             if (shaft && arrowHead && scaledLength > 0) {
               const direction = forceVector.clone().normalize();
-              
+
               // Reset transformations
               shaft.position.set(0, 0, 0);
               shaft.rotation.set(0, 0, 0);
               shaft.scale.set(1, 1, 1);
               arrowHead.position.set(0, 0, 0);
               arrowHead.rotation.set(0, 0, 0);
-              
+
               // Position shaft center at half the force vector length
               shaft.position.copy(forceVector.clone().multiplyScalar(0.5));
-              
+
               // Scale shaft to match force vector length
               shaft.scale.set(1, scaledLength, 1);
-              
+
               // Create rotation matrix to align cylinder (which points up by default) with force direction
               const up = new THREE.Vector3(0, 1, 0);
               const quaternion = new THREE.Quaternion();
               quaternion.setFromUnitVectors(up, direction);
               shaft.setRotationFromQuaternion(quaternion);
-              
+
               // Position arrow head at the tip of the force vector
               arrowHead.position.copy(forceVector);
-              
+
               // Rotate arrow head to point in force direction
               arrowHead.setRotationFromQuaternion(quaternion);
             }
           }
         });
       });
-      
+
       // Render the scene after updating force arrows
       if (this.renderer && this.scene && this.camera) {
         this.renderer.render(this.scene, this.camera);
       }
     },
-    
+
     clearForceArrows() {
       this.forceArrows.forEach(arrowGroup => {
         if (this.scene) {
           this.scene.remove(arrowGroup);
         }
-        
+
         // Dispose of geometries and materials
         arrowGroup.traverse((child) => {
           if (child.geometry) child.geometry.dispose();
@@ -3890,22 +3890,22 @@ const axiosInstance = axios.create();
       });
       this.forceArrows = [];
     },
-    
+
     clearForceArrowsForAnimation(animationIndex) {
       // Remove force arrows for a specific animation
       const animationIndexInt = parseInt(animationIndex);
-      
+
       // Filter out force arrows belonging to this animation
-      const arrowsToRemove = this.forceArrows.filter(arrowGroup => 
+      const arrowsToRemove = this.forceArrows.filter(arrowGroup =>
         arrowGroup.userData && arrowGroup.userData.animationIndex === animationIndexInt
       );
-      
+
       // Remove from scene and dispose resources
       arrowsToRemove.forEach(arrowGroup => {
         if (this.scene) {
           this.scene.remove(arrowGroup);
         }
-        
+
         arrowGroup.traverse((child) => {
           if (child.geometry) child.geometry.dispose();
           if (child.material) {
@@ -3917,29 +3917,29 @@ const axiosInstance = axios.create();
           }
         });
       });
-      
+
       // Update forceArrows array
-      this.forceArrows = this.forceArrows.filter(arrowGroup => 
+      this.forceArrows = this.forceArrows.filter(arrowGroup =>
         !arrowGroup.userData || arrowGroup.userData.animationIndex !== animationIndexInt
       );
-      
+
       // Remove from forcesDatasets
       delete this.forcesDatasets[animationIndex];
-      
+
       console.log(`Cleared force arrows for animation ${animationIndex}`);
     },
-    
+
     getForceArrowCount(animationIndex) {
       // Count force arrows for a specific animation
       const animationIndexInt = parseInt(animationIndex);
-      return this.forceArrows.filter(arrowGroup => 
+      return this.forceArrows.filter(arrowGroup =>
         arrowGroup.userData && arrowGroup.userData.animationIndex === animationIndexInt
       ).length;
     },
-    
+
     updateForceColor(colorValue, animationIndex) {
       let colorHex;
-      
+
       // Handle v-color-picker input format
       if (colorValue && typeof colorValue === 'object') {
         if (colorValue.hex) {
@@ -3948,21 +3948,21 @@ const axiosInstance = axios.create();
       } else if (typeof colorValue === 'string') {
         colorHex = colorValue;
       }
-      
+
       if (colorHex) {
         // Update color for specific animation index using $set for reactivity
         this.$set(this.forceColors, animationIndex, colorHex);
         this.$set(this.forceDisplayColors, animationIndex, colorHex);
-        
+
                  // Update existing force colors for this specific animation
          this.updateForceArrowColors(animationIndex);
        }
      },
-     
+
      updateForceArrowColors(animationIndex) {
       // Create THREE.Color object for proper color handling
        const threejsColor = new THREE.Color(this.getForceColor(animationIndex));
-      
+
        // Update arrow colors for specific animation index
       this.forceArrows.forEach(platformGroup => {
          if (platformGroup.userData && platformGroup.userData.animationIndex === parseInt(animationIndex)) {
@@ -3976,13 +3976,13 @@ const axiosInstance = axios.create();
         });
          }
       });
-      
+
       // Re-render the scene
       if (this.renderer && this.scene && this.camera) {
         this.renderer.render(this.scene, this.camera);
       }
     },
-    
+
     updateForceScale() {
       // Re-create force arrows with new scale
       if (Object.keys(this.forcesDatasets).length > 0) {
@@ -3993,57 +3993,57 @@ const axiosInstance = axios.create();
         }
       }
     },
-    
+
     // Extract marker data from JSON animation files for plotting
     extractMarkerDataFromJson(jsonData, animationIndex, fileName) {
       // Check if the JSON contains marker data
       if (!jsonData || !jsonData.time || !jsonData.bodies) return;
-      
+
       // Look for marker data in the JSON structure
       const markerData = {};
       const markerNames = [];
-      
+
       // Find all bodies that have translation data (potential markers)
       Object.keys(jsonData.bodies).forEach(bodyKey => {
         const body = jsonData.bodies[bodyKey];
-        
+
         // Check if this body has translation data
         if (body.translation && Array.isArray(body.translation) && body.translation.length > 0) {
                      // Only extract explicit markers - be very restrictive
-           
+
            // 1. Check if the body name explicitly suggests it's a marker
            const nameIndicatesMarker = bodyKey && bodyKey.toLowerCase && (
-             bodyKey.toLowerCase().includes('marker') || 
+             bodyKey.toLowerCase().includes('marker') ||
              bodyKey.toLowerCase().includes('sphere') ||
              bodyKey.toLowerCase().includes('point')
            );
-           
+
            // 2. Check if it has geometry that explicitly suggests it's a marker
            let geometryIndicatesMarker = false;
            if (body.attachedGeometries && body.attachedGeometries.length > 0) {
-             geometryIndicatesMarker = body.attachedGeometries.some(geom => 
+             geometryIndicatesMarker = body.attachedGeometries.some(geom =>
                geom && geom.meshName && geom.meshName.toLowerCase && (
-                 geom.meshName.toLowerCase().includes('marker') || 
+                 geom.meshName.toLowerCase().includes('marker') ||
                  geom.meshName.toLowerCase().includes('sphere') ||
                  geom.meshName.toLowerCase().includes('point')
                )
              );
            }
-           
+
            // Only include if explicitly marked as a marker (no general body parts)
            if (nameIndicatesMarker || geometryIndicatesMarker) {
              // Extract marker name from body key
              const markerName = bodyKey && bodyKey.replace ? bodyKey.replace(/[^a-zA-Z0-9_]/g, '_') : 'unknown_marker';
              if (markerName) {
                markerNames.push(markerName);
-               
+
                // Initialize marker data arrays
                markerData[markerName] = {
                  x: [],
                  y: [],
                  z: []
                };
-               
+
                // Extract position data for each frame
                for (let frameIndex = 0; frameIndex < jsonData.time.length; frameIndex++) {
                  if (body.translation[frameIndex] && Array.isArray(body.translation[frameIndex])) {
@@ -4060,7 +4060,7 @@ const axiosInstance = axios.create();
            }
         }
       });
-      
+
       // If we found marker data, store it in markersDatasets
       if (markerNames.length > 0) {
         const parsedData = {
@@ -4071,32 +4071,32 @@ const axiosInstance = axios.create();
           data: markerData,
           fileName: fileName
         };
-        
+
         // Store dataset for this animation
         this.markersDatasets[animationIndex] = parsedData;
-        
+
         // Set visibility to true for new marker dataset
         this.$set(this.markersVisible, String(animationIndex), true);
-        
+
         // Initialize colors for new marker dataset
         if (!this.markerColors[animationIndex]) {
           this.$set(this.markerColors, animationIndex, '#ff0000'); // Default red color
           this.$set(this.markerDisplayColors, animationIndex, '#ff0000');
         }
-        
+
         console.log(`Extracted ${markerNames.length} markers from JSON file ${fileName} for animation ${animationIndex}:`, markerNames);
       } else {
         console.log(`No marker data found in JSON file ${fileName}`);
       }
     },
-    
+
     // Marker visualization methods
     openMarkersDialogFromImport() {
       this.showImportDialog = false;
       // Trigger the hidden file input for markers files
       this.$refs.markersFileInput.click();
     },
-    
+
     handleMarkersFileSelectFromImport(event) {
       const file = event.target.files[0];
       if (file) {
@@ -4107,12 +4107,12 @@ const axiosInstance = axios.create();
       // Clear the input value so the same file can be selected again if needed
       event.target.value = '';
     },
-    
+
     closeMarkersDialog() {
       this.showMarkersDialog = false;
       this.markersFile = null;
     },
-    
+
     handleMarkersFileSelect(event) {
       const file = event.target.files[0];
       if (file) {
@@ -4121,10 +4121,10 @@ const axiosInstance = axios.create();
       // Clear the input value so the same file can be selected again if needed
       event.target.value = '';
     },
-    
+
     updateMarkerColor(colorValue, animationIndex) {
       let colorHex;
-      
+
       // Handle v-color-picker input format
       if (colorValue && typeof colorValue === 'object') {
         if (colorValue.hex) {
@@ -4133,21 +4133,21 @@ const axiosInstance = axios.create();
       } else if (typeof colorValue === 'string') {
         colorHex = colorValue;
       }
-      
+
       if (colorHex) {
         // Update color for specific animation index using $set for reactivity
         this.$set(this.markerColors, animationIndex, colorHex);
         this.$set(this.markerDisplayColors, animationIndex, colorHex);
-        
+
         // Update existing marker colors for this specific animation
         this.updateMarkerSphereColors(animationIndex);
       }
     },
-    
+
     updateMarkerSphereColors(animationIndex) {
       // Create THREE.Color object for proper color handling
       const threejsColor = new THREE.Color(this.getMarkerColor(animationIndex));
-      
+
       // Update marker sphere colors for specific animation index
       this.markerSpheres.forEach(sphere => {
         if (sphere.material && sphere.userData.animationIndex === parseInt(animationIndex)) {
@@ -4155,21 +4155,21 @@ const axiosInstance = axios.create();
           sphere.material.needsUpdate = true;
         }
       });
-      
+
       // Re-render the scene
       if (this.renderer && this.scene && this.camera) {
         this.renderer.render(this.scene, this.camera);
       }
     },
-    
+
     async loadMarkersFile() {
       if (!this.markersFile) return;
       this.loadingMarkers = true;
-      
+
       // Set initial visibility for this animation
       const targetAnimationIndex = this.selectedAnimationForMarkers === null ? 0 : this.selectedAnimationForMarkers;
       this.$set(this.markersVisible, String(targetAnimationIndex), true);
-      
+
       // Initialize marker visibility state if not set
       if (typeof this.markersVisible === 'undefined') {
         this.markersVisible = {};
@@ -4181,8 +4181,8 @@ const axiosInstance = axios.create();
            const wasEmpty = this.animations.length === 0;
            this.parseTrcFile(e.target.result, this.markersFile.name);
            this.showMarkersDialog = false;
-           const message = wasEmpty ? 
-             'Markers file loaded as standalone visualization!' : 
+           const message = wasEmpty ?
+             'Markers file loaded as standalone visualization!' :
              'Markers file loaded successfully!';
            this.$toasted.success(message);
            } catch (parseError) {
@@ -4204,30 +4204,55 @@ const axiosInstance = axios.create();
          this.loadingMarkers = false;
        }
      },
-     
+
      parseTrcFile(content, fileName = 'markers.trc') {
-       const lines = content.trim().split('\n');
+       console.log('Parsing TRC file:', fileName);
+       console.log('Content length:', content.length);
+       console.log('First 500 characters:', content.substring(0, 500));
        
+       const lines = content.trim().split('\n');
+       console.log('Number of lines:', lines.length);
+       console.log('First 5 lines:', lines.slice(0, 5));
+
        // Parse header information
        const header = {};
        let dataStartIndex = 0;
-       
+
        // Find the header end and data start
+       let headerNames = [];
+       let headerValues = [];
+       let markerNamesLineIndex = -1;
+       
        for (let i = 0; i < lines.length; i++) {
-         const line = lines[i].trim();
+         const line = lines[i] ? lines[i].trim() : '';
+         if (!line) continue;
+         
          if (line.includes('DataRate') || line.includes('CameraRate') || line.includes('NumFrames') || line.includes('NumMarkers') || line.includes('Units')) {
-           const parts = line.split('\t');
-           if (parts.length >= 2) {
-             header[parts[0]] = parts[1];
+           // This is the header names line
+           headerNames = line.split('\t');
+           // The next line should contain the values
+           if (i + 1 < lines.length) {
+             const valueLine = lines[i + 1] ? lines[i + 1].trim() : '';
+             if (valueLine) {
+               headerValues = valueLine.split('\t');
+               
+               // Create header object from names and values
+               for (let j = 0; j < headerNames.length && j < headerValues.length; j++) {
+                 header[headerNames[j]] = headerValues[j];
+               }
+               console.log('Parsed header:', header);
+             }
            }
          }
-         
+
          // Check for column headers line (contains Frame# and Time)
          if (line.includes('Frame#') && line.includes('Time')) {
+           // This is the marker names line, store it for later parsing
+           markerNamesLineIndex = i;
            // Skip the coordinate labels line and find the actual data start
            for (let j = i + 1; j < lines.length; j++) {
-             const dataLine = lines[j].trim();
-             if (/^\d+\s/.test(dataLine)) {  // Line starts with a number
+             const dataLine = lines[j] ? lines[j].trim() : '';
+             if (dataLine && /^\d+\s/.test(dataLine)) {  // Line starts with a number
                dataStartIndex = j;
                break;
              }
@@ -4235,19 +4260,28 @@ const axiosInstance = axios.create();
            break;
          }
        }
-       
+
        // Parse column headers - find the marker names line (should contain Frame# and Time)
-       let markerNamesLineIndex = -1;
-       for (let i = 0; i < dataStartIndex; i++) {
-         if (lines[i].includes('Frame#') && lines[i].includes('Time')) {
-           markerNamesLineIndex = i;
-           break;
+       if (markerNamesLineIndex === -1) {
+         for (let i = 0; i < dataStartIndex; i++) {
+           if (lines[i] && lines[i].includes('Frame#') && lines[i].includes('Time')) {
+             markerNamesLineIndex = i;
+             break;
+           }
          }
        }
-       
+
+       if (markerNamesLineIndex === -1) {
+         throw new Error('Could not find marker names line (Frame# and Time) in TRC file');
+       }
+
        const headerLine = lines[markerNamesLineIndex];
-       const columnHeaders = headerLine.split('\t');
+       if (!headerLine) {
+         throw new Error('Header line is undefined');
+       }
        
+       const columnHeaders = headerLine.split('\t');
+
        // Extract marker names by finding non-empty columns after Frame# and Time
        const markerNames = [];
        for (let i = 2; i < columnHeaders.length; i++) {
@@ -4260,33 +4294,33 @@ const axiosInstance = axios.create();
            }
          }
        }
-       
+
        // Parse data rows
        const frameData = [];
        const timeData = [];
        const markerData = {};
-       
+
        // Initialize marker data arrays
        markerNames.forEach(name => {
          markerData[name] = {
            x: [], y: [], z: []
          };
        });
-       
+
        // Parse each data row
        for (let i = dataStartIndex; i < lines.length; i++) {
          const line = lines[i].trim();
          if (!line) continue;
-         
+
          const values = line.split('\t');
          if (values.length < 2) continue;
-         
+
          const frame = parseInt(values[0]);
          const time = parseFloat(values[1]);
-         
+
          frameData.push(frame);
          timeData.push(time);
-         
+
          // Parse marker positions (every 3 values after frame and time)
          let markerIndex = 0;
          for (let j = 2; j < values.length && markerIndex < markerNames.length; j += 3) {
@@ -4294,18 +4328,71 @@ const axiosInstance = axios.create();
            const x = parseFloat(values[j]) || 0;
            const y = parseFloat(values[j + 1]) || 0;
            const z = parseFloat(values[j + 2]) || 0;
-           
 
+           // Apply unit conversion based on header units
+           let xConverted = x;
+           let yConverted = y;
+           let zConverted = z;
            
-           // Convert from mm to meters (TRC files are typically in mm)
-           markerData[markerName].x.push(x / 1000);
-           markerData[markerName].y.push(y / 1000);
-           markerData[markerName].z.push(z / 1000);
+           const units = header.Units ? header.Units.toLowerCase().trim() : '';
            
+           switch (units) {
+             case 'mm':
+             case 'millimeters':
+               // Convert from mm to meters
+               xConverted = x / 1000;
+               yConverted = y / 1000;
+               zConverted = z / 1000;
+               break;
+             case 'cm':
+             case 'centimeters':
+               // Convert from cm to meters
+               xConverted = x / 100;
+               yConverted = y / 100;
+               zConverted = z / 100;
+               break;
+             case 'm':
+             case 'meters':
+             case 'meter':
+               // Already in meters, no conversion needed
+               xConverted = x;
+               yConverted = y;
+               zConverted = z;
+               break;
+             case 'in':
+             case 'inches':
+               // Convert from inches to meters (1 inch = 0.0254 meters)
+               xConverted = x * 0.0254;
+               yConverted = y * 0.0254;
+               zConverted = z * 0.0254;
+               break;
+             case 'ft':
+             case 'feet':
+               // Convert from feet to meters (1 foot = 0.3048 meters)
+               xConverted = x * 0.3048;
+               yConverted = y * 0.3048;
+               zConverted = z * 0.3048;
+               break;
+             default:
+               // Default assumption: mm to meters (for backward compatibility)
+               // Also log a warning for debugging
+               if (units && units !== '') {
+                 console.warn(`Unknown units "${units}" in TRC file, assuming millimeters`);
+               }
+               xConverted = x / 1000;
+               yConverted = y / 1000;
+               zConverted = z / 1000;
+               break;
+           }
+
+           markerData[markerName].x.push(xConverted);
+           markerData[markerName].y.push(yConverted);
+           markerData[markerName].z.push(zConverted);
+
            markerIndex++;
          }
        }
-       
+
        // Store the parsed data
        const parsedData = {
          header: header,
@@ -4315,10 +4402,35 @@ const axiosInstance = axios.create();
          data: markerData,
          fileName: fileName
        };
-       
+
+       // Debug: Log the first few marker positions to verify parsing
+       console.log('TRC File parsing debug:');
+       console.log('Header units:', header.Units);
+       console.log('Number of markers:', markerNames.length);
+       console.log('Number of frames:', frameData.length);
+       if (markerNames.length > 0) {
+         const firstMarker = markerNames[0];
+         console.log(`First marker "${firstMarker}" positions:`, {
+           x: markerData[firstMarker].x.slice(0, 5),
+           y: markerData[firstMarker].y.slice(0, 5),
+           z: markerData[firstMarker].z.slice(0, 5)
+         });
+         
+         // Also log a few more markers to see the range
+         console.log('Sample marker positions (first 3 markers, first 3 frames):');
+         for (let i = 0; i < Math.min(3, markerNames.length); i++) {
+           const marker = markerNames[i];
+           console.log(`${marker}:`, {
+             x: markerData[marker].x.slice(0, 3),
+             y: markerData[marker].y.slice(0, 3),
+             z: markerData[marker].z.slice(0, 3)
+           });
+         }
+       }
+
        // Handle case where no animations exist - create a standalone marker visualization
        let animationIndex = this.selectedAnimationForMarkers;
-       
+
        if (this.animations.length === 0 || animationIndex === null) {
          // For standalone marker files, set up the frames for animation control
          if (this.frames.length === 0) {
@@ -4326,15 +4438,15 @@ const axiosInstance = axios.create();
           this.frame = 0;
           this.time = (timeData[0] || 0).toFixed(2);
          }
-         
+
          // Calculate frame rate for marker data
          if(!this.frameRate) {
            this.frameRate = this.calculateFrameRate(timeData);
          }
-         
+
          // Initialize the trial object for standalone markers
          this.trial = { results: [] };
-         
+
          // Set animation index for markers
          if (this.animations.length === 0) {
            // Find next available index for standalone markers
@@ -4342,72 +4454,81 @@ const axiosInstance = axios.create();
          } else {
            animationIndex = this.selectedAnimationForMarkers || 0;
          }
-         
+
          this.selectedAnimationForMarkers = animationIndex;
        } else if (animationIndex === undefined) {
          // If no animation is selected but animations exist, use the first one
          animationIndex = 0;
          this.selectedAnimationForMarkers = 0;
        }
-       
+
        // Store dataset for selected animation
        this.markersDatasets[animationIndex] = parsedData;
-       
+
+       // Debug: Log the stored data
+       console.log('Stored marker dataset:', {
+         animationIndex,
+         dataset: this.markersDatasets[animationIndex],
+         totalDatasets: Object.keys(this.markersDatasets).length
+       });
+
        // Set visibility to true for new marker dataset
        this.$set(this.markersVisible, String(animationIndex), true);
-       
+
        // Initialize colors for new marker dataset
        if (!this.markerColors[animationIndex]) {
          this.$set(this.markerColors, animationIndex, '#ff0000'); // Default red color
          this.$set(this.markerDisplayColors, animationIndex, '#ff0000');
        }
-       
+
        // Store marker time data for syncing
        this.markerTimeData = {
          times: timeData,
          frames: frameData
        };
-       
+
        // Initialize scene if it doesn't exist
        if (!this.scene) {
          console.log('Initializing scene for standalone markers...');
          // Wait for DOM to be ready before initializing scene
          this.$nextTick(() => {
-         this.initScene();
+           this.initScene();
            // Create marker spheres after scene is initialized
-           this.createMarkerSpheres();
-           this.handlePostMarkerCreation();
+           this.$nextTick(() => {
+             this.createMarkerSpheres();
+             this.handlePostMarkerCreation();
+           });
          });
        } else {
          console.log('Scene already exists, using existing scene');
-       // Create marker spheres
-       this.createMarkerSpheres();
+         // Create marker spheres
+         this.createMarkerSpheres();
          this.handlePostMarkerCreation();
        }
      },
-     
+
            handlePostMarkerCreation() {
         // For standalone marker files, start the animation loop and render first frame
         if (this.animations.length === 0) {
           this.animate();
           this.animateOneFrame();
-          
+
           // Position camera to view markers
           this.positionCameraForMarkers();
-          
+
           // Calculate animation duration for headless operation
           if (this.frames && this.frames.length > 0 && this.frameRate > 0) {
             this.animationDurationInSeconds = (this.frames.length - 1) / this.frameRate;
           }
-          
+
           // Signal that all visuals are loaded for headless operation
           window.allVisualsLoaded = true;
         }
-       
+
        // Clear any existing selection
        this.selectedMarker = null;
       },
-     
+
      getNextAvailableMarkerIndex() {
        // Find the next available index for standalone markers
        let index = 0;
@@ -4416,7 +4537,7 @@ const axiosInstance = axios.create();
        }
        return index;
      },
-     
+
      getMarkerVisibility(animationIndex) {
        // Return visibility for specific marker dataset
        // Ensure consistent key type (convert to string)
@@ -4426,7 +4547,7 @@ const axiosInstance = axios.create();
        }
        return this.markersVisible[key];
      },
-     
+
      getMarkerColor(animationIndex) {
        // Return color for specific marker dataset
        if (this.markerColors[animationIndex] === undefined) {
@@ -4434,7 +4555,7 @@ const axiosInstance = axios.create();
        }
        return this.markerColors[animationIndex];
      },
-     
+
      getMarkerDisplayColor(animationIndex) {
        // Ensure display color exists for color picker
        if (this.markerDisplayColors[animationIndex] === undefined) {
@@ -4442,7 +4563,7 @@ const axiosInstance = axios.create();
        }
        return this.markerDisplayColors[animationIndex];
      },
-     
+
      getForceColor(animationIndex) {
        // Return color for specific force dataset
        if (this.forceColors[animationIndex] === undefined) {
@@ -4450,7 +4571,7 @@ const axiosInstance = axios.create();
        }
        return this.forceColors[animationIndex];
      },
-     
+
      getForceDisplayColor(animationIndex) {
        // Ensure display color exists for color picker
        if (this.forceDisplayColors[animationIndex] === undefined) {
@@ -4458,34 +4579,41 @@ const axiosInstance = axios.create();
        }
        return this.forceDisplayColors[animationIndex];
      },
-     
+
      createMarkerSpheres() {
        // Clear existing marker spheres
        this.clearMarkerSpheres();
-       
+
        // Check if scene is initialized
        if (!this.scene) {
          console.error('Scene not initialized when creating marker spheres');
-         throw new Error('Scene not initialized');
+         console.log('Attempting to initialize scene...');
+         this.$nextTick(() => {
+           this.initScene();
+           this.$nextTick(() => {
+             this.createMarkerSpheres();
+           });
+         });
+         return;
        }
-       
+
        // Create spheres for all marker datasets
        Object.keys(this.markersDatasets).forEach(animationIndex => {
        const markersData = this.markersDatasets[animationIndex];
-       
+
        if (!markersData) {
            console.error('No markers data found for animation index:', animationIndex);
          return;
        }
-       
+
        const markerNames = markersData.markers;
        const sphereGeometry = new THREE.SphereGeometry(this.markerSize / 1000, 16, 16); // Convert to meters
-       const sphereMaterial = new THREE.MeshPhongMaterial({ 
+       const sphereMaterial = new THREE.MeshPhongMaterial({
            color: new THREE.Color(this.getMarkerColor(animationIndex)),
          transparent: true,
          opacity: 0.8
        });
-       
+
          // Create spheres for each marker in this dataset
        markerNames.forEach(markerName => {
          const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial.clone());
@@ -4495,7 +4623,7 @@ const axiosInstance = axios.create();
            markerName: markerName,
              animationIndex: parseInt(animationIndex)
          };
-         
+
          // Set initial position (frame 0)
          if (markersData.data[markerName] && markersData.data[markerName].x.length > 0) {
              const x = markersData.data[markerName].x[0];
@@ -4503,50 +4631,55 @@ const axiosInstance = axios.create();
              const z = markersData.data[markerName].z[0];
              sphere.position.set(x, y, z);
              console.log(`Created marker ${markerName} (dataset ${animationIndex}) at position (${x.toFixed(3)}, ${y.toFixed(3)}, ${z.toFixed(3)})`);
+             
+             // Debug: Check if position is very small (indicating potential unit conversion issue)
+             if (Math.abs(x) < 0.001 && Math.abs(y) < 0.001 && Math.abs(z) < 0.001) {
+               console.warn(`Warning: Marker ${markerName} has very small position values. This might indicate a unit conversion issue.`);
+             }
            } else {
              console.warn(`No data found for marker ${markerName} in dataset ${animationIndex}`);
            }
-           
+
            // Set visibility based on marker visibility state
            sphere.visible = this.getMarkerVisibility(parseInt(animationIndex));
-         
+
          // Add to scene
          this.scene.add(sphere);
          this.markerSpheres.push(sphere);
          });
        });
-       
+
        console.log(`Created marker spheres for ${Object.keys(this.markersDatasets).length} datasets. Total spheres: ${this.markerSpheres.length}`);
-       
+
        // Add click event listener for marker selection
        this.addMarkerClickListener();
-       
+
        // Update markers for current frame
        this.updateMarkerPositions();
-       
+
        // Re-render the scene
        if (this.renderer && this.scene && this.camera) {
          this.renderer.render(this.scene, this.camera);
        }
      },
-     
+
      clearMarkerSpheres() {
        // Remove existing marker spheres from scene
        this.markerSpheres.forEach(sphere => {
          if (this.scene) {
            this.scene.remove(sphere);
          }
-         
+
          // Dispose of geometry and material
          if (sphere.geometry) sphere.geometry.dispose();
          if (sphere.material) sphere.material.dispose();
        });
-       
+
        this.markerSpheres = [];
-       
+
        // Clear measurement data
        this.clearMeasurement();
-       
+
        // Clear marker labels
        Object.values(this.markerLabels).forEach(label => {
          if (this.scene) {
@@ -4557,33 +4690,33 @@ const axiosInstance = axios.create();
          }
          if (label.material) label.material.dispose();
        });
-       
+
        this.markerLabels = {};
      },
-     
+
      updateMarkerPositions() {
        if (!this.showMarkers || this.markerSpheres.length === 0) return;
-       
+
        // Use the frame reference for marker data
        if (!this.frames || this.frame >= this.frames.length || this.frame < 0) return;
-       
+
        // For standalone marker files, use frame index directly
        const useFrameIndex = this.animations.length === 0;
        const currentTime = useFrameIndex ? this.frame : parseFloat(this.frames[this.frame]);
-       
+
        // Update each marker sphere position
        this.markerSpheres.forEach(sphere => {
          const markerName = sphere.userData.markerName;
          const animationIndex = sphere.userData.animationIndex;
          const markersData = this.markersDatasets[animationIndex];
-         
+
          if (!markersData || !markersData.data[markerName]) {
            return;
          }
-         
+
          // Find the appropriate index in the marker data
          let closestIndex = 0;
-         
+
          if (useFrameIndex) {
            // For standalone marker files, use frame index directly
            closestIndex = Math.min(this.frame, markersData.data[markerName].x.length - 1);
@@ -4591,7 +4724,7 @@ const axiosInstance = axios.create();
            // For marker files with animations, find closest time
            const times = markersData.times;
          let minTimeDiff = Math.abs(times[0] - currentTime);
-         
+
          for (let i = 1; i < times.length; i++) {
            const timeDiff = Math.abs(times[i] - currentTime);
            if (timeDiff < minTimeDiff) {
@@ -4600,63 +4733,63 @@ const axiosInstance = axios.create();
              }
            }
          }
-         
+
          // Update sphere position
          const markerData = markersData.data[markerName];
          if (closestIndex < markerData.x.length) {
            const x = markerData.x[closestIndex];
            const y = markerData.y[closestIndex];
            const z = markerData.z[closestIndex];
-           
+
            sphere.position.set(x, y, z);
-           
+
            // Update selected marker coordinates if this is the selected marker
-           if (this.selectedMarker && 
-               this.selectedMarker.name === markerName && 
+           if (this.selectedMarker &&
+               this.selectedMarker.name === markerName &&
                this.selectedMarker.animationIndex === animationIndex) {
              this.selectedMarker.position.set(x, y, z);
            }
          }
        });
-       
+
        // Update measurement positions if in measurement mode
        this.updateMeasurementPositions();
-       
+
        // Re-render the scene
        if (this.renderer && this.scene && this.camera) {
          this.renderer.render(this.scene, this.camera);
        }
      },
-     
+
      addMarkerClickListener() {
        if (!this.renderer || !this.renderer.domElement) return;
-       
+
        // Remove existing listener if it exists
        if (this.handleMarkerClick) {
          this.renderer.domElement.removeEventListener('click', this.handleMarkerClick);
        }
-       
+
        // Create new click handler
        this.handleMarkerClick = (event) => {
          event.preventDefault();
-         
+
          // Calculate mouse position in normalized device coordinates
          const rect = this.renderer.domElement.getBoundingClientRect();
          const mouse = new THREE.Vector2();
          mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
          mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-         
+
          // Create raycaster
          const raycaster = new THREE.Raycaster();
          raycaster.setFromCamera(mouse, this.camera);
-         
+
          // Check for intersections with marker spheres
          const intersects = raycaster.intersectObjects(this.markerSpheres);
-         
+
          if (intersects.length > 0) {
            const selectedSphere = intersects[0].object;
            const markerName = selectedSphere.userData.markerName;
-           
+
            // Check if in measurement mode and modifier keys are pressed
            if (this.measurementMode && (event.metaKey || event.ctrlKey || event.shiftKey)) {
              // Add/remove marker from measurement
@@ -4672,7 +4805,7 @@ const axiosInstance = axios.create();
              position: selectedSphere.position.clone(),
                         animationIndex: selectedSphere.userData.animationIndex
          };
-         
+
          // Optional: Highlight selected marker
            this.highlightSelectedMarker(selectedSphere);
            }
@@ -4682,44 +4815,46 @@ const axiosInstance = axios.create();
            this.clearMarkerHighlight();
          }
        };
-       
+
        // Add click event listener
        this.renderer.domElement.addEventListener('click', this.handleMarkerClick);
      },
-     
+
      highlightSelectedMarker(selectedSphere) {
        // Reset all marker materials first
        this.markerSpheres.forEach(sphere => {
          sphere.material.color.setHex(this.markerColor.replace('#', '0x'));
          sphere.material.opacity = 0.8;
        });
-       
+
        // Highlight selected marker
        selectedSphere.material.color.setHex(0xffff00); // Yellow highlight
        selectedSphere.material.opacity = 1.0;
-       
+
        // Re-render the scene
        if (this.renderer && this.scene && this.camera) {
          this.renderer.render(this.scene, this.camera);
        }
      },
-     
+
      clearMarkerHighlight() {
        // Reset all marker materials
        this.markerSpheres.forEach(sphere => {
-         sphere.material.color.setHex(this.markerColor.replace('#', '0x'));
+         const animationIndex = sphere.userData.animationIndex;
+         const markerColor = this.getMarkerColor(animationIndex);
+         sphere.material.color.setHex(markerColor.replace('#', '0x'));
          sphere.material.opacity = 0.8;
        });
-       
+
        // Re-render the scene
        if (this.renderer && this.scene && this.camera) {
          this.renderer.render(this.scene, this.camera);
        }
      },
-     
+
      updateMarkerSize(size) {
        this.markerSize = size;
-       
+
        // Update existing sphere sizes
        this.markerSpheres.forEach(sphere => {
          if (sphere.geometry) {
@@ -4727,19 +4862,19 @@ const axiosInstance = axios.create();
          }
          sphere.geometry = new THREE.SphereGeometry(size / 1000, 16, 16); // Convert to meters
        });
-       
+
        // Re-render the scene
        if (this.renderer && this.scene && this.camera) {
          this.renderer.render(this.scene, this.camera);
        }
      },
-     
+
      clearMarkersForAnimation(animationIndex) {
        // Remove markers for specific animation
        if (this.markersDatasets[animationIndex]) {
          delete this.markersDatasets[animationIndex];
        }
-       
+
        // Clear marker spheres for this animation
        this.markerSpheres = this.markerSpheres.filter(sphere => {
          if (sphere.userData.animationIndex === parseInt(animationIndex)) {
@@ -4748,43 +4883,43 @@ const axiosInstance = axios.create();
          }
          return true;
        });
-       
+
        // Clear selected marker if it belongs to this animation
        if (this.selectedMarker && this.selectedMarker.animationIndex === parseInt(animationIndex)) {
          this.selectedMarker = null;
        }
-       
+
        // Re-render the scene
        if (this.renderer && this.scene && this.camera) {
          this.renderer.render(this.scene, this.camera);
        }
-       
+
        this.$toasted.success('Markers cleared for animation');
      },
-     
+
      clearAllMarkers() {
        // Clear all marker datasets
        this.markersDatasets = {};
-       
+
        // Clear all marker spheres
        this.clearMarkerSpheres();
-       
+
        // Clear selected marker
        this.selectedMarker = null;
-       
+
        // Clear marker time data
        this.markerTimeData = null;
-       
+
        // Clear measurement data
        this.clearMeasurement();
-       
+
        this.$toasted.success('All markers cleared');
      },
-     
+
      // Distance measurement methods
      toggleMeasurementMode() {
        this.measurementMode = !this.measurementMode;
-       
+
        if (this.measurementMode) {
          this.$toasted.info('Measurement mode enabled. Hold Cmd/Shift + Click on markers to measure distance.');
        } else {
@@ -4792,11 +4927,11 @@ const axiosInstance = axios.create();
          this.clearMeasurement();
        }
      },
-     
+
      clearMeasurement() {
        // Clear measurement markers
        this.measurementMarkers = [];
-       
+
        // Remove measurement line from scene
        if (this.measurementLine) {
          this.scene.remove(this.measurementLine);
@@ -4804,20 +4939,20 @@ const axiosInstance = axios.create();
          this.measurementLine.material.dispose();
          this.measurementLine = null;
        }
-       
+
        // Reset distance
        this.currentDistance = 0;
-       
+
        // Re-render the scene
        if (this.renderer && this.scene && this.camera) {
          this.renderer.render(this.scene, this.camera);
        }
      },
-     
+
      addMeasurementMarker(markerName, position, animationIndex) {
        // Check if this marker is already selected
        const existingIndex = this.measurementMarkers.findIndex(m => m.name === markerName);
-       
+
        if (existingIndex !== -1) {
          // If marker is already selected, remove it
          this.measurementMarkers.splice(existingIndex, 1);
@@ -4828,20 +4963,20 @@ const axiosInstance = axios.create();
            // Replace the first marker with the new one
            this.measurementMarkers.shift();
          }
-         
+
          this.measurementMarkers.push({
            name: markerName,
            position: position.clone(),
            animationIndex: animationIndex
          });
-         
+
          this.$toasted.info(`Added ${markerName} to measurement`);
        }
-       
+
        // Update measurement line and distance
        this.updateMeasurementLine();
      },
-     
+
      updateMeasurementLine() {
        // Remove existing line
        if (this.measurementLine) {
@@ -4850,36 +4985,36 @@ const axiosInstance = axios.create();
          this.measurementLine.material.dispose();
          this.measurementLine = null;
        }
-       
+
        // Create new line if we have exactly 2 markers
        if (this.measurementMarkers.length === 2) {
          const marker1 = this.measurementMarkers[0];
          const marker2 = this.measurementMarkers[1];
-         
+
          // Calculate distance
          this.currentDistance = marker1.position.distanceTo(marker2.position);
-         
+
          // Create line geometry
          const lineGeometry = new THREE.BufferGeometry().setFromPoints([
            marker1.position,
            marker2.position
          ]);
-         
+
          // Create line material
-         const lineMaterial = new THREE.LineBasicMaterial({ 
+         const lineMaterial = new THREE.LineBasicMaterial({
            color: 0x00ff00,
            linewidth: 3,
            transparent: true,
            opacity: 0.8
          });
-         
+
          // Create line mesh
          this.measurementLine = new THREE.Line(lineGeometry, lineMaterial);
          this.measurementLine.userData = { type: 'measurement' };
-         
+
          // Add to scene
          this.scene.add(this.measurementLine);
-         
+
          // Re-render the scene
          if (this.renderer && this.scene && this.camera) {
            this.renderer.render(this.scene, this.camera);
@@ -4888,79 +5023,79 @@ const axiosInstance = axios.create();
          this.currentDistance = 0;
        }
      },
-     
+
      updateMeasurementPositions() {
        if (!this.measurementMode || this.measurementMarkers.length !== 2) return;
-       
+
        // Update marker positions in measurement array
        this.measurementMarkers.forEach((measurementMarker, index) => {
          // Find the corresponding sphere in the scene
-         const sphere = this.markerSpheres.find(s => 
+         const sphere = this.markerSpheres.find(s =>
            s.userData.markerName === measurementMarker.name &&
            s.userData.animationIndex === measurementMarker.animationIndex
          );
-         
+
          if (sphere) {
            this.measurementMarkers[index].position.copy(sphere.position);
          }
        });
-       
+
        // Update the measurement line with new positions
        this.updateMeasurementLine();
      },
-     
+
      positionCameraForMarkers() {
        if (!this.markerSpheres || this.markerSpheres.length === 0) {
          console.log('No markers to position camera for');
          return;
        }
-       
+
        // Calculate bounding box of all markers
        const box = new THREE.Box3();
        this.markerSpheres.forEach(sphere => {
          box.expandByObject(sphere);
        });
-       
+
        if (box.isEmpty()) {
          console.log('Marker bounding box is empty');
          return;
        }
-       
+
        // Get the center and size of the bounding box
        const center = box.getCenter(new THREE.Vector3());
        const size = box.getSize(new THREE.Vector3());
-       
+
        // Calculate the maximum dimension to determine camera distance
        const maxDim = Math.max(size.x, size.y, size.z);
-       
+
        // Position camera at a comfortable distance
        const distance = maxDim * 3; // Adjust multiplier as needed
        const height = Math.max(center.y + size.y, 2); // Ensure camera is above ground
-       
+
        // Set camera position
        this.camera.position.set(
          center.x + distance * 0.7,
          height,
          center.z + distance * 0.7
        );
-       
+
        // Point camera at the center of the markers
        this.camera.lookAt(center);
-       
+
        // Update camera controls target
        if (this.controls) {
          this.controls.target.copy(center);
          this.controls.update();
        }
-       
+
        console.log(`Camera positioned for markers at distance ${distance.toFixed(2)} from center:`, center);
-       
+
        // Render the scene
        if (this.renderer && this.scene && this.camera) {
          this.renderer.render(this.scene, this.camera);
        }
      },
-    
+
     toggleCameraControls() {
       this.showCameraControls = !this.showCameraControls;
       console.log('Toggled camera controls visibility:', this.showCameraControls);
@@ -4988,25 +5123,25 @@ const axiosInstance = axios.create();
       });
       this.renderer.render(this.scene, this.camera);
     },
-    
+
     // Sample selection methods
     selectSampleSet(sampleSetId) {
       console.log('Selected sample set:', sampleSetId);
       this.showSampleSelectionDialog = false;
       this.loadSampleFiles(sampleSetId);
     },
-    
+
     getSampleIcon(sampleSetId) {
       const iconMap = {
         'STS': 'mdi-chair-rolling',
-        'squat': 'mdi-human-handsdown', 
+        'squat': 'mdi-human-handsdown',
         'walk': 'mdi-walk',
         'rmasb': 'mdi-run-fast',
         'default': 'mdi-play-circle-outline'
       };
       return iconMap[sampleSetId] || 'mdi-play-circle';
     },
-    
+
     // Share functionality methods
     async openShareDialog() {
       this.showShareDialog = true;
@@ -5017,14 +5152,14 @@ const axiosInstance = axios.create();
         this.loadingInitialShare = false;
       }
     },
-    
+
     async generateShareUrl() {
       this.generatingShareUrl = true;
       try {
         const shareData = this.getShareData();
         const compressed = this.compressShareData(shareData);
         const baseUrl = window.location.origin + window.location.pathname;
-        
+
         // If the compressed data is still too large, use hash-based storage
         if (compressed.length > 1000) {
           // Only generate a new shareId if one doesn't already exist
@@ -5036,7 +5171,7 @@ const axiosInstance = axios.create();
         } else {
           this.shareUrl = `${baseUrl}?share=${compressed}`;
         }
-        
+
         this.shareUrlSize = this.shareUrl.length;
       } catch (error) {
         console.error('Error generating share URL:', error);
@@ -5068,13 +5203,13 @@ const axiosInstance = axios.create();
           console.log(`Stored share data in cloud with ID: ${shareId}`);
           return;
         }
-        
+
         // Fallback to localStorage if cloud fails
         console.warn('Cloud storage failed, falling back to localStorage');
         const shareKey = `opencap_share_${shareId}`;
         localStorage.setItem(shareKey, JSON.stringify(data));
         console.log(`Stored share data locally with ID: ${shareId}`);
-        
+
       } catch (error) {
         console.error('Error storing share data:', error);
         // Final fallback to localStorage
@@ -5092,13 +5227,13 @@ const axiosInstance = axios.create();
       try {
         // Try cloud storage first
         const response = await fetch(`https://opencap-share-backend.onrender.com/api/share/${shareId}`);
-        
+
         if (response.ok) {
           const result = await response.json();
           console.log(`Loaded share data from cloud with ID: ${shareId}`);
           return result.data;
         }
-        
+
         // Fallback to localStorage if cloud fails or data not found
         console.warn('Cloud data not found, trying localStorage');
         const shareKey = `opencap_share_${shareId}`;
@@ -5108,13 +5243,13 @@ const axiosInstance = axios.create();
         }
         console.log(`Loaded share data from localStorage with ID: ${shareId}`);
         return JSON.parse(storedData);
-        
+
       } catch (error) {
         console.error('Error loading share data:', error);
         throw new Error('Invalid or expired share ID');
       }
     },
-    
+
     getShareData() {
       // Only include essential animation data - no settings by default
       const data = {
@@ -5127,7 +5262,7 @@ const axiosInstance = axios.create();
         forces: this.forcesDatasets,
         markers: this.markersDatasets
       };
-      
+
       // Only include optional data if specifically requested
       if (this.shareSettings.includeCamera && this.camera) {
         data.camera = {
@@ -5143,16 +5278,16 @@ const axiosInstance = axios.create();
           }
         };
       }
-      
+
       if (this.shareSettings.includeColors) {
         data.colors = this.colors.map(color => color.getHex());
         data.alphaValues = [...this.alphaValues];
       }
-      
+
       if (this.shareSettings.includeCurrentFrame) {
         data.currentFrame = this.frame;
       }
-      
+
       return data;
     },
 
@@ -5167,7 +5302,7 @@ const axiosInstance = axios.create();
       Object.keys(animData.bodies).forEach(bodyKey => {
         const body = animData.bodies[bodyKey];
         // Processing body data for compression
-        
+
         compressed.b[bodyKey] = {
           g: body.attachedGeometries, // geometries
           s: body.scaleFactors, // scale factors
@@ -5193,7 +5328,7 @@ const axiosInstance = axios.create();
               const deltaX = Math.round((curr[0] - prev[0]) * 1000) / 1000;
               const deltaY = Math.round((curr[1] - prev[1]) * 1000) / 1000;
               const deltaZ = Math.round((curr[2] - prev[2]) * 1000) / 1000;
-              
+
               // Only store if delta is significant (>0.001)
               if (Math.abs(deltaX) > 0.001 || Math.abs(deltaY) > 0.001 || Math.abs(deltaZ) > 0.001) {
                 positions.push([deltaX, deltaY, deltaZ]);
@@ -5221,7 +5356,7 @@ const axiosInstance = axios.create();
               const deltaX = Math.round((curr[0] - prev[0]) * 1000) / 1000;
               const deltaY = Math.round((curr[1] - prev[1]) * 1000) / 1000;
               const deltaZ = Math.round((curr[2] - prev[2]) * 1000) / 1000;
-              
+
               if (Math.abs(deltaX) > 0.001 || Math.abs(deltaY) > 0.001 || Math.abs(deltaZ) > 0.001) {
                 rotations.push([deltaX, deltaY, deltaZ]);
               } else {
@@ -5293,13 +5428,13 @@ const axiosInstance = axios.create();
 
       return animData;
     },
-    
+
     compressShareData(data) {
       try {
         // Optimize the data structure for smaller size
         const optimizedData = this.optimizeShareData(data);
         const jsonString = JSON.stringify(optimizedData);
-        
+
         // Use more efficient encoding
         return this.lzCompress(jsonString);
       } catch (error) {
@@ -5307,7 +5442,7 @@ const axiosInstance = axios.create();
         throw new Error('Failed to compress data for sharing');
       }
     },
-    
+
     optimizeShareData(data) {
       // Create a more compact representation
       const optimized = {
@@ -5319,33 +5454,33 @@ const axiosInstance = axios.create();
           o: [anim.offset.x, anim.offset.y, anim.offset.z]
         }))
       };
-      
+
       if (data.camera) {
         optimized.c = {
           p: [data.camera.position.x, data.camera.position.y, data.camera.position.z],
           t: [data.camera.target.x, data.camera.target.y, data.camera.target.z]
         };
       }
-      
+
       if (data.colors) {
         optimized.col = data.colors;
       }
-      
+
       if (data.alphaValues) {
         optimized.alp = data.alphaValues;
       }
-      
+
       if (data.settings) {
         optimized.s = data.settings;
       }
-      
+
       if (data.currentFrame !== undefined) {
         optimized.fr = data.currentFrame;
       }
-      
+
       return optimized;
     },
-    
+
     unoptimizeShareData(optimized) {
       // Convert back to full format
       const data = {
@@ -5360,7 +5495,7 @@ const axiosInstance = axios.create();
           }
         }))
       };
-      
+
       if (optimized.c) {
         data.camera = {
           position: {
@@ -5375,26 +5510,26 @@ const axiosInstance = axios.create();
           }
         };
       }
-      
+
       if (optimized.col) {
         data.colors = optimized.col;
       }
-      
+
       if (optimized.alp) {
         data.alphaValues = optimized.alp;
       }
-      
+
       if (optimized.s) {
         data.settings = optimized.s;
       }
-      
+
       if (optimized.fr !== undefined) {
         data.currentFrame = optimized.fr;
       }
-      
+
       return data;
     },
-    
+
     lzCompress(str) {
       // Simple LZ-style compression for URLs
       const dict = {};
@@ -5403,7 +5538,7 @@ const axiosInstance = axios.create();
       let currChar;
       let phrase = data[0];
       let code = 256;
-      
+
       for (let i = 1; i < data.length; i++) {
         currChar = data[i];
         if (dict[phrase + currChar] != null) {
@@ -5416,11 +5551,11 @@ const axiosInstance = axios.create();
         }
       }
       out.push(phrase.length > 1 ? dict[phrase] : phrase.charCodeAt(0));
-      
+
       // Convert to base64 for URL safety
       return btoa(encodeURIComponent(JSON.stringify(out)));
     },
-    
+
     lzDecompress(compressed) {
       try {
         const out = JSON.parse(decodeURIComponent(atob(compressed)));
@@ -5431,7 +5566,7 @@ const axiosInstance = axios.create();
         data.push(currChar);
         let code = 256;
         let phrase;
-        
+
         for (let i = 1; i < out.length; i++) {
           let currCode = out[i];
           if (currCode < 256) {
@@ -5451,7 +5586,7 @@ const axiosInstance = axios.create();
         throw error;
       }
     },
-    
+
     decompressShareData(compressed) {
       try {
         const jsonString = this.lzDecompress(compressed);
@@ -5469,34 +5604,34 @@ const axiosInstance = axios.create();
         }
       }
     },
-    
+
     async loadSharedVisualization(shareData) {
       try {
         console.log('Loading shared visualization:', shareData);
-        
+
         // Set up the trial structure
         this.trial = { results: [] };
         this.animations = [];
         this.meshes = {};
-        
+
         // Load animations from shared data
         for (let i = 0; i < shareData.animations.length; i++) {
           const animData = shareData.animations[i];
-          
+
           // Decompress animation data if it's in compressed format
-          const decompressedData = animData.data.t ? 
-            this.decompressAnimationData(animData.data) : 
+          const decompressedData = animData.data.t ?
+            this.decompressAnimationData(animData.data) :
             animData.data;
-          
+
           // Handle both old and new offset formats
-          const offset = Array.isArray(animData.offset) ? 
+          const offset = Array.isArray(animData.offset) ?
             new THREE.Vector3(animData.offset[0] || 0, animData.offset[1] || 0, animData.offset[2] || 0) :
             new THREE.Vector3(
               animData.offset?.x || 0,
               animData.offset?.y || 0,
               animData.offset?.z || 0
             );
-          
+
           this.animations.push({
             data: decompressedData,
             trialName: animData.trialName,
@@ -5506,12 +5641,12 @@ const axiosInstance = axios.create();
             visible: true, // Default to visible
             playable: true // Default to playable
           });
-          
+
           this.initializeAlphaValue(i);
           // Ensure all color arrays are synchronized when adding new animations
           this.ensureColorArraysSync();
         }
-        
+
         // Load forces and markers if they exist
         if (shareData.forces) {
           this.forcesDatasets = shareData.forces;
@@ -5519,7 +5654,7 @@ const axiosInstance = axios.create();
         if (shareData.markers) {
           this.markersDatasets = shareData.markers;
         }
-        
+
         // Set frames from first animation
         if (this.animations.length > 0) {
           this.frames = this.animations[0].data.time;
@@ -5528,7 +5663,7 @@ const axiosInstance = axios.create();
           console.log(`[loadSharedVisualization] First few frames:`, this.frames.slice(0, 5));
           console.log(`[loadSharedVisualization] Last few frames:`, this.frames.slice(-5));
         }
-        
+
         // Apply shared settings
         if (shareData.settings) {
           const settings = shareData.settings;
@@ -5539,7 +5674,7 @@ const axiosInstance = axios.create();
           this.useCheckerboard = settings.useCheckerboard !== undefined ? settings.useCheckerboard : this.useCheckerboard;
                   // Marker settings removed
         }
-        
+
         // Apply shared colors
         if (shareData.colors) {
           shareData.colors.forEach((colorHex, index) => {
@@ -5548,11 +5683,11 @@ const axiosInstance = axios.create();
             }
           });
         }
-        
+
         if (shareData.alphaValues) {
           this.alphaValues = [...shareData.alphaValues];
         }
-        
+
         // Set current frame
         if (shareData.currentFrame !== undefined) {
           this.frame = shareData.currentFrame;
@@ -5563,11 +5698,11 @@ const axiosInstance = axios.create();
             this.time = parseFloat(this.frame / this.frameRate).toFixed(2);
           }
         }
-        
+
         // Initialize the 3D scene
         await this.$nextTick();
         this.initScene();
-        
+
         // After scene is initialized, create markers and forces if they exist
         if (this.markersDatasets && Object.keys(this.markersDatasets).length > 0) {
           this.createMarkerSpheres();
@@ -5578,11 +5713,11 @@ const axiosInstance = axios.create();
 
         // Start the animation loop for shared visualizations
         this.animate();
-        
+
         // Load 3D models
         let totalModelsToLoad = 0;
         let modelsLoaded = 0;
-        
+
         // Count total models to load
         this.animations.forEach((animation, index) => {
           for (let body in animation.data.bodies) {
@@ -5590,15 +5725,15 @@ const axiosInstance = axios.create();
             totalModelsToLoad += bd.attachedGeometries.length;
           }
         });
-        
+
         console.log(`Total models to load: ${totalModelsToLoad}`);
-        
+
         const checkAllModelsLoaded = () => {
           modelsLoaded++;
           if (modelsLoaded >= totalModelsToLoad) {
             console.log(`[loadSharedVisualization] All models loaded. Ready for animation.`);
             console.log(`[loadSharedVisualization] Current state - Frame: ${this.frame}, Playing: ${this.playing}, Frames length: ${this.frames.length}`);
-            
+
             // Update time to match the current frame now that data is fully loaded
             if (shareData.currentFrame !== undefined) {
               if (this.frames && this.frames[this.frame] !== undefined) {
@@ -5607,7 +5742,7 @@ const axiosInstance = axios.create();
                 this.time = parseFloat(this.frame / this.frameRate).toFixed(2);
               }
             }
-            
+
             // All models loaded, now animate to current frame
             setTimeout(() => {
               this.animateOneFrame();
@@ -5615,10 +5750,10 @@ const axiosInstance = axios.create();
             }, 100);
           }
         };
-        
+
         // If no models to load, animate immediately
         if (totalModelsToLoad === 0) {
-          // Update time to match the current frame 
+          // Update time to match the current frame
           if (shareData.currentFrame !== undefined) {
             if (this.frames && this.frames[this.frame] !== undefined) {
               this.time = parseFloat(this.frames[this.frame]).toFixed(2);
@@ -5626,12 +5761,12 @@ const axiosInstance = axios.create();
               this.time = parseFloat(this.frame / this.frameRate).toFixed(2);
             }
           }
-          
+
           setTimeout(() => {
             this.animateOneFrame();
           }, 100);
         }
-        
+
         this.animations.forEach((animation, index) => {
           for (let body in animation.data.bodies) {
             let bd = animation.data.bodies[body];
@@ -5640,32 +5775,32 @@ const axiosInstance = axios.create();
               objLoader.load(path, (root) => {
                 root.castShadow = false;
                 root.receiveShadow = false;
-                
+
                 root.traverse((child) => {
                   if (child instanceof THREE.Mesh) {
                     child.castShadow = false;
-                    child.material = new THREE.MeshPhongMaterial({ 
+                    child.material = new THREE.MeshPhongMaterial({
                       color: this.colors[index],
                       transparent: this.alphaValues[index] < 1.0,
                       opacity: this.alphaValues[index] || 1.0
                     });
                   }
                 });
-                
+
                 const meshKey = `anim${index}_${body}${geom}`;
                 this.meshes[meshKey] = root;
                 this.meshes[meshKey].scale.set(bd.scaleFactors[0], bd.scaleFactors[1], bd.scaleFactors[2]);
-                
+
                 root.position.add(animation.offset);
                 this.scene.add(root);
-                
+
                 // Check if all models are loaded
                 checkAllModelsLoaded();
               });
             });
           }
         });
-        
+
         // Apply camera position if shared
         if (shareData.camera && this.camera && this.controls) {
           setTimeout(() => {
@@ -5676,7 +5811,7 @@ const axiosInstance = axios.create();
                 shareData.camera[1],
                 shareData.camera[2]
               );
-              
+
               this.controls.target.set(
                 shareData.camera[3],
                 shareData.camera[4],
@@ -5689,26 +5824,26 @@ const axiosInstance = axios.create();
                 shareData.camera.position.y,
                 shareData.camera.position.z
               );
-              
+
               this.controls.target.set(
                 shareData.camera.target.x,
                 shareData.camera.target.y,
                 shareData.camera.target.z
               );
             }
-            
+
             this.controls.update();
           }, 1000);
         }
-        
+
         console.log('Shared visualization loaded successfully');
-        
+
       } catch (error) {
         console.error('Error loading shared visualization:', error);
         this.$toasted.error('Failed to load shared visualization');
       }
     },
-    
+
     copyToClipboard(text) {
       if (navigator.clipboard) {
         navigator.clipboard.writeText(text).then(() => {
@@ -5720,7 +5855,7 @@ const axiosInstance = axios.create();
         this.fallbackCopyToClipboard(text);
       }
     },
-    
+
     fallbackCopyToClipboard(text) {
       const textArea = document.createElement('textarea');
       textArea.value = text;
@@ -5736,7 +5871,7 @@ const axiosInstance = axios.create();
       }
       document.body.removeChild(textArea);
     },
-    
+
     openInNewTab(url) {
       window.open(url, '_blank');
     },
@@ -5750,34 +5885,34 @@ const axiosInstance = axios.create();
           keysToRemove.push(key);
         }
       }
-      
+
       keysToRemove.forEach(key => {
         localStorage.removeItem(key);
       });
-      
+
       console.log(`Cleaned up ${keysToRemove.length} old share entries`);
       this.$toasted.success(`Cleaned up ${keysToRemove.length} old share entries`);
     },
-    
+
     downloadShareFile() {
       try {
         const shareData = this.getShareData();
         const jsonString = JSON.stringify(shareData, null, 2);
-        
+
         // Create blob and download
         const blob = new Blob([jsonString], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
-        
+
         const link = document.createElement('a');
         link.href = url;
         link.download = `${this.shareFileName}.json`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        
+
         // Clean up the URL
         URL.revokeObjectURL(url);
-        
+
         this.$toasted.success('Share file downloaded successfully!');
       } catch (error) {
         console.error('Error downloading share file:', error);
@@ -5793,13 +5928,13 @@ const axiosInstance = axios.create();
           this.trial = null
           this.synced = false
           this.trialLoading = true
-  
+
           try {
             // Load first JSON file
             console.log('Attempting to load JSON files')
             const res1 = await axiosInstance.get('/test.json')
             console.log('First JSON file loaded')
-            
+
             // Try to load second JSON file if it exists
             let res2 = null
             try {
@@ -5808,12 +5943,12 @@ const axiosInstance = axios.create();
             } catch (error) {
                 console.log('No second JSON file found, continuing with single animation')
             }
-            
+
             this.trial = { results: [] }
             this.frames = res1.data.time // Use first animation's time
             this.animations = [
-                { 
-                    data: res1.data, 
+                {
+                    data: res1.data,
                     offset: new THREE.Vector3(0, 0, 0),
                     fileName: 'test.json',
                     trialName: 'Subject 1',
@@ -5822,14 +5957,14 @@ const axiosInstance = axios.create();
                     playable: true // Default to playable
                 }
             ]
-            
+
             // Initialize alpha values
             this.initializeAlphaValue(0);
-            
+
             // Add second animation if available
             if (res2 && res2.data) {
-                this.animations.push({ 
-                    data: res2.data, 
+                this.animations.push({
+                    data: res2.data,
                     offset: new THREE.Vector3(0, 0, -1),
                     fileName: 'test2.json',
                     trialName: 'Subject 2',
@@ -5842,7 +5977,7 @@ const axiosInstance = axios.create();
 
             // Ensure all color arrays are synchronized
             this.ensureColorArraysSync();
-            
+
             // Calculate and set frame rate from the JSON file's time data
             this.frameRate = this.calculateFrameRate(res1.data.time);
             // Store FPS for the first animation
@@ -5858,7 +5993,7 @@ const axiosInstance = axios.create();
                   // while (this.$refs.mocap.lastChild) { // Keep this if needed for clearing, or remove if initScene handles it
                   //   this.$refs.mocap.removeChild(this.$refs.mocap.lastChild)
                   // }
-                  
+
                   // Load geometries for each animation
                   this.animations.forEach((animation, index) => {
                       for (let body in animation.data.bodies) {
@@ -5868,27 +6003,27 @@ const axiosInstance = axios.create();
                       objLoader.load(path, (root) => {
                         root.castShadow = false;
                         root.receiveShadow = false;
-                                  
+
                                   // Apply color to all meshes in the geometry
                                   root.traverse((child) => {
                           if (child instanceof THREE.Mesh) {
                             child.castShadow = false;
-                                          child.material = new THREE.MeshPhongMaterial({ 
+                                          child.material = new THREE.MeshPhongMaterial({
                                               color: this.colors[index],
                                               transparent: false, // Default to opaque
                                               opacity: 1.0 // Default to fully opaque
                                           });
                                       }
                                   });
-                                  
+
                                   // Store with unique key for each animation
                                   const meshKey = `anim${index}_${body}${geom}`;
                                   this.meshes[meshKey] = root;
                                   this.meshes[meshKey].scale.set(bd.scaleFactors[0], bd.scaleFactors[1], bd.scaleFactors[2]);
-                                  
+
                                   // Apply initial offset
                                   root.position.add(animation.offset);
-                                  
+
                         this.scene.add(root);
                               });
                           });
@@ -5901,30 +6036,30 @@ const axiosInstance = axios.create();
                       const context = canvas.getContext('2d');
                       canvas.width = 256;
                       canvas.height = 64;
-                      
+
                       // Set text style
                       context.font = 'bold 40px Arial';
                       context.textAlign = 'center';
                       context.fillStyle = this.formatColor(this.colors[index]);
-                      
+
                       // Draw text
                       context.fillText(animation.trialName, canvas.width/2, canvas.height/2);
-                      
+
                       // Create sprite
                       const texture = new THREE.CanvasTexture(canvas);
-                      const spriteMaterial = new THREE.SpriteMaterial({ 
+                      const spriteMaterial = new THREE.SpriteMaterial({
                           map: texture,
                           transparent: true,
                           opacity: 0.4
                       });
-                      
+
                       const sprite = new THREE.Sprite(spriteMaterial);
                       sprite.scale.set(1, 0.25, 1); // Adjust size
-                      
+
                       // Position sprite above model
                       sprite.position.copy(animation.offset);
                       sprite.position.y += 2; // Position above the model
-                      
+
                       this.textSprites[`text_${index}`] = sprite;
                       this.scene.add(sprite);
                   });
@@ -5932,9 +6067,9 @@ const axiosInstance = axios.create();
                 } finally {
                   this.trialLoading = false
                 }
-  
+
                 this.onResize()
-  
+
                 function delay(time) {
                   return new Promise(resolve => setTimeout(resolve, time));
                 }
@@ -5959,7 +6094,7 @@ const axiosInstance = axios.create();
         if (container && this.renderer) {
           this.renderer.setSize(container.clientWidth, container.clientHeight)
         }
-  
+
         if (this.renderer) {
           const canvas = this.renderer.domElement;
           this.camera.aspect = canvas.clientWidth / canvas.clientHeight;
@@ -5980,7 +6115,7 @@ const axiosInstance = axios.create();
           return;
         }
 
-        // --- If playing, continue below --- 
+        // --- If playing, continue below ---
         // console.log(`[animate] Playing. Frame: ${this.frame}`);
 
         // Calculate time since last frame
@@ -5989,10 +6124,10 @@ const axiosInstance = axios.create();
 
         // Check if we have markers or animations to animate
         // Refined check for clarity: Checks if any animation is playable OR if markers exist
-        const hasAnimatedContent = this.animations.some(a => a.playable !== false) || 
+        const hasAnimatedContent = this.animations.some(a => a.playable !== false) ||
                                  (this.markerSpheres.length > 0) ||
                                  (Object.keys(this.markersDatasets).length > 0);
-        
+
         // Note: Debug removed - animation loop should now work for shared visualizations
 
         // Only advance frames if playing, enough time passed, and content exists
@@ -6018,7 +6153,7 @@ const axiosInstance = axios.create();
                         this.frame = this.frames.length - 1;
                         this.time = parseFloat(this.frames[this.frame]).toFixed(2);
                         this.animateOneFrame(); // Render the final frame
-                        this.stopRecording(); 
+                        this.stopRecording();
                         // Stop playing state is handled by stopRecording
                         return; // Exit this specific animate cycle
                     }
@@ -6027,13 +6162,13 @@ const axiosInstance = axios.create();
                     if (this.isLooping) {
                       // Loop back normally using modulo
                       nextFrame = nextFrame % this.frames.length;
-                    
+
                     // When looping, also reset video to beginning if present
                     if (this.videoFile && this.$refs.videoPreview) {
                       try {
                         console.log('[animate] Looping animation, resetting video to beginning');
                         this.$refs.videoPreview.currentTime = 0;
-                        
+
                         // Ensure video keeps playing if it was previously playing
                         if (this.playing && this.$refs.videoPreview.paused) {
                           const playPromise = this.$refs.videoPreview.play();
@@ -6069,43 +6204,43 @@ const axiosInstance = axios.create();
                     // Fallback if frames array doesn't have time for this index (should not happen with proper sync)
                     this.time = parseFloat(this.frame / this.frameRate).toFixed(2);
                 }
-                
+
                 // Render the current frame *after* state update
                 this.animateOneFrame();
 
                 // If a loop was just completed and we are starting the next one
                 if (loopNeedsReset) {
                     // Ensure onNavigate syncs things like video if needed
-                    this.onNavigate(this.frame); 
+                    this.onNavigate(this.frame);
                 }
-                
+
                 // After advancing and rendering, if playing is now false (e.g., reached end), exit loop
                 if (!this.playing) {
                     console.log('[animate] Exiting loop after reaching end.');
                     return;
                 }
             }
-        } 
+        }
         // Render even if not enough time has passed to advance the frame, but still playing
         // This ensures smoother rendering, especially at high frame rates or low play speeds
-        else if (this.playing) { 
+        else if (this.playing) {
              if (this.renderer && this.scene && this.camera) {
                 // Re-render the *current* frame without advancing
                 // We could call animateOneFrame here, but that might be redundant if marker/model updates are heavy.
                 // A simple render might suffice.
-                this.renderer.render(this.scene, this.camera); 
+                this.renderer.render(this.scene, this.camera);
              }
         }
       },
       animateOneFrame() {
         let cframe = this.frame;
-  
+
         if (cframe < this.frames.length) {
           // Update each animation
           this.animations.forEach((animation, animIndex) => {
             // Skip animation updates if not playable, but still keep visible
             if (!animation.playable) return;
-            
+
             let json = animation.data;
             for (let body in json.bodies) {
               json.bodies[body].attachedGeometries.forEach((geom) => {
@@ -6116,26 +6251,26 @@ const axiosInstance = axios.create();
                     console.error(`[animateOneFrame] Missing translation data for body ${body} frame ${cframe}`);
                     return; // Skip this geometry
                   }
-                  
+
                   // Get base position from animation data
                   const position = new THREE.Vector3(
                     json.bodies[body].translation[cframe][0],
                     json.bodies[body].translation[cframe][1],
                     json.bodies[body].translation[cframe][2]
                   );
-                  
+
                   // Add animation offset
                   position.add(animation.offset);
-                  
+
                   // Set final position
                   this.meshes[meshKey].position.copy(position);
-                  
+
                   // Check if rotation data exists for this frame
                   if (!json.bodies[body].rotation || !json.bodies[body].rotation[cframe]) {
                     console.error(`[animateOneFrame] Missing rotation data for body ${body} frame ${cframe}`);
                     return; // Skip this geometry
                   }
-                  
+
                   // Set rotation
                   var euler = new THREE.Euler(
                     json.bodies[body].rotation[cframe][0],
@@ -6164,23 +6299,23 @@ const axiosInstance = axios.create();
               });
             }
           });
-  
+
           // Render the scene (moved before marker update)
           if (this.renderer && this.scene && this.camera) {
             this.renderer.render(this.scene, this.camera);
           }
-  
+
           // Handle markers separately based on markersPlayable flag
           // Update marker positions if markers are loaded
           if (this.markerSpheres.length > 0 && this.showMarkers) {
             this.updateMarkerPositions();
           }
-          
+
           // Update force arrows
           if (Object.keys(this.forcesDatasets).length > 0 && this.showForces) {
             this.updateForceArrows(cframe);
           }
-          
+
           // Render the scene again after force updates
           if (this.renderer && this.scene && this.camera) {
             this.renderer.render(this.scene, this.camera);
@@ -6191,18 +6326,18 @@ const axiosInstance = axios.create();
               this.renderer.render(this.scene, this.camera);
             }
         }
-        
+
         // Update real-time plot if enabled
         if (this.showPlottingDialog && this.plotUpdatesEnabled) {
           this.updatePlotInRealTime();
         }
       },
-      
-      
+
+
     togglePlay(value) {
         // Determine the new playing state
         const newPlayingState = value !== undefined ? value : !this.playing;
-        
+
         // Log the intended change
         console.log(`[togglePlay] Attempting to set playing state to: ${newPlayingState}`);
 
@@ -6220,8 +6355,8 @@ const axiosInstance = axios.create();
           // Reset timing references when starting playback
           this.lastFrameTime = performance.now();
           // Make sure first frame gets displayed immediately if starting from pause
-          this.animateOneFrame(); 
-        } 
+          this.animateOneFrame();
+        }
         // No specific 'else' action needed here for pause, the animate loop handles it.
 
         // Video sync logic
@@ -6242,7 +6377,7 @@ const axiosInstance = axios.create();
             console.log('Video control error:', error);
           }
         }
-        
+
         // Send play/pause state to parent window if running in an iframe
         if (window.parent && window.parent !== window) {
           try {
@@ -6260,10 +6395,10 @@ const axiosInstance = axios.create();
         } else {
             this.time = parseFloat(frame / this.frameRate).toFixed(2);
         }
-        
+
         // Render the frame without advancing
         this.animateOneFrame();
-        
+
         // Sync video playback position with proper error handling
         if (this.videoFile && this.$refs.videoPreview) {
           try {
@@ -6271,7 +6406,7 @@ const axiosInstance = axios.create();
           const videoElement = this.$refs.videoPreview;
           const originalHandler = videoElement.ontimeupdate;
           videoElement.ontimeupdate = null;
-          
+
           // Set the video time directly from the animation time when available
           if (this.frames[frame] !== undefined) {
             // Use the actual time value from the animation data if available
@@ -6282,7 +6417,7 @@ const axiosInstance = axios.create();
             const videoTimePosition = (frame / totalFrames) * this.videoDuration;
             videoElement.currentTime = videoTimePosition;
           }
-          
+
           // Restore the timeupdate handler after a short delay
           setTimeout(() => {
             videoElement.ontimeupdate = originalHandler;
@@ -6303,18 +6438,18 @@ const axiosInstance = axios.create();
 
         // Update the offset value
         animation.offset[axis] = Number(value);
-        
+
         // Update all meshes for this animation
         Object.keys(this.meshes).forEach(key => {
             if (key.startsWith(`anim${animationIndex}_`)) {
                 const mesh = this.meshes[key];
                 const body = key.split('_')[1].split('.')[0]; // Extract body name from key
-                
+
                 // Get current frame's base position
-                if (animation.data.bodies[body] && 
-                    animation.data.bodies[body].translation && 
+                if (animation.data.bodies[body] &&
+                    animation.data.bodies[body].translation &&
                     animation.data.bodies[body].translation[this.frame]) {
-                    
+
                     const basePosition = new THREE.Vector3(
                         animation.data.bodies[body].translation[this.frame][0],
                         animation.data.bodies[body].translation[this.frame][1],
@@ -6326,7 +6461,7 @@ const axiosInstance = axios.create();
                 }
             }
         });
-        
+
         // Render the scene with updated positions
         if (this.renderer) {
             this.renderer.render(this.scene, this.camera);
@@ -6339,7 +6474,7 @@ const axiosInstance = axios.create();
         if (this.offsetUpdateTimers[timerKey]) {
             clearTimeout(this.offsetUpdateTimers[timerKey]);
         }
-        
+
         // Set a new timer to update after 150ms of no changes
         this.offsetUpdateTimers[timerKey] = setTimeout(() => {
             this.updateOffset(animationIndex, axis, value);
@@ -6349,17 +6484,17 @@ const axiosInstance = axios.create();
 
     startRecording() {
       if (!this.renderer) return;
-      
+
       // Reset to beginning when starting recording
       this.frame = 0;
       this.onNavigate(0);
-      
+
       const canvas = this.renderer.domElement;
       const stream = canvas.captureStream(this.frameRate);
-      
+
       // Set the appropriate MIME type and file extension based on the selected format
       let mimeType, fileExtension;
-      
+
     // Check which codecs are supported
     const supportedMimeTypes = [
       'video/webm;codecs=vp9',
@@ -6368,7 +6503,7 @@ const axiosInstance = axios.create();
       'video/mp4;codecs=h264',
       'video/mp4'
     ];
-    
+
     const checkMimeType = (type) => {
       try {
         return MediaRecorder.isTypeSupported(type);
@@ -6376,7 +6511,7 @@ const axiosInstance = axios.create();
         return false;
       }
     };
-    
+
     // Determine best format based on user selection
       if (this.recordingFormat === 'mp4') {
       // For MP4, try to use H.264 codec (most compatible)
@@ -6403,23 +6538,23 @@ const axiosInstance = axios.create();
       }
         fileExtension = '.webm';
       }
-    
+
     console.log(`Using format: ${mimeType}`);
-      
+
       // Update the file name based on the selected format
     this.recordingFileName = `opencap-recording${fileExtension}`;
-      
+
     // Try to create MediaRecorder with selected format
       try {
         this.mediaRecorder = new MediaRecorder(stream, {
           mimeType: mimeType,
           videoBitsPerSecond: this.videoBitrate
         });
-      
+
       console.log(`MediaRecorder created with: ${mimeType}, bitrate: ${this.videoBitrate}`);
       } catch (error) {
       console.warn(`Failed to create MediaRecorder with ${mimeType}, trying with default settings`, error);
-      
+
       // Last resort - let the browser decide the format
       try {
         this.mediaRecorder = new MediaRecorder(stream);
@@ -6430,7 +6565,7 @@ const axiosInstance = axios.create();
         return;
       }
       }
-      
+
       this.recordedChunks = [];
       // Only reset currentLoop if not in infinite mode
       if (this.loopCount !== Infinity) {
@@ -6438,38 +6573,38 @@ const axiosInstance = axios.create();
       } else {
         this.currentLoop = 0; // Keep it 0 for infinite
       }
-      
+
     // Request data frequently to ensure better quality
       this.mediaRecorder.ondataavailable = (event) => {
       if (event.data && event.data.size > 0) {
           this.recordedChunks.push(event.data);
         }
       };
-      
+
       this.mediaRecorder.onstop = () => {
       console.log(`Recording stopped. ${this.recordedChunks.length} chunks captured.`);
-      
+
       if (this.recordedChunks.length === 0) {
         console.error('No data was recorded');
         alert('Failed to record video. Try using a different format or browser.');
         this.isRecording = false;
         return;
       }
-      
+
       // Explicitly specify the MIME type when creating the blob
       const finalMimeType = this.mediaRecorder.mimeType || (this.recordingFormat === 'mp4' ? 'video/mp4' : 'video/webm');
-      
+
       const options = {
         type: finalMimeType
       };
-      
+
       console.log(`Creating blob with type: ${finalMimeType}`);
       const blob = new Blob(this.recordedChunks, options);
         const url = URL.createObjectURL(blob);
-      
+
       // Check if we're in headless mode
       const isHeadless = this.$route.query.headless === 'true';
-      
+
       if (isHeadless && typeof window.finishedRecording === 'function') {
         // For headless mode, pass the URL to the Node.js process
         console.log('[Headless] Recording finished, notifying Node.js process');
@@ -6482,29 +6617,29 @@ const axiosInstance = axios.create();
         a.href = url;
         a.download = this.recordingFileName;
         a.click();
-        
+
         // Clean up
         setTimeout(() => {
           document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
         }, 100);
       }
-      
+
         this.recordedChunks = [];
         this.currentLoop = 0;
       };
-      
+
     // Start recording with timeslices to ensure data is captured in smaller chunks
     // This helps with memory usage and ensures more consistent recording
     this.mediaRecorder.start(1000); // Capture in 1-second intervals
       this.isRecording = true;
-      
+
       // If not already playing, start playback
       if (!this.playing) {
         this.togglePlay(true);
       }
     },
-    
+
     stopRecording() {
       if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
         this.mediaRecorder.stop(); // This triggers the onstop event handler eventually
@@ -6516,10 +6651,10 @@ const axiosInstance = axios.create();
     },
     calculateFrameRate(timeArray) {
         if (timeArray.length < 2) return 60; // Default to 60 if not enough data
-        
+
         // Calculate total duration
         const totalTime = timeArray[timeArray.length - 1] - timeArray[0];
-        
+
         // For more accurate frame rate calculation, we need to analyze the time step distribution
         // This handles cases where time steps are not uniform
         const timeSteps = [];
@@ -6529,34 +6664,34 @@ const axiosInstance = axios.create();
                 timeSteps.push(step);
             }
         }
-        
+
         // Sort time steps to find the most common ones (mode)
         timeSteps.sort((a, b) => a - b);
-        
+
         // Find the median time step for more stability
         const medianTimeStep = timeSteps[Math.floor(timeSteps.length / 2)];
-        
+
         // Use frames per total duration as a fallback
         const averageFrameRate = (timeArray.length - 1) / totalTime;
-        
+
         // Use the median-based frame rate if it's reasonable, otherwise use the average
         const medianFrameRate = medianTimeStep > 0 ? 1 / medianTimeStep : averageFrameRate;
-        
+
         // Determine the final frame rate - prefer median for stability unless it's very different
-        const finalFrameRate = Math.abs(medianFrameRate - averageFrameRate) < 10 ? 
+        const finalFrameRate = Math.abs(medianFrameRate - averageFrameRate) < 10 ?
             medianFrameRate : averageFrameRate;
-        
+
         // Round and constrain to reasonable values
         const calculatedFps = Math.round(finalFrameRate);
-        
+
         // Log the calculated frame rate for debugging
         console.log(`Frame rate calculation: Median=${medianFrameRate.toFixed(2)}, Average=${averageFrameRate.toFixed(2)}, Final=${calculatedFps}`);
-        
+
         // Ensure we have a reasonable fps value (between 24 and 120)
         // Most mocap systems operate between 30-120 fps
         return Math.min(Math.max(calculatedFps, 24), 120);
     },
-    
+
     handleFileUpload(event) {
         const files = event.target.files;
         if (!files.length) return;
@@ -6593,23 +6728,23 @@ const axiosInstance = axios.create();
             const successfulResults = results
                 .filter(result => result.status === 'fulfilled')
                 .map(result => result.value);
-            
+
             // Log any errors
             const errors = results.filter(result => result.status === 'rejected');
             errors.forEach(error => {
                 console.error('Error loading file:', error.reason);
                 this.$toasted.error(`Error loading file: ${error.reason.file.name}`);
             });
-            
+
             if (successfulResults.length === 0) {
                 this.$toasted.error('No valid files could be loaded');
                 return;
             }
             // Check if any file is a share file
-            const shareFiles = successfulResults.filter(({ data }) => 
+            const shareFiles = successfulResults.filter(({ data }) =>
                 data && data.animations && Array.isArray(data.animations)
             );
-            
+
             if (shareFiles.length > 0) {
                 // Load as shared visualization
                 const shareData = shareFiles[0].data;
@@ -6617,7 +6752,7 @@ const axiosInstance = axios.create();
                 this.$toasted.success('Share file loaded successfully!');
                 return;
             }
-            
+
             successfulResults.forEach(({ data, file }, index) => {
                 const offset = new THREE.Vector3(
                     0,    // X: no offset
@@ -6650,7 +6785,7 @@ const axiosInstance = axios.create();
 
                 // Initialize the alpha value for the new animation
                 this.initializeAlphaValue(startIndex + index);
-                
+
                 // Extract marker data from JSON file for plotting
                 this.extractMarkerDataFromJson(data, startIndex + index, file.name);
             });
@@ -6661,7 +6796,7 @@ const axiosInstance = axios.create();
             // Keep track of loaded geometries
             let geometriesLoaded = 0;
             const totalGeometries = successfulResults.reduce((total, { data }) => {
-                return total + Object.values(data.bodies).reduce((sum, body) => 
+                return total + Object.values(data.bodies).reduce((sum, body) =>
                     sum + body.attachedGeometries.length, 0);
             }, 0);
 
@@ -6669,37 +6804,37 @@ const axiosInstance = axios.create();
                 if (!this.scene) {
                     this.initScene();
                 }
-                
+
                 // Only load geometries for new animations
                 this.animations.slice(startIndex).forEach((animation, relativeIndex) => {
                     const animIndex = startIndex + relativeIndex;
                     for (let body in animation.data.bodies) {
                         let bd = animation.data.bodies[body];
                         bd.attachedGeometries.forEach((geom) => {
-                            let path = 'https://mc-opencap-public.s3.us-west-2.amazonaws.com/geometries/' + 
+                            let path = 'https://mc-opencap-public.s3.us-west-2.amazonaws.com/geometries/' +
                                      geom.substr(0, geom.length - 4) + ".obj";
                             objLoader.load(path, (root) => {
                                 if (!this.scene) return;
-                                
+
                                 root.castShadow = false;
                                 root.receiveShadow = false;
-                                
+
                                 root.traverse((child) => {
                                     if (child instanceof THREE.Mesh) {
                                         child.castShadow = false;
-                                        child.material = new THREE.MeshPhongMaterial({ 
+                                        child.material = new THREE.MeshPhongMaterial({
                                             color: this.colors[animIndex % this.colors.length],
                                             transparent: false, // Default to opaque
                                             opacity: 1.0 // Default to fully opaque
                                         });
                                     }
                                 });
-                                
+
                                 const meshKey = `anim${animIndex}_${body}${geom}`;
                                 this.meshes[meshKey] = root;
                                 this.meshes[meshKey].scale.set(
-                                    bd.scaleFactors[0], 
-                                    bd.scaleFactors[1], 
+                                    bd.scaleFactors[0],
+                                    bd.scaleFactors[1],
                                     bd.scaleFactors[2]
                                 );
                                 root.position.add(animation.offset);
@@ -6726,7 +6861,7 @@ const axiosInstance = axios.create();
                                     this.animateOneFrame();
                                     // Start playing automatically
                                     this.togglePlay(true);
-                                    
+
                                     // Signal that all visuals are loaded for headless operation
                                     window.allVisualsLoaded = true;
                                 }
@@ -6740,8 +6875,8 @@ const axiosInstance = axios.create();
         // Clear the file input value so the same file can be selected again
         event.target.value = '';
     },
-    initScene() {
-        console.log('initScene called');
+    initScene(retryCount = 0) {
+        console.log('initScene called', retryCount > 0 ? `(retry ${retryCount})` : '');
         const container = this.$refs.mocap;
         if (!container) {
           console.error('Container not found in initScene');
@@ -6752,13 +6887,15 @@ const axiosInstance = axios.create();
           console.log('MarkerSpheres:', this.markerSpheres.length);
           console.log('TrialLoading:', this.trialLoading);
           console.log('Converting:', this.converting);
-          
-          // Try again in the next tick if we're in a loading state
-          if (this.trialLoading || this.converting || this.animations.length > 0) {
+
+          // Always retry in the next tick if container is not found (max 10 retries)
+          if (retryCount < 10) {
             console.log('Retrying initScene in next tick...');
             this.$nextTick(() => {
-              this.initScene();
+              this.initScene(retryCount + 1);
             });
+          } else {
+            console.error('Failed to initialize scene after 10 retries');
           }
           return;
         }
@@ -6778,7 +6915,7 @@ const axiosInstance = axios.create();
         const axesSize = 0.25; // Size of the axes lines
         const lineThickness = 3; // Thickness of the lines
         const resolution = new THREE.Vector2(container.clientWidth, container.clientHeight);
-        
+
         // X Axis (Red)
         const pointsX = [0, 0.01, 0, axesSize, 0.01, 0]; // Added small Y offset
         const geometryX = new LineGeometry();
@@ -6791,7 +6928,7 @@ const axiosInstance = axios.create();
         });
         const lineX = new Line2(geometryX, materialX);
         this.axesGroup.add(lineX);
-        
+
         // Y Axis (Green)
         const pointsY = [0, 0.01, 0, 0, axesSize, 0];
         const geometryY = new LineGeometry();
@@ -6804,7 +6941,7 @@ const axiosInstance = axios.create();
         });
         const lineY = new Line2(geometryY, materialY);
         this.axesGroup.add(lineY);
-        
+
         // Z Axis (Blue)
         const pointsZ = [0, 0.01, 0, 0, 0.01, axesSize]; // Added small Y offset
         const geometryZ = new LineGeometry();
@@ -6862,17 +6999,17 @@ const axiosInstance = axios.create();
         this.scene.add(this.axesGroup);
         // Set initial visibility
         this.axesGroup.visible = this.showAxes;
-        
+
         // Set background color from current setting
         console.log(`[initScene] Setting background color to: ${this.backgroundColor}`);
         this.scene.background = new THREE.Color(this.backgroundColor);
-        
+
         // Configure renderer with current background color and better shadows
         this.renderer = new THREE.WebGLRenderer({antialias: true});
         this.renderer.setClearColor(this.backgroundColor);
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-        
+
         this.onResize();
         container.appendChild(this.renderer.domElement);
         this.controls = new THREE_OC.OrbitControls(this.camera, this.renderer.domElement);
@@ -6886,7 +7023,7 @@ const axiosInstance = axios.create();
         texture.magFilter = THREE.NearestFilter;
         const repeats = 100; // More repeats for the larger plane
         texture.repeat.set(repeats, repeats);
-        
+
         // Store the texture reference
         this.groundTexture = texture;
 
@@ -6904,13 +7041,13 @@ const axiosInstance = axios.create();
         groundMesh.position.y = 0;
         groundMesh.receiveShadow = true;
         this.scene.add(groundMesh);
-        
+
         // Store the mesh reference
         this.groundMesh = groundMesh;
-        
+
         // Add fog to create the fading effect at the edges (DISABLED for marker visibility)
         // this.scene.fog = new THREE.FogExp2(this.backgroundColor, 0.025); // Increased density from 0.01 to 0.025
-        
+
         // Add lights with good default settings
         const skyColor = 0xB1E1FF;
         const groundColor = 0xB97A20;
@@ -6982,16 +7119,16 @@ const axiosInstance = axios.create();
                 smallestTimeStep = Math.min(smallestTimeStep, timeStep);
             }
         });
-        
+
         // Also consider marker time data if available
         if (this.markerTimeData && this.markerTimeData.times.length > 0) {
             const markerTimes = this.markerTimeData.times;
             const markerStartTime = markerTimes[0];
             const markerEndTime = markerTimes[markerTimes.length - 1];
-            
+
             latestStart = Math.max(latestStart, markerStartTime);
             earliestEnd = Math.min(earliestEnd, markerEndTime);
-            
+
             // Find smallest time step in marker data
             for (let i = 1; i < markerTimes.length; i++) {
                 const timeStep = markerTimes[i] - markerTimes[i-1];
@@ -7008,7 +7145,7 @@ const axiosInstance = axios.create();
         const frameRate = this.calculateFrameRate([latestStart, earliestEnd]);
         // Use exact step size for consistent timing
         const timeStep = 1 / frameRate;
-        
+
         // Create evenly spaced time points
         let currentTime = latestStart;
         while (currentTime <= earliestEnd) {
@@ -7036,7 +7173,7 @@ const axiosInstance = axios.create();
                 commonTimeArray.forEach(time => {
                     // Find the closest original frame
                     const originalIndex = this.findClosestTimeIndex(animation.data.time, time);
-                    
+
                     newData.bodies[body].translation.push([...animation.data.bodies[body].translation[originalIndex]]);
                     newData.bodies[body].rotation.push([...animation.data.bodies[body].rotation[originalIndex]]);
                 });
@@ -7045,7 +7182,7 @@ const axiosInstance = axios.create();
             // Update the animation data
             this.animations[index].data = newData;
         });
-        
+
         // Sync marker data if available
         if (this.markerTimeData && Object.keys(this.markers).length > 0) {
             this.syncMarkerDataToTimeline(this.markerTimeData.times);
@@ -7055,7 +7192,7 @@ const axiosInstance = axios.create();
         this.frames = commonTimeArray;
         this.frame = 0;
         this.time = parseFloat(this.frames[0]).toFixed(2);
-        
+
         // Update frame rate based on new time steps
         this.frameRate = this.calculateFrameRate(commonTimeArray);
 
@@ -7065,28 +7202,28 @@ const axiosInstance = axios.create();
     findClosestTimeIndex(timeArray, target) {
         let left = 0;
         let right = timeArray.length - 1;
-        
+
         while (left <= right) {
             const mid = Math.floor((left + right) / 2);
-            
+
             if (timeArray[mid] === target) {
                 return mid;
             }
-            
+
             if (mid > 0 && timeArray[mid - 1] <= target && target < timeArray[mid]) {
                 // Return the closest of the two indices
-                return Math.abs(timeArray[mid - 1] - target) < Math.abs(timeArray[mid] - target) 
-                    ? mid - 1 
+                return Math.abs(timeArray[mid - 1] - target) < Math.abs(timeArray[mid] - target)
+                    ? mid - 1
                     : mid;
             }
-            
+
             if (timeArray[mid] < target) {
                 left = mid + 1;
             } else {
                 right = mid - 1;
             }
         }
-        
+
         return left;
     },
     async openEyeDropper(target, index = null) {
@@ -7094,15 +7231,15 @@ const axiosInstance = axios.create();
         alert('Your browser does not support the EyeDropper API.');
         return;
       }
-      
+
       // Close any open dialogs before using eyedropper
       this.closeActiveMenus();
-      
+
       const eyeDropper = new window.EyeDropper();
       try {
         // Ensure drag state doesn't interfere with eyedropper
-        this.isDragging = false; 
-        
+        this.isDragging = false;
+
         const result = await eyeDropper.open();
         const selectedColorHex = result.sRGBHex;
         console.log(`Eyedropper selected: ${selectedColorHex} for target: ${target}, index: ${index}`);
@@ -7128,7 +7265,7 @@ const axiosInstance = axios.create();
           this.updateForceColor(selectedColorHex, index);
         }
         this.saveSettings(); // Save settings after color change
-        
+
         // Force the next tick to ensure Vue updates DOM
         this.$nextTick(() => {
           // Make sure no lingering v-menu or dialogs stay open
@@ -7141,7 +7278,7 @@ const axiosInstance = axios.create();
         this.closeActiveMenus();
       }
     },
-    
+
     // Helper method to ensure all menus are closed
     closeActiveMenus() {
       // Make sure all dialog values are explicitly set to false
@@ -7153,11 +7290,11 @@ const axiosInstance = axios.create();
       this.showLoadObjectDialog = false;
       this.showCustomObjectsManager = false;
       this.showImportDialog = false;
-      
+
       // Force a repaint to ensure menus are fully closed
       this.$forceUpdate();
     },
-    
+
     // Safe methods to open settings dialogs that prevent event propagation
     openRecordingSettings(event) {
       if (event) {
@@ -7171,7 +7308,7 @@ const axiosInstance = axios.create();
         this.showRecordingSettings = true;
       });
     },
-    
+
     openCaptureSettings(event) {
       if (event) {
         event.stopPropagation();
@@ -7184,7 +7321,7 @@ const axiosInstance = axios.create();
         this.showCaptureSettings = true;
       });
     },
-    
+
     openTimelapseSettings(event) {
       if (event) {
         event.stopPropagation();
@@ -7197,16 +7334,16 @@ const axiosInstance = axios.create();
         this.showTimelapseSettings = true;
       });
     },
-    
+
     // Helper function to safely format colors whether they're THREE.Color objects or hex strings
     formatColor(color) {
       if (!color) return '#CCCCCC'; // Default fallback color
-      
+
       // If it's a THREE.Color with getHexString method
       if (color && typeof color.getHexString === 'function') {
         return '#' + color.getHexString();
       }
-      
+
       // If it's already a hex string
       if (typeof color === 'string') {
         if (color.startsWith('#')) {
@@ -7215,7 +7352,7 @@ const axiosInstance = axios.create();
           return '#' + color;
         }
       }
-      
+
       // If it has r,g,b properties (like a THREE.Color but without methods)
       if (color.r !== undefined && color.g !== undefined && color.b !== undefined) {
         const r = Math.round(color.r * 255).toString(16).padStart(2, '0');
@@ -7223,32 +7360,32 @@ const axiosInstance = axios.create();
         const b = Math.round(color.b * 255).toString(16).padStart(2, '0');
         return `#${r}${g}${b}`;
       }
-      
+
       // Final fallback
       return '#CCCCCC';
     },
-    
+
     // Global click handler for debugging UI issues
     handleGlobalClick(event) {
       // Check if clicking on a settings button
-      if (event.target && event.target.closest && 
-          (event.target.closest('.settings-text-btn') || 
+      if (event.target && event.target.closest &&
+          (event.target.closest('.settings-text-btn') ||
            event.target.classList && event.target.classList.contains('settings-text-btn'))) {
         console.log('Settings button clicked:', event.target);
         // Let the specific button handler take over
         return;
       }
-      
+
       // Log when dialogs should be closing due to outside clicks
       const isRecordingDialogOpen = document.querySelector('.recording-settings-dialog');
       const isCaptureDialogOpen = document.querySelector('.capture-settings-dialog');
-      
+
       if (isRecordingDialogOpen || isCaptureDialogOpen) {
         // Don't do anything, let Vuetify handle dialog clicks
         console.log('Click while dialog is open - target:', event.target);
       }
     },
-    
+
     // Initialize display colors for v-color-picker
     initializeDisplayColors() {
       // Convert THREE.Color objects to hex strings for v-color-picker
@@ -7260,14 +7397,14 @@ const axiosInstance = axios.create();
         }
         return '#FFFFFF'; // Default fallback
       });
-      
+
       // Log for debugging
       console.log('Initialized displayColors:', this.displayColors);
-    }, 
+    },
     updateSubjectColor(index, colorValue) {
         // Extract hex value based on the input format
         let colorHex;
-        
+
         if (typeof colorValue === 'string') {
             // Direct hex string passed
             colorHex = colorValue;
@@ -7278,7 +7415,7 @@ const axiosInstance = axios.create();
             // Object with rgba values
             const { r, g, b } = colorValue.rgba;
             // Convert RGB to hex
-            colorHex = '#' + 
+            colorHex = '#' +
                 Math.round(r).toString(16).padStart(2, '0') +
                 Math.round(g).toString(16).padStart(2, '0') +
                 Math.round(b).toString(16).padStart(2, '0');
@@ -7286,7 +7423,7 @@ const axiosInstance = axios.create();
             console.error('Invalid color format received:', colorValue);
             return;
         }
-        
+
         // Ensure colorHex is a valid hex string (e.g., #RRGGBB)
         if (!/^#[0-9A-F]{6}$/i.test(colorHex)) {
             console.error(`Invalid hex color received in updateSubjectColor: ${colorHex}`);
@@ -7298,7 +7435,7 @@ const axiosInstance = axios.create();
 
         // Update all color arrays
         const threejsColor = new THREE.Color(colorHex);
-        
+
         // Convert hex to RGB (0-255) for RGB sliders
         const hex = colorHex.substring(1); // Remove #
         const r = parseInt(hex.substring(0, 2), 16);
@@ -7321,7 +7458,7 @@ const axiosInstance = axios.create();
                 mesh.traverse((child) => {
                     if (child instanceof THREE.Mesh) {
                         // Preserve transparency, only change color
-                        child.material.color.copy(threejsColor); 
+                        child.material.color.copy(threejsColor);
                         child.material.needsUpdate = true;
                     }
                 });
@@ -7342,7 +7479,7 @@ const axiosInstance = axios.create();
     // Helper to ensure all color-related arrays are synchronized
     ensureColorArraysSync() {
         const targetLength = this.animations.length;
-        
+
         // Ensure all arrays have the correct length
         while (this.colors.length < targetLength) {
             this.colors.push(new THREE.Color('#FFFFFF'));
@@ -7375,7 +7512,7 @@ const axiosInstance = axios.create();
     initializeSubjectColors(index, color = null) {
         const defaultColor = color || this.getDefaultColor(index);
         const threejsColor = new THREE.Color(defaultColor);
-        
+
         // Convert THREE.Color to RGB values (0-255)
         const r = Math.round(threejsColor.r * 255);
         const g = Math.round(threejsColor.g * 255);
@@ -7417,12 +7554,12 @@ const axiosInstance = axios.create();
             const context = canvas.getContext('2d');
             canvas.width = 256;
             canvas.height = 64;
-            
+
             context.font = 'bold 40px Arial';
             context.textAlign = 'center';
             context.fillStyle = colorHex;
             context.fillText(this.animations[index].trialName, canvas.width/2, canvas.height/2);
-            
+
             const texture = new THREE.CanvasTexture(canvas);
             // Properly dispose of old texture to prevent memory leaks
             if (sprite.material.map) sprite.material.map.dispose();
@@ -7434,7 +7571,7 @@ const axiosInstance = axios.create();
     updateTextSprite(index) {
         if (this.animations[index] && this.colors[index]) {
             this.updateTextSpriteColor(index, this.formatColor(this.colors[index]));
-            
+
             // Render the scene with updated text
             if (this.renderer) {
                 this.renderer.render(this.scene, this.camera);
@@ -7443,24 +7580,24 @@ const axiosInstance = axios.create();
     },
     async handleDrop(event) {
       event.preventDefault();
-      
+
       const files = Array.from(event.dataTransfer.files);
       console.log('Files dropped:', files.map(f => f.name));
-      
+
       // Reset temporary file state variables to ensure clean state
       this.forcesFile = null;
       this.markersFile = null;
-      
+
       // Separate files by type
       const jsonFiles = files.filter(file => file.name.toLowerCase().endsWith('.json'));
       const trcFiles = files.filter(file => file.name.toLowerCase().endsWith('.trc'));
       const osimFiles = files.filter(file => file.name.toLowerCase().endsWith('.osim'));
       const motFiles = files.filter(file => file.name.toLowerCase().endsWith('.mot'));
       const videoFiles = files.filter(file => file.type === 'video/mp4' || file.type === 'video/webm');
-      
+
       // Categorize .mot files as either motion or force files
       const { motionFiles, forceFiles } = await this.categorizeMotFiles(motFiles);
-      
+
       console.log('Categorized files:', {
         json: jsonFiles.length,
         trc: trcFiles.length,
@@ -7469,14 +7606,14 @@ const axiosInstance = axios.create();
         force: forceFiles.length,
         video: videoFiles.length
       });
-      
+
       // Handle video files
       if (videoFiles.length > 0) {
         this.videoFile = videoFiles[0];
         this.videoUrl = URL.createObjectURL(this.videoFile);
         this.$toasted.success(`Video loaded: ${videoFiles[0].name}`);
       }
-      
+
       // Handle JSON files
       if (jsonFiles.length > 0) {
         const dataTransfer = new DataTransfer();
@@ -7491,16 +7628,16 @@ const axiosInstance = axios.create();
 
         this.handleFileUpload(fakeEvent);
       }
-      
+
       // Handle TRC files as marker files
       if (trcFiles.length > 0) {
         for (const trcFile of trcFiles) {
           // Wait to ensure animations are fully loaded if JSON files were also dropped
           await new Promise(resolve => setTimeout(resolve, 300));
-          
+
           // Load as marker file using the existing marker loading infrastructure
           this.markersFile = trcFile;
-          
+
           // Handle standalone marker files and associated marker files differently
           if (this.animations.length === 0) {
             // Load as standalone markers without creating an animation
@@ -7509,7 +7646,7 @@ const axiosInstance = axios.create();
             // Auto-associate with first animation that doesn't have markers, starting from newest
             let targetAnimationIndex = this.animations.length - 1; // Start with newest animation
             let foundAvailable = false;
-            
+
             // Check from newest to oldest
             for (let i = this.animations.length - 1; i >= 0; i--) {
               if (!this.markersDatasets[i]) {
@@ -7518,24 +7655,24 @@ const axiosInstance = axios.create();
                 break;
               }
             }
-            
+
             // If all animations have markers, use the most recent one and replace
             if (!foundAvailable) {
               targetAnimationIndex = this.animations.length - 1;
               const animationName = this.animations[targetAnimationIndex].trialName || `Animation ${targetAnimationIndex + 1}`;
               this.$toasted.info(`Replacing existing markers for ${animationName}`);
             }
-            
+
             this.selectedAnimationForMarkers = targetAnimationIndex;
           }
-          
+
           // Load the marker file
           await this.loadMarkersFile();
-          
+
           this.$toasted.success(`Marker file loaded: ${trcFile.name}`);
         }
       }
-      
+
       // Handle OpenSim files (.osim + motion .mot)
       if (osimFiles.length > 0 && motionFiles.length > 0) {
         // Process each pair of osim and mot files
@@ -7545,7 +7682,7 @@ const axiosInstance = axios.create();
           this.motFile = motionFiles[i];
           await this.convertAndLoadOpenSimFiles();
         }
-        
+
         // Warn about unpaired files
         if (osimFiles.length > motionFiles.length) {
           this.$toasted.warning(`${osimFiles.length - motionFiles.length} .osim files have no matching .mot files`);
@@ -7560,30 +7697,30 @@ const axiosInstance = axios.create();
         if (motionFiles.length > 0) {
           this.motFile = motionFiles[0];
         }
-        
+
         if (osimFiles.length > 0 && motionFiles.length === 0) {
           this.$toasted.info('OSIM file loaded. Drop a .mot file to complete the pair.');
         } else if (osimFiles.length === 0 && motionFiles.length > 0) {
           this.$toasted.info('Motion file loaded. Drop an .osim file to complete the pair.');
         }
       }
-      
+
       // Handle force files (after animations are loaded)
       if (forceFiles.length > 0) {
         console.log('Processing force files:', forceFiles.map(f => f.name));
         // Wait to ensure animations are fully loaded
         await new Promise(resolve => setTimeout(resolve, 300));
-        
+
         for (const forceFile of forceFiles) {
           await this.processForceFile(forceFile);
         }
       }
-      
+
       // Show completion message
       if (files.length > 0) {
         this.$toasted.success(`Processed ${files.length} files successfully`);
       }
-      
+
       // Initialize scene if needed
       if (!this.scene && (jsonFiles.length > 0 || trcFiles.length > 0 || (osimFiles.length > 0 && motionFiles.length > 0))) {
         this.$nextTick(() => {
@@ -7678,10 +7815,10 @@ const axiosInstance = axios.create();
             this.time = 0;
             this.trial = null;
             this.playing = false;
-            
+
             // Clear all timelapse meshes
             this.clearTimelapse();
-            
+
             // Clean up the scene completely
             if (this.scene) {
                 // Remove all objects from the scene except camera and lights
@@ -7693,29 +7830,29 @@ const axiosInstance = axios.create();
                     }
                     objectsToRemove.push(object);
                 });
-                
+
                 // Remove collected objects
                 objectsToRemove.forEach(object => {
                     if (object.parent) {
                         object.parent.remove(object);
                     }
                 });
-                
+
                 // Dispose of all geometries and materials
                 this.clearAllGeometries();
-                
+
                 // Render empty scene
                 if (this.renderer) {
                     this.renderer.render(this.scene, this.camera);
                 }
-                
+
                 // Remove the WebGL canvas from the DOM to fully clean up
                 if (this.renderer && this.renderer.domElement) {
                     const container = this.$refs.mocap;
                     if (container && container.contains(this.renderer.domElement)) {
                         container.removeChild(this.renderer.domElement);
                     }
-                    
+
                     // Dispose of the renderer itself
                     this.renderer.dispose();
                     this.renderer = null;
@@ -7736,18 +7873,18 @@ const axiosInstance = axios.create();
         // Reindex all mesh keys and text sprites after subject deletion
         const oldMeshes = { ...this.meshes };
         const oldTextSprites = { ...this.textSprites };
-        
+
         // Clear existing meshes and text sprites
         this.meshes = {};
         this.textSprites = {};
-        
+
         // Reindex meshes
         Object.keys(oldMeshes).forEach(key => {
             const match = key.match(/^anim(\d+)_(.+)$/);
             if (match) {
                 const oldIndex = parseInt(match[1]);
                 const meshName = match[2];
-                
+
                 // Find the new index for this mesh
                 let newIndex = -1;
                 for (let i = 0; i < this.animations.length; i++) {
@@ -7756,11 +7893,11 @@ const axiosInstance = axios.create();
                         break;
                     }
                 }
-                
+
                 if (newIndex !== -1) {
                     const newKey = `anim${newIndex}_${meshName}`;
                     this.meshes[newKey] = oldMeshes[key];
-                    
+
                     // Update mesh color to match current animation color
                     const mesh = this.meshes[newKey];
                     if (mesh && this.colors[newIndex]) {
@@ -7774,13 +7911,13 @@ const axiosInstance = axios.create();
                 }
             }
         });
-        
+
         // Reindex text sprites
         Object.keys(oldTextSprites).forEach(key => {
             const match = key.match(/^text_(\d+)$/);
             if (match) {
                 const oldIndex = parseInt(match[1]);
-                
+
                 // Find the new index for this text sprite
                 let newIndex = -1;
                 for (let i = 0; i < this.animations.length; i++) {
@@ -7789,11 +7926,11 @@ const axiosInstance = axios.create();
                         break;
                     }
                 }
-                
+
                 if (newIndex !== -1) {
                     const newKey = `text_${newIndex}`;
                     this.textSprites[newKey] = oldTextSprites[key];
-                    
+
                     // Update text sprite content and color
                     this.updateTextSpriteColor(newIndex, this.formatColor(this.colors[newIndex]));
                 }
@@ -7802,7 +7939,7 @@ const axiosInstance = axios.create();
     },
     loadSampleFiles(sampleSet = 'STS') { // Default to 'STS' if no set is provided
         console.log(`loadSampleFiles called for set: ${sampleSet}`);
-        
+
         // Validate sample set name, default to 'STS' if invalid
         const validSets = ['squat', 'walk', 'STS', 'rmasb', 'default']; // Added rmasb here too
         if (!validSets.includes(sampleSet)) {
@@ -7811,7 +7948,7 @@ const axiosInstance = axios.create();
         }
 
         // Define the URLs for the sample files relative to the root and the specific set
-        const sampleFiles = sampleSet === 'default' 
+        const sampleFiles = sampleSet === 'default'
           ? [
               '/samples/default/sample.json',
               '/samples/default/sample_forces.mot',
@@ -7822,16 +7959,16 @@ const axiosInstance = axios.create();
               `/samples/${sampleSet}/sample_mono.json`,
               `/samples/${sampleSet}/sample_wham.json`
             ];
-        
+
         console.log('Attempting to fetch potential sample files:', sampleFiles);
 
         // Show loading indicator
         this.trialLoading = true;
-        
+
         // Clear existing animations before loading new ones
         this.animations = [];
         this.clearExistingObjects(); // Clear meshes and sprites from previous loads
-        
+
         // Fetch all potential sample files, handling individual failures
         Promise.all(sampleFiles.map(url => {
           const isMotOrTrc = url.endsWith('.mot') || url.endsWith('.trc');
@@ -7840,7 +7977,7 @@ const axiosInstance = axios.create();
                   if (!response.ok) {
                       // Log warning but don't throw error, return null to indicate failure
                       console.warn(`Sample file not found or failed to load: ${url} (${response.status})`);
-                      return null; 
+                      return null;
                   }
                   // If response is OK, parse based on file type
                   if (isMotOrTrc) {
@@ -7883,7 +8020,7 @@ const axiosInstance = axios.create();
                   }
                   return;
                 }
-                
+
                 // Calculate FPS for this specific file
                 const fileFps = this.calculateFrameRate(data.time);
 
@@ -7897,10 +8034,10 @@ const axiosInstance = axios.create();
                     playable: true, // Add playable property, default to true
                     calculatedFps: fileFps // Store calculated FPS
                 });
-                
+
                 // Extract marker data from sample JSON file for plotting
                 this.extractMarkerDataFromJson(data, this.animations.length - 1, fileName);
-                
+
                 // Set up the trial and frames from the *first successfully loaded* animation
                 if (this.animations.length === 1) {
                     this.frames = data.time;
@@ -7910,7 +8047,7 @@ const axiosInstance = axios.create();
                     console.log(`Using timeline and frame rate from: ${fileName}`);
                 }
             });
-            
+
             // Force Vue to update the DOM before proceeding
             this.$nextTick(() => {
                 // Initialize the scene if needed
@@ -7923,10 +8060,10 @@ const axiosInstance = axios.create();
                             container.removeChild(container.firstChild);
                         }
                     }
-                    
+
                     // Initialize the scene
                     this.initScene();
-                    
+
                     // Wait a bit for the scene to be fully initialized
                     setTimeout(() => {
                         this.loadGeometriesForSamples();
@@ -7966,7 +8103,7 @@ const axiosInstance = axios.create();
             }
         });
         this.meshes = {};
-        
+
         // Clear any existing text sprites
         Object.keys(this.textSprites).forEach(key => {
             const sprite = this.textSprites[key];
@@ -7982,65 +8119,65 @@ const axiosInstance = axios.create();
         // Load geometries
         let geometriesLoaded = 0;
         const totalGeometries = this.animations.reduce((total, animation) => {
-            return total + Object.values(animation.data.bodies).reduce((sum, body) => 
+            return total + Object.values(animation.data.bodies).reduce((sum, body) =>
                 sum + body.attachedGeometries.length, 0);
         }, 0);
-        
+
         if (totalGeometries === 0) {
             console.error('No geometries found in sample files');
             this.finishSampleLoading();
                 return;
             }
-            
+
         this.animations.forEach((animation, index) => {
             // Initialize the alpha value for each sample animation
             this.initializeAlphaValue(index);
         });
-        
+
         // Ensure all color arrays are synchronized after initializing alpha values
         this.ensureColorArraysSync();
-        
+
         this.animations.forEach((animation, index) => {
             for (let body in animation.data.bodies) {
                 let bd = animation.data.bodies[body];
                 bd.attachedGeometries.forEach((geom) => {
-                    let path = 'https://mc-opencap-public.s3.us-west-2.amazonaws.com/geometries/' + 
+                    let path = 'https://mc-opencap-public.s3.us-west-2.amazonaws.com/geometries/' +
                              geom.substr(0, geom.length - 4) + ".obj";
                     objLoader.load(path, (root) => {
                         if (!this.scene) return;
-                        
+
                         root.castShadow = true;
                         root.receiveShadow = true;
-                        
+
                         root.traverse((child) => {
                             if (child instanceof THREE.Mesh) {
                                 child.castShadow = true;
-                                child.material = new THREE.MeshPhongMaterial({ 
+                                child.material = new THREE.MeshPhongMaterial({
                                     color: this.colors[index % this.colors.length],
                                     transparent: false, // Default to opaque
                                     opacity: 1.0 // Default to fully opaque
                                 });
                             }
                         });
-                        
+
                         const meshKey = `anim${index}_${body}${geom}`;
                         this.meshes[meshKey] = root;
                         this.meshes[meshKey].scale.set(
-                            bd.scaleFactors[0], 
-                            bd.scaleFactors[1], 
+                            bd.scaleFactors[0],
+                            bd.scaleFactors[1],
                             bd.scaleFactors[2]
                         );
                         root.position.add(animation.offset);
                         this.scene.add(root);
-                        
+
                         // Track loaded geometries
                         geometriesLoaded++;
-                        
+
                         // If all geometries are loaded
                         if (geometriesLoaded === totalGeometries) {
                             this.finishSampleLoading();
                         }
-                    }, 
+                    },
                     undefined,
                     (error) => {
                         console.error('Error loading geometry:', error);
@@ -8058,7 +8195,7 @@ const axiosInstance = axios.create();
         if (this.animations.length > 1) {
             this.syncAllAnimations();
         }
-        
+
         // Initialize timing
         this.frame = 0;
         // Use the actual time from the frames array if available
@@ -8067,14 +8204,14 @@ const axiosInstance = axios.create();
         } else {
             this.time = "0.00";
         }
-        
+
         // Start animation loop and render first frame
         this.animate();
         this.animateOneFrame();
-        
+
         // Hide loading indicator
         this.trialLoading = false;
-        
+
         // Start playing automatically after a short delay to ensure everything is ready
         setTimeout(() => {
             this.togglePlay(true);
@@ -8083,7 +8220,7 @@ const axiosInstance = axios.create();
     updateBackgroundColor(color) {
       console.log(`[updateBackgroundColor] Setting background color to ${color}`);
       this.backgroundColor = color;
-      
+
       if (this.scene) {
         this.scene.background = new THREE.Color(color);
         if (this.renderer) {
@@ -8091,7 +8228,7 @@ const axiosInstance = axios.create();
           this.renderer.render(this.scene, this.camera);
         }
       }
-      
+
       this.saveSettings(); // Explicitly save
     },
     updateGroundColor(color) {
@@ -8112,13 +8249,13 @@ const axiosInstance = axios.create();
                     opacity: this.groundOpacity,
                     transparent: this.groundOpacity < 1.0
                 });
-                
+
                 this.groundMesh.material = newMaterial;
-                
+
                 // Dispose of old material
                 if (oldMaterial) oldMaterial.dispose();
             }
-            
+
             this.renderer.render(this.scene, this.camera);
         }
         this.saveSettings(); // Explicitly save
@@ -8129,17 +8266,17 @@ const axiosInstance = axios.create();
             // Update the material's opacity and transparency
             this.groundMesh.material.opacity = opacity;
             this.groundMesh.material.transparent = opacity < 1.0;
-            
+
             this.renderer.render(this.scene, this.camera);
         }
         this.saveSettings(); // Explicitly save
     },
     toggleGroundTexture() {
         this.useGroundTexture = !this.useGroundTexture;
-        
+
         if (this.groundMesh) {
             const oldMaterial = this.groundMesh.material;
-            
+
             if (this.useGroundTexture) {
                 // Use textured material with either checkerboard or grid
                 const textureToUse = this.useCheckerboard ? this.groundTexture : this.gridTexture;
@@ -8159,20 +8296,20 @@ const axiosInstance = axios.create();
                     transparent: this.groundOpacity < 1.0
                 });
             }
-            
+
             // Dispose of old material
             if (oldMaterial) oldMaterial.dispose();
-            
+
             this.renderer.render(this.scene, this.camera);
         }
         this.saveSettings(); // Explicitly save
     },
     toggleCheckerboard() {
         this.useCheckerboard = !this.useCheckerboard;
-        
+
         if (this.groundMesh && this.useGroundTexture) {
             const oldMaterial = this.groundMesh.material;
-            
+
             // Load the appropriate texture
             if (!this.useCheckerboard && !this.gridTexture) {
                 // Create grid texture if it doesn't exist
@@ -8180,18 +8317,18 @@ const axiosInstance = axios.create();
                 const context = canvas.getContext('2d');
                 canvas.width = 512;
                 canvas.height = 512;
-                
+
                 // Fill with background color
                 context.fillStyle = '#ffffff';
                 context.fillRect(0, 0, canvas.width, canvas.height);
-                
+
                 // Draw grid lines
                 context.strokeStyle = '#000000';
                 context.lineWidth = 1;
-                
-                
+
+
                 const gridSize = 32; // Size of grid cells
-                
+
                 // Draw vertical lines
                 for (let x = 0; x <= canvas.width; x += gridSize) {
                     context.beginPath();
@@ -8199,7 +8336,7 @@ const axiosInstance = axios.create();
                     context.lineTo(x, canvas.height);
                     context.stroke();
                 }
-                
+
                 // Draw horizontal lines
                 for (let y = 0; y <= canvas.height; y += gridSize) {
                     context.beginPath();
@@ -8207,14 +8344,14 @@ const axiosInstance = axios.create();
                     context.lineTo(canvas.width, y);
                     context.stroke();
                 }
-                
+
                 // Create texture from canvas
                 this.gridTexture = new THREE.CanvasTexture(canvas);
                 this.gridTexture.wrapS = THREE.RepeatWrapping;
                 this.gridTexture.wrapT = THREE.RepeatWrapping;
                 this.gridTexture.repeat.set(10, 10); // Adjust repeat to match plane size
             }
-            
+
             // Create new material with the appropriate texture
             const newMaterial = new THREE.MeshPhongMaterial({
                 map: this.useCheckerboard ? this.groundTexture : this.gridTexture,
@@ -8223,12 +8360,12 @@ const axiosInstance = axios.create();
                 opacity: this.groundOpacity,
                 transparent: this.groundOpacity < 1.0
             });
-            
+
             this.groundMesh.material = newMaterial;
-            
+
             // Dispose of old material
             if (oldMaterial) oldMaterial.dispose();
-            
+
             this.renderer.render(this.scene, this.camera);
         }
         this.saveSettings(); // Explicitly save
@@ -8246,7 +8383,7 @@ const axiosInstance = axios.create();
     },
     captureScreenshot() {
         if (!this.renderer) return;
-        
+
         // Store original states
         const originalWidth = this.renderer.domElement.width;
         const originalHeight = this.renderer.domElement.height;
@@ -8254,12 +8391,12 @@ const axiosInstance = axios.create();
         const originalGroundVisibility = this.groundMesh ? this.groundMesh.visible : false;
         const originalClearColor = this.renderer.getClearColor();
         const originalClearAlpha = this.renderer.getClearAlpha();
-        
+
         // Set to high resolution for screenshot (4x)
         const scale = 4;
         const width = originalWidth * scale;
         const height = originalHeight * scale;
-        
+
         // Helper to create an offscreen renderer
         const createOffscreenRenderer = (transparent = false) => {
             const renderer = new THREE.WebGLRenderer({
@@ -8271,34 +8408,34 @@ const axiosInstance = axios.create();
             renderer.setClearColor(transparent ? 0x000000 : originalClearColor, transparent ? 0 : originalClearAlpha);
             return renderer;
         };
-        
+
         // Determine which captures to create based on user selection
         let captures = [];
         if (this.captureMode === 'both' || this.captureMode === 'normal') {
-            captures.push({ 
-                name: 'mocap-capture.png', 
+            captures.push({
+                name: 'mocap-capture.png',
                 background: originalBackground,
                 showGround: originalGroundVisibility,
                 transparent: false
             });
         }
         if (this.captureMode === 'both' || this.captureMode === 'transparent') {
-            captures.push({ 
-                name: 'mocap-capture-transparent.png', 
+            captures.push({
+                name: 'mocap-capture-transparent.png',
                 background: null,
                 showGround: false,
                 transparent: true
             });
         }
-        
+
         // Save camera state
         const originalAspect = this.camera.aspect;
         const originalProjectionMatrix = this.camera.projectionMatrix.clone();
-        
+
         // Force camera aspect ratio update for screenshot
         this.camera.aspect = width / height;
         this.camera.updateProjectionMatrix();
-        
+
         // Create download links for the selected version(s)
         captures.forEach(capture => {
             // Set background (null for transparent)
@@ -8324,7 +8461,7 @@ const axiosInstance = axios.create();
             }
             offscreenRenderer.dispose();
         });
-        
+
         // Restore original settings
         this.scene.background = originalBackground;
         if (this.groundMesh) {
@@ -8334,7 +8471,7 @@ const axiosInstance = axios.create();
         this.camera.projectionMatrix.copy(originalProjectionMatrix);
         this.renderer.setClearColor(originalClearColor, originalClearAlpha);
         this.renderer.render(this.scene, this.camera);
-        
+
         // Show a success message with appropriate text based on capture mode
         this.$nextTick(() => {
             let message = '';
@@ -8395,7 +8532,7 @@ const axiosInstance = axios.create();
     prepareTransparencyMenu(index) {
         // Get the current opacity from the first mesh we find for this animation
         let currentOpacity = null;
-        
+
         Object.keys(this.meshes).forEach(key => {
             if (key.startsWith(`anim${index}_`) && currentOpacity === null) {
                 const mesh = this.meshes[key];
@@ -8406,7 +8543,7 @@ const axiosInstance = axios.create();
                 });
             }
         });
-        
+
         // If we found an opacity value, update the alphaValues array
         if (currentOpacity !== null) {
             this.$set(this.alphaValues, index, currentOpacity);
@@ -8445,24 +8582,24 @@ const axiosInstance = axios.create();
             alert('Please select both .osim and .mot files');
             return;
         }
-        
+
         this.converting = true;
         this.conversionError = null; // Reset any previous error
-        
+
         try {
             console.log('Converting files using API:', this.apiUrl);
-            
+
             // Create a FormData object to send the files
             const formData = new FormData();
             formData.append('osim_file', this.osimFile);
             formData.append('mot_file', this.motFile);
-            
+
             // Call the API to convert the files
             const response = await fetch(this.apiUrl, {
                 method: 'POST',
                 body: formData,
             });
-            
+
             // Check if response is not ok before trying to parse JSON
             if (!response.ok) {
                 let errorText = '';
@@ -8474,7 +8611,7 @@ const axiosInstance = axios.create();
                     // If can't parse JSON, use status text
                     errorText = await response.text() || `${response.status} ${response.statusText}`;
                 }
-                
+
                 this.conversionError = errorText;
                 apiError(errorText);
                 // Clear the files on error
@@ -8482,10 +8619,10 @@ const axiosInstance = axios.create();
                 this.motFile = null;
                 throw new Error(errorText);
             }
-            
+
             // Parse the JSON response (only if response was ok)
             const data = await response.json();
-            
+
             // Check if the API returned an error in a successful response
             if (data.error) {
                 this.conversionError = data.error;
@@ -8495,32 +8632,32 @@ const axiosInstance = axios.create();
                 this.motFile = null;
                 throw new Error(data.error);
             }
-            
+
             // Create a "virtual" File object with the JSON data
             const jsonBlob = new Blob([JSON.stringify(data)], { type: 'application/json' });
             const jsonFile = new File([jsonBlob], `${this.osimFile.name.replace('.osim', '')}.json`, { type: 'application/json' });
-            
+
             // Use our existing file handler with a fake event
             const dataTransfer = new DataTransfer();
             dataTransfer.items.add(jsonFile);
-            
+
             const fakeEvent = {
                 target: {
                     files: dataTransfer.files,
                     value: ''
                 }
             };
-            
+
             // Process the converted JSON
             this.handleFileUpload(fakeEvent);
-            
+
             // Clear the selected files after successful conversion
             this.osimFile = null;
             this.motFile = null;
-            
+
             // Give time for scene initialization before clearing converting flag
             await new Promise(resolve => setTimeout(resolve, 100));
-            
+
         } catch (error) {
             console.error('Error converting OpenSim files:', error);
             // Only show alert if apiError wasn't already called
@@ -8537,14 +8674,14 @@ const axiosInstance = axios.create();
     },
     handleOpenSimFiles(event) {
         const files = Array.from(event.target.files);
-        
+
         // Filter for osim and mot files
         const osimFiles = files.filter(file => file.name.toLowerCase().endsWith('.osim'));
         const motFiles = files.filter(file => file.name.toLowerCase().endsWith('.mot'));
-        
+
         // Only update the files that the user is explicitly selecting now
         // Don't clear existing selections unless we're replacing them
-        
+
         // Handle .osim files
         if (osimFiles.length === 1) {
             this.osimFile = osimFiles[0];
@@ -8552,7 +8689,7 @@ const axiosInstance = axios.create();
             alert('Please select only one .osim file at a time');
             // Don't change existing selection if multiple files were selected
         }
-        
+
         // Handle .mot files
         if (motFiles.length === 1) {
             this.motFile = motFiles[0];
@@ -8560,7 +8697,7 @@ const axiosInstance = axios.create();
             alert('Please select only one .mot file at a time');
             // Don't change existing selection if multiple files were selected
         }
-        
+
         // If we now have a complete pair, process them
         if (this.osimFile && this.motFile) {
             this.convertAndLoadOpenSimFiles();
@@ -8572,14 +8709,14 @@ const axiosInstance = axios.create();
                 alert('Please also select an .osim file');
             }
         }
-        
+
         // Clear input value so same files can be selected again
         event.target.value = '';
     },
     toggleSubjectVisibility(index) {
         // Toggle the visibility state
         this.animations[index].visible = !this.animations[index].visible;
-        
+
         // Update all meshes for this animation
         Object.keys(this.meshes).forEach(key => {
             if (key.startsWith(`anim${index}_`)) {
@@ -8587,13 +8724,13 @@ const axiosInstance = axios.create();
                 mesh.visible = this.animations[index].visible;
             }
         });
-        
+
         // Update text sprite visibility
         const sprite = this.textSprites[`text_${index}`];
         if (sprite) {
             sprite.visible = this.animations[index].visible;
         }
-        
+
         // Render the scene with updated visibility
         if (this.renderer) {
             this.renderer.render(this.scene, this.camera);
@@ -8637,7 +8774,7 @@ const axiosInstance = axios.create();
         this.timelapseMeshes = {};
         this.timelapseGroups = {};
         this.timelapseFrameCount = 0;
-        
+
         // Re-render the scene
         if (this.renderer) {
           this.renderer.render(this.scene, this.camera);
@@ -8651,20 +8788,20 @@ const axiosInstance = axios.create();
         }
         const meshId = this.timelapseCounter++;
         const meshKey = `timelapse_${meshId}`;
-        
+
         // Clone the original mesh
         const originalMesh = this.meshes[`anim${animationIndex}_${body}${geom}`];
         if (!originalMesh) return;
 
         const clone = originalMesh.clone();
-        
+
         // Set position and rotation
         clone.position.copy(position);
         clone.quaternion.copy(rotation);
-        
+
         // Apply scale
         clone.scale.copy(scale);
-        
+
         // Make material more transparent for timelapse
         clone.traverse((child) => {
           if (child instanceof THREE.Mesh) {
@@ -8674,10 +8811,10 @@ const axiosInstance = axios.create();
             child.material = material;
           }
         });
-        
+
         // Add to scene and store reference
         this.scene.add(clone);
-        
+
         // Store metadata with the mesh
         this.timelapseMeshes[meshKey] = {
           mesh: clone,
@@ -8697,7 +8834,7 @@ const axiosInstance = axios.create();
           // Sort frames in ascending order
           this.timelapseGroups[animationIndex].sort((a, b) => a - b);
         }
-        
+
         this.timelapseFrameCount++;
       },
 
@@ -8713,7 +8850,7 @@ const axiosInstance = axios.create();
             });
           }
         });
-        
+
         // Re-render the scene
         if (this.renderer) {
           this.renderer.render(this.scene, this.camera);
@@ -8724,24 +8861,24 @@ const axiosInstance = axios.create();
         // Count meshes before deletion
         const beforeCount = Object.keys(this.timelapseMeshes).length;
         const toDelete = [];
-        
+
         // First collect all keys to delete (without modifying during iteration)
         Object.entries(this.timelapseMeshes).forEach(([key, value]) => {
           if (value.animIndex === animIndex) {
             toDelete.push(key);
           }
         });
-        
+
         // Now delete and remove meshes
         toDelete.forEach(key => {
           const data = this.timelapseMeshes[key];
-          
+
           if (data && data.mesh) {
             // First check if the mesh is actually in the scene
             if (this.scene && this.scene.children && this.scene.children.includes(data.mesh)) {
               this.scene.remove(data.mesh);
             }
-            
+
             // Dispose resources
             data.mesh.traverse((child) => {
               if (child instanceof THREE.Mesh) {
@@ -8756,7 +8893,7 @@ const axiosInstance = axios.create();
               }
             });
           }
-          
+
           // Remove from timelapseMeshes
           delete this.timelapseMeshes[key];
         });
@@ -8765,7 +8902,7 @@ const axiosInstance = axios.create();
         if (this.timelapseGroups && this.timelapseGroups[animIndex] !== undefined) {
           this.$delete(this.timelapseGroups, animIndex);
         }
-        
+
         // Force re-render
         if (this.renderer) {
           this.renderer.render(this.scene, this.camera);
@@ -8776,7 +8913,7 @@ const axiosInstance = axios.create();
         // Count meshes before deletion
         const beforeCount = Object.keys(this.timelapseMeshes).length;
         const toDelete = [];
-        
+
         // First collect all keys to delete
         Object.entries(this.timelapseMeshes).forEach(([key, value]) => {
           // Convert to numbers for comparison
@@ -8784,22 +8921,22 @@ const axiosInstance = axios.create();
           const targetFrame = Number(frame);
           const dataAnimIndex = Number(value.animIndex);
           const targetAnimIndex = Number(animIndex);
-          
+
           if (dataAnimIndex === targetAnimIndex && dataFrame === targetFrame) {
             toDelete.push(key);
           }
         });
-        
+
         // Now delete and remove meshes
         toDelete.forEach(key => {
           const data = this.timelapseMeshes[key];
-          
+
           if (data && data.mesh) {
             // Check if mesh is in scene
             if (this.scene.children.includes(data.mesh)) {
               this.scene.remove(data.mesh);
             }
-            
+
             // Dispose resources
             data.mesh.traverse((child) => {
               if (child instanceof THREE.Mesh) {
@@ -8814,7 +8951,7 @@ const axiosInstance = axios.create();
               }
             });
           }
-          
+
           // Remove from timelapseMeshes
           delete this.timelapseMeshes[key];
         });
@@ -8843,10 +8980,10 @@ const axiosInstance = axios.create();
           const targetFrame = Number(frame);
           const dataAnimIndex = Number(m.animIndex);
           const targetAnimIndex = Number(animIndex);
-          
+
           return dataAnimIndex === targetAnimIndex && dataFrame === targetFrame;
         });
-        
+
         return mesh ? mesh.id : 'N/A';
       },
       getMeshKeysForAnimation(index) {
@@ -8856,20 +8993,20 @@ const axiosInstance = axios.create();
         // Format of key is anim{index}_{body}{geom}
         const parts = meshKey.split('_');
         if (parts.length < 2) return meshKey;
-        
+
         // Get the part after the first underscore (body+geom)
         const bodyAndGeom = parts[1];
-        
+
         // Extract the geom part which is the filename
         // Typically these are named like 'lunate_lvs.vtp' or 'triquetrum_rvs.vtp'
         // We want to display just the bone name like 'lunate' or 'triquetrum'
-        
+
         // First look for _lvs or _rvs pattern to extract the bone name
         if (bodyAndGeom.includes('_lvs') || bodyAndGeom.includes('_rvs')) {
           const boneName = bodyAndGeom.split('_')[0];
-          return boneName; 
+          return boneName;
         }
-        
+
         // Fallback to the original bodyAndGeom
         return bodyAndGeom;
       },
@@ -8883,33 +9020,33 @@ const axiosInstance = axios.create();
       getGroupedMeshes(index) {
         // Get all mesh keys for this animation
         const meshKeys = this.getMeshKeysForAnimation(index);
-        
+
         // Group object to organize meshes
         const groups = {
           'Hands': [],
           'Arms': [],
           'Other': []
         };
-        
+
         // Categorize each mesh
         meshKeys.forEach(key => {
           const name = this.getMeshName(key);
-          
+
           // Check if it's a hand-related mesh
-          if (name.includes('hand') || 
-              name.includes('lunate') || 
-              name.includes('pisiform') || 
-              name.includes('triquetrum') || 
-              name.includes('thumb') || 
-              name.includes('index') || 
-              name.includes('middle') || 
-              name.includes('ring') || 
+          if (name.includes('hand') ||
+              name.includes('lunate') ||
+              name.includes('pisiform') ||
+              name.includes('triquetrum') ||
+              name.includes('thumb') ||
+              name.includes('index') ||
+              name.includes('middle') ||
+              name.includes('ring') ||
               name.includes('little')) {
             groups['Hands'].push({key, name});
           }
           // Check if it's an arm-related mesh
-          else if (name.includes('humerus') || 
-                  name.includes('ulna') || 
+          else if (name.includes('humerus') ||
+                  name.includes('ulna') ||
                   name.includes('radius')) {
             groups['Arms'].push({key, name});
           }
@@ -8918,35 +9055,35 @@ const axiosInstance = axios.create();
             groups['Other'].push({key, name});
           }
         });
-        
+
         // Remove empty groups
         Object.keys(groups).forEach(key => {
           if (groups[key].length === 0) {
             delete groups[key];
           }
         });
-        
+
         return groups;
       },
       toggleGroupVisibility(animIndex, groupName, items) {
         // Check the current visibility state of meshes in this group
         // If all are visible, hide all. If some or all are hidden, show all.
-        
+
         // Check if at least one mesh is visible
-        const hasVisibleMesh = items.some(item => 
+        const hasVisibleMesh = items.some(item =>
           this.meshes[item.key] && this.meshes[item.key].visible !== false
         );
-        
+
         // Set all to the opposite state
         const newVisibility = !hasVisibleMesh;
-        
+
         // Update all meshes in this group
         items.forEach(item => {
           if (this.meshes[item.key]) {
             this.meshes[item.key].visible = newVisibility;
           }
         });
-        
+
         // Re-render the scene
         if (this.renderer) {
           this.renderer.render(this.scene, this.camera);
@@ -8954,14 +9091,14 @@ const axiosInstance = axios.create();
       },
       isGroupVisible(items) {
         // Check if any mesh in this group is visible
-        return items.some(item => 
+        return items.some(item =>
           this.meshes[item.key] && this.meshes[item.key].visible !== false
         );
       },
       clearAllGeometries() {
         // Dispose of all geometries and materials for clean memory usage
         THREE.Cache.clear();
-        
+
         // Helper function to dispose material
         const disposeMaterial = (material) => {
             if (material.map) material.map.dispose();
@@ -8972,22 +9109,22 @@ const axiosInstance = axios.create();
             if (material.envMap) material.envMap.dispose();
             material.dispose();
         };
-        
+
         // Save references to marker meshes before clearing
         const markerKeys = Object.keys(this.markerMeshes);
-        
+
         // Process all scene objects and dispose geometries and materials
         this.scene.traverse(object => {
             // Skip marker meshes - we want to keep them
             if (markerKeys.length > 0 && Object.values(this.markerMeshes).includes(object)) {
                 return;
             }
-            
+
             if (object instanceof THREE.Mesh) {
                 if (object.geometry) {
                     object.geometry.dispose();
                 }
-                
+
                 if (object.material) {
                     if (Array.isArray(object.material)) {
                         object.material.forEach(material => disposeMaterial(material));
@@ -9002,7 +9139,7 @@ const axiosInstance = axios.create();
                 if (object.material) object.material.dispose();
             }
         });
-        
+
         // Reset meshes and text sprites but keep marker meshes
         this.meshes = {};
         this.textSprites = {};
@@ -9039,28 +9176,28 @@ const axiosInstance = axios.create();
         if (this.videoUrl) {
           URL.revokeObjectURL(this.videoUrl);
         }
-        
+
         this.videoFile = file;
         this.videoUrl = URL.createObjectURL(file);
         this.videoMinimized = false; // Ensure video starts in full size
-        
+
         console.log('Video file loaded:', file.name);
-        
+
         // Reset the input to allow reselecting the same file
         event.target.value = '';
-        
+
         // Force a redraw
         this.$nextTick(() => {
           console.log('Video container should be visible now');
         });
       }
     },
-    
+
     handleVideoMetadata() {
       if (this.$refs.videoPreview) {
         this.videoDuration = this.$refs.videoPreview.duration;
         console.log('Video duration:', this.videoDuration);
-      
+
       // Estimate video frame rate - most common values are 30 or 60 fps
       // If the animation fps is much different than video, it could cause sync issues
       if (this.videoFile && this.videoFile.name) {
@@ -9074,13 +9211,13 @@ const axiosInstance = axios.create();
           this.videoFrameRate = 30;
           console.log(`Using default video frame rate: ${this.videoFrameRate}fps`);
         }
-        
+
         // If animation frame rate is drastically different, log a warning
         if (Math.abs(this.frameRate - this.videoFrameRate) > 10) {
           console.warn(`Animation frame rate (${this.frameRate}fps) differs significantly from video (${this.videoFrameRate}fps). This may cause sync issues.`);
         }
       }
-        
+
         // Set initial video position based on current frame
         if (this.frames.length > 0) {
           const totalFrames = this.frames.length - 1;
@@ -9089,38 +9226,38 @@ const axiosInstance = axios.create();
         }
       }
     },
-  
+
   handleVideoTimeUpdate() {
     // Only sync if playing and not during a scrubbing operation
     if (this.playing && this.$refs.videoPreview && this.frames.length > 0) {
       // Get current video time
       const videoTime = this.$refs.videoPreview.currentTime;
-      
+
       // Calculate what frame we should be on based on video time
       const frameProgress = videoTime / this.videoDuration;
       const totalFrames = this.frames.length - 1;
       const targetFrame = Math.round(frameProgress * totalFrames);
-      
+
       // If we're more than 1 frame off, sync the animation
       if (Math.abs(targetFrame - this.frame) > 1) {
         console.log(`Video sync: Adjusting animation from frame ${this.frame} to ${targetFrame}`);
         // Update frame without calling onNavigate to avoid recursive sync
         this.frame = targetFrame;
-        
+
         // Update displayed time
         if (this.frames[targetFrame] !== undefined) {
           this.time = parseFloat(this.frames[targetFrame]).toFixed(2);
         }
-        
+
         // Render the updated frame
         this.animateOneFrame();
       }
     }
   },
-    
+
     toggleVideoPreview() {
       this.videoMinimized = !this.videoMinimized;
-      
+
       // Adjust width based on minimized state
       if (this.videoMinimized) {
         this.videoSize.width = 200;
@@ -9128,7 +9265,7 @@ const axiosInstance = axios.create();
         this.videoSize.width = 300;
       }
     },
-    
+
     closeVideo() {
       if (this.videoUrl) {
         URL.revokeObjectURL(this.videoUrl);
@@ -9137,12 +9274,12 @@ const axiosInstance = axios.create();
       this.videoUrl = null;
       this.videoDuration = 0;
       console.log('Video closed');
-    
+
       // Reset position and size for next time
       this.videoPosition = { x: 20, y: 20 };
       this.videoSize = { width: 300, height: 'auto' };
     },
-    
+
     handleVideoError(event) {
       console.error('Video error:', event);
       const video = event.target;
@@ -9154,20 +9291,20 @@ const axiosInstance = axios.create();
         currentSrc: video.currentSrc
       });
     },
-    
+
     startDrag(event) {
       // Handle both mouse and touch events
       const clientX = event.clientX || (event.touches && event.touches[0].clientX);
       const clientY = event.clientY || (event.touches && event.touches[0].clientY);
-      
+
       if (!clientX || !clientY) return;
-      
+
       this.isDragging = true;
       this.dragOffset = {
         x: clientX - this.videoPosition.x,
         y: clientY - this.videoPosition.y
       };
-      
+
       // Add move and end event listeners
       if (event.type === 'mousedown') {
         window.addEventListener('mousemove', this.doDrag);
@@ -9176,31 +9313,31 @@ const axiosInstance = axios.create();
         window.addEventListener('touchmove', this.doDrag);
         window.addEventListener('touchend', this.stopDrag);
       }
-      
+
       // Prevent default to avoid text selection
       event.preventDefault();
     },
-    
+
     doDrag(event) {
       if (!this.isDragging) return;
-      
+
       const clientX = event.clientX || (event.touches && event.touches[0].clientX);
       const clientY = event.clientY || (event.touches && event.touches[0].clientY);
-      
+
       if (!clientX || !clientY) return;
-      
+
       // Calculate new position
       this.videoPosition = {
         x: clientX - this.dragOffset.x,
         y: clientY - this.dragOffset.y
       };
-      
+
       // Ensure the video stays within the viewport
       const viewport = {
         width: window.innerWidth,
         height: window.innerHeight
       };
-      
+
       // Prevent dragging too far off-screen
       if (this.videoPosition.x < -this.videoSize.width + 100) {
         this.videoPosition.x = -this.videoSize.width + 100;
@@ -9214,31 +9351,31 @@ const axiosInstance = axios.create();
       if (this.videoPosition.y > viewport.height - 50) {
         this.videoPosition.y = viewport.height - 50;
       }
-      
+
       event.preventDefault();
     },
-    
+
     stopDrag() {
       this.isDragging = false;
-      
+
       // Remove event listeners
       window.removeEventListener('mousemove', this.doDrag);
       window.removeEventListener('mouseup', this.stopDrag);
       window.removeEventListener('touchmove', this.doDrag);
       window.removeEventListener('touchend', this.stopDrag);
     },
-    
+
     startResize(event) {
       // Handle both mouse and touch events
       const clientX = event.clientX || (event.touches && event.touches[0].clientX);
       const clientY = event.clientY || (event.touches && event.touches[0].clientY);
-      
+
       if (!clientX || !clientY) return;
-      
+
       this.isResizing = true;
       this.resizeStartPosition = { x: clientX, y: clientY };
       this.resizeStartSize = { ...this.videoSize };
-      
+
       // Add move and end event listeners
       if (event.type === 'mousedown') {
         window.addEventListener('mousemove', this.doResize);
@@ -9247,33 +9384,33 @@ const axiosInstance = axios.create();
         window.addEventListener('touchmove', this.doResize);
         window.addEventListener('touchend', this.stopResize);
       }
-      
+
       // Prevent default to avoid text selection
       event.preventDefault();
     },
-    
+
     doResize(event) {
       if (!this.isResizing) return;
-      
+
       const clientX = event.clientX || (event.touches && event.touches[0].clientX);
       const clientY = event.clientY || (event.touches && event.touches[0].clientY);
-      
+
       if (!clientX || !clientY) return;
-      
+
       // Calculate width change
       const widthChange = clientX - this.resizeStartPosition.x;
       const heightChange = clientY - this.resizeStartPosition.y;
-      
+
       // Update width with minimum size constraints
       const newWidth = Math.max(200, this.resizeStartSize.width + widthChange);
       this.videoSize.width = newWidth;
-      
+
       event.preventDefault();
     },
-    
+
     stopResize() {
       this.isResizing = false;
-      
+
       // Remove event listeners
       window.removeEventListener('mousemove', this.doResize);
       window.removeEventListener('mouseup', this.stopResize);
@@ -9315,7 +9452,7 @@ const axiosInstance = axios.create();
     },
     async openGroundEyedropper() {
       if (!this.showGround) return;
-      
+
       if (!window.EyeDropper) {
         alert("Your browser doesn't support the Eyedropper API.");
         return;
@@ -9378,7 +9515,7 @@ const axiosInstance = axios.create();
       // Check if data is a number (video time)
       else if (typeof event.data === 'number' && isFinite(event.data)) {
         const receivedTime = event.data;
-        
+
         // Check if animation is loaded
         if (!this.trial || this.frames.length === 0) {
           return; // Cannot sync if no animation is loaded
@@ -9409,7 +9546,7 @@ const axiosInstance = axios.create();
       if (!this.frames || this.frames.length === 0) {
             return;
         }
-        
+
       switch (event.code) {
         case 'Space': {
           // Toggle play/pause
@@ -9459,7 +9596,7 @@ const axiosInstance = axios.create();
         try {
           const settings = JSON.parse(savedSettings);
           console.log('Loading settings from localStorage:', settings);
-          
+
           // Apply settings to data properties
           if (settings.backgroundColor) this.backgroundColor = settings.backgroundColor;
           if (settings.groundColor) this.groundColor = settings.groundColor;
@@ -9545,14 +9682,14 @@ const axiosInstance = axios.create();
       if (this.groundMesh) {
           this.groundMesh.visible = this.showGround;
           this.updateGroundColor(this.groundColor); // Update color first
-          
+
           // Apply texture settings
           const oldMaterial = this.groundMesh.material;
           if (this.useGroundTexture) {
               const textureToUse = this.useCheckerboard ? this.groundTexture : this.gridTexture;
               if (!textureToUse && !this.useCheckerboard) {
                 // Ensure grid texture is loaded if needed
-                this.loadGridTexture(); 
+                this.loadGridTexture();
               }
               this.groundMesh.material = new THREE.MeshPhongMaterial({
                   map: this.useCheckerboard ? this.groundTexture : this.gridTexture,
@@ -9595,17 +9732,17 @@ const axiosInstance = axios.create();
         const context = canvas.getContext('2d');
         canvas.width = 512;
         canvas.height = 512;
-        
+
         // Fill with background color (slightly off-white for better visibility)
-        context.fillStyle = '#f0f0f0'; 
+        context.fillStyle = '#f0f0f0';
         context.fillRect(0, 0, canvas.width, canvas.height);
-        
+
         // Draw grid lines
         context.strokeStyle = '#888888'; // Darker grey lines
         context.lineWidth = 1;
-        
+
         const gridSize = 32; // Size of grid cells
-        
+
         // Draw vertical lines
         for (let x = 0; x <= canvas.width; x += gridSize) {
             context.beginPath();
@@ -9613,7 +9750,7 @@ const axiosInstance = axios.create();
             context.lineTo(x + 0.5, canvas.height);
             context.stroke();
         }
-        
+
         // Draw horizontal lines
         for (let y = 0; y <= canvas.height; y += gridSize) {
             context.beginPath();
@@ -9621,7 +9758,7 @@ const axiosInstance = axios.create();
             context.lineTo(canvas.width, y + 0.5);
             context.stroke();
         }
-        
+
         // Create texture from canvas
         this.gridTexture = new THREE.CanvasTexture(canvas);
         this.gridTexture.wrapS = THREE.RepeatWrapping;
@@ -9633,18 +9770,18 @@ const axiosInstance = axios.create();
         // Create a "virtual" File object with the JSON data
         const jsonBlob = new Blob([JSON.stringify(jsonData)], { type: 'application/json' });
         const jsonFile = new File([jsonBlob], 'data.json', { type: 'application/json' });
-        
+
         // Use our existing file handler with a fake event
         const dataTransfer = new DataTransfer();
         dataTransfer.items.add(jsonFile);
-        
+
         const fakeEvent = {
             target: {
                 files: dataTransfer.files,
                 value: ''
             }
         };
-        
+
         // Process the JSON using our existing handler
         this.handleFileUpload(fakeEvent);
     },
@@ -9659,7 +9796,7 @@ const axiosInstance = axios.create();
       if (this.animations.length > 0) {
         const firstAnim = this.animations[0];
         // Try common names for central body parts
-        const centralBodyNames = ['pelvis', 'torso', 'midHip', 'hip']; 
+        const centralBodyNames = ['pelvis', 'torso', 'midHip', 'hip'];
         let centralBodyKey = null;
 
         for (const name of centralBodyNames) {
@@ -9700,20 +9837,20 @@ const axiosInstance = axios.create();
             }
         }
       }
-      
+
       // Priority 2: Use markers if no animations exist
       if (!foundSubject && this.markerSpheres.length > 0) {
         // Find center of all marker positions at current frame
         const center = new THREE.Vector3();
         let count = 0;
-        
+
         this.markerSpheres.forEach(sphere => {
           if (sphere.visible && sphere.position) {
             center.add(sphere.position);
             count++;
           }
         });
-        
+
         if (count > 0) {
           targetPosition = center.divideScalar(count);
           foundSubject = true;
@@ -9732,7 +9869,7 @@ const axiosInstance = axios.create();
           targetPosition.set(0, 1, 0);
           offset.set(3.33, 2.5, -2.30); // Corresponds to initial position relative to target (0,1,0)
       }
-      
+
       // Keep a minimum distance to avoid being inside the model
       const minDistance = 1.0;
       if (offset.length() < minDistance) {
@@ -9759,28 +9896,28 @@ const axiosInstance = axios.create();
         alert('Please select an OBJ file');
             return;
         }
-        
+
       // Create a URL for the uploaded file
       const fileURL = URL.createObjectURL(this.objFile);
-      
+
       // Load the OBJ file using the existing objLoader
       objLoader.load(fileURL, (root) => {
         if (!this.scene) {
           URL.revokeObjectURL(fileURL);
           return;
         }
-        
+
         // Set up the object properties
         root.position.set(
           parseFloat(this.objPosition.x),
           parseFloat(this.objPosition.y),
           parseFloat(this.objPosition.z)
         );
-        
+
         // Set scale
         const scale = parseFloat(this.objScale);
         root.scale.set(scale, scale, scale);
-        
+
         // Apply material to all meshes in the object
         root.traverse((child) => {
           if (child instanceof THREE.Mesh) {
@@ -9791,19 +9928,19 @@ const axiosInstance = axios.create();
               transparent: false,
               opacity: 1.0
             });
-            
+
             // Enable shadows
             child.castShadow = true;
             child.receiveShadow = true;
           }
         });
-        
+
         // Generate a unique key for this object
         const objKey = `custom_obj_${Date.now()}`;
-        
+
         // Store the mesh in the meshes object
         this.meshes[objKey] = root;
-        
+
         // Track this custom object
         this.customObjects.push({
           id: objKey,
@@ -9812,25 +9949,25 @@ const axiosInstance = axios.create();
           scale: this.objScale,
           color: this.objColor
         });
-        
+
         // Add the object to the scene
         this.scene.add(root);
-        
+
         // Render the scene
         this.renderer.render(this.scene, this.camera);
-        
+
         // Clean up the URL
         URL.revokeObjectURL(fileURL);
-        
+
         // Close the dialog
         this.showLoadObjectDialog = false;
-        
+
         // Reset the file input
         this.objFile = null;
-        
+
         // Log success
         console.log('Custom object loaded successfully', objKey);
-      }, 
+      },
       // Progress callback
       (xhr) => {
         console.log((xhr.loaded / xhr.total * 100) + '% loaded');
@@ -9861,16 +9998,16 @@ const axiosInstance = axios.create();
       // Remove the object from the scene
       if (this.meshes[id]) {
         this.scene.remove(this.meshes[id]);
-        
+
         // Remove from meshes object
         delete this.meshes[id];
-        
+
         // Remove from customObjects array
         this.customObjects = this.customObjects.filter(obj => obj.id !== id);
-        
+
         // Force a render update
         this.renderer.render(this.scene, this.camera);
-        
+
         // Close the manager if no objects remain
         if (this.customObjects.length === 0) {
           this.showCustomObjectsManager = false;
@@ -9883,12 +10020,12 @@ const axiosInstance = axios.create();
         const file = files[0];
         const fileURL = URL.createObjectURL(file);
         const fileExtension = file.name.split('.').pop().toLowerCase();
-        
+
         // Function to handle loaded model
         const processModel = (model, type) => {
           // Generate a unique key for this object
           const objKey = `custom_obj_${Date.now()}`;
-          
+
           // Create default object properties
           const newObject = {
             id: objKey,
@@ -9904,7 +10041,7 @@ const axiosInstance = axios.create();
 
           // For GLTF/GLB models that might come with their own materials
           const preserveMaterials = type === 'gltf' || type === 'glb';
-          
+
           // Handle different model types
           if (type === 'stl') {
             // STL comes as geometry, needs to be converted to mesh
@@ -9917,7 +10054,7 @@ const axiosInstance = axios.create();
             model = new THREE.Mesh(model, material);
             newObject.mesh = model;
           }
-          
+
           // Apply material to all meshes unless it's a GLTF/GLB model
           if (!preserveMaterials) {
             model.traverse((child) => {
@@ -9933,56 +10070,56 @@ const axiosInstance = axios.create();
               }
             });
           }
-          
+
           // AUTO-CENTER AND SCALE THE MODEL
           // Create a bounding box for the model
           const boundingBox = new THREE.Box3().setFromObject(model);
           const size = new THREE.Vector3();
           boundingBox.getSize(size);
-          
+
           // Calculate the center of the object
           const center = new THREE.Vector3();
           boundingBox.getCenter(center);
-          
+
           // Move object center to origin
           model.position.sub(center);
-          
+
           // Calculate scale to make the object a reasonable size (target size in meters)
           const targetSize = 2.0; // Target size of the largest dimension in meters
           const maxDimension = Math.max(size.x, size.y, size.z);
           const scale = targetSize / maxDimension;
-        
+
         // Apply scale
           model.scale.set(scale, scale, scale);
           newObject.scale = scale;
-          
+
           // Place object on the ground (y=0)
           // First recalculate bounding box after scaling
           const newBoundingBox = new THREE.Box3().setFromObject(model);
           const newSize = new THREE.Vector3();
           newBoundingBox.getSize(newSize);
-          
+
           // Position the bottom of the object at y=0 (ground level)
           const bottomY = newBoundingBox.min.y;
           model.position.y -= bottomY;
-          newObject.position = { 
-            x: model.position.x, 
-            y: model.position.y, 
-            z: model.position.z 
+          newObject.position = {
+            x: model.position.x,
+            y: model.position.y,
+            z: model.position.z
           };
-          
+
           // Store the mesh
           this.meshes[objKey] = model;
-          
+
           // Add to customObjects array
           this.customObjects.push(newObject);
-          
+
           // Add to scene
           this.scene.add(model);
-          
+
           // Render the scene
           this.renderer.render(this.scene, this.camera);
-          
+
           // Clean up
           URL.revokeObjectURL(fileURL);
         };
@@ -10002,13 +10139,13 @@ const axiosInstance = axios.create();
         // Choose loader based on file extension
         switch (fileExtension) {
           case 'obj':
-            objLoader.load(fileURL, 
+            objLoader.load(fileURL,
               model => processModel(model, 'obj'),
               handleProgress,
               handleError
             );
             break;
-            
+
           case 'gltf':
           case 'glb':
             gltfLoader.load(fileURL,
@@ -10017,7 +10154,7 @@ const axiosInstance = axios.create();
               handleError
             );
             break;
-            
+
           case 'fbx':
             fbxLoader.load(fileURL,
               model => processModel(model, 'fbx'),
@@ -10025,7 +10162,7 @@ const axiosInstance = axios.create();
               handleError
             );
             break;
-            
+
           case 'stl':
             stlLoader.load(fileURL,
               geometry => processModel(geometry, 'stl'),
@@ -10033,7 +10170,7 @@ const axiosInstance = axios.create();
               handleError
             );
             break;
-            
+
           case 'dae':
             colladaLoader.load(fileURL,
               collada => processModel(collada.scene, 'dae'),
@@ -10041,7 +10178,7 @@ const axiosInstance = axios.create();
               handleError
             );
             break;
-            
+
           default:
             alert('Unsupported file format');
             URL.revokeObjectURL(fileURL);
@@ -10069,7 +10206,7 @@ const axiosInstance = axios.create();
               }
             });
           }
-        
+
       // Render the scene
           this.renderer.render(this.scene, this.camera);
     },
@@ -10091,17 +10228,17 @@ const axiosInstance = axios.create();
               }
             });
           }
-          
+
       // Render the scene
       this.renderer.render(this.scene, this.camera);
     },
     updateObjectPosition(id, axis, value) {
       const obj = this.customObjects.find(o => o.id === id);
       if (!obj || !obj.mesh) return;
-      
+
       obj.position[axis] = Number(value);
       obj.mesh.position[axis] = Number(value);
-      
+
       this.renderer.render(this.scene, this.camera);
     },
     debouncedUpdateObjectPosition(id, axis, value) {
@@ -10110,7 +10247,7 @@ const axiosInstance = axios.create();
       if (this.objectUpdateTimers[timerKey]) {
         clearTimeout(this.objectUpdateTimers[timerKey]);
       }
-      
+
       // Set a new timer to update after 150ms of no changes
       this.objectUpdateTimers[timerKey] = setTimeout(() => {
         this.updateObjectPosition(id, axis, value);
@@ -10123,7 +10260,7 @@ const axiosInstance = axios.create();
       if (this.objectUpdateTimers[timerKey]) {
         clearTimeout(this.objectUpdateTimers[timerKey]);
       }
-      
+
       // Set a new timer to update after 150ms of no changes
       this.objectUpdateTimers[timerKey] = setTimeout(() => {
         this.updateObjectRotation(id, axis, value);
@@ -10136,7 +10273,7 @@ const axiosInstance = axios.create();
       if (this.objectUpdateTimers[timerKey]) {
         clearTimeout(this.objectUpdateTimers[timerKey]);
       }
-      
+
       // Set a new timer to update after 150ms of no changes
       this.objectUpdateTimers[timerKey] = setTimeout(() => {
         this.updateObjectScale(id, value);
@@ -10146,24 +10283,24 @@ const axiosInstance = axios.create();
     updateObjectScale(id, value) {
       const obj = this.customObjects.find(o => o.id === id);
       if (!obj || !obj.mesh) return;
-      
+
       const scale = Number(value);
       obj.scale = scale;
       obj.mesh.scale.set(scale, scale, scale);
-      
+
       this.renderer.render(this.scene, this.camera);
     },
     updateObjectRotation(id, axis, value) {
       const obj = this.customObjects.find(o => o.id === id);
       if (!obj || !obj.mesh) return;
-      
+
       if (!obj.rotation) {
         obj.rotation = { x: 0, y: 0, z: 0 };
       }
-      
+
       obj.rotation[axis] = Number(value);
       obj.mesh.rotation[axis] = THREE.Math.degToRad(Number(value));
-      
+
           this.renderer.render(this.scene, this.camera);
     },
     centerCameraOnObject(id) {
@@ -10202,7 +10339,7 @@ const axiosInstance = axios.create();
 
       const animation = this.animations[index];
       const meshKeys = Object.keys(this.meshes).filter(key => key.startsWith(`anim${index}_`));
-      
+
       if (meshKeys.length === 0) return;
 
       // Calculate combined bounding box of all meshes in the animation
@@ -10238,74 +10375,74 @@ const axiosInstance = axios.create();
     },
 
 
-    
+
     resetScene() {
       console.log('Resetting scene...');
-      
+
       // Reset camera to default position
       if (this.camera) {
         this.camera.position.set(3.33, 3.5, -2.30);
         this.camera.lookAt(0, 1, 0);
       }
-      
+
       // Reset controls
       if (this.controls) {
         this.controls.target.set(0, 1, 0);
         this.controls.update();
       }
-      
+
       // Force render
       if (this.renderer && this.scene && this.camera) {
         this.renderer.render(this.scene, this.camera);
       }
-      
+
       console.log('Scene reset complete');
     },
-    
+
     testScene() {
       console.log('Testing scene with a simple cube...');
-      
+
       if (!this.scene) {
         console.log('Scene not initialized, initializing...');
         this.$nextTick(() => {
         this.initScene();
         });
       }
-      
+
       // Create a simple test cube
       const geometry = new THREE.BoxGeometry(1, 1, 1);
       const material = new THREE.MeshLambertMaterial({ color: 0xff0000 });
       const cube = new THREE.Mesh(geometry, material);
       cube.position.set(0, 1, 0);
-      
+
       // Remove any existing test cube
       const existingCube = this.scene.getObjectByName('testCube');
       if (existingCube) {
         this.scene.remove(existingCube);
       }
-      
+
       cube.name = 'testCube';
       this.scene.add(cube);
-      
+
       // Reset camera to look at the cube
       if (this.camera) {
         this.camera.position.set(3.33, 3.5, -2.30);
         this.camera.lookAt(0, 1, 0);
       }
-      
+
       if (this.controls) {
         this.controls.target.set(0, 1, 0);
         this.controls.update();
       }
-      
+
       // Force render
       if (this.renderer && this.scene && this.camera) {
         this.renderer.render(this.scene, this.camera);
       }
-      
+
       console.log('Test cube added to scene');
     },
-    
+
     openImportDialog() {
       this.showImportDialog = true;
     },
@@ -10349,7 +10486,7 @@ const axiosInstance = axios.create();
         case 'right':
           newPosition.set(currentTarget.x + offset, currentTarget.y, currentTarget.z);
           break;
-          
+
         // Handle Corner Views
         case 'frontTopRight':
           newPosition.set(currentTarget.x + isoFactor, currentTarget.y + isoFactor, currentTarget.z + isoFactor);
@@ -10375,26 +10512,26 @@ const axiosInstance = axios.create();
         case 'backBottomLeft':
           newPosition.set(currentTarget.x - isoFactor, currentTarget.y - isoFactor, currentTarget.z - isoFactor);
           break;
-          
+
         case 'default': // Added case for resetting to default view
-        case 'isometric': { 
+        case 'isometric': {
           // Use the standard frontTopRight isometric view for 'default' or 'isometric'
           newPosition.set(currentTarget.x + isoFactor, currentTarget.y + isoFactor, currentTarget.z + isoFactor);
           break;
-        } 
+        }
         default:
           console.warn('Unknown view type:', viewType);
           return;
       }
-      
-      // *** Update controls target FIRST ***
-      this.controls.target.copy(currentTarget); 
 
-      // Apply new position 
+      // *** Update controls target FIRST ***
+      this.controls.target.copy(currentTarget);
+
+      // Apply new position
       this.camera.position.copy(newPosition);
-      
+
       // *** Update controls state AFTER position and target are set ***
-      this.controls.update(); 
+      this.controls.update();
 
       // Re-render the scene
       if (this.renderer) {
@@ -10404,16 +10541,16 @@ const axiosInstance = axios.create();
 
     resetCameraView() {
       if (!this.camera || !this.controls) return;
-      
+
       const initialPosition = new THREE.Vector3(3.33, 3.5, -2.30);
-      const initialTarget = new THREE.Vector3(0, 1, 0); 
+      const initialTarget = new THREE.Vector3(0, 1, 0);
 
       // *** Update controls target FIRST ***
       this.controls.target.copy(initialTarget);
 
       // Apply new position
       this.camera.position.copy(initialPosition);
-      
+
       // *** Update controls state AFTER position and target are set ***
       this.controls.update();
 
@@ -10422,7 +10559,7 @@ const axiosInstance = axios.create();
         this.renderer.render(this.scene, this.camera);
       }
     },
-    
+
 
     toggleAxes() {
       this.showAxes = !this.showAxes;
@@ -10434,32 +10571,32 @@ const axiosInstance = axios.create();
   async openFileBrowser() {
     // If already converting files, don't allow another file selection
     if (this.converting) return;
-    
+
     // Create a hidden file input if it doesn't exist
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
     fileInput.multiple = true;
             fileInput.accept = '.json,.trc,.osim,.mot,video/mp4,video/webm';
-    
+
     // Handle the file selection
     fileInput.onchange = async (event) => {
       const files = Array.from(event.target.files);
-      
+
       if (files.length === 0) return;
-      
+
       // Use the same logic as handleDrop for consistency
       const fakeDropEvent = {
         preventDefault: () => {},
         dataTransfer: { files: files }
       };
-      
+
       await this.handleDrop(fakeDropEvent);
     };
-    
+
     // Trigger file selection dialog
     fileInput.click();
   },
-  
+
   // Plotting methods
   openPlottingDialog() {
     this.showPlottingDialog = true;
@@ -10467,13 +10604,13 @@ const axiosInstance = axios.create();
       this.initializePlotChart();
     });
   },
-  
+
   async initializePlotChart() {
     if (!this.$refs.plotChart) {
       console.warn('plotChart ref not found');
       return;
     }
-    
+
     console.log('Initializing plot chart:', {
       canvasElement: this.$refs.plotChart,
       canvasSize: {
@@ -10481,9 +10618,9 @@ const axiosInstance = axios.create();
         height: this.$refs.plotChart.offsetHeight
       }
     });
-    
+
     const Chart = await import('chart.js/auto');
-    
+
     this.plotChart = new Chart.default(this.$refs.plotChart, {
       type: 'line',
       data: this.plotData,
@@ -10565,7 +10702,7 @@ const axiosInstance = axios.create();
         backgroundColor: '#1e1e1e'
       }
     });
-    
+
     console.log('Chart created successfully:', {
       chartExists: !!this.plotChart,
       canvasSize: {
@@ -10574,21 +10711,21 @@ const axiosInstance = axios.create();
       },
       chartData: this.plotChart.data
     });
-    
+
     // Update plot data immediately after chart initialization
     await this.updatePlotData();
   },
-  
+
   getPlotTitle() {
     if (!this.selectedPlotType) return 'Data Plot';
-    
+
     const plotType = this.plotTypes.find(type => type.value === this.selectedPlotType);
     return plotType ? plotType.label : 'Data Plot';
   },
-  
+
   getYAxisLabel() {
     if (!this.selectedPlotType) return 'Value';
-    
+
     switch (this.selectedPlotType) {
       case 'marker_position':
         return 'Position (m)';
@@ -10605,21 +10742,21 @@ const axiosInstance = axios.create();
         return 'Value';
     }
   },
-  
+
   async updatePlotType() {
     this.selectedVariables = [];
     this.selectedMarkers = [];
     await this.updatePlotData();
   },
-  
+
   async updateSelectedVariables() {
     await this.updatePlotData();
   },
-  
+
   async updateSelectedMarkers() {
     await this.updatePlotData();
   },
-  
+
   generateSampleData() {
     // Generate sample data for testing
     const sampleData = {
@@ -10633,14 +10770,14 @@ const axiosInstance = axios.create();
         tension: 0.1
       }]
     };
-    
+
     return sampleData;
   },
-  
+
   async updatePlotAnimation() {
     await this.updatePlotData();
   },
-  
+
   async updatePlotData() {
     console.log('updatePlotData called', {
       selectedPlotType: this.selectedPlotType,
@@ -10649,7 +10786,7 @@ const axiosInstance = axios.create();
       animations: this.animations.length,
       markersDatasets: Object.keys(this.markersDatasets)
     });
-    
+
     if (!this.selectedPlotType || this.selectedVariables.length === 0) {
       this.plotData = { labels: [], datasets: [] };
       if (this.plotChart) {
@@ -10658,7 +10795,7 @@ const axiosInstance = axios.create();
       }
       return;
     }
-    
+
     // For marker-based plots, use marker data time
     let timeData = [];
     if (this.selectedPlotType === 'marker_position' || this.selectedPlotType === 'marker_distance') {
@@ -10673,62 +10810,62 @@ const axiosInstance = axios.create();
         timeData = animation.data.time;
       }
     }
-    
+
     if (timeData.length === 0) {
       console.warn('No time data available, using sample data');
       const sampleData = this.generateSampleData();
       this.plotData = sampleData;
-      
+
       if (this.plotChart) {
         this.plotChart.data = this.plotData;
         this.plotChart.update();
       }
       return;
     }
-    
+
     // Initialize plot time range if not set
     if (this.plotTimeRange[1] === 10) {
       this.plotTimeRange = [0, Math.max(...timeData)];
     }
-    
-    const filteredTimeData = timeData.filter(time => 
+
+    const filteredTimeData = timeData.filter(time =>
       time >= this.plotTimeRange[0] && time <= this.plotTimeRange[1]
     );
-    
+
     this.plotData.labels = filteredTimeData;
     this.plotData.datasets = this.generateDatasets(filteredTimeData);
-    
+
     console.log('Generated plot data:', {
       labels: this.plotData.labels.length,
       datasets: this.plotData.datasets.length,
       firstDataset: this.plotData.datasets[0]
     });
-    
+
     // Ensure chart is initialized before updating
     if (!this.plotChart) {
       console.log('Chart not found, initializing...');
       await this.initializePlotChart();
     }
-    
+
     if (this.plotChart) {
       console.log('Updating chart with data:', {
         labelsLength: this.plotData.labels.length,
         datasetsLength: this.plotData.datasets.length,
         chartExists: !!this.plotChart
       });
-      
+
       this.plotChart.data = this.plotData;
       this.plotChart.update();
-      
+
       console.log('Chart updated successfully');
     } else {
       console.warn('plotChart not found - chart not updated');
     }
   },
-  
+
   generateDatasets(timeData) {
     const datasets = [];
-    
+
     switch (this.selectedPlotType) {
       case 'marker_position':
         datasets.push(...this.generateMarkerPositionDatasets(timeData));
@@ -10749,33 +10886,33 @@ const axiosInstance = axios.create();
         datasets.push(...this.generatePelvisTranslationDatasets(timeData));
         break;
     }
-    
+
     return datasets;
   },
-  
+
   generateMarkerPositionDatasets(timeData) {
     const datasets = [];
     const markersData = this.markersDatasets[this.selectedPlotAnimation];
-    
+
     if (!markersData || this.selectedMarkers.length === 0) return datasets;
-    
+
     const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'];
     let colorIndex = 0;
-    
+
     this.selectedMarkers.forEach(markerName => {
       if (!markersData.data[markerName]) return;
-      
+
       this.selectedVariables.forEach(variable => {
         const data = [];
         const markerData = markersData.data[markerName][variable];
-        
+
         if (markerData && markersData.times) {
           for (let i = 0; i < timeData.length; i++) {
             // Find the closest time index in the marker data
             const targetTime = timeData[i];
             let closestIndex = 0;
             let minDiff = Math.abs(markersData.times[0] - targetTime);
-            
+
             for (let j = 1; j < markersData.times.length; j++) {
               const diff = Math.abs(markersData.times[j] - targetTime);
               if (diff < minDiff) {
@@ -10783,7 +10920,7 @@ const axiosInstance = axios.create();
                 closestIndex = j;
               }
             }
-            
+
             if (markerData[closestIndex] !== undefined) {
               data.push(markerData[closestIndex]);
             } else {
@@ -10791,7 +10928,7 @@ const axiosInstance = axios.create();
             }
           }
         }
-        
+
         datasets.push({
           label: `${markerName} ${variable.toUpperCase()}`,
           data: data,
@@ -10800,49 +10937,49 @@ const axiosInstance = axios.create();
           fill: false,
           tension: 0.1
         });
-        
+
         colorIndex++;
       });
     });
-    
+
     return datasets;
   },
-  
+
   generateForceMagnitudeDatasets(timeData) {
     const datasets = [];
     const forcesData = this.forcesDatasets[this.selectedPlotAnimation];
-    
+
     console.log('generateForceMagnitudeDatasets called:', {
       selectedPlotAnimation: this.selectedPlotAnimation,
       forcesData: forcesData ? 'present' : 'missing',
       timeDataLength: timeData.length,
       selectedVariables: this.selectedVariables
     });
-    
+
     if (!forcesData) {
       console.warn('No forces data available for animation', this.selectedPlotAnimation);
       return datasets;
     }
-    
+
     console.log('Forces data details:', {
       timeRange: [Math.min(...forcesData.time), Math.max(...forcesData.time)],
       columns: Object.keys(forcesData.data),
       firstFewTimes: forcesData.time.slice(0, 5)
     });
-    
+
     const colors = ['#FF6384', '#36A2EB', '#FFCE56'];
     let colorIndex = 0;
-    
+
     this.selectedVariables.forEach(variable => {
       const data = [];
-      
+
       for (let i = 0; i < timeData.length; i++) {
         const targetTime = timeData[i];
-        
+
         // Find closest time index using more robust algorithm
         let closestIndex = 0;
         let minDiff = Math.abs(forcesData.time[0] - targetTime);
-        
+
         for (let j = 1; j < forcesData.time.length; j++) {
           const diff = Math.abs(forcesData.time[j] - targetTime);
           if (diff < minDiff) {
@@ -10850,7 +10987,7 @@ const axiosInstance = axios.create();
             closestIndex = j;
           }
         }
-        
+
         const timeIndex = closestIndex;
         if (i < 5) { // Log first few time matches
           console.log(`Time matching [${i}]:`, {
@@ -10860,10 +10997,10 @@ const axiosInstance = axios.create();
             timeIndex: closestIndex
           });
         }
-        
+
         if (minDiff < 0.1) { // Allow up to 0.1 second difference
           let magnitude = 0;
-          
+
           switch (variable) {
             case 'left_magnitude': {
               const leftFx = forcesData.data['L_ground_force_vx']?.[timeIndex] || 0;
@@ -10880,14 +11017,14 @@ const axiosInstance = axios.create();
               break;
             }
             case 'total_magnitude': {
-              const totalFx = (forcesData.data['L_ground_force_vx']?.[timeIndex] || 0) + 
+              const totalFx = (forcesData.data['L_ground_force_vx']?.[timeIndex] || 0) +
                             (forcesData.data['R_ground_force_vx']?.[timeIndex] || 0);
-              const totalFy = (forcesData.data['L_ground_force_vy']?.[timeIndex] || 0) + 
+              const totalFy = (forcesData.data['L_ground_force_vy']?.[timeIndex] || 0) +
                             (forcesData.data['R_ground_force_vy']?.[timeIndex] || 0);
-              const totalFz = (forcesData.data['L_ground_force_vz']?.[timeIndex] || 0) + 
+              const totalFz = (forcesData.data['L_ground_force_vz']?.[timeIndex] || 0) +
                             (forcesData.data['R_ground_force_vz']?.[timeIndex] || 0);
               magnitude = Math.sqrt(totalFx * totalFx + totalFy * totalFy + totalFz * totalFz);
-              
+
               if (i < 5) { // Log first few values
                 console.log(`Total magnitude calculation [${i}]:`, {
                   targetTime,
@@ -10901,13 +11038,13 @@ const axiosInstance = axios.create();
               break;
             }
           }
-          
+
           data.push(magnitude);
         } else {
           data.push(null);
         }
       }
-      
+
       const variableLabel = this.availableVariables.find(v => v.value === variable)?.label || variable;
       const dataset = {
         label: variableLabel,
@@ -10917,31 +11054,31 @@ const axiosInstance = axios.create();
         fill: false,
         tension: 0.1
       };
-      
+
       console.log(`Generated force dataset for ${variable}:`, {
         label: dataset.label,
         dataLength: data.length,
         firstFewValues: data.slice(0, 5),
         nonNullCount: data.filter(d => d !== null).length
       });
-      
+
       datasets.push(dataset);
       colorIndex++;
     });
-    
+
     console.log('Final force datasets:', datasets.length, 'datasets generated');
     return datasets;
   },
-  
+
   generateForceComponentDatasets(timeData) {
     const datasets = [];
     const forcesData = this.forcesDatasets[this.selectedPlotAnimation];
-    
+
     if (!forcesData) return datasets;
-    
+
     const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'];
     let colorIndex = 0;
-    
+
     this.selectedVariables.forEach(variable => {
       const data = [];
       const columnMap = {
@@ -10952,10 +11089,10 @@ const axiosInstance = axios.create();
         'right_fy': 'R_ground_force_vy',
         'right_fz': 'R_ground_force_vz'
       };
-      
+
       const columnName = columnMap[variable];
       if (!columnName || !forcesData.data[columnName]) return;
-      
+
       for (let i = 0; i < timeData.length; i++) {
         const timeIndex = forcesData.time.findIndex(t => Math.abs(t - timeData[i]) < 0.001);
         if (timeIndex !== -1) {
@@ -10964,7 +11101,7 @@ const axiosInstance = axios.create();
           data.push(null);
         }
       }
-      
+
       const variableLabel = this.availableVariables.find(v => v.value === variable)?.label || variable;
       datasets.push({
         label: variableLabel,
@@ -10974,30 +11111,30 @@ const axiosInstance = axios.create();
         fill: false,
         tension: 0.1
       });
-      
+
       colorIndex++;
     });
-    
+
     return datasets;
   },
-  
+
   generateMarkerDistanceDatasets(timeData) {
     const datasets = [];
     const markersData = this.markersDatasets[this.selectedPlotAnimation];
-    
+
     if (!markersData || this.selectedMarkers.length < 2) return datasets;
-    
+
     const data = [];
     const marker1 = this.selectedMarkers[0];
     const marker2 = this.selectedMarkers[1];
-    
+
     if (!markersData.data[marker1] || !markersData.data[marker2]) return datasets;
-    
+
     for (let i = 0; i < timeData.length; i++) {
       const targetTime = timeData[i];
       let closestIndex = 0;
       let minDiff = Math.abs(markersData.times[0] - targetTime);
-      
+
       for (let j = 1; j < markersData.times.length; j++) {
         const diff = Math.abs(markersData.times[j] - targetTime);
         if (diff < minDiff) {
@@ -11005,19 +11142,19 @@ const axiosInstance = axios.create();
           closestIndex = j;
         }
       }
-      
+
       const x1 = markersData.data[marker1].x[closestIndex];
       const y1 = markersData.data[marker1].y[closestIndex];
       const z1 = markersData.data[marker1].z[closestIndex];
       const x2 = markersData.data[marker2].x[closestIndex];
       const y2 = markersData.data[marker2].y[closestIndex];
       const z2 = markersData.data[marker2].z[closestIndex];
-      
+
       if (x1 !== undefined && y1 !== undefined && z1 !== undefined &&
           x2 !== undefined && y2 !== undefined && z2 !== undefined) {
         const distance = Math.sqrt(
-          Math.pow(x2 - x1, 2) + 
-          Math.pow(y2 - y1, 2) + 
+          Math.pow(x2 - x1, 2) +
+          Math.pow(y2 - y1, 2) +
           Math.pow(z2 - z1, 2)
         );
         data.push(distance);
@@ -11025,7 +11162,7 @@ const axiosInstance = axios.create();
         data.push(null);
       }
     }
-    
+
     datasets.push({
       label: `Distance: ${marker1} - ${marker2}`,
       data: data,
@@ -11034,22 +11171,22 @@ const axiosInstance = axios.create();
       fill: false,
       tension: 0.1
     });
-    
+
     return datasets;
   },
-  
+
   generateJointAngleDatasets(timeData) {
     const datasets = [];
     const animation = this.animations[this.selectedPlotAnimation];
-    
+
     if (!animation || !animation.data) return datasets;
-    
+
     const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'];
     let colorIndex = 0;
-    
+
     this.selectedVariables.forEach(variable => {
       if (!animation.data[variable]) return;
-      
+
       const data = [];
       for (let i = 0; i < timeData.length; i++) {
         const timeIndex = animation.data.time.findIndex(t => Math.abs(t - timeData[i]) < 0.001);
@@ -11062,7 +11199,7 @@ const axiosInstance = axios.create();
           data.push(null);
         }
       }
-      
+
       const variableLabel = this.availableVariables.find(v => v.value === variable)?.label || variable;
       datasets.push({
         label: variableLabel,
@@ -11072,25 +11209,25 @@ const axiosInstance = axios.create();
         fill: false,
         tension: 0.1
       });
-      
+
       colorIndex++;
     });
-    
+
     return datasets;
   },
-  
+
   generatePelvisTranslationDatasets(timeData) {
     const datasets = [];
     const animation = this.animations[this.selectedPlotAnimation];
-    
+
     if (!animation || !animation.data) return datasets;
-    
+
     const colors = ['#FF6384', '#36A2EB', '#FFCE56'];
     let colorIndex = 0;
-    
+
     this.selectedVariables.forEach(variable => {
       if (!animation.data[variable]) return;
-      
+
       const data = [];
       for (let i = 0; i < timeData.length; i++) {
         const timeIndex = animation.data.time.findIndex(t => Math.abs(t - timeData[i]) < 0.001);
@@ -11100,7 +11237,7 @@ const axiosInstance = axios.create();
           data.push(null);
         }
       }
-      
+
       const variableLabel = this.availableVariables.find(v => v.value === variable)?.label || variable;
       datasets.push({
         label: variableLabel,
@@ -11110,34 +11247,34 @@ const axiosInstance = axios.create();
         fill: false,
         tension: 0.1
       });
-      
+
       colorIndex++;
     });
-    
+
     return datasets;
   },
-  
+
   getAvailableJointAngles() {
     const animation = this.animations[this.selectedPlotAnimation];
     if (!animation || !animation.data) return [];
-    
-    const angleColumns = Object.keys(animation.data).filter(key => 
+
+    const angleColumns = Object.keys(animation.data).filter(key =>
       key.includes('_r') || key.includes('_l') || key.includes('_angle')
     );
-    
+
     return angleColumns.map(column => ({
       label: column.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
       value: column
     }));
   },
-  
+
   updatePlotInRealTime() {
     if (!this.plotUpdatesEnabled || !this.plotChart || !this.plotSettings.showCurrentTime) {
       return;
     }
-    
+
     const currentTime = this.time;
-    
+
     // Update vertical line annotation for current time
     if (this.plotChart.options.plugins.annotation) {
       this.plotChart.options.plugins.annotation.annotations.currentTime.value = currentTime;
@@ -11159,54 +11296,54 @@ const axiosInstance = axios.create();
         }
       };
     }
-    
+
     this.plotChart.update('none');
   },
-  
+
   togglePlotUpdates() {
     this.plotUpdatesEnabled = !this.plotUpdatesEnabled;
   },
-  
+
   exportPlot() {
     if (!this.plotChart) return;
-    
+
     const link = document.createElement('a');
     link.download = `plot_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.png`;
     link.href = this.plotChart.toBase64Image();
     link.click();
   },
-  
+
   // Dialog drag and resize methods
   startDragPlotDialog(event) {
     event.preventDefault();
     this.isDraggingPlotDialog = true;
-    
+
     const clientX = event.clientX || event.touches[0].clientX;
     const clientY = event.clientY || event.touches[0].clientY;
-    
+
     this.plotDragOffset = {
       x: clientX - this.plottingDialogPosition.x,
       y: clientY - this.plottingDialogPosition.y
     };
-    
+
     document.addEventListener('mousemove', this.onDragPlotDialog);
     document.addEventListener('mouseup', this.stopDragPlotDialog);
     document.addEventListener('touchmove', this.onDragPlotDialog);
     document.addEventListener('touchend', this.stopDragPlotDialog);
   },
-  
+
   onDragPlotDialog(event) {
     if (!this.isDraggingPlotDialog) return;
-    
+
     const clientX = event.clientX || event.touches[0].clientX;
     const clientY = event.clientY || event.touches[0].clientY;
-    
+
     this.plottingDialogPosition = {
       x: Math.max(0, Math.min(window.innerWidth - 300, clientX - this.plotDragOffset.x)),
       y: Math.max(0, Math.min(window.innerHeight - 100, clientY - this.plotDragOffset.y))
     };
   },
-  
+
   stopDragPlotDialog() {
     this.isDraggingPlotDialog = false;
     document.removeEventListener('mousemove', this.onDragPlotDialog);
@@ -11214,39 +11351,39 @@ const axiosInstance = axios.create();
     document.removeEventListener('touchmove', this.onDragPlotDialog);
     document.removeEventListener('touchend', this.stopDragPlotDialog);
   },
-  
+
   startResizePlotDialog(event) {
     event.preventDefault();
     event.stopPropagation();
-    
+
     this.isResizingPlotDialog = true;
-    
+
     const clientX = event.clientX || event.touches[0].clientX;
     const clientY = event.clientY || event.touches[0].clientY;
-    
+
     this.plotResizeStartPosition = { x: clientX, y: clientY };
     this.plotResizeStartSize = { ...this.plottingDialogSize };
-    
+
     document.addEventListener('mousemove', this.onResizePlotDialog);
     document.addEventListener('mouseup', this.stopResizePlotDialog);
     document.addEventListener('touchmove', this.onResizePlotDialog);
     document.addEventListener('touchend', this.stopResizePlotDialog);
   },
-  
+
   onResizePlotDialog(event) {
     if (!this.isResizingPlotDialog) return;
-    
+
     const clientX = event.clientX || event.touches[0].clientX;
     const clientY = event.clientY || event.touches[0].clientY;
-    
+
     const deltaX = clientX - this.plotResizeStartPosition.x;
     const deltaY = clientY - this.plotResizeStartPosition.y;
-    
+
     this.plottingDialogSize = {
       width: Math.max(600, this.plotResizeStartSize.width + deltaX),
       height: Math.max(400, this.plotResizeStartSize.height + deltaY)
     };
-    
+
     // Update chart size
     this.$nextTick(() => {
       if (this.plotChart) {
@@ -11254,7 +11391,7 @@ const axiosInstance = axios.create();
       }
     });
   },
-  
+
   stopResizePlotDialog() {
     this.isResizingPlotDialog = false;
     document.removeEventListener('mousemove', this.onResizePlotDialog);
@@ -11292,7 +11429,7 @@ const axiosInstance = axios.create();
     position: relative;
     width: 100%;
     height: 100%;
-    
+
     &-dot {
       position: absolute;
       top: 0;
@@ -11397,7 +11534,7 @@ const axiosInstance = axios.create();
 }
 
 /* Ensure content stays contained in sidebars */
-.left .left-content, 
+.left .left-content,
 .right .right-content {
   flex-grow: 1;
   min-height: 100%;
@@ -11406,7 +11543,7 @@ const axiosInstance = axios.create();
 }
 
 /* Fix for titles and headers to stay within sidebar */
-.left h2, 
+.left h2,
 .right h2,
 .left .text-subtitle-2,
 .right .text-subtitle-2 {
@@ -11517,7 +11654,7 @@ const axiosInstance = axios.create();
     position: relative;
     z-index: 1;
 }
-    
+
 .drop-zone:hover {
         border-color: rgba(255, 255, 255, 0.4);
         background: rgba(255, 255, 255, 0.08);
@@ -11699,7 +11836,7 @@ const axiosInstance = axios.create();
   .disabled {
     opacity: 0.6;
     cursor: not-allowed;
-    
+
     &:hover {
       transform: none;
       background-color: #282828;
@@ -11839,9 +11976,9 @@ const axiosInstance = axios.create();
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: linear-gradient(135deg, 
-    rgba(15, 23, 42, 0.95) 0%, 
-    rgba(30, 41, 59, 0.95) 50%, 
+  background: linear-gradient(135deg,
+    rgba(15, 23, 42, 0.95) 0%,
+    rgba(30, 41, 59, 0.95) 50%,
     rgba(51, 65, 85, 0.95) 100%);
   backdrop-filter: blur(8px);
   display: flex;
@@ -11899,11 +12036,11 @@ const axiosInstance = axios.create();
   .conversion-overlay {
     padding: 20px;
   }
-  
+
   .conversion-overlay .text-h6 {
     font-size: 1.5rem !important;
   }
-  
+
   .conversion-overlay .text-subtitle-1 {
     font-size: 1rem !important;
   }
@@ -12074,5 +12211,4 @@ const axiosInstance = axios.create();
 
 /* ... rest of existing styles ... */
 </style>
-  
-                
+
