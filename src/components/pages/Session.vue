@@ -6543,7 +6543,7 @@ export default {
     try {
       this.mediaRecorder = new MediaRecorder(stream, {
         mimeType: mimeType,
-        videoBitsPerSecond: this.videoBitrate
+        videoBitsPerSecond: 2000000 // Reduced to 2 Mbps for better performance
       });
 
     console.log(`MediaRecorder created with: ${mimeType}, bitrate: ${this.videoBitrate}`);
@@ -6626,10 +6626,9 @@ export default {
       this.currentLoop = 0;
     };
 
-      // Start recording with timeslices that match the frame rate for smooth capture
-  // Calculate timeslice based on frame rate (e.g., 100fps = 10ms intervals)
-  const timeslice = Math.max(10, Math.floor(1000 / this.frameRate)); // Minimum 10ms, max based on fps
-  this.mediaRecorder.start(timeslice);
+      // Start recording without timeslices to capture as one continuous stream
+  // This should produce smoother video without fragmentation
+  this.mediaRecorder.start();
   this.isRecording = true;
 
   // If not already playing, start playback
