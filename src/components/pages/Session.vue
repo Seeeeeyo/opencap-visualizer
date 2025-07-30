@@ -2744,7 +2744,7 @@ const axiosInstance = axios.create();
               dragOffset: { x: 0, y: 0 },
               resizeStartPosition: { x: 0, y: 0 },
               resizeStartSize: { width: 0, height: 0 },
-              showSidebar: true, // Add this line to control sidebar visibility
+              showSidebar: false, // Add this line to control sidebar visibility
               meshDialogs: {}, // Add this line to store mesh dialog states
               recentSubjectColors: [], // Store recent colors used for subjects
               maxRecentColors: 8, // Maximum number of recent colors to store
@@ -2757,7 +2757,7 @@ const axiosInstance = axios.create();
               objColor: '#ffffff',
               customObjects: [], // Track loaded custom objects
               showCustomObjectsManager: false, // Dialog to manage custom objects
-              showLeftSidebar: true, // Add this line to control left sidebar visibility
+              showLeftSidebar: false, // Add this line to control left sidebar visibility
               showImportDialog: false, // Add this line to control the import dialog
 
               showAxes: false, // Add this line to control axes visibility
