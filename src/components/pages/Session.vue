@@ -6512,15 +6512,18 @@ export default {
     // For MP4, try to use H.264 codec (most compatible)
     if (checkMimeType('video/mp4;codecs=h264')) {
       mimeType = 'video/mp4;codecs=h264';
-    } else if (checkMimeType('video/mp4')) {
-      mimeType = 'video/mp4';
-    } else {
-      // Fallback to WebM if MP4 isn't supported
-      console.warn('MP4 format not supported by browser, falling back to WebM');
-      this.recordingFormat = 'webm';
-      mimeType = supportedMimeTypes.find(checkMimeType) || 'video/webm';
-    }
       fileExtension = '.mp4';
+    } else {
+      // Fallback to WebM if MP4 with H.264 isn't supported (better compatibility)
+      console.warn('MP4 with H.264 not supported by browser, using WebM for better compatibility');
+      this.recordingFormat = 'webm';
+      if (checkMimeType('video/webm;codecs=vp8')) {
+        mimeType = 'video/webm;codecs=vp8';
+      } else {
+        mimeType = supportedMimeTypes.find(checkMimeType) || 'video/webm';
+      }
+      fileExtension = '.webm';
+    }
     } else {
     // For WebM
     if (checkMimeType('video/webm;codecs=vp8')) {
@@ -6548,14 +6551,27 @@ export default {
 
     console.log(`MediaRecorder created with: ${mimeType}, bitrate: ${this.videoBitrate}`);
     } catch (error) {
-    console.warn(`Failed to create MediaRecorder with ${mimeType}, trying with default settings`, error);
+    console.warn(`Failed to create MediaRecorder with ${mimeType}, trying WebM fallback`, error);
 
-    // Last resort - let the browser decide the format
-    try {
-      this.mediaRecorder = new MediaRecorder(stream);
-      console.log('MediaRecorder created with default settings');
-    } catch (fallbackError) {
-      console.error('Failed to create MediaRecorder', fallbackError);
+    // Fallback to WebM if MP4 fails
+    if (this.recordingFormat === 'mp4') {
+      console.log('MP4 recording failed, falling back to WebM for compatibility');
+      this.recordingFormat = 'webm';
+      const webmMimeType = checkMimeType('video/webm;codecs=vp8') ? 'video/webm;codecs=vp8' : 'video/webm';
+      
+      try {
+        this.mediaRecorder = new MediaRecorder(stream, {
+          mimeType: webmMimeType,
+          videoBitsPerSecond: this.videoBitrate
+        });
+        console.log(`MediaRecorder created with WebM fallback: ${webmMimeType}`);
+      } catch (webmError) {
+        console.error('WebM fallback also failed', webmError);
+        alert('Recording is not supported in your browser');
+        return;
+      }
+    } else {
+      console.error('Failed to create MediaRecorder', error);
       alert('Recording is not supported in your browser');
       return;
     }
