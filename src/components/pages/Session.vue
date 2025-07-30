@@ -6624,9 +6624,9 @@ export default {
       this.currentLoop = 0;
     };
 
-      // Start recording without timeslices to capture as one continuous stream
-  // This should produce smoother video without fragmentation
-  this.mediaRecorder.start();
+      // Start recording with small timeslices to ensure multiple chunks for smooth video
+  // 50ms timeslices should give us ~20 chunks per second for smooth recording
+  this.mediaRecorder.start(50);
   this.isRecording = true;
 
   // If not already playing, start playback
