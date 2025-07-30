@@ -2728,7 +2728,7 @@ export default {
             timelapseGroups: {}, // Organized by animation index and frame numbers
             timelapseCounter: null, // Use sequential counter for mesh IDs
             captureMode: 'both', // Options: 'both', 'normal', 'transparent'
-            videoBitrate: 2000000, // Video recording bitrate in bits per second (2 Mbps default)
+            videoBitrate: 2000000, // Video recording bitrate in bits per second (2 Mbps for better performance)
             conversionError: null, // Add this line to store API error message
 
             // Video preview props
@@ -6543,7 +6543,7 @@ export default {
     try {
       this.mediaRecorder = new MediaRecorder(stream, {
         mimeType: mimeType,
-        videoBitsPerSecond: 2000000 // Reduced to 2 Mbps for better performance
+        videoBitsPerSecond: this.videoBitrate
       });
 
     console.log(`MediaRecorder created with: ${mimeType}, bitrate: ${this.videoBitrate}`);
