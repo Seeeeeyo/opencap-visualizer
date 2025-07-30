@@ -1187,9 +1187,6 @@
             </div>
 
             <div class="text-center">
-              <!-- Existing drop zone content -->
-              <v-icon size="64" color="grey darken-1">mdi-file-upload-outline</v-icon>
-
               <!-- Show selected files if any, otherwise show the default prompt -->
               <div v-if="osimFile || motFile || videoFile" class="text-h6 grey--text text--darken-1 mt-4">
                 <div v-if="osimFile" class="selected-file mb-2">
@@ -1209,8 +1206,6 @@
                 </div>
               </div>
               <div v-else class="text-h6 grey--text text--darken-1 mt-4">
-                Drag & drop files here<br>
-                <span class="text-caption">Supports .json, .trc, .osim, .mot, and video files</span>
               </div>
             </div>
           </div>
