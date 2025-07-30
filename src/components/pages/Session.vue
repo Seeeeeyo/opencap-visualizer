@@ -6571,10 +6571,8 @@ export default {
 
   // Request data frequently to ensure better quality
     this.mediaRecorder.ondataavailable = (event) => {
-    console.log(`MediaRecorder data available: size=${event.data?.size || 0}, type=${event.data?.type || 'unknown'}`);
     if (event.data && event.data.size > 0) {
         this.recordedChunks.push(event.data);
-        console.log(`Added chunk ${this.recordedChunks.length}: ${event.data.size} bytes`);
       }
     };
 
