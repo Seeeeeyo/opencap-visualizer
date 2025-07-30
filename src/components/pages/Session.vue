@@ -6626,7 +6626,7 @@ const axiosInstance = axios.create();
 
     // Start recording with timeslices to ensure data is captured in smaller chunks
     // This helps with memory usage and ensures more consistent recording
-    this.mediaRecorder.start(40); // Capture in 1-second intervals
+    this.mediaRecorder.start(); 
       this.isRecording = true;
 
       // If not already playing, start playback
