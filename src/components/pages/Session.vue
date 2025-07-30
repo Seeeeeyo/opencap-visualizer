@@ -6624,9 +6624,20 @@ export default {
       this.currentLoop = 0;
     };
 
-      // Start recording with small timeslices to ensure multiple chunks for smooth video
-  // 50ms timeslices should give us ~20 chunks per second for smooth recording
-  this.mediaRecorder.start(50);
+      // Start recording with performance-optimized settings
+  // For hosted version, use lower frame rate to prevent lag
+  const isHosted = window.location.hostname.includes('onrender.com');
+  let frameRate = this.frameRate || 100;
+  
+  if (isHosted) {
+    // Reduce frame rate for hosted version to prevent lag
+    frameRate = Math.min(frameRate, 30); // Cap at 30fps for hosted
+    console.log(`Hosted version detected - reducing frame rate to ${frameRate}fps for better performance`);
+  }
+  
+  const timeslice = Math.floor(1000 / frameRate);
+  console.log(`Starting recording with ${frameRate}fps, timeslice: ${timeslice}ms`);
+  this.mediaRecorder.start(timeslice);
   this.isRecording = true;
 
   // If not already playing, start playback
