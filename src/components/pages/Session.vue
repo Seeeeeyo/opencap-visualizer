@@ -2728,7 +2728,7 @@ export default {
             timelapseGroups: {}, // Organized by animation index and frame numbers
             timelapseCounter: null, // Use sequential counter for mesh IDs
             captureMode: 'both', // Options: 'both', 'normal', 'transparent'
-            videoBitrate: 2000000, // Video recording bitrate in bits per second (2 Mbps for better performance)
+            videoBitrate: 5000000, // Video recording bitrate in bits per second (5 Mbps default)
             conversionError: null, // Add this line to store API error message
 
             // Video preview props
@@ -2744,7 +2744,7 @@ export default {
             dragOffset: { x: 0, y: 0 },
             resizeStartPosition: { x: 0, y: 0 },
             resizeStartSize: { width: 0, height: 0 },
-            showSidebar: true, // Add this line to control sidebar visibility
+            showSidebar: false, // Add this line to control sidebar visibility
             meshDialogs: {}, // Add this line to store mesh dialog states
             recentSubjectColors: [], // Store recent colors used for subjects
             maxRecentColors: 8, // Maximum number of recent colors to store
@@ -2757,7 +2757,7 @@ export default {
             objColor: '#ffffff',
             customObjects: [], // Track loaded custom objects
             showCustomObjectsManager: false, // Dialog to manage custom objects
-            showLeftSidebar: true, // Add this line to control left sidebar visibility
+            showLeftSidebar: false, // Add this line to control left sidebar visibility
             showImportDialog: false, // Add this line to control the import dialog
 
             showAxes: false, // Add this line to control axes visibility
@@ -6624,32 +6624,15 @@ export default {
       this.currentLoop = 0;
     };
 
-      // Start recording with performance-optimized settings
-  // For hosted version, use lower frame rate to prevent lag
-  const isHosted = window.location.hostname.includes('onrender.com');
-  let frameRate = this.frameRate || 100;
-  
-  if (isHosted) {
-    // Reduce frame rate for hosted version to prevent lag
-    frameRate = Math.min(frameRate, 30); // Cap at 30fps for hosted
-    console.log(`Hosted version detected - reducing frame rate to ${frameRate}fps for better performance`);
-    
-    // Also reduce the animation frame rate to match recording
-    if (this.frameRate && this.frameRate > 30) {
-      console.log(`Reducing animation frame rate from ${this.frameRate} to 30fps for hosted performance`);
-      this.frameRate = 30;
-    }
-  }
-  
-  const timeslice = Math.floor(1000 / frameRate);
-  console.log(`Starting recording with ${frameRate}fps, timeslice: ${timeslice}ms`);
-  this.mediaRecorder.start(timeslice);
-  this.isRecording = true;
+  // Start recording with timeslices to ensure data is captured in smaller chunks
+  // This helps with memory usage and ensures more consistent recording
+  this.mediaRecorder.start(1000); // Capture in 1-second intervals
+    this.isRecording = true;
 
-  // If not already playing, start playback
-  if (!this.playing) {
-    this.togglePlay(true);
-  }
+    // If not already playing, start playback
+    if (!this.playing) {
+      this.togglePlay(true);
+    }
   },
 
   stopRecording() {
@@ -6701,16 +6684,7 @@ export default {
 
       // Ensure we have a reasonable fps value (between 24 and 120)
       // Most mocap systems operate between 30-120 fps
-      let finalFps = Math.min(Math.max(calculatedFps, 24), 120);
-      
-      // For hosted version, cap at 30fps for better performance
-      const isHosted = window.location.hostname.includes('onrender.com');
-      if (isHosted && finalFps > 30) {
-        console.log(`Hosted version: capping frame rate from ${finalFps} to 30fps for performance`);
-        finalFps = 30;
-      }
-      
-      return finalFps;
+      return Math.min(Math.max(calculatedFps, 24), 120);
   },
 
   handleFileUpload(event) {
@@ -12232,4 +12206,3 @@ opacity: 1;
 
 /* ... rest of existing styles ... */
 </style>
-
