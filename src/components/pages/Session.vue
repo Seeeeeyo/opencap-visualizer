@@ -6633,6 +6633,12 @@ export default {
     // Reduce frame rate for hosted version to prevent lag
     frameRate = Math.min(frameRate, 30); // Cap at 30fps for hosted
     console.log(`Hosted version detected - reducing frame rate to ${frameRate}fps for better performance`);
+    
+    // Also reduce the animation frame rate to match recording
+    if (this.frameRate && this.frameRate > 30) {
+      console.log(`Reducing animation frame rate from ${this.frameRate} to 30fps for hosted performance`);
+      this.frameRate = 30;
+    }
   }
   
   const timeslice = Math.floor(1000 / frameRate);
@@ -6695,7 +6701,16 @@ export default {
 
       // Ensure we have a reasonable fps value (between 24 and 120)
       // Most mocap systems operate between 30-120 fps
-      return Math.min(Math.max(calculatedFps, 24), 120);
+      let finalFps = Math.min(Math.max(calculatedFps, 24), 120);
+      
+      // For hosted version, cap at 30fps for better performance
+      const isHosted = window.location.hostname.includes('onrender.com');
+      if (isHosted && finalFps > 30) {
+        console.log(`Hosted version: capping frame rate from ${finalFps} to 30fps for performance`);
+        finalFps = 30;
+      }
+      
+      return finalFps;
   },
 
   handleFileUpload(event) {
