@@ -333,17 +333,14 @@ export default {
     async loadSession ({ state, commit }, id) {
       const sessionId = id || state.session.id
 
-      var res;
       try {
-        res = await axios.get(`/sessions/${sessionId}/`)
+        const res = await axios.get(`/sessions/${sessionId}/`)
         commit('setSession', res.data)
       } catch (e) {
-        if (e.response.status === 401) {
+        if (e.response && e.response.status === 401) {
           router.push({ name: 'Login' })
         }
       }
-
-
     },
 
     async permanentRemoveExistingSession ({ state, commit }, id) {
@@ -463,6 +460,9 @@ export default {
 
             tagPromises.push(tagPromise);
           }
+
+          // Wait for all tag promises to complete before proceeding
+          await Promise.all(tagPromises);
 
           subjects = subjects.concat(res.data)
           if (res.data.length < quantity) {

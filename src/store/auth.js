@@ -171,7 +171,7 @@ export default {
       await axios.post('/update_profile_picture/', data)
     },
     async reset({commit }, {email}) {
-      var host = window.location.protocol + "//" + window.location.host;
+      const host = window.location.protocol + "//" + window.location.host;
       return await axios.post('/reset-password/', {email, host})
     },
     async new_password({ commit }, data) {
