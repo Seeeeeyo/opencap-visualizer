@@ -333,24 +333,15 @@ export default {
     async loadSession ({ state, commit }, id) {
       const sessionId = id || state.session.id
 
-      var res;
       try {
-        res = await axios.get(`/sessions/${sessionId}/`)
+        const res = await axios.get(`/sessions/${sessionId}/`)
         commit('setSession', res.data)
       } catch (e) {
-        if (e.response.status === 401) {
+        if (e.response && e.response.status === 401) {
           router.push({ name: 'Login' })
         }
       }
-
-
     },
-    // async trashExistingTrial ({ state, commit }, trial) {
-    //   const sessionId = id || state.session.id
-    //
-    //   const res = await axios.post(`/sessions/${sessionId}/trash/`)
-    //   commit('updateSession', res.data)
-    // },
 
     async permanentRemoveExistingSession ({ state, commit }, id) {
       const sessionId = id || state.session.id
@@ -470,6 +461,9 @@ export default {
             tagPromises.push(tagPromise);
           }
 
+          // Wait for all tag promises to complete before proceeding
+          await Promise.all(tagPromises);
+
           subjects = subjects.concat(res.data)
           if (res.data.length < quantity) {
             moreDataAvailable = false
@@ -527,7 +521,6 @@ export default {
       });
 
       commit("updateSubjectTags", resultObject)
-      this.subjectTags = resultObject
     },
     async loadTrialTags({ state, commit }) {
       const response = await fetch('/tags/trialTags.json');
@@ -542,7 +535,6 @@ export default {
       });
 
       commit("updateTrialTags", resultObject)
-      this.trialTags = resultObject
     }
   }
 
