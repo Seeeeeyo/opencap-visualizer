@@ -218,7 +218,6 @@ export default {
         }
     },
     mounted () {
-      console.log('SubjectDialog mounted')
       this.loadSubjectTags()
     },
     methods: {
@@ -257,65 +256,54 @@ export default {
                 subject_tags: null,
             }
 
-            console.log('edit_dialog=', this.edit_dialog)
             if(this.edited_subject.id) {
-                const res = await axios.put('/subjects/' + this.edited_subject.id + '/', this.edited_subject)
-                    .then(response => {
-                        this.$emit('subject-updated', response.data)
-                        this.clearEditedSubject();
-                    })
-                    .catch(error => {
-                        if(error.response.status === 400) {
-                            for (const [key, value] of Object.entries(error.response.data)) {
-                                this.formErrors[key] = value
-                            }
-                            this.edit_dialog = true;
+                try {
+                    const response = await axios.put('/subjects/' + this.edited_subject.id + '/', this.edited_subject);
+                    this.$emit('subject-updated', response.data);
+                    this.clearEditedSubject();
+                } catch (error) {
+                    if(error.response && error.response.status === 400) {
+                        for (const [key, value] of Object.entries(error.response.data)) {
+                            this.formErrors[key] = value
                         }
-                    })
+                        this.edit_dialog = true;
+                    } else {
+                        // Handle other errors (network, server errors, etc.)
+                        this.edit_dialog = true;
+                        console.error('Error updating subject:', error);
+                    }
+                }
                 // if (res && res.data) {
                 //     this.clearEditedSubject();
                 // } else {
                 //     this.edit_dialog = true;
                 // }
             } else {
-                const res = await axios.post('/subjects/', this.edited_subject)
-                    .then(response => {
-                        this.$emit('subject-added', response.data)
-                        this.clearEditedSubject();
-                    })
-                    .catch(error => {
-                        if(error.response.status === 400) {
-                            for (const [key, value] of Object.entries(error.response.data)) {
-                                this.formErrors[key] = value
-                            }
-                            this.edit_dialog = true;
+                try {
+                    const response = await axios.post('/subjects/', this.edited_subject);
+                    this.$emit('subject-added', response.data);
+                    this.clearEditedSubject();
+                } catch (error) {
+                    if(error.response && error.response.status === 400) {
+                        for (const [key, value] of Object.entries(error.response.data)) {
+                            this.formErrors[key] = value
                         }
-                    })
-                // if (res && res.data) {
-                //     this.clearEditedSubject();
-                // } else {
-                //   console.log('WTF', res)
-                //     this.edit_dialog = true;
-                // }
+                        this.edit_dialog = true;
+                    } else {
+                        // Handle other errors (network, server errors, etc.)
+                        this.edit_dialog = true;
+                        console.error('Error creating subject:', error);
+                    }
+                }
             }
 
-            console.log('edit_dialog=', this.edit_dialog)
-            // await this.loadSubjects();
         },
         clearEditedSubject() {
-            this.edited_subject.id = "";
-            this.edited_subject.name = "";
-            this.edited_subject.weight = "";
-            this.edited_subject.height = "";
-            this.edited_subject.birth_year = "";
-            this.edited_subject.sex_at_birth = "";
-            this.edited_subject.gender = "";
-            this.edited_subject.subject_tags = null;
-            this.edited_subject.characteristics = "";
+            this.edited_subject = { ...this.empty_subject };
         },
         async addSubject() {
             this.edit_dialog = true;
-            this.edited_subject = this.empty_subject;
+            this.edited_subject = { ...this.empty_subject };
             this.formErrors = {
                 name: null,
                 weight: null,
@@ -323,7 +311,6 @@ export default {
                 birth_year: null,
                 subject_tags: null,
             }
-            console.log('add subject')
         }
     },
 }

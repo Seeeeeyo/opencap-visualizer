@@ -345,12 +345,6 @@ export default {
 
 
     },
-    // async trashExistingTrial ({ state, commit }, trial) {
-    //   const sessionId = id || state.session.id
-    //
-    //   const res = await axios.post(`/sessions/${sessionId}/trash/`)
-    //   commit('updateSession', res.data)
-    // },
 
     async permanentRemoveExistingSession ({ state, commit }, id) {
       const sessionId = id || state.session.id
@@ -527,7 +521,6 @@ export default {
       });
 
       commit("updateSubjectTags", resultObject)
-      this.subjectTags = resultObject
     },
     async loadTrialTags({ state, commit }) {
       const response = await fetch('/tags/trialTags.json');
@@ -542,7 +535,6 @@ export default {
       });
 
       commit("updateTrialTags", resultObject)
-      this.trialTags = resultObject
     }
   }
 

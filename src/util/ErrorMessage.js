@@ -71,7 +71,6 @@ function processErrorMessage (err, operation) {
     }
   }
 
-  console.log(res)
   return res
 }
 
