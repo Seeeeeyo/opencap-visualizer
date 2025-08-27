@@ -128,7 +128,6 @@
                   Explore with pre-loaded motion capture data
                 </div>
 
-
               </div>
 
               <v-divider class="my-3" style="opacity: 0.3;"></v-divider>
@@ -164,7 +163,7 @@
                     <span class="font-weight-medium">Enhance</span>
                   </div>
                   <div class="ml-5 grey--text">
-                    Add forces, video, or 3D models
+                    Add forces (.mot), video, or 3D models
                   </div>
                 </div>
               </div>
@@ -179,6 +178,7 @@
                 <li class="mb-1">Use Import button for batch uploads</li>
                 <li class="mb-1">Multiple subjects can be loaded together</li>
                 <li class="mb-1">.trc files can be loaded independently</li>
+                <li class="mb-1">.mot force files are automatically detected and positioned at feet</li>
               </ul>
             </v-card>
           </div>
@@ -1026,8 +1026,19 @@
       </div>
 
       <!-- Main Content -->
-      <div v-if="trial || (markerSpheres.length > 0) || (animations.length > 0) || trialLoading || converting || conversionError || loadingMarkers" class="d-flex flex-column h-100">
+      <div v-if="trial || (markerSpheres.length > 0) || (animations.length > 0) || trialLoading || converting || conversionError || loadingMarkers || scene" class="d-flex flex-column h-100">
         <div id="mocap" ref="mocap" class="flex-grow-1 position-relative">
+          <!-- Conversion loading overlay on top of scene -->
+          <div v-if="converting" class="conversion-overlay-scene">
+            <div class="conversion-content">
+              <v-progress-circular indeterminate color="indigo" size="64" width="6" />
+              <div class="mt-4 text-h6 text-center white--text">
+                Converting OpenSim Files<br>
+                <span class="text-subtitle-1">This may take a moment...</span>
+              </div>
+            </div>
+          </div>
+          
           <div v-if="videoFile && !$refs.videoPreview" class="debug-info">
             Video file loaded but preview not mounted
           </div>
@@ -1552,6 +1563,13 @@
             <div class="text-body-1 mb-4">
               Select a .mot forces file to visualize ground reaction forces at the subject's feet.
               Forces will be automatically positioned at the foot segments of the selected animation.
+              <br><br>
+              <strong>Supported formats:</strong>
+              <ul class="mt-2">
+                <li>• Standard OpenSim format: <code>R_ground_force_vx</code>, <code>L_ground_force_vx</code></li>
+                <li>• Alternative format: <code>ground_force_right_vx</code>, <code>ground_force_left_vx</code></li>
+                <li>• Files with "force" in the filename are automatically detected</li>
+              </ul>
             </div>
 
             <v-alert v-if="animations.length === 0" type="warning" text dense class="mb-4">
@@ -3227,12 +3245,29 @@ export default {
 
   // Get current force values for display in the sidebar
   getCurrentForceValues(animationIndex) {
-    if (!this.forcesDatasets[animationIndex] || !this.frames || this.frame >= this.frames.length) {
+    if (!this.forcesDatasets[animationIndex]) {
       return null;
     }
 
     const forcesData = this.forcesDatasets[animationIndex];
-    const currentTime = parseFloat(this.frames[this.frame]);
+    
+    // Handle standalone forces (no animation frames)
+    let currentTime;
+    if (!this.frames || this.frames.length === 0) {
+      // For standalone forces, use the force data's own time array
+      if (!forcesData.time || forcesData.time.length === 0) {
+        return null;
+      }
+      // Use the first time value for standalone forces, or create a simple time progression
+      const timeIndex = Math.min(this.frame || 0, forcesData.time.length - 1);
+      currentTime = forcesData.time[timeIndex];
+    } else {
+      // For forces associated with animations, use the animation's time
+      if (this.frame >= this.frames.length) {
+        return null;
+      }
+      currentTime = parseFloat(this.frames[this.frame]);
+    }
 
     // Find the closest time index in the forces data
     let closestIndex = 0;
@@ -3246,24 +3281,56 @@ export default {
       }
     }
 
+    // Debug logging for time synchronization (commented out to reduce console spam)
+    // if (this.frame === 0 || this.frame % 30 === 0) {
+    //   console.log('Force time sync debug:', {
+    //     currentTime,
+    //     forceTimeRange: [forcesData.time[0], forcesData.time[forcesData.time.length - 1]],
+    //     closestIndex,
+    //     minTimeDiff,
+    //     frame: this.frame
+    //   });
+    // }
+
     // Extract force values for the current frame
     const result = {};
 
-    // Check for right foot forces
-    if (forcesData.data.R_ground_force_vx && forcesData.data.R_ground_force_vy && forcesData.data.R_ground_force_vz) {
-      const fx = forcesData.data.R_ground_force_vx[closestIndex] || 0;
-      const fy = forcesData.data.R_ground_force_vy[closestIndex] || 0;
-      const fz = forcesData.data.R_ground_force_vz[closestIndex] || 0;
+    // Check for right foot forces (try both mapped and original column names)
+    const rightForceX = forcesData.data.R_ground_force_vx || forcesData.data.ground_force_right_vx;
+    const rightForceY = forcesData.data.R_ground_force_vy || forcesData.data.ground_force_right_vy;
+    const rightForceZ = forcesData.data.R_ground_force_vz || forcesData.data.ground_force_right_vz;
+
+    // Debug logging for force data access (commented out to reduce console spam)
+    // if (this.frame === 0 || this.frame % 30 === 0) {
+    //   console.log('Force data access debug:', {
+    //     animationIndex,
+    //     hasR_ground_force_vx: !!forcesData.data.R_ground_force_vx,
+    //     hasGround_force_right_vx: !!forcesData.data.ground_force_right_vx,
+    //     rightForceX: !!rightForceX,
+    //     rightForceY: !!rightForceY,
+    //     rightForceZ: !!rightForceZ,
+    //     availableKeys: Object.keys(forcesData.data).filter(key => key.includes('force'))
+    //   });
+    // }
+
+    if (rightForceX && rightForceY && rightForceZ) {
+      const fx = rightForceX[closestIndex] || 0;
+      const fy = rightForceY[closestIndex] || 0;
+      const fz = rightForceZ[closestIndex] || 0;
       const magnitude = Math.sqrt(fx * fx + fy * fy + fz * fz);
 
       result.R = { fx, fy, fz, magnitude };
     }
 
-    // Check for left foot forces
-    if (forcesData.data.L_ground_force_vx && forcesData.data.L_ground_force_vy && forcesData.data.L_ground_force_vz) {
-      const fx = forcesData.data.L_ground_force_vx[closestIndex] || 0;
-      const fy = forcesData.data.L_ground_force_vy[closestIndex] || 0;
-      const fz = forcesData.data.L_ground_force_vz[closestIndex] || 0;
+    // Check for left foot forces (try both mapped and original column names)
+    const leftForceX = forcesData.data.L_ground_force_vx || forcesData.data.ground_force_left_vx;
+    const leftForceY = forcesData.data.L_ground_force_vy || forcesData.data.ground_force_left_vy;
+    const leftForceZ = forcesData.data.L_ground_force_vz || forcesData.data.ground_force_left_vz;
+
+    if (leftForceX && leftForceY && leftForceZ) {
+      const fx = leftForceX[closestIndex] || 0;
+      const fy = leftForceY[closestIndex] || 0;
+      const fz = leftForceZ[closestIndex] || 0;
       const magnitude = Math.sqrt(fx * fx + fy * fy + fz * fz);
 
       result.L = { fx, fy, fz, magnitude };
@@ -3374,11 +3441,13 @@ export default {
           }
         }
 
-        // Check for force-related column names
+        // Check for force-related column names (expanded to include more patterns)
         const forceKeywords = [
           'force', 'ground_force', 'grf',
           'force_vx', 'force_vy', 'force_vz',
           'force_px', 'force_py', 'force_pz',
+          'ground_force_right', 'ground_force_left',
+          'right_ground_force', 'left_ground_force',
           'moment', 'torque', 'cop'
         ];
 
@@ -3537,12 +3606,16 @@ export default {
       }
     }
 
+    // Map column names to standard format for compatibility
+    const mappedForceData = this.mapForceColumns(forceData, columnHeaders);
+
     // Store forces data for the selected animation
     const animationIndex = this.selectedAnimationForForces;
     this.forcesDatasets[animationIndex] = {
       time: timeData,
       columns: columnHeaders,
-      data: forceData,
+      data: mappedForceData,
+      originalData: forceData, // Keep original data for reference
       associatedAnimationIndex: animationIndex,
       fileName: this.forcesFile ? this.forcesFile.name : 'Forces Data'
     };
@@ -3556,7 +3629,73 @@ export default {
     // Set initial visibility for this animation
     this.$set(this.forcesVisible, String(animationIndex), true);
 
+    // For standalone forces, set up the frames array if it doesn't exist
+    if (!this.frames || this.frames.length === 0) {
+      this.frames = timeData;
+      this.frame = 0;
+      this.time = parseFloat(this.frames[0]).toFixed(2);
+      console.log('Set up frames for standalone forces:', {
+        totalFrames: this.frames.length,
+        timeRange: [this.frames[0], this.frames[this.frames.length - 1]]
+      });
+    }
+
     this.createForceArrows();
+  },
+
+  // New method to map different column naming conventions to standard format
+  mapForceColumns(forceData, columnHeaders) {
+    const mappedData = { ...forceData };
+    
+    // Define mapping patterns for different naming conventions
+    const columnMappings = {
+      // Pattern 1: R_ground_force_vx, L_ground_force_vx (current expected format)
+      'R_ground_force_vx': ['R_ground_force_vx', 'ground_force_right_vx', 'right_ground_force_vx'],
+      'R_ground_force_vy': ['R_ground_force_vy', 'ground_force_right_vy', 'right_ground_force_vy'],
+      'R_ground_force_vz': ['R_ground_force_vz', 'ground_force_right_vz', 'right_ground_force_vz'],
+      'R_ground_force_px': ['R_ground_force_px', 'ground_force_right_px', 'right_ground_force_px'],
+      'R_ground_force_py': ['R_ground_force_py', 'ground_force_right_py', 'right_ground_force_py'],
+      'R_ground_force_pz': ['R_ground_force_pz', 'ground_force_right_pz', 'right_ground_force_pz'],
+      
+      'L_ground_force_vx': ['L_ground_force_vx', 'ground_force_left_vx', 'left_ground_force_vx'],
+      'L_ground_force_vy': ['L_ground_force_vy', 'ground_force_left_vy', 'left_ground_force_vy'],
+      'L_ground_force_vz': ['L_ground_force_vz', 'ground_force_left_vz', 'left_ground_force_vz'],
+      'L_ground_force_px': ['L_ground_force_px', 'ground_force_left_px', 'left_ground_force_px'],
+      'L_ground_force_py': ['L_ground_force_py', 'ground_force_left_py', 'left_ground_force_py'],
+      'L_ground_force_pz': ['L_ground_force_pz', 'ground_force_left_pz', 'left_ground_force_pz'],
+    };
+
+    // Apply mappings
+    Object.keys(columnMappings).forEach(standardName => {
+      const possibleNames = columnMappings[standardName];
+      
+      // Find which column name exists in the data
+      for (const possibleName of possibleNames) {
+        if (forceData[possibleName]) {
+          mappedData[standardName] = forceData[possibleName];
+          console.log(`Mapped ${possibleName} to ${standardName}`);
+          break;
+        }
+      }
+    });
+
+    // Log what columns were found and mapped
+    console.log('Original columns:', columnHeaders);
+    console.log('Mapped force data keys:', Object.keys(mappedData).filter(key => 
+      key.includes('ground_force') || key.includes('force')
+    ));
+    
+    // Debug: Check if mapping was successful
+    const hasRightForces = mappedData.R_ground_force_vx && mappedData.R_ground_force_vy && mappedData.R_ground_force_vz;
+    const hasLeftForces = mappedData.L_ground_force_vx && mappedData.L_ground_force_vy && mappedData.L_ground_force_vz;
+    console.log('Mapping success check:', {
+      hasRightForces,
+      hasLeftForces,
+      rightForceData: hasRightForces ? 'Mapped successfully' : 'Not found',
+      leftForceData: hasLeftForces ? 'Mapped successfully' : 'Not found'
+    });
+
+    return mappedData;
   },
 
   createArrowHeadGeometry() {
@@ -3626,8 +3765,21 @@ export default {
       forceToFootMapping.forEach(mapping => {
         if (!targetAnimation.data.bodies[mapping.footSegment]) return;
 
-        // Check if force columns exist in the data
-        const hasForceData = mapping.forceColumns.some(col => forcesData.data[col]);
+        // Check if force columns exist in the data (try both mapped and original column names)
+        const hasForceData = mapping.forceColumns.some(col => {
+          // Check mapped column name first
+          if (forcesData.data[col]) return true;
+          
+          // If not found, try original column names as fallback
+          if (col === 'R_ground_force_vx' && forcesData.data.ground_force_right_vx) return true;
+          if (col === 'R_ground_force_vy' && forcesData.data.ground_force_right_vy) return true;
+          if (col === 'R_ground_force_vz' && forcesData.data.ground_force_right_vz) return true;
+          if (col === 'L_ground_force_vx' && forcesData.data.ground_force_left_vx) return true;
+          if (col === 'L_ground_force_vy' && forcesData.data.ground_force_left_vy) return true;
+          if (col === 'L_ground_force_vz' && forcesData.data.ground_force_left_vz) return true;
+          
+          return false;
+        });
         if (!hasForceData) return;
 
         // Create force arrow group for this foot
@@ -3705,8 +3857,21 @@ export default {
       return;
     }
 
-    const currentTime = this.frames[frameIndex];
-    console.log('updateForceArrows called for frame:', frameIndex, 'time:', currentTime);
+    // Handle standalone forces (no animation frames)
+    let currentTime;
+    if (!this.frames || this.frames.length === 0) {
+      // For standalone forces, use the force data's own time array
+      const forcesData = this.forcesDatasets[Object.keys(this.forcesDatasets)[0]];
+      if (!forcesData || !forcesData.time || forcesData.time.length === 0) {
+        return;
+      }
+      const timeIndex = Math.min(frameIndex, forcesData.time.length - 1);
+      currentTime = forcesData.time[timeIndex];
+    } else {
+      // For forces associated with animations, use the animation's time
+      currentTime = this.frames[frameIndex];
+    }
+    // Removed excessive logging - only log when debugging is needed
 
     this.forceArrows.forEach(footForceGroup => {
       const groupData = footForceGroup.userData;
@@ -3768,14 +3933,14 @@ export default {
       copPosition.add(animation.offset);
       footForceGroup.position.copy(copPosition);
 
-      // Debug logging for COP positioning
-      if (frameIndex === 0 || frameIndex % 30 === 0) {
-        console.log(`COP debug - Animation ${animationIndex}:`, {
-          copPosition: copPosition.toArray(),
-          hasCopData,
-          animationOffset: animation.offset
-        });
-      }
+              // Debug logging for COP positioning (commented out to reduce console spam)
+        // if (frameIndex === 0 || frameIndex % 30 === 0) {
+        //   console.log(`COP debug - Animation ${animationIndex}:`, {
+        //     copPosition: copPosition.toArray(),
+        //     hasCopData,
+        //     animationOffset: animation.offset
+        //   });
+        // }
 
       // Update each force arrow in the group
       footForceGroup.children.forEach(arrowGroup => {
@@ -3787,12 +3952,26 @@ export default {
         const forceColumns = arrowData.forceColumns;
 
         if (forceColumns.length >= 3) {
-          const fx = forcesData.data[forceColumns[0]] ?
-                   forcesData.data[forceColumns[0]][forceFrameIndex] || 0 : 0;
-          const fy = forcesData.data[forceColumns[1]] ?
-                   forcesData.data[forceColumns[1]][forceFrameIndex] || 0 : 0;
-          const fz = forcesData.data[forceColumns[2]] ?
-                   forcesData.data[forceColumns[2]][forceFrameIndex] || 0 : 0;
+          // Helper function to get force value with fallback to original column names
+          const getForceValue = (mappedCol, originalCol) => {
+            if (forcesData.data[mappedCol]) {
+              return forcesData.data[mappedCol][forceFrameIndex] || 0;
+            }
+            if (forcesData.data[originalCol]) {
+              return forcesData.data[originalCol][forceFrameIndex] || 0;
+            }
+            return 0;
+          };
+
+          const fx = getForceValue(forceColumns[0], 
+            forceColumns[0] === 'R_ground_force_vx' ? 'ground_force_right_vx' : 
+            forceColumns[0] === 'L_ground_force_vx' ? 'ground_force_left_vx' : null);
+          const fy = getForceValue(forceColumns[1], 
+            forceColumns[1] === 'R_ground_force_vy' ? 'ground_force_right_vy' : 
+            forceColumns[1] === 'L_ground_force_vy' ? 'ground_force_left_vy' : null);
+          const fz = getForceValue(forceColumns[2], 
+            forceColumns[2] === 'R_ground_force_vz' ? 'ground_force_right_vz' : 
+            forceColumns[2] === 'L_ground_force_vz' ? 'ground_force_left_vz' : null);
 
           forceVector.set(fx, fy, fz);
         }
@@ -3800,23 +3979,40 @@ export default {
         // Calculate original force magnitude before scaling
         const originalMagnitude = forceVector.length();
 
-        // Debug logging
-        if (frameIndex === 0 || frameIndex % 30 === 0) { // Log every 30 frames to avoid spam
-          console.log(`Force debug - Animation ${animationIndex}, Platform ${arrowData.platform}:`, {
-            fx: forcesData.data[forceColumns[0]] ? forcesData.data[forceColumns[0]][forceFrameIndex] : 'missing',
-            fy: forcesData.data[forceColumns[1]] ? forcesData.data[forceColumns[1]][forceFrameIndex] : 'missing',
-            fz: forcesData.data[forceColumns[2]] ? forcesData.data[forceColumns[2]][forceFrameIndex] : 'missing',
-            magnitude: originalMagnitude,
-            frameIndex: forceFrameIndex
-          });
-        }
+        // Debug logging (commented out to reduce console spam)
+        // if (frameIndex === 0 || frameIndex % 30 === 0) { // Log every 30 frames to avoid spam
+        //   const mappedFx = forcesData.data[forceColumns[0]] ? forcesData.data[forceColumns[0]][forceFrameIndex] : 'missing';
+        //   const mappedFy = forcesData.data[forceColumns[1]] ? forcesData.data[forceColumns[1]][forceFrameIndex] : 'missing';
+        //   const mappedFz = forcesData.data[forceColumns[2]] ? forcesData.data[forceColumns[2]][forceFrameIndex] : 'missing';
+        //   
+        //   // Get original column names for comparison
+        //   const originalColX = forceColumns[0] === 'R_ground_force_vx' ? 'ground_force_right_vx' : 
+        //                       forceColumns[0] === 'L_ground_force_vx' ? 'ground_force_left_vx' : forceColumns[0];
+        //   const originalColY = forceColumns[1] === 'R_ground_force_vy' ? 'ground_force_right_vy' : 
+        //                       forceColumns[1] === 'L_ground_force_vy' ? 'ground_force_left_vy' : forceColumns[1];
+        //   const originalColZ = forceColumns[2] === 'R_ground_force_vz' ? 'ground_force_right_vz' : 
+        //                       forceColumns[2] === 'L_ground_force_vz' ? 'ground_force_left_vz' : forceColumns[2];
+        //   
+        //   const originalFx = forcesData.data[originalColX] ? forcesData.data[originalColX][forceFrameIndex] : 'missing';
+        //   const originalFy = forcesData.data[originalColY] ? forcesData.data[originalColY][forceFrameIndex] : 'missing';
+        //   const originalFz = forcesData.data[originalColZ] ? forcesData.data[originalColZ][forceFrameIndex] : 'missing';
+        //   
+        //   console.log(`Force debug - Animation ${animationIndex}, Platform ${arrowData.platform}:`, {
+        //     mapped: { fx: mappedFx, fy: mappedFy, fz: mappedFz },
+        //     original: { fx: originalFx, fy: originalFy, fz: originalFz },
+        //     final: { fx: forceVector.x, fy: forceVector.y, fz: forceVector.z },
+        //     magnitude: originalMagnitude,
+        //     frameIndex: forceFrameIndex
+        //   });
+        // }
 
         // Update arrow visibility based on original force magnitude (lowered threshold for debugging)
         arrowGroup.visible = originalMagnitude > 0.1; // Show if force > 0.1N (was 1.0N)
 
-        if (frameIndex === 0 || frameIndex % 30 === 0) {
-          console.log(`Arrow visibility - Animation ${animationIndex}, Platform ${arrowData.platform}: visible=${arrowGroup.visible}, magnitude=${originalMagnitude}`);
-        }
+        // Arrow visibility logging (commented out to reduce console spam)
+        // if (frameIndex === 0 || frameIndex % 30 === 0) {
+        //   console.log(`Arrow visibility - Animation ${animationIndex}, Platform ${arrowData.platform}: visible=${arrowGroup.visible}, magnitude=${originalMagnitude}`);
+        // }
 
         if (arrowGroup.visible) {
           // Scale the force vector for display
@@ -6888,12 +7084,38 @@ export default {
       event.target.value = '';
   },
   initScene(retryCount = 0) {
-      console.log('initScene called', retryCount > 0 ? `(retry ${retryCount})` : '');
+      // console.log('initScene called', retryCount > 0 ? `(retry ${retryCount})` : '');
+      
+      // Prevent multiple simultaneous initializations
+      if (this._initializingScene && retryCount === 0) {
+        // console.log('Scene initialization already in progress, skipping...');
+        return;
+      }
+      
+      if (retryCount === 0) {
+        this._initializingScene = true;
+      }
+      
+      // Check if component is mounted and DOM is ready
+      if (!this.$el || document.readyState !== 'complete') {
+        // console.log('Component not mounted or DOM not ready, retrying...');
+        if (retryCount < 10) {
+          this.$nextTick(() => {
+            this.initScene(retryCount + 1);
+          });
+        } else {
+          console.error('Failed to initialize scene after 10 retries - component not mounted');
+          this._initializingScene = false;
+        }
+        return;
+      }
+      
       const container = this.$refs.mocap;
       if (!container) {
         console.error('Container not found in initScene');
         console.log('Available refs:', Object.keys(this.$refs));
         console.log('DOM ready?', document.readyState);
+        console.log('Component mounted?', !!this.$el);
         console.log('Trial:', !!this.trial);
         console.log('Animations:', this.animations.length);
         console.log('MarkerSpheres:', this.markerSpheres.length);
@@ -6902,12 +7124,13 @@ export default {
 
         // Always retry in the next tick if container is not found (max 10 retries)
         if (retryCount < 10) {
-          console.log('Retrying initScene in next tick...');
+          // console.log('Retrying initScene in next tick...');
           this.$nextTick(() => {
             this.initScene(retryCount + 1);
           });
         } else {
           console.error('Failed to initialize scene after 10 retries');
+          this._initializingScene = false;
         }
         return;
       }
@@ -6919,7 +7142,7 @@ export default {
       this.camera.position.y = 3.5;
 
       this.scene = new THREE.Scene();
-      console.log('Scene and camera initialized');
+      // console.log('Scene and camera initialized');
 
       // Create group for axes objects
       this.axesGroup = new THREE.Group();
@@ -7013,7 +7236,7 @@ export default {
       this.axesGroup.visible = this.showAxes;
 
       // Set background color from current setting
-      console.log(`[initScene] Setting background color to: ${this.backgroundColor}`);
+      // console.log(`[initScene] Setting background color to: ${this.backgroundColor}`);
       this.scene.background = new THREE.Color(this.backgroundColor);
 
       // Configure renderer with current background color and better shadows
@@ -7023,8 +7246,20 @@ export default {
       this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
       this.onResize();
-      container.appendChild(this.renderer.domElement);
-      this.controls = new THREE_OC.OrbitControls(this.camera, this.renderer.domElement);
+      
+      try {
+        container.appendChild(this.renderer.domElement);
+        // console.log('[initScene] Renderer DOM element appended successfully');
+      } catch (error) {
+        console.error('[initScene] Error appending renderer to container:', error);
+      }
+      
+      try {
+        this.controls = new THREE_OC.OrbitControls(this.camera, this.renderer.domElement);
+        // console.log('[initScene] Orbit controls created successfully');
+      } catch (error) {
+        console.error('[initScene] Error creating orbit controls:', error);
+      }
 
       // Create a much larger plane for "infinite" appearance
       const planeSize = 200; // Make plane much larger for "infinite" appearance
@@ -7098,11 +7333,26 @@ export default {
       this.lights.ambient = ambientLight;
 
       // Initial render
-      this.renderer.render(this.scene, this.camera);
+      try {
+        this.renderer.render(this.scene, this.camera);
+        // console.log('[initScene] Initial render completed successfully');
+      } catch (error) {
+        console.error('[initScene] Error during initial render:', error);
+      }
 
       // Apply loaded settings after scene initialization
-      console.log('[initScene] Calling applyLoadedSceneSettings() at the end of initScene.');
+      // console.log('[initScene] Calling applyLoadedSceneSettings() at the end of initScene.');
       this.applyLoadedSceneSettings();
+      
+      // Reset initialization flag
+      this._initializingScene = false;
+      
+      // console.log('[initScene] Scene initialization completed successfully:', {
+      //   scene: !!this.scene,
+      //   renderer: !!this.renderer,
+      //   camera: !!this.camera,
+      //   container: !!this.$refs.mocap
+      // });
   },
   onChangeTime(time) {
       // Round the time value to 2 decimal places
@@ -8661,14 +8911,40 @@ export default {
           };
 
           // Process the converted JSON
+          // console.log('Processing converted JSON file...');
           this.handleFileUpload(fakeEvent);
 
           // Clear the selected files after successful conversion
           this.osimFile = null;
           this.motFile = null;
+          
+          // console.log('Conversion completed. Scene state:', {
+          //   scene: !!this.scene,
+          //   animations: this.animations.length,
+          //   frames: this.frames ? this.frames.length : 0
+          // });
 
-          // Give time for scene initialization before clearing converting flag
-          await new Promise(resolve => setTimeout(resolve, 100));
+          // Give more time for scene initialization and ensure it's properly set up
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // Force scene initialization if it still doesn't exist
+          if (!this.scene) {
+            // console.log('Scene still not initialized after conversion, forcing initialization...');
+            this.$nextTick(() => {
+              this.initScene();
+            });
+            // Wait a bit more for the scene to initialize
+            await new Promise(resolve => setTimeout(resolve, 300));
+            
+            // Check again and log the final state (commented out to reduce console spam)
+            // console.log('Final scene state after forced initialization:', {
+            //   scene: !!this.scene,
+            //   renderer: !!this.renderer,
+            //   camera: !!this.camera,
+            //   animations: this.animations.length,
+            //   frames: this.frames ? this.frames.length : 0
+            // });
+          }
 
       } catch (error) {
           console.error('Error converting OpenSim files:', error);
@@ -12055,6 +12331,71 @@ animation: pulse-glow 2s ease-in-out infinite;
 
 .conversion-overlay .text-subtitle-1 {
   font-size: 1rem !important;
+}
+}
+
+/* Scene overlay for conversion loading */
+.conversion-overlay-scene {
+position: absolute;
+top: 0;
+left: 0;
+width: 100%;
+height: 100%;
+background: rgba(15, 23, 42, 0.85);
+backdrop-filter: blur(4px);
+display: flex;
+align-items: center;
+justify-content: center;
+z-index: 1000;
+}
+
+.conversion-content {
+display: flex;
+flex-direction: column;
+align-items: center;
+justify-content: center;
+text-align: center;
+padding: 40px;
+background: rgba(30, 41, 59, 0.9);
+border-radius: 16px;
+border: 1px solid rgba(79, 70, 229, 0.3);
+box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.conversion-content .v-progress-circular {
+margin-bottom: 24px;
+filter: drop-shadow(0 4px 8px rgba(79, 70, 229, 0.4));
+}
+
+.conversion-content .text-h6 {
+font-size: 1.5rem !important;
+font-weight: 600 !important;
+line-height: 1.4 !important;
+margin-bottom: 12px;
+color: white !important;
+text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.conversion-content .text-subtitle-1 {
+font-size: 1rem !important;
+font-weight: 400 !important;
+color: rgba(255, 255, 255, 0.8) !important;
+line-height: 1.5;
+}
+
+/* Responsive adjustments for scene overlay */
+@media (max-width: 768px) {
+.conversion-content {
+  padding: 24px;
+  margin: 20px;
+}
+
+.conversion-content .text-h6 {
+  font-size: 1.25rem !important;
+}
+
+.conversion-content .text-subtitle-1 {
+  font-size: 0.9rem !important;
 }
 }
 
