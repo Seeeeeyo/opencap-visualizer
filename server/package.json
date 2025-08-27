@@ -1,0 +1,20 @@
+{
+  "name": "smpl-api-server",
+  "version": "1.0.0",
+  "description": "SMPL API Server for OpenCap Visualizer",
+  "main": "smpl-api.js",
+  "scripts": {
+    "start": "node smpl-api.js",
+    "dev": "nodemon smpl-api.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "keywords": ["smpl", "smplx", "opencap", "visualizer"],
+  "author": "OpenCap Team",
+  "license": "MIT"
+} 

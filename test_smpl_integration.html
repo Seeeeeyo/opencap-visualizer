@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SMPL Integration Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #1a1a1a;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+        #container {
+            width: 100%;
+            height: 600px;
+            border: 1px solid #333;
+            margin: 20px 0;
+        }
+        .controls {
+            margin: 20px 0;
+        }
+        .control-group {
+            margin: 10px 0;
+        }
+        label {
+            display: inline-block;
+            width: 100px;
+        }
+        input[type="range"] {
+            width: 200px;
+        }
+        button {
+            margin: 5px;
+            padding: 8px 16px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <h1>SMPL Integration Test</h1>
+    <p>This is a simple test to verify the SMPL integration works without external dependencies.</p>
+    
+    <div class="controls">
+        <div class="control-group">
+            <label>Gender:</label>
+            <select id="gender">
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="neutral">Neutral</option>
+            </select>
+        </div>
+        
+        <div class="control-group">
+            <label>Height (β0):</label>
+            <input type="range" id="height" min="-3" max="3" step="0.1" value="0">
+            <span id="heightValue">0</span>
+        </div>
+        
+        <div class="control-group">
+            <label>Width (β1):</label>
+            <input type="range" id="width" min="-3" max="3" step="0.1" value="0">
+            <span id="widthValue">0</span>
+        </div>
+        
+        <div class="control-group">
+            <label>Depth (β2):</label>
+            <input type="range" id="depth" min="-3" max="3" step="0.1" value="0">
+            <span id="depthValue">0</span>
+        </div>
+        
+        <button onclick="updateModel()">Update Model</button>
+        <button onclick="resetModel()">Reset</button>
+    </div>
+    
+    <div id="container"></div>
+    
+    <div id="status">Status: Initializing...</div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    
+    <script>
+        // Realistic SMPL-like humanoid utilities (inline version)
+        function createRealisticHumanoid(shapeParams = new Array(10).fill(0), gender = 'male') {
+            // Extract shape parameters
+            const height = 1.7 + (shapeParams[0] || 0) * 0.1
+            const width = 0.5 + (shapeParams[1] || 0) * 0.05
+            const depth = 0.3 + (shapeParams[2] || 0) * 0.03
+            
+            // Create a group to hold all body parts
+            const group = new THREE.Group()
+            
+            // Gender-specific colors and proportions
+            const genderConfig = {
+                male: {
+                    color: 0x8B4513,
+                    shoulderWidth: width * 0.8,
+                    hipWidth: width * 0.6,
+                    waistWidth: width * 0.4,
+                    chestWidth: width * 0.7
+                },
+                female: {
+                    color: 0xD2691E,
+                    shoulderWidth: width * 0.6,
+                    hipWidth: width * 0.8,
+                    waistWidth: width * 0.3,
+                    chestWidth: width * 0.6
+                },
+                neutral: {
+                    color: 0xA0522D,
+                    shoulderWidth: width * 0.7,
+                    hipWidth: width * 0.7,
+                    waistWidth: width * 0.35,
+                    chestWidth: width * 0.65
+                }
+            }
+            
+            const config = genderConfig[gender] || genderConfig.male
+            
+            // Create body segments with more realistic proportions
+            const segments = [
+                // Head (ellipsoid for more realistic shape)
+                {
+                    geometry: new THREE.SphereGeometry(0.1, 16, 16),
+                    position: [0, height - 0.05, 0],
+                    scale: [1, 1.2, 0.8] // Slightly elongated head
+                },
+                // Neck (thin cylinder)
+                {
+                    geometry: new THREE.CylinderGeometry(0.04, 0.06, 0.15, 12),
+                    position: [0, height - 0.25, 0]
+                },
+                // Torso (more realistic proportions)
+                {
+                    geometry: new THREE.CylinderGeometry(config.chestWidth, config.waistWidth, 0.6, 16),
+                    position: [0, height - 0.6, 0]
+                },
+                // Pelvis (wider for more realistic shape)
+                {
+                    geometry: new THREE.CylinderGeometry(config.waistWidth, config.hipWidth, 0.25, 16),
+                    position: [0, height - 1.0, 0]
+                },
+                // Left Shoulder (more realistic positioning)
+                {
+                    geometry: new THREE.SphereGeometry(0.08, 12, 12),
+                    position: [-config.shoulderWidth * 0.6, height - 0.4, 0]
+                },
+                // Right Shoulder
+                {
+                    geometry: new THREE.SphereGeometry(0.08, 12, 12),
+                    position: [config.shoulderWidth * 0.6, height - 0.4, 0]
+                },
+                // Left Upper Arm (more realistic proportions)
+                {
+                    geometry: new THREE.CylinderGeometry(0.06, 0.05, 0.3, 12),
+                    position: [-config.shoulderWidth * 0.8, height - 0.5, 0],
+                    rotation: [0, 0, Math.PI / 6] // Slight outward angle
+                },
+                // Right Upper Arm
+                {
+                    geometry: new THREE.CylinderGeometry(0.06, 0.05, 0.3, 12),
+                    position: [config.shoulderWidth * 0.8, height - 0.5, 0],
+                    rotation: [0, 0, -Math.PI / 6]
+                },
+                // Left Lower Arm
+                {
+                    geometry: new THREE.CylinderGeometry(0.05, 0.04, 0.25, 12),
+                    position: [-config.shoulderWidth * 1.1, height - 0.7, 0],
+                    rotation: [0, 0, Math.PI / 6]
+                },
+                // Right Lower Arm
+                {
+                    geometry: new THREE.CylinderGeometry(0.05, 0.04, 0.25, 12),
+                    position: [config.shoulderWidth * 1.1, height - 0.7, 0],
+                    rotation: [0, 0, -Math.PI / 6]
+                },
+                // Left Hand (small sphere)
+                {
+                    geometry: new THREE.SphereGeometry(0.04, 8, 8),
+                    position: [-config.shoulderWidth * 1.3, height - 0.85, 0]
+                },
+                // Right Hand
+                {
+                    geometry: new THREE.SphereGeometry(0.04, 8, 8),
+                    position: [config.shoulderWidth * 1.3, height - 0.85, 0]
+                },
+                // Left Upper Leg (more realistic proportions)
+                {
+                    geometry: new THREE.CylinderGeometry(0.08, 0.07, 0.4, 12),
+                    position: [-width * 0.15, height - 1.3, 0]
+                },
+                // Right Upper Leg
+                {
+                    geometry: new THREE.CylinderGeometry(0.08, 0.07, 0.4, 12),
+                    position: [width * 0.15, height - 1.3, 0]
+                },
+                // Left Lower Leg
+                {
+                    geometry: new THREE.CylinderGeometry(0.07, 0.06, 0.4, 12),
+                    position: [-width * 0.15, height - 1.7, 0]
+                },
+                // Right Lower Leg
+                {
+                    geometry: new THREE.CylinderGeometry(0.07, 0.06, 0.4, 12),
+                    position: [width * 0.15, height - 1.7, 0]
+                },
+                // Left Foot (ellipsoid for more realistic shape)
+                {
+                    geometry: new THREE.SphereGeometry(0.06, 8, 8),
+                    position: [-width * 0.15, height - 2.0, 0.1],
+                    scale: [1.5, 0.3, 0.8] // Flattened and elongated
+                },
+                // Right Foot
+                {
+                    geometry: new THREE.SphereGeometry(0.06, 8, 8),
+                    position: [width * 0.15, height - 2.0, 0.1],
+                    scale: [1.5, 0.3, 0.8]
+                }
+            ]
+            
+            // Create each body segment
+            segments.forEach(({ geometry, position, rotation, scale }) => {
+                const material = new THREE.MeshPhongMaterial({
+                    color: config.color,
+                    shininess: 30,
+                    transparent: true,
+                    opacity: 0.9
+                })
+                
+                const mesh = new THREE.Mesh(geometry, material)
+                mesh.position.set(...position)
+                
+                if (rotation) {
+                    mesh.rotation.set(...rotation)
+                }
+                
+                if (scale) {
+                    mesh.scale.set(...scale)
+                }
+                
+                mesh.castShadow = true
+                mesh.receiveShadow = true
+                
+                group.add(mesh)
+            })
+            
+            return group
+        }
+        
+        function createSMPLModel(shapeParams, gender) {
+            // Create realistic humanoid
+            const bodyGroup = createRealisticHumanoid(shapeParams, gender)
+            return bodyGroup
+        }
+        
+        // Three.js setup
+        let scene, camera, renderer, controls, smplModel
+        
+        function init() {
+            const container = document.getElementById('container')
+            
+            // Scene setup
+            scene = new THREE.Scene()
+            scene.background = new THREE.Color(0x1a1a1a)
+            
+            // Camera setup
+            const aspect = container.clientWidth / container.clientHeight
+            camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 1000)
+            camera.position.set(0, 1.5, 3)
+            
+            // Renderer setup
+            renderer = new THREE.WebGLRenderer({ antialias: true })
+            renderer.setSize(container.clientWidth, container.clientHeight)
+            renderer.shadowMap.enabled = true
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap
+            container.appendChild(renderer.domElement)
+            
+            // Controls setup
+            controls = new THREE.OrbitControls(camera, renderer.domElement)
+            controls.enableDamping = true
+            controls.dampingFactor = 0.05
+            
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.6)
+            scene.add(ambientLight)
+            
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8)
+            directionalLight.position.set(5, 5, 5)
+            directionalLight.castShadow = true
+            scene.add(directionalLight)
+            
+            // Ground plane
+            const groundGeometry = new THREE.PlaneGeometry(10, 10)
+            const groundMaterial = new THREE.MeshLambertMaterial({ 
+                color: 0x404040,
+                transparent: true,
+                opacity: 0.5
+            })
+            const ground = new THREE.Mesh(groundGeometry, groundMaterial)
+            ground.rotation.x = -Math.PI / 2
+            ground.receiveShadow = true
+            scene.add(ground)
+            
+            // Create initial SMPL model
+            updateModel()
+            
+            // Start animation loop
+            animate()
+            
+            document.getElementById('status').textContent = 'Status: Ready'
+        }
+        
+        function updateModel() {
+            // Remove existing model
+            if (smplModel) {
+                scene.remove(smplModel)
+            }
+            
+            // Get current parameters
+            const gender = document.getElementById('gender').value
+            const height = parseFloat(document.getElementById('height').value)
+            const width = parseFloat(document.getElementById('width').value)
+            const depth = parseFloat(document.getElementById('depth').value)
+            
+            const shapeParams = [height, width, depth, 0, 0, 0, 0, 0, 0, 0]
+            
+            // Create new model
+            smplModel = createSMPLModel(shapeParams, gender)
+            scene.add(smplModel)
+            
+            document.getElementById('status').textContent = `Status: Model updated (${gender}, height: ${height.toFixed(1)}, width: ${width.toFixed(1)})`
+        }
+        
+        function resetModel() {
+            document.getElementById('height').value = 0
+            document.getElementById('width').value = 0
+            document.getElementById('depth').value = 0
+            document.getElementById('heightValue').textContent = '0'
+            document.getElementById('widthValue').textContent = '0'
+            document.getElementById('depthValue').textContent = '0'
+            updateModel()
+        }
+        
+        function animate() {
+            requestAnimationFrame(animate)
+            controls.update()
+            renderer.render(scene, camera)
+        }
+        
+        // Event listeners
+        document.getElementById('height').addEventListener('input', function() {
+            document.getElementById('heightValue').textContent = this.value
+        })
+        
+        document.getElementById('width').addEventListener('input', function() {
+            document.getElementById('widthValue').textContent = this.value
+        })
+        
+        document.getElementById('depth').addEventListener('input', function() {
+            document.getElementById('depthValue').textContent = this.value
+        })
+        
+        // Initialize
+        window.addEventListener('load', init)
+    </script>
+</body>
+</html> 

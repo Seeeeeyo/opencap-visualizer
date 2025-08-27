@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Force Loading Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .success {
+            color: green;
+            font-weight: bold;
+        }
+        .error {
+            color: red;
+            font-weight: bold;
+        }
+        .info {
+            color: blue;
+        }
+        pre {
+            background: #f8f8f8;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <h1>Force Loading Test</h1>
+    
+    <div class="test-section">
+        <h2>Test 1: Sample Force File Access</h2>
+        <button onclick="testSampleFileAccess()">Test Sample File Access</button>
+        <div id="test1-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 2: Column Mapping</h2>
+        <button onclick="testColumnMapping()">Test Column Mapping</button>
+        <div id="test2-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 3: Force File Detection</h2>
+        <button onclick="testForceDetection()">Test Force Detection</button>
+        <div id="test3-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Instructions</h2>
+        <p>This test page verifies that the force loading functionality works correctly:</p>
+        <ol>
+            <li><strong>Test 1:</strong> Checks if the sample force file can be accessed from the public directory</li>
+            <li><strong>Test 2:</strong> Tests the column mapping functionality for different naming conventions</li>
+            <li><strong>Test 3:</strong> Tests the force file detection logic</li>
+        </ol>
+        <p>To use the force loading in the main application:</p>
+        <ul>
+            <li>Click "Load Sample Forces" button in the getting started section</li>
+            <li>Or drag and drop a .mot force file into the viewer</li>
+            <li>Or use the Import button and select "Forces"</li>
+        </ul>
+    </div>
+
+    <script>
+        // Test 1: Sample file access
+        async function testSampleFileAccess() {
+            const resultDiv = document.getElementById('test1-result');
+            resultDiv.innerHTML = '<div class="info">Testing sample file access...</div>';
+            
+            try {
+                const response = await fetch('/sample_grf_resultant.mot');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const content = await response.text();
+                const lines = content.split('\n');
+                
+                resultDiv.innerHTML = `
+                    <div class="success">✓ Sample file accessed successfully!</div>
+                    <div class="info">File contains ${lines.length} lines</div>
+                    <div class="info">First few lines:</div>
+                    <pre>${lines.slice(0, 10).join('\n')}</pre>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">✗ Error accessing sample file: ${error.message}</div>
+                    <div class="info">Make sure the file exists in the public directory</div>
+                `;
+            }
+        }
+
+        // Test 2: Column mapping
+        function testColumnMapping() {
+            const resultDiv = document.getElementById('test2-result');
+            resultDiv.innerHTML = '<div class="info">Testing column mapping...</div>';
+            
+            // Sample data with different naming conventions
+            const testData = {
+                'ground_force_right_vx': [1, 2, 3],
+                'ground_force_right_vy': [4, 5, 6],
+                'ground_force_right_vz': [7, 8, 9],
+                'ground_force_left_vx': [10, 11, 12],
+                'ground_force_left_vy': [13, 14, 15],
+                'ground_force_left_vz': [16, 17, 18]
+            };
+            
+            const columnHeaders = ['time', 'ground_force_right_vx', 'ground_force_right_vy', 'ground_force_right_vz', 
+                                 'ground_force_left_vx', 'ground_force_left_vy', 'ground_force_left_vz'];
+            
+            // Simulate the mapping function
+            const mappedData = mapForceColumns(testData, columnHeaders);
+            
+            const mappedKeys = Object.keys(mappedData).filter(key => 
+                key.includes('ground_force') || key.includes('force')
+            );
+            
+            resultDiv.innerHTML = `
+                <div class="success">✓ Column mapping test completed!</div>
+                <div class="info">Original columns: ${columnHeaders.join(', ')}</div>
+                <div class="info">Mapped force columns: ${mappedKeys.join(', ')}</div>
+                <div class="info">Mapping results:</div>
+                <pre>${JSON.stringify(mappedData, null, 2)}</pre>
+            `;
+        }
+
+        // Test 3: Force detection
+        function testForceDetection() {
+            const resultDiv = document.getElementById('test3-result');
+            resultDiv.innerHTML = '<div class="info">Testing force detection...</div>';
+            
+            const testFiles = [
+                { name: 'sample_grf_resultant.mot' },
+                { name: 'motion_data.mot' },
+                { name: 'forces.mot' },
+                { name: 'kinematics.mot' }
+            ];
+            
+            const forceKeywords = [
+                'force', 'ground_force', 'grf',
+                'force_vx', 'force_vy', 'force_vz',
+                'force_px', 'force_py', 'force_pz',
+                'ground_force_right', 'ground_force_left',
+                'right_ground_force', 'left_ground_force',
+                'moment', 'torque', 'cop'
+            ];
+            
+            const results = testFiles.map(file => {
+                const fileName = file.name.toLowerCase();
+                const hasForceInName = fileName.includes('force');
+                return {
+                    file: file.name,
+                    hasForceInName,
+                    wouldBeDetected: hasForceInName
+                };
+            });
+            
+            resultDiv.innerHTML = `
+                <div class="success">✓ Force detection test completed!</div>
+                <div class="info">Test results:</div>
+                <pre>${JSON.stringify(results, null, 2)}</pre>
+            `;
+        }
+
+        // Simulate the column mapping function from the Vue component
+        function mapForceColumns(forceData, columnHeaders) {
+            const mappedData = { ...forceData };
+            
+            const columnMappings = {
+                'R_ground_force_vx': ['R_ground_force_vx', 'ground_force_right_vx', 'right_ground_force_vx'],
+                'R_ground_force_vy': ['R_ground_force_vy', 'ground_force_right_vy', 'right_ground_force_vy'],
+                'R_ground_force_vz': ['R_ground_force_vz', 'ground_force_right_vz', 'right_ground_force_vz'],
+                'R_ground_force_px': ['R_ground_force_px', 'ground_force_right_px', 'right_ground_force_px'],
+                'R_ground_force_py': ['R_ground_force_py', 'ground_force_right_py', 'right_ground_force_py'],
+                'R_ground_force_pz': ['R_ground_force_pz', 'ground_force_right_pz', 'right_ground_force_pz'],
+                
+                'L_ground_force_vx': ['L_ground_force_vx', 'ground_force_left_vx', 'left_ground_force_vx'],
+                'L_ground_force_vy': ['L_ground_force_vy', 'ground_force_left_vy', 'left_ground_force_vy'],
+                'L_ground_force_vz': ['L_ground_force_vz', 'ground_force_left_vz', 'left_ground_force_vz'],
+                'L_ground_force_px': ['L_ground_force_px', 'ground_force_left_px', 'left_ground_force_px'],
+                'L_ground_force_py': ['L_ground_force_py', 'ground_force_left_py', 'left_ground_force_py'],
+                'L_ground_force_pz': ['L_ground_force_pz', 'ground_force_left_pz', 'left_ground_force_pz'],
+            };
+
+            Object.keys(columnMappings).forEach(standardName => {
+                const possibleNames = columnMappings[standardName];
+                
+                for (const possibleName of possibleNames) {
+                    if (forceData[possibleName]) {
+                        mappedData[standardName] = forceData[possibleName];
+                        break;
+                    }
+                }
+            });
+
+            return mappedData;
+        }
+    </script>
+</body>
+</html>

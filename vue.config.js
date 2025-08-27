@@ -45,6 +45,10 @@ module.exports = {
         args[0].ignoreOrder = true
         return args
       })
+      
+      // Add cache busting for production builds
+      config.output.filename('[name].[contenthash].js')
+      config.output.chunkFilename('[name].[contenthash].js')
     }
   },
 

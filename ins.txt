@@ -1,0 +1,2 @@
+it is in the DB and i pasted the values at @db.json but when I load @https://opencap-visualizer.onrender.com/?shareId=meij8o6r531id  
+it takes a lot of time to load it and the page is irresponsive for a whole before showing the scene. How can we avoid that and speed up the saveing and loading?

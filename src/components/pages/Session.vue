@@ -128,6 +128,20 @@
                   Explore with pre-loaded motion capture data
                 </div>
 
+                <v-btn
+                  color="success"
+                  small
+                  outlined
+                  block
+                  @click="loadSampleForceFile"
+                  class="mb-2"
+                >
+                  <v-icon left small>mdi-vector-line</v-icon>
+                  Load Sample Forces
+                </v-btn>
+                <div class="text-caption grey--text mb-3">
+                  Test force visualization with sample .mot file
+                </div>
 
               </div>
 
@@ -158,15 +172,15 @@
                   </div>
                 </div>
 
-                <div class="step-item mb-2">
-                  <div class="d-flex align-center">
-                    <v-icon x-small color="green" class="mr-2">mdi-numeric-3-circle</v-icon>
-                    <span class="font-weight-medium">Enhance</span>
-                  </div>
-                  <div class="ml-5 grey--text">
-                    Add forces, video, or 3D models
-                  </div>
+                              <div class="step-item mb-2">
+                <div class="d-flex align-center">
+                  <v-icon x-small color="green" class="mr-2">mdi-numeric-3-circle</v-icon>
+                  <span class="font-weight-medium">Enhance</span>
                 </div>
+                <div class="ml-5 grey--text">
+                  Add forces (.mot), video, or 3D models
+                </div>
+              </div>
               </div>
 
               <v-divider class="my-3" style="opacity: 0.3;"></v-divider>
@@ -179,6 +193,7 @@
                 <li class="mb-1">Use Import button for batch uploads</li>
                 <li class="mb-1">Multiple subjects can be loaded together</li>
                 <li class="mb-1">.trc files can be loaded independently</li>
+                <li class="mb-1">.mot force files are automatically detected and positioned at feet</li>
               </ul>
             </v-card>
           </div>
@@ -1062,7 +1077,7 @@
           </div>
         </div>
       </div>
-      <div v-else-if="trialLoading" class="flex-grow-1 d-flex align-center justify-center">
+      <div v-else-if="trialLoading && !loadingSharedVisualization" class="flex-grow-1 d-flex align-center justify-center">
         <v-progress-circular indeterminate color="grey" size="30" width="4" />
       </div>
       <div v-else class="flex-grow-1 d-flex flex-column align-center justify-center">
@@ -1072,6 +1087,28 @@
           <div class="mt-4 text-h6 text-center">
             Converting OpenSim Files<br>
             <span class="text-subtitle-1">This may take a moment...</span>
+          </div>
+        </div>
+
+        <!-- Shared visualization loading overlay -->
+        <div v-if="loadingSharedVisualization" class="conversion-overlay">
+          <!-- Debug: {{ loadingSharedVisualization }} -->
+          <v-progress-circular indeterminate color="green" size="64" width="6" />
+          <div class="mt-4 text-h6 text-center">
+            Loading Shared Visualization<br>
+            <span class="text-subtitle-1">Processing animation data...</span>
+            <div v-if="totalModelsToLoad > 0" class="mt-3">
+              <v-progress-linear 
+                :value="modelLoadingProgress" 
+                color="green" 
+                height="12"
+                rounded
+                class="mb-2"
+              />
+              <div class="text-subtitle-2">
+                Loading models: {{ modelLoadingProgress }}% ({{ Math.round(modelLoadingProgress * totalModelsToLoad / 100) }}/{{ totalModelsToLoad }})
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1552,6 +1589,13 @@
             <div class="text-body-1 mb-4">
               Select a .mot forces file to visualize ground reaction forces at the subject's feet.
               Forces will be automatically positioned at the foot segments of the selected animation.
+              <br><br>
+              <strong>Supported formats:</strong>
+              <ul class="mt-2">
+                <li>• Standard OpenSim format: <code>R_ground_force_vx</code>, <code>L_ground_force_vx</code></li>
+                <li>• Alternative format: <code>ground_force_right_vx</code>, <code>ground_force_left_vx</code></li>
+                <li>• Files with "force" in the filename are automatically detected</li>
+              </ul>
             </div>
 
             <v-alert v-if="animations.length === 0" type="warning" text dense class="mb-4">
@@ -2779,6 +2823,9 @@ export default {
             },
             generatingShareUrl: false,
             loadingInitialShare: false,
+            loadingSharedVisualization: false,
+            modelLoadingProgress: 0,
+            totalModelsToLoad: 0,
             // Debounce timers for offset updates
             offsetUpdateTimers: {},
             objectUpdateTimers: {},
@@ -2998,11 +3045,6 @@ export default {
       // Add keyboard event listeners
       window.addEventListener('keydown', this.handleKeyDown);
 
-      // Initialize the scene first (after DOM is ready)
-      this.$nextTick(() => {
-      this.initScene(); // initScene will now call applyLoadedSceneSettings
-      });
-
       // Check for shared visualization first
       if (this.$route.query.share || this.$route.query.shareId) {
           console.log('Found shared visualization in URL');
@@ -3011,21 +3053,53 @@ export default {
               if (this.$route.query.shareId) {
                   // Load from cloud storage using shareId
                   shareData = await this.loadShareData(this.$route.query.shareId);
+                  
+                  // Skip decompression for testing if skipDecompression=true
+                  if (this.$route.query.skipDecompression === 'true') {
+                      console.log('⚠️ TESTING MODE: Skipping decompression entirely');
+                      // Create a minimal animation structure for testing
+                      shareData = {
+                          ...shareData,
+                          animations: [{
+                              data: {
+                                  time: [0, 0.1, 0.2], // Minimal time array
+                                  bodies: {} // Empty bodies for testing
+                              },
+                              trialName: 'Test Animation',
+                              fileName: 'test.json',
+                              offset: [0, 0, 0]
+                          }]
+                      };
+                  }
               } else {
                   // Load from compressed URL data
                   shareData = this.decompressShareData(this.$route.query.share);
               }
 
               // Load shared visualization instead of default samples
-              setTimeout(() => {
-                  this.loadSharedVisualization(shareData);
-              }, 100);
+              // Set loading state immediately
+              this.loadingSharedVisualization = true;
+              this.trialLoading = true;
+              console.log('Loading state set: loadingSharedVisualization =', this.loadingSharedVisualization);
+              
+              // Initialize the scene first, then load shared visualization
+              this.$nextTick(() => {
+                  this.initScene(); // initScene will now call applyLoadedSceneSettings
+                  setTimeout(() => {
+                      this.loadSharedVisualization(shareData);
+                  }, 100);
+              });
               return; // Skip normal loading
           } catch (error) {
               console.error('Failed to load shared visualization:', error);
               this.$toasted.error('Invalid or expired share URL');
           }
       }
+
+      // Initialize the scene first (after DOM is ready) - only for non-shared visualizations
+      this.$nextTick(() => {
+          this.initScene(); // initScene will now call applyLoadedSceneSettings
+      });
 
       // Determine if we need to load samples and which set
       let sampleSetToLoad = null;
@@ -3374,11 +3448,13 @@ export default {
           }
         }
 
-        // Check for force-related column names
+        // Check for force-related column names (expanded to include more patterns)
         const forceKeywords = [
           'force', 'ground_force', 'grf',
           'force_vx', 'force_vy', 'force_vz',
           'force_px', 'force_py', 'force_pz',
+          'ground_force_right', 'ground_force_left',
+          'right_ground_force', 'left_ground_force',
           'moment', 'torque', 'cop'
         ];
 
@@ -3537,12 +3613,16 @@ export default {
       }
     }
 
+    // Map column names to standard format for compatibility
+    const mappedForceData = this.mapForceColumns(forceData, columnHeaders);
+
     // Store forces data for the selected animation
     const animationIndex = this.selectedAnimationForForces;
     this.forcesDatasets[animationIndex] = {
       time: timeData,
       columns: columnHeaders,
-      data: forceData,
+      data: mappedForceData,
+      originalData: forceData, // Keep original data for reference
       associatedAnimationIndex: animationIndex,
       fileName: this.forcesFile ? this.forcesFile.name : 'Forces Data'
     };
@@ -3557,6 +3637,75 @@ export default {
     this.$set(this.forcesVisible, String(animationIndex), true);
 
     this.createForceArrows();
+  },
+
+  // New method to map different column naming conventions to standard format
+  mapForceColumns(forceData, columnHeaders) {
+    const mappedData = { ...forceData };
+    
+    // Define mapping patterns for different naming conventions
+    const columnMappings = {
+      // Pattern 1: R_ground_force_vx, L_ground_force_vx (current expected format)
+      'R_ground_force_vx': ['R_ground_force_vx', 'ground_force_right_vx', 'right_ground_force_vx'],
+      'R_ground_force_vy': ['R_ground_force_vy', 'ground_force_right_vy', 'right_ground_force_vy'],
+      'R_ground_force_vz': ['R_ground_force_vz', 'ground_force_right_vz', 'right_ground_force_vz'],
+      'R_ground_force_px': ['R_ground_force_px', 'ground_force_right_px', 'right_ground_force_px'],
+      'R_ground_force_py': ['R_ground_force_py', 'ground_force_right_py', 'right_ground_force_py'],
+      'R_ground_force_pz': ['R_ground_force_pz', 'ground_force_right_pz', 'right_ground_force_pz'],
+      
+      'L_ground_force_vx': ['L_ground_force_vx', 'ground_force_left_vx', 'left_ground_force_vx'],
+      'L_ground_force_vy': ['L_ground_force_vy', 'ground_force_left_vy', 'left_ground_force_vy'],
+      'L_ground_force_vz': ['L_ground_force_vz', 'ground_force_left_vz', 'left_ground_force_vz'],
+      'L_ground_force_px': ['L_ground_force_px', 'ground_force_left_px', 'left_ground_force_px'],
+      'L_ground_force_py': ['L_ground_force_py', 'ground_force_left_py', 'left_ground_force_py'],
+      'L_ground_force_pz': ['L_ground_force_pz', 'ground_force_left_pz', 'left_ground_force_pz'],
+    };
+
+    // Apply mappings
+    Object.keys(columnMappings).forEach(standardName => {
+      const possibleNames = columnMappings[standardName];
+      
+      // Find which column name exists in the data
+      for (const possibleName of possibleNames) {
+        if (forceData[possibleName]) {
+          mappedData[standardName] = forceData[possibleName];
+          console.log(`Mapped ${possibleName} to ${standardName}`);
+          break;
+        }
+      }
+    });
+
+    // Log what columns were found and mapped
+    console.log('Original columns:', columnHeaders);
+    console.log('Mapped force data keys:', Object.keys(mappedData).filter(key => 
+      key.includes('ground_force') || key.includes('force')
+    ));
+
+    return mappedData;
+  },
+
+  // Method to load the sample force file
+  async loadSampleForceFile() {
+    try {
+      // Fetch the sample force file from the public directory
+      const response = await fetch('/sample_grf_resultant.mot');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const content = await response.text();
+      
+      // Create a file-like object for processing
+      const sampleFile = new File([content], 'sample_grf_resultant.mot', { type: 'text/plain' });
+      
+      // Process the sample force file
+      await this.processForceFile(sampleFile);
+      
+      this.$toasted.success('Sample force file loaded successfully!');
+    } catch (error) {
+      console.error('Error loading sample force file:', error);
+      this.$toasted.error('Error loading sample force file. Make sure the file exists in the public directory.');
+    }
   },
 
   createArrowHeadGeometry() {
@@ -3615,16 +3764,21 @@ export default {
        }
 
       // Check if the selected animation has required foot segments
+      // Add null checks to prevent errors when bodies structure doesn't exist
       const hasRequiredSegments = forceToFootMapping.some(mapping =>
-        targetAnimation.data.bodies[mapping.footSegment]
+        targetAnimation.data.bodies && targetAnimation.data.bodies[mapping.footSegment]
       );
 
       if (!hasRequiredSegments) {
+        console.log(`Skipping force arrows for animation ${animationIndex}: missing required foot segments`);
         return;
       }
 
       forceToFootMapping.forEach(mapping => {
-        if (!targetAnimation.data.bodies[mapping.footSegment]) return;
+        if (!targetAnimation.data.bodies || !targetAnimation.data.bodies[mapping.footSegment]) {
+          console.log(`Skipping force arrow for ${mapping.platform}: missing ${mapping.footSegment} segment`);
+          return;
+        }
 
         // Check if force columns exist in the data
         const hasForceData = mapping.forceColumns.some(col => forcesData.data[col]);
@@ -4115,28 +4269,6 @@ export default {
     }
     // Clear the input value so the same file can be selected again if needed
     event.target.value = '';
-  },
-
-  updateMarkerColor(colorValue, animationIndex) {
-    let colorHex;
-
-    // Handle v-color-picker input format
-    if (colorValue && typeof colorValue === 'object') {
-      if (colorValue.hex) {
-        colorHex = '#' + colorValue.hex;
-      }
-    } else if (typeof colorValue === 'string') {
-      colorHex = colorValue;
-    }
-
-    if (colorHex) {
-      // Update color for specific animation index using $set for reactivity
-      this.$set(this.markerColors, animationIndex, colorHex);
-      this.$set(this.markerDisplayColors, animationIndex, colorHex);
-
-      // Update existing marker colors for this specific animation
-      this.updateMarkerSphereColors(animationIndex);
-    }
   },
 
   updateMarkerSphereColors(animationIndex) {
@@ -5369,57 +5501,73 @@ export default {
   },
 
   decompressAnimationData(compressed) {
-    // Reconstruct the original animation data format
+    // Reconstruct the original animation data format with optimized performance
     const animData = {
       time: compressed.t,
       bodies: {}
     };
 
-    Object.keys(compressed.b).forEach(bodyKey => {
+    const bodyKeys = Object.keys(compressed.b);
+    
+    // Process bodies in chunks to prevent blocking
+    const processBody = (bodyKey) => {
       const compressedBody = compressed.b[bodyKey];
-      animData.bodies[bodyKey] = {
+      const body = {
         attachedGeometries: compressedBody.g,
         scaleFactors: compressedBody.s,
         translation: [],
         rotation: []
       };
 
-      // Decompress positions
+      // Decompress positions with optimized array operations
       if (compressedBody.p && compressedBody.p.length > 0) {
+        const positions = compressedBody.p;
+        const translations = new Array(positions.length);
         let currentPos = [0, 0, 0];
-        for (let frame = 0; frame < compressedBody.p.length; frame++) {
+        
+        for (let frame = 0; frame < positions.length; frame++) {
           if (frame === 0) {
-            currentPos = [...compressedBody.p[frame]];
+            currentPos = [positions[frame][0], positions[frame][1], positions[frame][2]];
           } else {
-            if (compressedBody.p[frame] !== null) {
-              currentPos[0] += compressedBody.p[frame][0];
-              currentPos[1] += compressedBody.p[frame][1];
-              currentPos[2] += compressedBody.p[frame][2];
+            if (positions[frame] !== null) {
+              currentPos[0] += positions[frame][0];
+              currentPos[1] += positions[frame][1];
+              currentPos[2] += positions[frame][2];
             }
           }
-          animData.bodies[bodyKey].translation.push([...currentPos]);
+          translations[frame] = [currentPos[0], currentPos[1], currentPos[2]];
         }
+        body.translation = translations;
       }
 
-      // Decompress rotations
+      // Decompress rotations with optimized array operations
       if (compressedBody.r && compressedBody.r.length > 0) {
+        const rotations = compressedBody.r;
+        const rotationArray = new Array(rotations.length);
         let currentRot = [0, 0, 0];
-        for (let frame = 0; frame < compressedBody.r.length; frame++) {
+        
+        for (let frame = 0; frame < rotations.length; frame++) {
           if (frame === 0) {
-            currentRot = [...compressedBody.r[frame]];
+            currentRot = [rotations[frame][0], rotations[frame][1], rotations[frame][2]];
           } else {
-            if (compressedBody.r[frame] !== null) {
-              currentRot[0] += compressedBody.r[frame][0];
-              currentRot[1] += compressedBody.r[frame][1];
-              currentRot[2] += compressedBody.r[frame][2];
+            if (rotations[frame] !== null) {
+              currentRot[0] += rotations[frame][0];
+              currentRot[1] += rotations[frame][1];
+              currentRot[2] += rotations[frame][2];
             }
           }
-          animData.bodies[bodyKey].rotation.push([...currentRot]);
+          rotationArray[frame] = [currentRot[0], currentRot[1], currentRot[2]];
         }
+        body.rotation = rotationArray;
       }
-    });
 
-    // Decompression complete
+      return body;
+    };
+
+    // Process all bodies
+    bodyKeys.forEach(bodyKey => {
+      animData.bodies[bodyKey] = processBody(bodyKey);
+    });
 
     return animData;
   },
@@ -5601,22 +5749,43 @@ export default {
   },
 
   async loadSharedVisualization(shareData) {
+    // Add timeout to prevent infinite loading
+    const loadingTimeout = setTimeout(() => {
+      if (this.loadingSharedVisualization) {
+        console.warn('Loading timeout reached, forcing completion');
+        this.loadingSharedVisualization = false;
+        this.trialLoading = false;
+      }
+    }, 60000); // 60 second timeout
+
     try {
       console.log('Loading shared visualization:', shareData);
+
+      // Initialize progress tracking
+      this.modelLoadingProgress = 0;
+      this.totalModelsToLoad = 0;
+
+      // Loading state is handled by the overlay UI
 
       // Set up the trial structure
       this.trial = { results: [] };
       this.animations = [];
       this.meshes = {};
 
-      // Load animations from shared data
+      // Load animations from shared data - no decompression needed
+      console.log('Loading animations from shared data (no decompression needed)');
+      
       for (let i = 0; i < shareData.animations.length; i++) {
         const animData = shareData.animations[i];
+        
+        // Update progress for animation processing
+        this.modelLoadingProgress = Math.round(((i + 1) / shareData.animations.length) * 50); // First 50% for setup
 
-        // Decompress animation data if it's in compressed format
-        const decompressedData = animData.data.t ?
-          this.decompressAnimationData(animData.data) :
-          animData.data;
+        // Data is already in the correct format - no decompression needed
+        const decompressedData = {
+          ...animData.data,
+          time: animData.data.t || animData.data.time // Normalize to use 'time' property
+        };
 
         // Handle both old and new offset formats
         const offset = Array.isArray(animData.offset) ?
@@ -5641,6 +5810,9 @@ export default {
         // Ensure all color arrays are synchronized when adding new animations
         this.ensureColorArraysSync();
       }
+      
+      // Update progress after processing
+      this.modelLoadingProgress = 50;
 
       // Load forces and markers if they exist
       if (shareData.forces) {
@@ -5694,38 +5866,49 @@ export default {
         }
       }
 
-      // Initialize the 3D scene
-      await this.$nextTick();
-      this.initScene();
+      // Scene is already initialized by the calling code
+      // No need to call initScene() again
 
       // After scene is initialized, create markers and forces if they exist
       if (this.markersDatasets && Object.keys(this.markersDatasets).length > 0) {
         this.createMarkerSpheres();
       }
       if (this.forcesDatasets && Object.keys(this.forcesDatasets).length > 0) {
-        this.createForceArrows();
+        try {
+          this.createForceArrows();
+        } catch (error) {
+          console.warn('Failed to create force arrows:', error);
+          // Continue loading even if force arrows fail
+        }
       }
 
       // Start the animation loop for shared visualizations
       this.animate();
 
-      // Load 3D models
-      let totalModelsToLoad = 0;
+      // Load 3D models asynchronously with progress updates
       let modelsLoaded = 0;
 
       // Count total models to load
+      this.totalModelsToLoad = 0;
       this.animations.forEach((animation, index) => {
         for (let body in animation.data.bodies) {
           let bd = animation.data.bodies[body];
-          totalModelsToLoad += bd.attachedGeometries.length;
+          // Use 'g' property for geometries (attachedGeometries is the old format)
+          const geometries = bd.g || bd.attachedGeometries || [];
+          this.totalModelsToLoad += geometries.length;
         }
       });
 
-      console.log(`Total models to load: ${totalModelsToLoad}`);
+      console.log(`Total models to load: ${this.totalModelsToLoad}`);
 
       const checkAllModelsLoaded = () => {
         modelsLoaded++;
-        if (modelsLoaded >= totalModelsToLoad) {
+        // Model loading is the second 50% of the progress
+        this.modelLoadingProgress = 50 + Math.round((modelsLoaded / this.totalModelsToLoad) * 50);
+        
+        // Progress is updated in the overlay UI
+        
+        if (modelsLoaded >= this.totalModelsToLoad) {
           console.log(`[loadSharedVisualization] All models loaded. Ready for animation.`);
           console.log(`[loadSharedVisualization] Current state - Frame: ${this.frame}, Playing: ${this.playing}, Frames length: ${this.frames.length}`);
 
@@ -5741,13 +5924,17 @@ export default {
           // All models loaded, now animate to current frame
           setTimeout(() => {
             this.animateOneFrame();
+            this.loadingSharedVisualization = false;
+            this.trialLoading = false;
+            clearTimeout(loadingTimeout);
+            // Success is shown by removing the loading overlay
             console.log(`[loadSharedVisualization] Initial frame animation complete. Try using play controls or navigating frames.`);
           }, 100);
         }
       };
 
       // If no models to load, animate immediately
-      if (totalModelsToLoad === 0) {
+      if (this.totalModelsToLoad === 0) {
         // Update time to match the current frame
         if (shareData.currentFrame !== undefined) {
           if (this.frames && this.frames[this.frame] !== undefined) {
@@ -5759,42 +5946,71 @@ export default {
 
         setTimeout(() => {
           this.animateOneFrame();
+          this.loadingSharedVisualization = false;
+          this.trialLoading = false;
+          clearTimeout(loadingTimeout);
+          // Success is shown by removing the loading overlay
         }, 100);
       }
 
-      this.animations.forEach((animation, index) => {
-        for (let body in animation.data.bodies) {
-          let bd = animation.data.bodies[body];
-          bd.attachedGeometries.forEach((geom) => {
-            let path = 'https://mc-opencap-public.s3.us-west-2.amazonaws.com/geometries/' + geom.substr(0, geom.length - 4) + ".obj";
-            objLoader.load(path, (root) => {
-              root.castShadow = false;
-              root.receiveShadow = false;
+      // Load models with concurrency control to prevent overwhelming the browser
+      const loadModelsWithConcurrency = async () => {
+        const concurrencyLimit = 2; // Reduced to 2 models at a time to prevent freezing
+        const modelPromises = [];
 
-              root.traverse((child) => {
-                if (child instanceof THREE.Mesh) {
-                  child.castShadow = false;
-                  child.material = new THREE.MeshPhongMaterial({
-                    color: this.colors[index],
-                    transparent: this.alphaValues[index] < 1.0,
-                    opacity: this.alphaValues[index] || 1.0
+        this.animations.forEach((animation, index) => {
+          for (let body in animation.data.bodies) {
+            let bd = animation.data.bodies[body];
+            // Use 'g' property for geometries (attachedGeometries is the old format)
+            const geometries = bd.g || bd.attachedGeometries || [];
+            geometries.forEach((geom) => {
+              const loadModel = () => new Promise((resolve) => {
+                let path = 'https://mc-opencap-public.s3.us-west-2.amazonaws.com/geometries/' + geom.substr(0, geom.length - 4) + ".obj";
+                objLoader.load(path, (root) => {
+                  root.castShadow = false;
+                  root.receiveShadow = false;
+
+                  root.traverse((child) => {
+                    if (child instanceof THREE.Mesh) {
+                      child.castShadow = false;
+                      child.material = new THREE.MeshPhongMaterial({
+                        color: this.colors[index],
+                        transparent: this.alphaValues[index] < 1.0,
+                        opacity: this.alphaValues[index] || 1.0
+                      });
+                    }
                   });
-                }
+
+                  const meshKey = `anim${index}_${body}${geom}`;
+                  this.meshes[meshKey] = root;
+                  this.meshes[meshKey].scale.set(bd.scaleFactors[0], bd.scaleFactors[1], bd.scaleFactors[2]);
+
+                  root.position.add(animation.offset);
+                  this.scene.add(root);
+
+                  // Check if all models are loaded
+                  checkAllModelsLoaded();
+                  resolve();
+                });
               });
-
-              const meshKey = `anim${index}_${body}${geom}`;
-              this.meshes[meshKey] = root;
-              this.meshes[meshKey].scale.set(bd.scaleFactors[0], bd.scaleFactors[1], bd.scaleFactors[2]);
-
-              root.position.add(animation.offset);
-              this.scene.add(root);
-
-              // Check if all models are loaded
-              checkAllModelsLoaded();
+              
+              modelPromises.push(loadModel);
             });
-          });
+          }
+        });
+
+        // Load models with concurrency control
+        for (let i = 0; i < modelPromises.length; i += concurrencyLimit) {
+          const batch = modelPromises.slice(i, i + concurrencyLimit);
+          await Promise.all(batch.map(promise => promise()));
+          
+          // Yield control to prevent blocking
+          await new Promise(resolve => setTimeout(resolve, 100));
         }
-      });
+      };
+
+      // Start loading models
+      loadModelsWithConcurrency();
 
       // Apply camera position if shared
       if (shareData.camera && this.camera && this.controls) {
@@ -5835,7 +6051,10 @@ export default {
 
     } catch (error) {
       console.error('Error loading shared visualization:', error);
-      this.$toasted.error('Failed to load shared visualization');
+      this.loadingSharedVisualization = false;
+      this.trialLoading = false;
+      clearTimeout(loadingTimeout);
+      // Error is shown by removing the loading overlay and showing error state
     }
   },
 
@@ -6760,6 +6979,10 @@ export default {
           if (shareFiles.length > 0) {
               // Load as shared visualization
               const shareData = shareFiles[0].data;
+              // Set loading state immediately
+              this.loadingSharedVisualization = true;
+              this.trialLoading = true;
+              console.log('Loading state set (file): loadingSharedVisualization =', this.loadingSharedVisualization);
               this.loadSharedVisualization(shareData);
               this.$toasted.success('Share file loaded successfully!');
               return;

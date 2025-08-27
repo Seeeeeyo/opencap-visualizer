@@ -23,20 +23,18 @@ bibliography: paper.bib
 
 # Summary
 
-OpenCap Visualizer is a comprehensive web-based platform for interactive visualization and automated video creation of biomechanics data. The software provides both a browser-based interface for real-time 3D visualization of human movement and a Python API for programmatic video generation from motion capture data. Built with Vue.js and Three.js, the visualizer supports multiple data formats including OpenSim models (.osim files), kinematics data (.mot, .json), and markers (.trc) enabling researchers to analyze and share biomechanics simulations with unprecedented ease.
+OpenCap Visualizer is a comprehensive web-based platform for interactive visualization and automated video creation of biomechanics data. The software provides both a browser-based interface for real-time 3D visualization of human movement and a Python API for programmatic video generation from motion capture data. Built with Vue.js and Three.js, the visualizer supports multiple data formats including OpenSim models (.osim files), kinematics data (.mot, .json), markers (.trc), and ground-reaction forces (.mot) enabling researchers to visualize, analyze, and share these.
 
 The platform addresses the critical need for accessible visualization tools in biomechanics research, where complex 3D motion data traditionally requires specialized software for analysis and presentation. OpenCap Visualizer democratizes access to biomechanics visualization by offering a browser-based solution requiring no local installation, alongside a Python package for reproducible, automated video rendering.
 
 # Statement of need
 
-Biomechanics research generates complex 3D motion data that is challenging to visualize, analyze, and communicate effectively. Traditional visualization tools often require expensive commercial software, complex installation procedures, or specialized technical expertise, creating barriers for researchers, clinicians, and educators. Furthermore, generating videos for presentations, publications, or educational materials typically involves manual screen recording or complex rendering pipelines that are time-consuming and difficult to reproduce.
-
+Biomechanics research generates complex 3D motion data that is challenging to visualize, analyze, and communicate effectively. Traditional visualization tools often require commercial software, installation procedures, or specialized technical expertise, creating barriers for researchers, clinicians, and educators. 
 OpenCap Visualizer fills this gap by providing a modern, web-based solution that combines interactive visualization with automated video generation capabilities. The software enables researchers to:
 
 1. **Visualize complex biomechanics data** through any modern web browser without software installation
-2. **Generate publication-quality videos** programmatically using Python for reproducible research workflows  
+2. **Render videos** programmatically using Python for reproducible research workflows  
 3. **Share visualizations** easily through URL-based sharing with advanced compression algorithms
-4. **Compare multiple subjects** simultaneously with customizable colors, transparency, and camera controls
 5. **Integrate with existing pipelines** through comprehensive Python API and command-line interface
 
 <!-- The platform particularly addresses the needs of the OpenCap ecosystem [@opencap], providing native support for OpenCap's markerless motion capture data while maintaining compatibility with traditional marker-based systems and OpenSim models [@opensim]. This dual compatibility makes it valuable for the broader biomechanics community, bridging the gap between traditional motion capture workflows and emerging markerless technologies. -->
@@ -84,9 +82,9 @@ success = ocv.create_video(
 
 The API supports extensive customization options including viewport dimensions, camera angles, subject colors, transparency levels, and animation loops, enabling integration into automated analysis pipelines.
 
-## Advanced Data Compression and Sharing
+<!-- ## Advanced Data Compression and Sharing
 
-OpenCap Visualizer implements a sophisticated multi-layer compression system that reduces 5MB+ motion capture files to shareable URLs under 1KB, achieving compression ratios exceeding 99.98%. This enables seamless sharing of complex biomechanics visualizations through simple web links.
+OpenCap Visualizer implements a sophisticated multi-layer compression system that reduces 5MB+ motion capture files to shareable URLs under 1KB, achieving compression ratios exceeding 99.98%. This enables seamless sharing of complex biomechanics visualizations through simple web links. -->
 
 ## Format Compatibility
 
@@ -112,15 +110,7 @@ OpenCap Visualizer is implemented as a modern web application with a complementa
 
 - **Node.js sharing backend** for URL-based data sharing with compression
 - **Python CLI and API** using Playwright for automated browser control
-- **Headless video generation** with configurable quality and format options
 
-## Data Processing
-
-The software implements efficient algorithms for:
-- **Delta compression** for motion data reducing file sizes by 40-60%
-- **Precision optimization** maintaining 1mm accuracy while reducing storage
-- **Real-time interpolation** for smooth animation playback
-- **Automatic subject centering** and camera positioning
 
 # Research Applications
 

@@ -1,0 +1,1 @@
+write a JOSS paper about this biomechanics visualizer and the pip package to generate video using python. Read the doc and the example
