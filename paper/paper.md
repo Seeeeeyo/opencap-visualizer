@@ -162,7 +162,7 @@ OpenCap Visualizer distinguishes itself from existing biomechanics visualization
 
 - **OpenSim GUI** [@opensim] provides comprehensive modeling capabilities but requires local installation and some user expertise. 
 - **Biomechanical ToolKit** [@btk] offers Python-based analysis but focuses on data processing rather than visualization and is primarily a solution for code-friendly users.
-- **Visual3D** [@visual3d] provides commercial visualization but lacks web-based accessibility and open-source flexibility.
+- **Visual3D** provides commercial visualization but lacks web-based accessibility and open-source flexibility.
 - **MuJoCo** [@mujoco] offers a visualizer but requires coding capabilities. 
 
 OpenCap Visualizer's browser-based approach eliminates installation barriers while its Python API enables seamless integration into research workflows, making it uniquely positioned to serve both interactive exploration and automated analysis needs.
