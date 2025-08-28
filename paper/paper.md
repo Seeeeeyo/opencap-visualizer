@@ -54,14 +54,14 @@ The platform is built on top of the OpenCap software ecosystem [@opencap], provi
 The core visualization engine is built on Three.js, providing hardware-accelerated 3D rendering directly in web browsers. The web interface is accessible at https://opencap-visualizer.onrender.com/ and requires no installation or registration. Key features include:
 
 - **Real-time 3D rendering** of skeletal models with anatomically accurate geometry
-- **Multi-subject comparison** with independent color coding and transparency controls
-- **Marker visualization** supporting standard motion capture marker sets (.trc file)
-- **Ground reaction forces visualization** using .mot file
+- **Multi-subject comparison** with independent color coding and transparency controls (see \autoref{fig:multisubject})
+- **Marker visualization** supporting standard motion capture marker sets (.trc file) (see \autoref{fig:markersforces})
+- **Ground reaction forces visualization** using .mot file (see \autoref{fig:markersforces})
 - **Video synchronisation** with skeleton to enable simultaneous viewing of original footage and motion data 
 - **Timeline controls** with adjustable playback speed and frame-by-frame navigation
 - **Recording capabilities** for capturing custom video segments directly from the web interface
 - **Image capture** for generating high-resolution screenshots at specific time points
-- **Timelapse mode** for creating accelerated visualizations of long-duration movements
+- **Timelapse mode** for creating accelerated visualizations of long-duration movements (see \autoref{fig:timelapse})
 - **Color controls** for customizing background, ground plane, skeletal models, and markers
 
 ## Python API for Automated Video Creation
@@ -144,7 +144,7 @@ Researchers can analyze athletic movements, compare techniques across athletes, 
 
 ## Rehabilitation Research
 
-The software supports visualization of rehabilitation exercises and recovery progress, enabling researchers to track changes in movement patterns over time.
+The software supports visualization of rehabilitation exercises and recovery progress, enabling researchers to track changes in movement patterns over time. The timelapse functionality is particularly valuable for condensing long rehabilitation sessions into concise visual summaries.
 
 ## Educational Applications
 
@@ -153,8 +153,13 @@ Educators can create interactive demonstrations of human movement principles, ma
 
 # Figures
 
-![Example visualization of the web interface](demo.png)
-![Example visualization of the web interface](demo2.png)
+\autoref{fig:multisubject} shows a multi-subject comparison on the interface, demonstrating the comparison between OpenCap monocular motion capture and traditional marker-based motion capture data in this example.
+\autoref{fig:markersforces} demonstrates the comprehensive visualization capabilities including traditional motion capture markers and ground reaction forces. 
+\autoref{fig:timelapse} showcases the timelapse functionality, which enables researchers to create accelerated visualizations of movement patterns using skeleton trajectory traces.
+
+![Figure 1: Example visualization of the web interface with multiple subjects.\label{fig:multisubject}](demo.png)
+![Figure 2: Example visualization of the web interface with markers and forces.\label{fig:markersforces}](demo2.png)
+![Figure 3: Example timelapse screenshot generated on the visualizer.\label{fig:timelapse}](sample.png)
 
 
 # Comparison with Related Work
