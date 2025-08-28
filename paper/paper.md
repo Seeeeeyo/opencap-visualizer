@@ -44,7 +44,8 @@ OpenCap Visualizer fills this gap by providing a modern, web-based solution that
 4. **Compare multiple subjects** simultaneously with customizable colors, transparency, and camera controls
 5. **Integrate with existing pipelines** through comprehensive Python API and command-line interface
 
-The platform particularly addresses the needs of the OpenCap ecosystem [@opencap], providing native support for OpenCap's markerless motion capture data while maintaining compatibility with traditional marker-based systems and OpenSim models [@opensim]. This dual compatibility makes it valuable for the broader biomechanics community, bridging the gap between traditional motion capture workflows and emerging markerless technologies.
+
+The platform is built on top of the OpenCap software ecosystem [@opencap], providing native support for OpenCap's markerless motion capture data formats while maintaining full compatibility with traditional marker-based systems and OpenSim models [@opensim]. This dual compatibility makes it valuable for the broader biomechanics community, bridging the gap between traditional motion capture workflows and emerging markerless technologies, and ensuring seamless integration with both OpenCap and OpenSim research pipelines.
 
 # Key Features
 
