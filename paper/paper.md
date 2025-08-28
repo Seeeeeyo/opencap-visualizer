@@ -14,10 +14,13 @@ authors:
   - name: Selim Gilon
     orcid: 0009-0007-9339-5660
     affiliation: 1
+  - name: Scott Uhlrich
+    orcid: 0000-0002-3113-367X
+    affiliation: 1
 affiliations:
  - name: University of Utah
    index: 1
-date: 2025-07-01
+date:  28 August 2025
 bibliography: paper.bib
 ---
 
