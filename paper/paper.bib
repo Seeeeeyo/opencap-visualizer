@@ -1,49 +1,56 @@
 @article{opensim,
-  title={OpenSim: open-source software to create and analyze dynamic simulations of movement},
-  author={Delp, Scott L and Anderson, Frank C and Arnold, Allison S and Loan, Peter and Habib, Ayman and John, Chand T and Guendelman, Eran and Thelen, Darryl G},
-  journal={IEEE transactions on biomedical engineering},
-  volume={54},
-  number={11},
-  pages={1940--1950},
-  year={2007},
-  publisher={IEEE}
+  title = {OpenSim: a musculoskeletal modeling and simulation framework for in silico investigations and exchange},
+  journal = {Procedia IUTAM},
+  volume = {2},
+  pages = {212-232},
+  year = {2011},
+  note = {IUTAM Symposium on Human Body Dynamics},
+  issn = {2210-9838},
+  doi = {https://doi.org/10.1016/j.piutam.2011.04.021},
+  url = {https://www.sciencedirect.com/science/article/pii/S2210983811000228},
+  author = {Ajay Seth and Michael Sherman and Jeffrey A. Reinbolt and Scott L. Delp},
+  keywords = {neuromusculoskeletal biomechanics, biological joints, musculotendinous actuators, neuromuscular control, gait simulation, Simbios biocomputation, SimTK Simbody},
+  abstract = {Movement science is driven by observation, but observation alone cannot elucidate principles of human and animal movement. Biomechanical modeling and computer simulation complement observations and inform experimental design. Biological models are complex and specialized software is required for building, validating, and studying them. Furthermore, common access is needed so that investigators can contribute models to a broader community and leverage past work. We are developing OpenSim, a freely available musculoskeletal modeling and simulation application and libraries specialized for these purposes, by providing: musculoskeletal modeling elements, such as biomechanical joints, muscle actuators, ligament forces, compliant contact, and controllers; and tools for fitting generic models to subject-specific data, performing inverse kinematics and forward dynamic simulations. OpenSim performs an array of physics-based analyses to delve into the behavior of musculoskeletal models by employing Simbody, an efficient and accurate multibody system dynamics code. Models are publicly available and are often reused for multiple investigations because they provide a rich set of behaviors that enables different lines of inquiry. This report will discuss one model developed to study walking and applied to gain deeper insights into muscle function in pathological gait and during running. We then illustrate how simulations can test fundamental hypotheses and focus the aims of in vivo experiments, with a postural stability platform and human model that provide a research environment for performing human posture experiments in silico. We encourage wide adoption of OpenSim for community exchange of biomechanical models and methods and welcome new contributors.}
 }
 
 @article{btk,
-  title={Biomechanical ToolKit: Open-source framework for visualisation and analysis of motion data},
-  author={Barre, Arnaud and Armand, St{\'e}phane},
-  journal={Computer methods and programs in biomedicine},
-  volume={122},
-  number={2},
-  pages={108--119},
-  year={2015},
-  publisher={Elsevier}
-}
-
-@misc{visual3d,
-  title={Visual3D},
-  author={{C-Motion Inc.}},
-  year={2024},
-  url={https://www.c-motion.com/visual3d/},
-  note={Commercial biomechanics analysis software}
+  title = {Biomechanical ToolKit: Open-source framework to visualize and process biomechanical data},
+  journal = {Computer Methods and Programs in Biomedicine},
+  volume = {114},
+  number = {1},
+  pages = {80-87},
+  year = {2014},
+  issn = {0169-2607},
+  doi = {https://doi.org/10.1016/j.cmpb.2014.01.012},
+  url = {https://www.sciencedirect.com/science/article/pii/S0169260714000248},
+  author = {Arnaud Barre and Stéphane Armand},
+  keywords = {Open-source, C3D, User–computer interface, Motion capture systems, Biomechanics},
+  abstract = {C3D file format is widely used in the biomechanical field by companies and laboratories to store motion capture systems data. However, few software packages can visualize and modify the integrality of the data in the C3D file. Our objective was to develop an open-source and multi-platform framework to read, write, modify and visualize data from any motion analysis systems using standard (C3D) and proprietary file formats (used by many companies producing motion capture systems). The Biomechanical ToolKit (BTK) was developed to provide cost-effective and efficient tools for the biomechanical community to easily deal with motion analysis data. A large panel of operations is available to read, modify and process data through C++ API, bindings for high-level languages (Matlab, Octave, and Python), and standalone application (Mokka). All these tools are open-source and cross-platform and run on all major operating systems (Windows, Linux, MacOS X).}
 }
 
 @article{mujoco,
-  title={MuJoCo: a physics engine for model-based control},
   author={Todorov, Emanuel and Erez, Tom and Tassa, Yuval},
-  journal={2012 IEEE/RSJ international conference on intelligent robots and systems},
-  pages={5026--5033},
+  booktitle={2012 IEEE/RSJ International Conference on Intelligent Robots and Systems}, 
+  title={MuJoCo: A physics engine for model-based control}, 
   year={2012},
-  organization={IEEE}
-}
+  volume={},
+  number={},
+  pages={5026-5033},
+  keywords={Engines;Optimization;Computational modeling;Heuristic algorithms;Dynamics;Mathematical model},
+  doi={10.1109/IROS.2012.6386109}}
+
 
 @article{opencap,
-  title={OpenCap: 3D human movement dynamics from smartphone videos},
-  author={Uhlrich, Scott D and Jackson, Ryan W and Seth, Ajay and Kolesar, Julie A and Delp, Scott L},
-  journal={PLoS computational biology},
-  volume={18},
-  number={7},
-  pages={e1010172},
-  year={2022},
-  publisher={Public Library of Science San Francisco, CA USA}
+  doi = {10.1371/journal.pcbi.1011462},
+  author = {Uhlrich, Scott D. AND Falisse, Antoine AND Kidziński, Łukasz AND Muccini, Julie AND Ko, Michael AND Chaudhari, Akshay S. AND Hicks, Jennifer L. AND Delp, Scott L.},
+  journal = {PLOS Computational Biology},
+  publisher = {Public Library of Science},
+  title = {OpenCap: Human movement dynamics from smartphone videos},
+  year = {2023},
+  month = {10},
+  volume = {19},
+  url = {https://doi.org/10.1371/journal.pcbi.1011462},
+  pages = {1-26},
+  abstract = {Measures of human movement dynamics can predict outcomes like injury risk or musculoskeletal disease progression. However, these measures are rarely quantified in large-scale research studies or clinical practice due to the prohibitive cost, time, and expertise required. Here we present and validate OpenCap, an open-source platform for computing both the kinematics (i.e., motion) and dynamics (i.e., forces) of human movement using videos captured from two or more smartphones. OpenCap leverages pose estimation algorithms to identify body landmarks from videos; deep learning and biomechanical models to estimate three-dimensional kinematics; and physics-based simulations to estimate muscle activations and musculoskeletal dynamics. OpenCap’s web application enables users to collect synchronous videos and visualize movement data that is automatically processed in the cloud, thereby eliminating the need for specialized hardware, software, and expertise. We show that OpenCap accurately predicts dynamic measures, like muscle activations, joint loads, and joint moments, which can be used to screen for disease risk, evaluate intervention efficacy, assess between-group movement differences, and inform rehabilitation decisions. Additionally, we demonstrate OpenCap’s practical utility through a 100-subject field study, where a clinician using OpenCap estimated musculoskeletal dynamics 25 times faster than a laboratory-based approach at less than 1% of the cost. By democratizing access to human movement analysis, OpenCap can accelerate the incorporation of biomechanical metrics into large-scale research studies, clinical trials, and clinical practice.},
+  number = {10},
 }
