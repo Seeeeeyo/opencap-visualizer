@@ -44,7 +44,6 @@ OpenCap Visualizer fills this gap by providing a modern, web-based solution that
 4. **Compare multiple subjects** simultaneously with customizable colors, transparency, and camera controls
 5. **Integrate with existing pipelines** through comprehensive Python API and command-line interface
 
-
 The platform is built on top of the OpenCap software ecosystem [@opencap], providing native support for OpenCap's markerless motion capture data formats while maintaining full compatibility with traditional marker-based systems and OpenSim models [@opensim]. This dual compatibility makes it valuable for the broader biomechanics community, bridging the gap between traditional motion capture workflows and emerging markerless technologies, and ensuring seamless integration with both OpenCap and OpenSim research pipelines.
 
 # Key Features
@@ -130,25 +129,14 @@ OpenCap Visualizer is implemented as a modern web application with a complementa
 - **Headless video generation** with configurable quality and format options
 - **OpenSim file converter backend** to convert .osim and .mot into .json.
 
-# Research Applications
+# Applications
 
 OpenCap Visualizer has been designed to support diverse biomechanics research applications:
 
-## Clinical Gait Analysis
-
-The platform enables clinicians to visualize patient gait patterns, compare pre/post-intervention results, and generate videos for patient education and clinical documentation.
-
-## Sports Biomechanics
-
-Researchers can analyze athletic movements, compare techniques across athletes, and create educational content for coaching and training programs.
-
-## Rehabilitation Research
-
-The software supports visualization of rehabilitation exercises and recovery progress, enabling researchers to track changes in movement patterns over time. The timelapse functionality is particularly valuable for condensing long rehabilitation sessions into concise visual summaries.
-
-## Educational Applications
-
-Educators can create interactive demonstrations of human movement principles, making complex biomechanics concepts accessible to students without specialized software requirements.
+- **Clinical Gait Analysis**: The platform enables clinicians to visualize patient gait patterns, compare pre/post-intervention results, and generate videos for patient education and clinical documentation.
+- **Sports Biomechanics**: Researchers can analyze athletic movements, compare techniques across athletes, and create educational content for coaching and training programs.
+- **Rehabilitation Research**: The software supports visualization of rehabilitation exercises and recovery progress, enabling researchers to track changes in movement patterns over time. The timelapse functionality is particularly valuable for condensing long rehabilitation sessions into concise visual summaries.
+- **Educational Applications**: Educators can create interactive demonstrations of human movement principles, making complex biomechanics concepts accessible to students without specialized software requirements.
 
 
 # Figures
