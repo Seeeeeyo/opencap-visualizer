@@ -1026,7 +1026,7 @@
       </div>
 
       <!-- Main Content -->
-      <div v-if="trial || (markerSpheres.length > 0) || (animations.length > 0) || trialLoading || converting || conversionError || loadingMarkers || scene" class="d-flex flex-column h-100">
+      <div v-if="trial || (markerSpheres.length > 0) || (animations.length > 0) || trialLoading || converting || conversionError || loadingMarkers || scene || osimFile || motFile || markersFile || forcesFile" class="d-flex flex-column h-100">
         <div id="mocap" ref="mocap" class="flex-grow-1 position-relative">
           <!-- Conversion loading overlay on top of scene -->
           <div v-if="converting" class="conversion-overlay-scene">
@@ -6904,10 +6904,38 @@ export default {
       const files = event.target.files;
       if (!files.length) return;
 
-      // Initialize scene if it doesn't exist
+      // Set file properties to trigger template rendering before scene initialization
+      // This ensures the mocap container is rendered before initScene is called
+      const jsonFiles = files.filter(file => file.name.toLowerCase().endsWith('.json'));
+      const trcFiles = files.filter(file => file.name.toLowerCase().endsWith('.trc'));
+      const osimFiles = files.filter(file => file.name.toLowerCase().endsWith('.osim'));
+      const motFiles = files.filter(file => file.name.toLowerCase().endsWith('.mot'));
+
+      // Set file properties to ensure container is rendered
+      if (jsonFiles.length > 0) {
+          // For JSON files, we'll handle them directly in the file processing loop
+      }
+      if (trcFiles.length > 0) {
+          this.markersFile = trcFiles[0];
+      }
+      if (osimFiles.length > 0) {
+          this.osimFile = osimFiles[0];
+      }
+      if (motFiles.length > 0) {
+          // Check if it's a force file
+          const motFile = motFiles[0];
+          // We'll determine this later when processing the file
+          // For now, just store it as motFile - it will be categorized during processing
+          this.motFile = motFile;
+      }
+
+      // Initialize scene if it doesn't exist - wait for DOM update
       if (!this.scene) {
           this.$nextTick(() => {
-          this.initScene();
+              // Additional delay to ensure template has updated
+              setTimeout(() => {
+                  this.initScene();
+              }, 50);
           });
       }
 
