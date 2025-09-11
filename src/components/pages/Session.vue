@@ -6285,10 +6285,10 @@
         if (container && this.renderer) {
           this.renderer.setSize(container.clientWidth, container.clientHeight)
         }
-  
-        if (this.renderer) {
-          const canvas = this.renderer.domElement;
-          this.camera.aspect = canvas.clientWidth / canvas.clientHeight;
+
+        if (this.renderer && this.camera && container) {
+          // Use container dimensions instead of canvas dimensions for aspect ratio
+          this.camera.aspect = container.clientWidth / container.clientHeight;
           this.camera.updateProjectionMatrix();
         }
       },
@@ -6935,10 +6935,18 @@
         // Initialize scene if it doesn't exist - wait for DOM update
         if (!this.scene) {
             this.$nextTick(() => {
-                // Additional delay to ensure template has updated
+                // Additional delay to ensure template has updated and container is rendered
                 setTimeout(() => {
-                    this.initScene();
-                }, 50);
+                    // Check if the mocap container exists before initializing
+                    if (this.$refs.mocap) {
+                        this.initScene();
+                    } else {
+                        // If container doesn't exist yet, wait a bit more
+                        setTimeout(() => {
+                            this.initScene();
+                        }, 100);
+                    }
+                }, 100);
             });
         }
   
@@ -7088,12 +7096,17 @@
                                     if (this.animations.length > 1) {
                                         this.syncAllAnimations();
                                     }
-  
+
                                     // Calculate animation duration for headless operation
                                     if (this.frames && this.frames.length > 0 && this.frameRate > 0) {
                                         this.animationDurationInSeconds = (this.frames.length - 1) / this.frameRate;
                                     }
-  
+
+                                    // Center camera on the loaded subject
+                                    this.$nextTick(() => {
+                                        this.centerCameraOnSubject();
+                                    });
+
                                     // Start animation loop and render first frame
                                     this.animate();
                                     this.frame = 0;
@@ -7131,9 +7144,9 @@
         if (!this.$el || document.readyState !== 'complete') {
           // console.log('Component not mounted or DOM not ready, retrying...');
           if (retryCount < 10) {
-            this.$nextTick(() => {
+            setTimeout(() => {
               this.initScene(retryCount + 1);
-            });
+            }, 100);
           } else {
             console.error('Failed to initialize scene after 10 retries - component not mounted');
             this._initializingScene = false;
@@ -7153,12 +7166,12 @@
           console.log('TrialLoading:', this.trialLoading);
           console.log('Converting:', this.converting);
   
-          // Always retry in the next tick if container is not found (max 10 retries)
+          // Always retry if container is not found (max 10 retries)
           if (retryCount < 10) {
-            // console.log('Retrying initScene in next tick...');
-            this.$nextTick(() => {
+            // console.log('Retrying initScene...');
+            setTimeout(() => {
               this.initScene(retryCount + 1);
-            });
+            }, 100);
           } else {
             console.error('Failed to initialize scene after 10 retries');
             this._initializingScene = false;
@@ -8962,10 +8975,18 @@
             if (!this.scene) {
               // console.log('Scene still not initialized after conversion, forcing initialization...');
               this.$nextTick(() => {
-                this.initScene();
+                // Ensure the mocap container exists before initializing
+                if (this.$refs.mocap) {
+                  this.initScene();
+                } else {
+                  // Wait for container to be available
+                  setTimeout(() => {
+                    this.initScene();
+                  }, 200);
+                }
               });
               // Wait a bit more for the scene to initialize
-              await new Promise(resolve => setTimeout(resolve, 300));
+              await new Promise(resolve => setTimeout(resolve, 500));
               
               // Check again and log the final state (commented out to reduce console spam)
               // console.log('Final scene state after forced initialization:', {
