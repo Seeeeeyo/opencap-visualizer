@@ -263,7 +263,7 @@
   
                         <div class="d-flex align-center">
                           <v-color-picker
-                            v-model="displayColors[index]"
+                            v-model="displayColors[index] || '#FFFFFF'"
                             :modes="['hex', 'rgba']"
                             show-swatches
                             :swatches="Array.isArray(availableColors) ? availableColors : []"
@@ -7146,7 +7146,7 @@
           if (retryCount < 10) {
             setTimeout(() => {
               this.initScene(retryCount + 1);
-            }, 100);
+            }, 200);
           } else {
             console.error('Failed to initialize scene after 10 retries - component not mounted');
             this._initializingScene = false;
@@ -7171,7 +7171,7 @@
             // console.log('Retrying initScene...');
             setTimeout(() => {
               this.initScene(retryCount + 1);
-            }, 100);
+            }, 200);
           } else {
             console.error('Failed to initialize scene after 10 retries');
             this._initializingScene = false;
@@ -7179,6 +7179,20 @@
           return;
         }
   
+        // Ensure container has proper dimensions
+        if (container.clientWidth === 0 || container.clientHeight === 0) {
+          console.log('Container has zero dimensions, retrying...');
+          if (retryCount < 10) {
+            setTimeout(() => {
+              this.initScene(retryCount + 1);
+            }, 200);
+          } else {
+            console.error('Failed to initialize scene - container has zero dimensions');
+            this._initializingScene = false;
+          }
+          return;
+        }
+
         let ratio = container.clientWidth / container.clientHeight;
         this.camera = new THREE.PerspectiveCamera(35, ratio, 0.1, 125);
         this.camera.position.x = 3.33;
@@ -7292,8 +7306,22 @@
         this.onResize();
         
         try {
+          // Set proper CSS styles for the canvas to ensure it's positioned correctly
+          this.renderer.domElement.style.position = 'absolute';
+          this.renderer.domElement.style.top = '0';
+          this.renderer.domElement.style.left = '0';
+          this.renderer.domElement.style.width = '100%';
+          this.renderer.domElement.style.height = '100%';
+          this.renderer.domElement.style.zIndex = '1';
+          this.renderer.domElement.style.pointerEvents = 'auto';
+          
           container.appendChild(this.renderer.domElement);
-          // console.log('[initScene] Renderer DOM element appended successfully');
+          console.log('[initScene] Renderer DOM element appended successfully with dimensions:', {
+            containerWidth: container.clientWidth,
+            containerHeight: container.clientHeight,
+            canvasWidth: this.renderer.domElement.clientWidth,
+            canvasHeight: this.renderer.domElement.clientHeight
+          });
         } catch (error) {
           console.error('[initScene] Error appending renderer to container:', error);
         }
