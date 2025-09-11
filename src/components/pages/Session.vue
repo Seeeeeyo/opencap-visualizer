@@ -263,7 +263,7 @@
   
                         <div class="d-flex align-center">
                           <v-color-picker
-                            v-model="displayColors[index] || '#FFFFFF'"
+                            :value="displayColors[index] || '#FFFFFF'"
                             :modes="['hex', 'rgba']"
                             show-swatches
                             :swatches="Array.isArray(availableColors) ? availableColors : []"
