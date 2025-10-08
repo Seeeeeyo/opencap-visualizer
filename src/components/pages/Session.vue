@@ -350,6 +350,9 @@
               <!-- Offset controls -->
               <div class="offset-controls mt-2" style="margin-left: 44px;">
                 <div class="d-flex align-center" style="border-bottom: 1px solid rgba(255, 255, 255, 0.12);">
+                  <div class="text-caption grey--text mr-2">Position</div>
+                </div>
+                <div class="d-flex align-center mb-2" style="border-bottom: 1px solid rgba(255, 255, 255, 0.12);">
                   <div class="text-caption grey--text mr-2" style="width: 12px;">X</div>
                   <v-text-field
                     type="number"
@@ -379,6 +382,54 @@
                     v-model.number="animation.offset.z"
                     dense
                     @input="debouncedUpdateOffset(index, 'z', animation.offset.z)"
+                    style="width: 70px"
+                    class="grey--text text--darken-1"
+                    hide-details
+                  />
+                </div>
+                
+                <!-- Rotation controls -->
+                <div class="d-flex align-center" style="border-bottom: 1px solid rgba(255, 255, 255, 0.12);">
+                  <div class="text-caption grey--text mr-2">Rotation (°)</div>
+                  <v-btn
+                    icon
+                    x-small
+                    @click="openRotationDialog(index)"
+                    class="ml-1"
+                  >
+                    <v-icon x-small>mdi-rotate-3d-variant</v-icon>
+                  </v-btn>
+                </div>
+                <div class="d-flex align-center">
+                  <div class="text-caption grey--text mr-2" style="width: 12px;">Y</div>
+                  <v-text-field
+                    type="number"
+                    :step="5"
+                    :value="animation.rotation ? Math.round(animation.rotation.y * 180 / Math.PI) : 0"
+                    dense
+                    @input="debouncedUpdateAnimationRotation(index, 'y', $event)"
+                    style="width: 70px"
+                    class="grey--text text--darken-1"
+                    hide-details
+                  />
+                  <div class="text-caption grey--text mx-2" style="width: 12px;">X</div>
+                  <v-text-field
+                    type="number"
+                    :step="5"
+                    :value="animation.rotation ? Math.round(animation.rotation.x * 180 / Math.PI) : 0"
+                    dense
+                    @input="debouncedUpdateAnimationRotation(index, 'x', $event)"
+                    style="width: 70px"
+                    class="grey--text text--darken-1"
+                    hide-details
+                  />
+                  <div class="text-caption grey--text mx-2" style="width: 12px;">Z</div>
+                  <v-text-field
+                    type="number"
+                    :step="5"
+                    :value="animation.rotation ? Math.round(animation.rotation.z * 180 / Math.PI) : 0"
+                    dense
+                    @input="debouncedUpdateAnimationRotation(index, 'z', $event)"
                     style="width: 70px"
                     class="grey--text text--darken-1"
                     hide-details
@@ -418,6 +469,117 @@
                           <span class="ml-2">{{ item.name }}</span>
                         </div>
                       </div>
+                    </div>
+                  </v-card-text>
+                </v-card>
+              </v-dialog>
+
+              <!-- Rotation dialog -->
+              <v-dialog
+                v-model="rotationDialogs[index]"
+                max-width="500"
+              >
+                <v-card>
+                  <v-card-title class="text-subtitle-1">
+                    Rotation Controls - {{ animation.trialName }}
+                    <v-spacer></v-spacer>
+                    <v-btn icon small @click="rotationDialogs[index] = false">
+                      <v-icon small>mdi-close</v-icon>
+                    </v-btn>
+                  </v-card-title>
+                  <v-divider></v-divider>
+                  <v-card-text class="pa-4">
+                    <!-- Y Axis Rotation (most common - vertical axis) -->
+                    <div class="mb-4">
+                      <div class="d-flex align-center mb-2">
+                        <div class="text-subtitle-2 mr-2" style="min-width: 100px;">Y Axis (°):</div>
+                        <v-text-field
+                          type="number"
+                          :step="1"
+                          :value="animation.rotation ? Math.round(animation.rotation.y * 180 / Math.PI) : 0"
+                          dense
+                          @input="debouncedUpdateAnimationRotation(index, 'y', $event)"
+                          style="width: 80px"
+                          hide-details
+                          outlined
+                        />
+                      </div>
+                      <v-slider
+                        :value="animation.rotation ? Math.round(animation.rotation.y * 180 / Math.PI) : 0"
+                        @input="debouncedUpdateAnimationRotation(index, 'y', $event)"
+                        :min="-180"
+                        :max="180"
+                        :step="1"
+                        thumb-label
+                        hide-details
+                        class="mt-2"
+                      ></v-slider>
+                    </div>
+
+                    <!-- X Axis Rotation -->
+                    <div class="mb-4">
+                      <div class="d-flex align-center mb-2">
+                        <div class="text-subtitle-2 mr-2" style="min-width: 100px;">X Axis (°):</div>
+                        <v-text-field
+                          type="number"
+                          :step="1"
+                          :value="animation.rotation ? Math.round(animation.rotation.x * 180 / Math.PI) : 0"
+                          dense
+                          @input="debouncedUpdateAnimationRotation(index, 'x', $event)"
+                          style="width: 80px"
+                          hide-details
+                          outlined
+                        />
+                      </div>
+                      <v-slider
+                        :value="animation.rotation ? Math.round(animation.rotation.x * 180 / Math.PI) : 0"
+                        @input="debouncedUpdateAnimationRotation(index, 'x', $event)"
+                        :min="-180"
+                        :max="180"
+                        :step="1"
+                        thumb-label
+                        hide-details
+                        class="mt-2"
+                      ></v-slider>
+                    </div>
+
+                    <!-- Z Axis Rotation -->
+                    <div class="mb-2">
+                      <div class="d-flex align-center mb-2">
+                        <div class="text-subtitle-2 mr-2" style="min-width: 100px;">Z Axis (°):</div>
+                        <v-text-field
+                          type="number"
+                          :step="1"
+                          :value="animation.rotation ? Math.round(animation.rotation.z * 180 / Math.PI) : 0"
+                          dense
+                          @input="debouncedUpdateAnimationRotation(index, 'z', $event)"
+                          style="width: 80px"
+                          hide-details
+                          outlined
+                        />
+                      </div>
+                      <v-slider
+                        :value="animation.rotation ? Math.round(animation.rotation.z * 180 / Math.PI) : 0"
+                        @input="debouncedUpdateAnimationRotation(index, 'z', $event)"
+                        :min="-180"
+                        :max="180"
+                        :step="1"
+                        thumb-label
+                        hide-details
+                        class="mt-2"
+                      ></v-slider>
+                    </div>
+
+                    <!-- Reset button -->
+                    <div class="mt-4 text-center">
+                      <v-btn
+                        small
+                        outlined
+                        @click="resetAnimationRotation(index)"
+                      >
+                        <v-icon small left>mdi-refresh</v-icon>
+                        Reset Rotation
+                      </v-btn>
                     </div>
                   </v-card-text>
                 </v-card>
@@ -2799,7 +2961,9 @@ export default {
             loadingInitialShare: false,
             // Debounce timers for offset updates
             offsetUpdateTimers: {},
+            rotationUpdateTimers: {},
             objectUpdateTimers: {},
+            rotationDialogs: {},
 
             // Real-time plotting properties
             showPlottingDialog: false,
@@ -3484,7 +3648,7 @@ export default {
       this.forcesFile = forceFile;
       // Temporarily create a dummy animation if none exist
       if (!this.animations[0]) {
-        this.animations[0] = { trialName: 'Standalone Forces', offset: new THREE.Vector3(), data: { bodies: {} } };
+        this.animations[0] = { trialName: 'Standalone Forces', offset: new THREE.Vector3(), rotation: new THREE.Euler(0, 0, 0, 'XYZ'), data: { bodies: {} } };
       }
       this.$set(this.forcesVisible, '0', true);
       return new Promise((resolve) => {
@@ -5448,7 +5612,12 @@ export default {
         data: this.compressAnimationData(anim.data),
         trialName: anim.trialName,
         fileName: anim.fileName,
-        offset: [anim.offset.x, anim.offset.y, anim.offset.z] // Use array instead of object
+        offset: [anim.offset.x, anim.offset.y, anim.offset.z], // Use array instead of object
+        rotation: anim.rotation ? {
+          x: THREE.Math.radToDeg(anim.rotation.x),
+          y: THREE.Math.radToDeg(anim.rotation.y),
+          z: THREE.Math.radToDeg(anim.rotation.z)
+        } : { x: 0, y: 0, z: 0 }
       })),
       forces: this.forcesDatasets,
       markers: this.markersDatasets
@@ -5828,6 +5997,12 @@ export default {
           trialName: animData.trialName,
           fileName: animData.fileName,
           offset: offset,
+          rotation: new THREE.Euler(
+            THREE.Math.degToRad(animData.rotation?.x || 0),
+            THREE.Math.degToRad(animData.rotation?.y || 0),
+            THREE.Math.degToRad(animData.rotation?.z || 0),
+            'XYZ'
+          ),
           calculatedFps: this.calculateFrameRate(decompressedData.time),
           visible: true, // Default to visible
           playable: true // Default to playable
@@ -6141,6 +6316,7 @@ export default {
               {
                   data: res1.data,
                   offset: new THREE.Vector3(0, 0, 0),
+                  rotation: new THREE.Euler(0, 0, 0, 'XYZ'),
                   fileName: 'test.json',
                   trialName: 'Subject 1',
                   calculatedFps: 0, // Add this line
@@ -6157,6 +6333,7 @@ export default {
               this.animations.push({
                   data: res2.data,
                   offset: new THREE.Vector3(0, 0, -1),
+                  rotation: new THREE.Euler(0, 0, 0, 'XYZ'),
                   fileName: 'test2.json',
                   trialName: 'Subject 2',
                   calculatedFps: 0, // Add this line
@@ -6444,17 +6621,24 @@ export default {
                 }
 
                 // Get base position from animation data
-                const position = new THREE.Vector3(
+                const basePosition = new THREE.Vector3(
                   json.bodies[body].translation[cframe][0],
                   json.bodies[body].translation[cframe][1],
                   json.bodies[body].translation[cframe][2]
                 );
 
-                // Add animation offset
-                position.add(animation.offset);
+                // Apply animation rotation if it exists
+                let finalPosition = basePosition.clone();
+                if (animation.rotation) {
+                  const animQuaternion = new THREE.Quaternion().setFromEuler(animation.rotation);
+                  finalPosition.applyQuaternion(animQuaternion);
+                }
+
+                // Add animation offset after rotation
+                finalPosition.add(animation.offset);
 
                 // Set final position
-                this.meshes[meshKey].position.copy(position);
+                this.meshes[meshKey].position.copy(finalPosition);
 
                 // Check if rotation data exists for this frame
                 if (!json.bodies[body].rotation || !json.bodies[body].rotation[cframe]) {
@@ -6462,13 +6646,22 @@ export default {
                   return; // Skip this geometry
                 }
 
-                // Set rotation
-                var euler = new THREE.Euler(
+                // Get base rotation
+                var baseEuler = new THREE.Euler(
                   json.bodies[body].rotation[cframe][0],
                   json.bodies[body].rotation[cframe][1],
                   json.bodies[body].rotation[cframe][2]
                 );
-                this.meshes[meshKey].quaternion.setFromEuler(euler);
+                
+                // Apply animation rotation if it exists
+                if (animation.rotation) {
+                  const baseQuaternion = new THREE.Quaternion().setFromEuler(baseEuler);
+                  const animQuaternion = new THREE.Quaternion().setFromEuler(animation.rotation);
+                  const finalQuaternion = animQuaternion.multiply(baseQuaternion);
+                  this.meshes[meshKey].quaternion.copy(finalQuaternion);
+                } else {
+                  this.meshes[meshKey].quaternion.setFromEuler(baseEuler);
+                }
 
                 // Handle timelapse if enabled
                 if (this.timelapseMode && this.playing && cframe % this.timelapseInterval === 0) {
@@ -6481,7 +6674,7 @@ export default {
                     animIndex,
                     body,
                     geom,
-                    position.clone(),
+                    finalPosition.clone(),
                     this.meshes[meshKey].quaternion.clone(),
                     scale
                   );
@@ -6671,6 +6864,124 @@ export default {
           this.updateOffset(animationIndex, axis, value);
           delete this.offsetUpdateTimers[timerKey];
       }, 150);
+  },
+
+  updateAnimationRotation(animationIndex, axis, value) {
+      // Get the animation
+      const animation = this.animations[animationIndex];
+      if (!animation) return;
+
+      // Initialize rotation if it doesn't exist
+      if (!animation.rotation) {
+          this.$set(animation, 'rotation', new THREE.Euler(0, 0, 0, 'XYZ'));
+      }
+
+      // Convert degrees to radians
+      const radians = THREE.Math.degToRad(Number(value));
+      
+      // Update the rotation value
+      animation.rotation[axis] = radians;
+
+      // Update all meshes for this animation
+      Object.keys(this.meshes).forEach(key => {
+          if (key.startsWith(`anim${animationIndex}_`)) {
+              const mesh = this.meshes[key];
+              const body = key.split('_')[1].split('.')[0]; // Extract body name from key
+
+              // Get current frame's base position and rotation
+              if (animation.data.bodies[body] &&
+                  animation.data.bodies[body].translation &&
+                  animation.data.bodies[body].translation[this.frame] &&
+                  animation.data.bodies[body].rotation &&
+                  animation.data.bodies[body].rotation[this.frame]) {
+
+                  // Get base position and rotation
+                  const basePosition = new THREE.Vector3(
+                      animation.data.bodies[body].translation[this.frame][0],
+                      animation.data.bodies[body].translation[this.frame][1],
+                      animation.data.bodies[body].translation[this.frame][2]
+                  );
+
+                  const baseRotation = new THREE.Euler(
+                      animation.data.bodies[body].rotation[this.frame][0],
+                      animation.data.bodies[body].rotation[this.frame][1],
+                      animation.data.bodies[body].rotation[this.frame][2],
+                      'XYZ'
+                  );
+
+                  // Apply animation rotation first, then translate
+                  // Create a quaternion from the animation rotation
+                  const animQuaternion = new THREE.Quaternion().setFromEuler(animation.rotation);
+                  
+                  // Rotate the position around origin
+                  const rotatedPosition = basePosition.clone().applyQuaternion(animQuaternion);
+                  
+                  // Add the offset after rotation
+                  rotatedPosition.add(animation.offset);
+                  
+                  // Set the mesh position
+                  mesh.position.copy(rotatedPosition);
+
+                  // Combine rotations: base rotation + animation rotation
+                  const baseQuaternion = new THREE.Quaternion().setFromEuler(baseRotation);
+                  const finalQuaternion = animQuaternion.multiply(baseQuaternion);
+                  mesh.quaternion.copy(finalQuaternion);
+              }
+          }
+      });
+
+      // Update text sprites for this animation
+      const textSprite = this.textSprites[`text_${animationIndex}`];
+      if (textSprite) {
+          // For text sprite, just apply the offset and rotation to its position
+          const spriteBasePos = animation.offset.clone();
+          spriteBasePos.y += 2; // Position above the model
+          
+          // Rotate the sprite position
+          const animQuaternion = new THREE.Quaternion().setFromEuler(animation.rotation);
+          spriteBasePos.applyQuaternion(animQuaternion);
+          
+          textSprite.position.copy(spriteBasePos);
+      }
+
+      // Render the scene with updated rotations
+      if (this.renderer) {
+          this.renderer.render(this.scene, this.camera);
+          this.animateOneFrame();
+      }
+  },
+
+  debouncedUpdateAnimationRotation(animationIndex, axis, value) {
+      // Clear any existing timer for this combination
+      const timerKey = `${animationIndex}_${axis}`;
+      if (this.rotationUpdateTimers[timerKey]) {
+          clearTimeout(this.rotationUpdateTimers[timerKey]);
+      }
+
+      // Set a new timer to update after 150ms of no changes
+      this.rotationUpdateTimers[timerKey] = setTimeout(() => {
+          this.updateAnimationRotation(animationIndex, axis, value);
+          delete this.rotationUpdateTimers[timerKey];
+      }, 150);
+  },
+
+  openRotationDialog(index) {
+      this.$set(this.rotationDialogs, index, true);
+  },
+
+  resetAnimationRotation(index) {
+      const animation = this.animations[index];
+      if (!animation) return;
+
+      // Reset rotation to zero
+      if (animation.rotation) {
+          animation.rotation.set(0, 0, 0);
+      }
+
+      // Update all three axes
+      this.updateAnimationRotation(index, 'x', 0);
+      this.updateAnimationRotation(index, 'y', 0);
+      this.updateAnimationRotation(index, 'z', 0);
   },
 
   startRecording() {
@@ -7002,6 +7313,7 @@ export default {
               this.animations.push({
                   data: data,
                   offset: offset,
+                  rotation: new THREE.Euler(0, 0, 0, 'XYZ'),
                   fileName: file.name,
                   trialName: `Subject ${startIndex + index + 1}`,
                   visible: true,  // Add this line
@@ -8318,6 +8630,7 @@ export default {
               this.animations.push({
                   data: data,
                   offset: new THREE.Vector3(0, 0, 0),
+                  rotation: new THREE.Euler(0, 0, 0, 'XYZ'),
                   fileName: fileName,
                   trialName: fileName.replace('sample_', '').replace('.json', ''),
                   visible: true,  // Ensure visibility is true by default
