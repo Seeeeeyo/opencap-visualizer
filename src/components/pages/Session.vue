@@ -101,7 +101,7 @@
 
 
           <!-- Getting Started Section (shown when no files are loaded) -->
-          <div v-if="animations.length === 0 && !converting && Object.keys(markersDatasets).length === 0" class="getting-started-section mb-4">
+          <div v-if="animations.length === 0 && smplSequences.length === 0 && !converting && Object.keys(markersDatasets).length === 0" class="getting-started-section mb-4">
             <v-card dark class="pa-4" style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1);">
               <div class="d-flex align-center mb-3">
                 <v-icon color="primary" class="mr-2">mdi-information-outline</v-icon>
@@ -186,7 +186,7 @@
           <!-- Legend -->
           <div class="legend flex-grow-1 mb-4">
             <!-- Add animation control buttons -->
-            <div class="d-flex align-center mb-4" v-if="animations.length > 0">
+            <div class="d-flex align-center mb-4" v-if="animations.length > 0 || smplSequences.length > 0">
               <div class="text-subtitle-2 mr-2">Animations</div>
               <v-spacer></v-spacer>
               <v-btn x-small text color="primary" @click="setAllAnimationsPlayable(true)" class="mr-1">
@@ -299,6 +299,21 @@
                     </v-btn>
                   </template>
                   <span>Center camera on this animation</span>
+                </v-tooltip>
+                <v-tooltip bottom>
+                  <template v-slot:activator="{ on, attrs }">
+                    <v-btn
+                      icon
+                      small
+                      class="mr-2"
+                      v-bind="attrs"
+                      v-on="on"
+                      @click="centerModelToOrigin(index)"
+                    >
+                      <v-icon small>mdi-axis-arrow</v-icon>
+                    </v-btn>
+                  </template>
+                  <span>Center model to origin</span>
                 </v-tooltip>
                 <v-menu offset-y>
                   <template v-slot:activator="{ on, attrs }">
@@ -434,6 +449,24 @@
                     class="grey--text text--darken-1"
                     hide-details
                   />
+                </div>
+                
+                <!-- FPS Control -->
+                <div class="d-flex align-center mt-2" style="border-bottom: 1px solid rgba(255, 255, 255, 0.12);">
+                  <div class="text-caption grey--text mr-2">Playback Speed</div>
+                  <v-text-field
+                    type="number"
+                    :step="0.1"
+                    :min="0.1"
+                    :max="5"
+                    v-model.number="animation.speedMultiplier"
+                    dense
+                    @input="updateAnimationSpeed(index)"
+                    style="width: 70px"
+                    class="grey--text text--darken-1"
+                    hide-details
+                  />
+                  <span class="text-caption grey--text ml-2">×</span>
                 </div>
               </div>
 
@@ -586,7 +619,361 @@
               </v-dialog>
             </div>
 
+            <!-- SMPL Sequences -->
+            <div v-for="sequence in smplSequences" :key="`smpl-${sequence.id}`" class="legend-item mb-4">
+              <div class="d-flex mb-2 align-start">
+                <div class="color-box" :style="{ backgroundColor: formatColor(sequence.color) }"></div>
+                <div class="ml-2" style="flex-grow: 1; min-width: 0;">
+                  <div class="text-subtitle-2">{{ sequence.name }}</div>
+                  <div class="text-caption grey--text">
+                    {{ sequence.frameCount }} frames @ {{ sequence.fps ? sequence.fps.toFixed(2) : frameRate.toFixed(2) }} fps
+                  </div>
+                  <div class="text-caption grey--text">
+                    {{ sequence.vertexCount }} vertices, {{ sequence.jointCount }} joints
+                  </div>
+                </div>
+                <v-btn
+                  icon
+                  small
+                  class="mr-2"
+                  @click="toggleSmplSequenceVisibility(sequence.id)"
+                >
+                  <v-icon small :color="sequence.visible ? 'white' : 'grey'">
+                    {{ sequence.visible ? 'mdi-eye' : 'mdi-eye-off' }}
+                  </v-icon>
+                </v-btn>
+                <v-btn
+                  icon
+                  small
+                  class="mr-2"
+                  v-if="sequence.skeleton"
+                  @click="toggleSmplSkeleton(sequence.id)"
+                >
+                  <v-icon small>
+                    {{ sequence.showSkeleton ? 'mdi-bone' : 'mdi-bone-off' }}
+                  </v-icon>
+                </v-btn>
+                <v-tooltip bottom>
+                  <template v-slot:activator="{ on, attrs }">
+                    <v-btn
+                      icon
+                      small
+                      class="mr-2"
+                      v-bind="attrs"
+                      v-on="on"
+                      @click="centerSmplModelToOrigin(sequence.id)"
+                    >
+                      <v-icon small>mdi-axis-arrow</v-icon>
+                    </v-btn>
+                  </template>
+                  <span>Center model to origin</span>
+                </v-tooltip>
+                <v-btn icon small color="error" @click="removeSmplSequence(sequence.id)">
+                  <v-icon small>mdi-delete</v-icon>
+                </v-btn>
+              </div>
 
+              <div class="d-flex align-center ml-8">
+                <v-tooltip bottom>
+                  <template v-slot:activator="{ on, attrs }">
+                    <div v-bind="attrs" v-on="on">
+                      <v-checkbox
+                        :input-value="sequence.playable"
+                        hide-details
+                        dense
+                        color="primary"
+                        class="mt-0 mr-2 playable-checkbox"
+                        @change="setSmplSequencePlayable(sequence.id, $event)"
+                      ></v-checkbox>
+                    </div>
+                  </template>
+                  <span>{{ sequence.playable ? 'Sequence enabled' : 'Static pose (visible but not animating)' }}</span>
+                </v-tooltip>
+
+                <v-menu offset-y :close-on-content-click="false">
+                  <template v-slot:activator="{ on, attrs }">
+                    <v-btn icon small v-bind="attrs" v-on="on" class="mr-2">
+                      <v-icon small>mdi-palette</v-icon>
+                    </v-btn>
+                  </template>
+                  <v-card class="color-picker pa-2">
+                    <div class="d-flex align-center">
+                      <v-color-picker
+                        v-model="sequence.displayColor"
+                        :modes="['hex', 'rgba']"
+                        show-swatches
+                        :swatches="Array.isArray(availableColors) ? availableColors : []"
+                        @input="updateSmplSequenceColor(sequence.id, $event)"
+                        class="flex-grow-1"
+                      >
+                      </v-color-picker>
+                      <v-btn icon small @click="openEyeDropper('smpl', sequence.id)" title="Pick color from screen" class="ml-2">
+                        <v-icon>mdi-eyedropper-variant</v-icon>
+                      </v-btn>
+                    </div>
+                  </v-card>
+                </v-menu>
+
+                <v-menu offset-y>
+                  <template v-slot:activator="{ on, attrs }">
+                    <v-btn icon small v-bind="attrs" v-on="on" class="mr-2">
+                      <v-icon small>mdi-opacity</v-icon>
+                    </v-btn>
+                  </template>
+                  <v-card class="transparency-picker pa-3" width="250">
+                    <div class="text-subtitle-2 mb-2">
+                      Transparency
+                      <span class="text-caption ml-2">
+                        ({{ Math.round((1 - (sequence.opacity || 1)) * 100) }}%)
+                      </span>
+                    </div>
+                    <v-slider
+                      :value="(1 - (sequence.opacity || 1)) * 100"
+                      @input="value => updateSmplOpacity(sequence.id, 1 - value / 100)"
+                      :min="0"
+                      :max="100"
+                      step="1"
+                      hide-details
+                      :thumb-label="true"
+                      thumb-size="24"
+                    >
+                      <template v-slot:thumb-label="{ value }">
+                        {{ Math.round(value) }}%
+                      </template>
+                      <template v-slot:prepend>
+                        <div class="text-caption grey--text">0%</div>
+                      </template>
+                      <template v-slot:append>
+                        <div class="text-caption grey--text">100%</div>
+                      </template>
+                    </v-slider>
+                  </v-card>
+                </v-menu>
+
+                <div class="text-caption grey--text ml-2">
+                  Gender: {{ sequence.gender }}
+                </div>
+              </div>
+
+              <!-- Offset controls for SMPL -->
+              <div class="offset-controls mt-2" style="margin-left: 44px;">
+                <div class="d-flex align-center" style="border-bottom: 1px solid rgba(255, 255, 255, 0.12);">
+                  <div class="text-caption grey--text mr-2">Position</div>
+                </div>
+                <div class="d-flex align-center mb-2" style="border-bottom: 1px solid rgba(255, 255, 255, 0.12);">
+                  <div class="text-caption grey--text mr-2" style="width: 12px;">X</div>
+                  <v-text-field
+                    type="number"
+                    :step="0.1"
+                    v-model.number="sequence.offset.x"
+                    dense
+                    @input="debouncedUpdateSmplOffset(sequence.id, 'x', sequence.offset.x)"
+                    style="width: 70px"
+                    class="grey--text text--darken-1"
+                    hide-details
+                  />
+                  <div class="text-caption grey--text mx-2" style="width: 12px;">Y</div>
+                  <v-text-field
+                    type="number"
+                    :step="0.1"
+                    v-model.number="sequence.offset.y"
+                    dense
+                    @input="debouncedUpdateSmplOffset(sequence.id, 'y', sequence.offset.y)"
+                    style="width: 70px"
+                    class="grey--text text--darken-1"
+                    hide-details
+                  />
+                  <div class="text-caption grey--text mx-2" style="width: 12px;">Z</div>
+                  <v-text-field
+                    type="number"
+                    :step="0.1"
+                    v-model.number="sequence.offset.z"
+                    dense
+                    @input="debouncedUpdateSmplOffset(sequence.id, 'z', sequence.offset.z)"
+                    style="width: 70px"
+                    class="grey--text text--darken-1"
+                    hide-details
+                  />
+                </div>
+                
+                <!-- Rotation controls for SMPL -->
+                <div class="d-flex align-center" style="border-bottom: 1px solid rgba(255, 255, 255, 0.12);">
+                  <div class="text-caption grey--text mr-2">Rotation (°)</div>
+                  <v-btn
+                    icon
+                    x-small
+                    @click="openSmplRotationDialog(sequence.id)"
+                    class="ml-1"
+                  >
+                    <v-icon x-small>mdi-rotate-3d-variant</v-icon>
+                  </v-btn>
+                </div>
+                <div class="d-flex align-center">
+                  <div class="text-caption grey--text mr-2" style="width: 12px;">Y</div>
+                  <v-text-field
+                    type="number"
+                    :step="5"
+                    :value="sequence.rotation ? Math.round(sequence.rotation.y * 180 / Math.PI) : 0"
+                    dense
+                    @input="debouncedUpdateSmplRotation(sequence.id, 'y', $event)"
+                    style="width: 70px"
+                    class="grey--text text--darken-1"
+                    hide-details
+                  />
+                  <div class="text-caption grey--text mx-2" style="width: 12px;">X</div>
+                  <v-text-field
+                    type="number"
+                    :step="5"
+                    :value="sequence.rotation ? Math.round(sequence.rotation.x * 180 / Math.PI) : 0"
+                    dense
+                    @input="debouncedUpdateSmplRotation(sequence.id, 'x', $event)"
+                    style="width: 70px"
+                    class="grey--text text--darken-1"
+                    hide-details
+                  />
+                  <div class="text-caption grey--text mx-2" style="width: 12px;">Z</div>
+                  <v-text-field
+                    type="number"
+                    :step="5"
+                    :value="sequence.rotation ? Math.round(sequence.rotation.z * 180 / Math.PI) : 0"
+                    dense
+                    @input="debouncedUpdateSmplRotation(sequence.id, 'z', $event)"
+                    style="width: 70px"
+                    class="grey--text text--darken-1"
+                    hide-details
+                  />
+                </div>
+              </div>
+
+              <!-- Rotation dialog for SMPL -->
+              <v-dialog
+                v-model="smplRotationDialogs[sequence.id]"
+                max-width="500"
+              >
+                <v-card>
+                  <v-card-title class="text-subtitle-1">
+                    Rotation Controls - {{ sequence.name }}
+                    <v-spacer></v-spacer>
+                    <v-btn icon small @click="smplRotationDialogs[sequence.id] = false">
+                      <v-icon small>mdi-close</v-icon>
+                    </v-btn>
+                  </v-card-title>
+                  <v-divider></v-divider>
+                  <v-card-text class="pa-4">
+                    <!-- Y Axis Rotation -->
+                    <div class="mb-4">
+                      <div class="d-flex align-center mb-2">
+                        <div class="text-subtitle-2 mr-2" style="min-width: 100px;">Y Axis (°):</div>
+                        <v-text-field
+                          type="number"
+                          :step="1"
+                          :value="sequence.rotation ? Math.round(sequence.rotation.y * 180 / Math.PI) : 0"
+                          dense
+                          @input="debouncedUpdateSmplRotation(sequence.id, 'y', $event)"
+                          style="width: 80px"
+                          hide-details
+                          outlined
+                        />
+                      </div>
+                      <v-slider
+                        :value="sequence.rotation ? Math.round(sequence.rotation.y * 180 / Math.PI) : 0"
+                        @input="debouncedUpdateSmplRotation(sequence.id, 'y', $event)"
+                        :min="-180"
+                        :max="180"
+                        :step="1"
+                        thumb-label
+                        hide-details
+                        class="mt-2"
+                      ></v-slider>
+                    </div>
+
+                    <!-- X Axis Rotation -->
+                    <div class="mb-4">
+                      <div class="d-flex align-center mb-2">
+                        <div class="text-subtitle-2 mr-2" style="min-width: 100px;">X Axis (°):</div>
+                        <v-text-field
+                          type="number"
+                          :step="1"
+                          :value="sequence.rotation ? Math.round(sequence.rotation.x * 180 / Math.PI) : 0"
+                          dense
+                          @input="debouncedUpdateSmplRotation(sequence.id, 'x', $event)"
+                          style="width: 80px"
+                          hide-details
+                          outlined
+                        />
+                      </div>
+                      <v-slider
+                        :value="sequence.rotation ? Math.round(sequence.rotation.x * 180 / Math.PI) : 0"
+                        @input="debouncedUpdateSmplRotation(sequence.id, 'x', $event)"
+                        :min="-180"
+                        :max="180"
+                        :step="1"
+                        thumb-label
+                        hide-details
+                        class="mt-2"
+                      ></v-slider>
+                    </div>
+
+                    <!-- Z Axis Rotation -->
+                    <div class="mb-2">
+                      <div class="d-flex align-center mb-2">
+                        <div class="text-subtitle-2 mr-2" style="min-width: 100px;">Z Axis (°):</div>
+                        <v-text-field
+                          type="number"
+                          :step="1"
+                          :value="sequence.rotation ? Math.round(sequence.rotation.z * 180 / Math.PI) : 0"
+                          dense
+                          @input="debouncedUpdateSmplRotation(sequence.id, 'z', $event)"
+                          style="width: 80px"
+                          hide-details
+                          outlined
+                        />
+                      </div>
+                      <v-slider
+                        :value="sequence.rotation ? Math.round(sequence.rotation.z * 180 / Math.PI) : 0"
+                        @input="debouncedUpdateSmplRotation(sequence.id, 'z', $event)"
+                        :min="-180"
+                        :max="180"
+                        :step="1"
+                        thumb-label
+                        hide-details
+                        class="mt-2"
+                      ></v-slider>
+                    </div>
+
+                    <!-- Reset button -->
+                    <div class="mt-4 text-center">
+                      <v-btn
+                        small
+                        outlined
+                        @click="resetSmplRotation(sequence.id)"
+                      >
+                        <v-icon small left>mdi-refresh</v-icon>
+                        Reset Rotation
+                      </v-btn>
+                    </div>
+                  </v-card-text>
+                </v-card>
+              </v-dialog>
+              
+              <!-- FPS Control for SMPL -->
+              <div class="d-flex align-center mt-2" style="margin-left: 44px; border-bottom: 1px solid rgba(255, 255, 255, 0.12);">
+                <div class="text-caption grey--text mr-2">Playback Speed</div>
+                <v-text-field
+                  type="number"
+                  :step="0.1"
+                  :min="0.1"
+                  :max="5"
+                  v-model.number="sequence.speedMultiplier"
+                  dense
+                  @input="updateSmplSpeed(sequence.id)"
+                  style="width: 70px"
+                  class="grey--text text--darken-1"
+                  hide-details
+                />
+                <span class="text-caption grey--text ml-2">×</span>
+              </div>
+            </div>
 
             <!-- Forces Visualization Section -->
             <div v-for="(forcesData, animationIndex) in forcesDatasets" :key="`forces-${animationIndex}`" class="legend-item mb-4">
@@ -890,7 +1277,7 @@
           </div>
 
           <!-- Standalone Marker Visualization Section (when no animations exist) -->
-          <template v-if="animations.length === 0 && Object.keys(markersDatasets).length > 0">
+          <template v-if="animations.length === 0 && smplSequences.length === 0 && Object.keys(markersDatasets).length > 0">
             <div v-for="(markersData, animationIndex) in markersDatasets" :key="`standalone-markers-${animationIndex}`" class="legend-item mb-4">
             <div class="d-flex mb-2">
               <div class="color-box" :style="{ backgroundColor: getMarkerColor(animationIndex) }"></div>
@@ -1017,7 +1404,7 @@
           </template>
 
           <!-- Clear All Markers Button (only show when there are multiple marker files) -->
-          <div v-if="animations.length === 0 && Object.keys(markersDatasets).length > 1" class="mb-4">
+          <div v-if="animations.length === 0 && smplSequences.length === 0 && Object.keys(markersDatasets).length > 1" class="mb-4">
             <v-btn
               color="error"
               small
@@ -1188,7 +1575,7 @@
       </div>
 
       <!-- Main Content -->
-      <div v-if="trial || (markerSpheres.length > 0) || (animations.length > 0) || trialLoading || converting || conversionError || loadingMarkers || scene" class="d-flex flex-column h-100">
+      <div v-if="trial || (markerSpheres.length > 0) || (animations.length > 0) || (smplSequences.length > 0) || trialLoading || converting || conversionError || loadingMarkers || scene || sceneInitializing" class="d-flex flex-column h-100">
         <div id="mocap" ref="mocap" class="flex-grow-1 position-relative">
           <!-- Conversion loading overlay on top of scene -->
           <div v-if="converting" class="conversion-overlay-scene">
@@ -1620,12 +2007,12 @@
         <!-- Make controls slightly transparent when loading -->
         <div :class="{ 'opacity-reduced': converting }">
           <!-- Add Share Button Here -->
-          <v-btn color="#2563EB" class="mb-4 white--text custom-btn" block @click="openShareDialog" :disabled="!trial || animations.length === 0">
+          <v-btn color="#2563EB" class="mb-4 white--text custom-btn" block @click="openShareDialog" :disabled="!trial || (animations.length === 0 && smplSequences.length === 0)">
             <v-icon left>mdi-share-variant</v-icon>
             Share Visualization
           </v-btn>
 
-          <v-btn color="#4B5563" class="mb-4 white--text custom-btn" block @click="showPlottingDialog = true" :disabled="!trial && animations.length === 0">
+          <v-btn color="#4B5563" class="mb-4 white--text custom-btn" block @click="showPlottingDialog = true" :disabled="!trial && animations.length === 0 && smplSequences.length === 0">
             <v-icon left>mdi-chart-line</v-icon>
             Real-time Plots
           </v-btn>
@@ -1734,7 +2121,7 @@
               </ul>
             </div>
 
-            <v-alert v-if="animations.length === 0" type="warning" text dense class="mb-4">
+            <v-alert v-if="animations.length === 0 && smplSequences.length === 0" type="warning" text dense class="mb-4">
               Please load an animation first before importing forces.
             </v-alert>
 
@@ -1850,7 +2237,7 @@
               Markers will be positioned according to the data in the file.
             </div>
 
-            <v-alert v-if="animations.length === 0" type="info" text dense class="mb-4">
+            <v-alert v-if="animations.length === 0 && smplSequences.length === 0" type="info" text dense class="mb-4">
               No animations loaded. A standalone marker visualization will be created.
             </v-alert>
 
@@ -2781,6 +3168,33 @@ const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
 gltfLoader.setDRACOLoader(dracoLoader);
 
+// SMPL kinematic tree edges (child-parent pairs) for skeleton rendering
+const SMPL_SKELETON_EDGES = [
+    [0, 1],
+    [1, 2],
+    [2, 3],
+    [0, 4],
+    [4, 5],
+    [5, 6],
+    [0, 7],
+    [7, 8],
+    [8, 9],
+    [9, 10],
+    [8, 11],
+    [11, 12],
+    [12, 13],
+    [8, 14],
+    [14, 15],
+    [15, 16],
+    [0, 17],
+    [17, 18],
+    [18, 19],
+    [19, 20],
+    [20, 21],
+    [21, 22],
+    [19, 23],
+];
+
 export default {
     name: 'Session',
     components: {
@@ -2804,11 +3218,14 @@ export default {
             playing: false,
             resizeObserver: null,
             animations: [], // Array to store multiple animations
+            smplSequences: [], // SMPL sequence animations
+            nextSmplSequenceId: 1,
             frameRate: 60,
             lastFrameTime: 0,
             playSpeed: 1, // Playback speed multiplier
         showRecordingSettings: false, // Controls recording settings dialog
         showCaptureSettings: false, // Controls image capture settings dialog
+            animateLoopStarted: false,
             colors: [
                 new THREE.Color(0xd3d3d3),  // Changed from Green to Light Grey (211, 211, 211)
                 new THREE.Color(0x4995e0),  // Changed from Orange to RGB(73, 149, 224)
@@ -2910,6 +3327,7 @@ export default {
             captureMode: 'both', // Options: 'both', 'normal', 'transparent'
             videoBitrate: 5000000, // Video recording bitrate in bits per second (5 Mbps default)
             conversionError: null, // Add this line to store API error message
+            sceneInitializing: false, // Flag to track scene initialization
 
             // Video preview props
             videoFile: null,
@@ -2964,6 +3382,7 @@ export default {
             rotationUpdateTimers: {},
             objectUpdateTimers: {},
             rotationDialogs: {},
+            smplRotationDialogs: {},
 
             // Real-time plotting properties
             showPlottingDialog: false,
@@ -3181,6 +3600,7 @@ export default {
       window.addEventListener('keydown', this.handleKeyDown);
 
       // Initialize the scene first (after DOM is ready)
+      this.sceneInitializing = true;
       this.$nextTick(() => {
       this.initScene(); // initScene will now call applyLoadedSceneSettings
       });
@@ -4843,15 +5263,18 @@ export default {
      };
 
      // Initialize scene if it doesn't exist
-     if (!this.scene) {
+     if (!this.scene && !this.sceneInitializing) {
        console.log('Initializing scene for standalone markers...');
+       this.sceneInitializing = true;
        // Wait for DOM to be ready before initializing scene
        this.$nextTick(() => {
-         this.initScene();
-         // Create marker spheres after scene is initialized
          this.$nextTick(() => {
-           this.createMarkerSpheres();
-           this.handlePostMarkerCreation();
+           this.initScene();
+           // Create marker spheres after scene is initialized
+           this.$nextTick(() => {
+             this.createMarkerSpheres();
+             this.handlePostMarkerCreation();
+           });
          });
        });
      } else {
@@ -4940,13 +5363,16 @@ export default {
      this.clearMarkerSpheres();
 
      // Check if scene is initialized
-     if (!this.scene) {
+     if (!this.scene && !this.sceneInitializing) {
        console.error('Scene not initialized when creating marker spheres');
        console.log('Attempting to initialize scene...');
+       this.sceneInitializing = true;
        this.$nextTick(() => {
-         this.initScene();
          this.$nextTick(() => {
-           this.createMarkerSpheres();
+           this.initScene();
+           this.$nextTick(() => {
+             this.createMarkerSpheres();
+           });
          });
        });
        return;
@@ -6067,6 +6493,9 @@ export default {
 
       // Initialize the 3D scene
       await this.$nextTick();
+      if (!this.sceneInitializing) {
+        this.sceneInitializing = true;
+      }
       this.initScene();
 
       // After scene is initialized, create markers and forces if they exist
@@ -6468,8 +6897,11 @@ export default {
         this.camera.aspect = canvas.clientWidth / canvas.clientHeight;
         this.camera.updateProjectionMatrix();
       }
-    },
-    animate() {
+  },
+  animate() {
+      if (!this.animateLoopStarted) {
+        this.animateLoopStarted = true;
+      }
       // Always schedule the next frame first
       requestAnimationFrame(this.animate);
 
@@ -6493,6 +6925,7 @@ export default {
       // Check if we have markers or animations to animate
       // Refined check for clarity: Checks if any animation is playable OR if markers exist
       const hasAnimatedContent = this.animations.some(a => a.playable !== false) ||
+                               this.smplSequences.some(seq => seq.playable !== false) ||
                                (this.markerSpheres.length > 0) ||
                                (Object.keys(this.markersDatasets).length > 0);
 
@@ -6610,21 +7043,26 @@ export default {
           if (!animation.playable) return;
 
           let json = animation.data;
+          const speedMultiplier = animation.speedMultiplier || 1.0;
+          // Calculate the frame index for this animation based on speed multiplier
+          const animFrame = speedMultiplier !== 1.0 
+            ? Math.floor(cframe * speedMultiplier) % this.frames.length
+            : cframe;
           for (let body in json.bodies) {
             json.bodies[body].attachedGeometries.forEach((geom) => {
               const meshKey = `anim${animIndex}_${body}${geom}`;
               if (this.meshes[meshKey]) {
                 // Check if translation data exists for this frame
-                if (!json.bodies[body].translation || !json.bodies[body].translation[cframe]) {
-                  console.error(`[animateOneFrame] Missing translation data for body ${body} frame ${cframe}`);
+                if (!json.bodies[body].translation || !json.bodies[body].translation[animFrame]) {
+                  console.error(`[animateOneFrame] Missing translation data for body ${body} frame ${animFrame}`);
                   return; // Skip this geometry
                 }
 
                 // Get base position from animation data
                 const basePosition = new THREE.Vector3(
-                  json.bodies[body].translation[cframe][0],
-                  json.bodies[body].translation[cframe][1],
-                  json.bodies[body].translation[cframe][2]
+                  json.bodies[body].translation[animFrame][0],
+                  json.bodies[body].translation[animFrame][1],
+                  json.bodies[body].translation[animFrame][2]
                 );
 
                 // Apply animation rotation if it exists
@@ -6641,16 +7079,16 @@ export default {
                 this.meshes[meshKey].position.copy(finalPosition);
 
                 // Check if rotation data exists for this frame
-                if (!json.bodies[body].rotation || !json.bodies[body].rotation[cframe]) {
-                  console.error(`[animateOneFrame] Missing rotation data for body ${body} frame ${cframe}`);
+                if (!json.bodies[body].rotation || !json.bodies[body].rotation[animFrame]) {
+                  console.error(`[animateOneFrame] Missing rotation data for body ${body} frame ${animFrame}`);
                   return; // Skip this geometry
                 }
 
                 // Get base rotation
                 var baseEuler = new THREE.Euler(
-                  json.bodies[body].rotation[cframe][0],
-                  json.bodies[body].rotation[cframe][1],
-                  json.bodies[body].rotation[cframe][2]
+                  json.bodies[body].rotation[animFrame][0],
+                  json.bodies[body].rotation[animFrame][1],
+                  json.bodies[body].rotation[animFrame][2]
                 );
                 
                 // Apply animation rotation if it exists
@@ -6664,7 +7102,7 @@ export default {
                 }
 
                 // Handle timelapse if enabled
-                if (this.timelapseMode && this.playing && cframe % this.timelapseInterval === 0) {
+                if (this.timelapseMode && this.playing && animFrame % this.timelapseInterval === 0) {
                   const scale = new THREE.Vector3(
                     json.bodies[body].scaleFactors[0],
                     json.bodies[body].scaleFactors[1],
@@ -6682,6 +7120,25 @@ export default {
               }
             });
           }
+        });
+
+        // Update SMPL sequences
+        this.smplSequences.forEach((sequence) => {
+          if (!sequence.mesh) return;
+          const maxFrame = Math.max(sequence.frameCount - 1, 0);
+          const speedMultiplier = sequence.speedMultiplier || 1.0;
+          
+          // Calculate the frame based on speed multiplier
+          let scaledFrame = cframe;
+          if (speedMultiplier !== 1.0 && sequence.playable !== false) {
+            scaledFrame = Math.floor(cframe * speedMultiplier) % (maxFrame + 1);
+          }
+          
+          const desiredFrame = sequence.playable !== false
+            ? Math.min(scaledFrame, maxFrame)
+            : (sequence.lastRenderedFrame >= 0 ? sequence.lastRenderedFrame : Math.min(scaledFrame, maxFrame));
+          const forceUpdate = sequence.playable === false && sequence.lastRenderedFrame < 0;
+          this.updateSmplSequenceFrame(sequence, desiredFrame, forceUpdate);
         });
 
         // Render the scene (moved before marker update)
@@ -7211,44 +7668,38 @@ export default {
       return Math.min(Math.max(calculatedFps, 24), 120);
   },
 
-  handleFileUpload(event) {
+  async handleFileUpload(event) {
       const files = event.target.files;
       if (!files.length) return;
 
-      // Initialize scene if it doesn't exist
-      if (!this.scene) {
-          this.$nextTick(() => {
-          this.initScene();
+      try {
+          if (!this.scene && !this.sceneInitializing) {
+              this.sceneInitializing = true;
+              await this.$nextTick();
+              this.initScene();
+          }
+
+          const filePromises = Array.from(files).map(file => {
+              return new Promise((resolve, reject) => {
+                  const reader = new FileReader();
+                  reader.onload = (e) => {
+                      try {
+                          const data = JSON.parse(e.target.result);
+                          resolve({ data, file });
+                      } catch (error) {
+                          reject({ error, file });
+                      }
+                  };
+                  reader.readAsText(file);
+              });
           });
-      }
 
-      // Get the current number of animations for offset calculation
-      const startIndex = this.animations.length;
+          const results = await Promise.allSettled(filePromises);
 
-      // Create a Promise for each file
-      const filePromises = Array.from(files).map(file => {
-          return new Promise((resolve, reject) => {
-              const reader = new FileReader();
-              reader.onload = (e) => {
-                  try {
-                      const data = JSON.parse(e.target.result);
-                      resolve({ data, file });
-                  } catch (error) {
-                      reject({ error, file });
-                  }
-              };
-              reader.readAsText(file);
-          });
-      });
-
-      // Process all files together
-      Promise.allSettled(filePromises).then(results => {
-          // Filter successful results
           const successfulResults = results
               .filter(result => result.status === 'fulfilled')
               .map(result => result.value);
 
-          // Log any errors
           const errors = results.filter(result => result.status === 'rejected');
           errors.forEach(error => {
               console.error('Error loading file:', error.reason);
@@ -7259,77 +7710,161 @@ export default {
               this.$toasted.error('No valid files could be loaded');
               return;
           }
-          // Check if any file is a share file
+
           const shareFiles = successfulResults.filter(({ data }) =>
               data && data.animations && Array.isArray(data.animations)
           );
 
           if (shareFiles.length > 0) {
-              // Load as shared visualization
               const shareData = shareFiles[0].data;
               this.loadSharedVisualization(shareData);
               this.$toasted.success('Share file loaded successfully!');
               return;
           }
 
-          successfulResults.forEach(({ data, file }, index) => {
-              const offset = new THREE.Vector3(
-                  0,    // X: no offset
-                  0,    // Y: no offset
-                  0     // Z: no offset (changed from startIndex + index)
-              );
+          const animationPayloads = [];
+          const smplPayloads = [];
 
-              // Calculate FPS for this specific file
+          successfulResults.forEach(({ data, file }) => {
+              const offset = new THREE.Vector3(0, 0, 0);
               const fileFps = this.calculateFrameRate(data.time);
 
+              if (data && data.vertices && data.frame_count) {
+                  smplPayloads.push({ data, file });
+                  return;
+              }
+
+              const newAnimIndex = this.animations.length;
               this.animations.push({
                   data: data,
                   offset: offset,
                   rotation: new THREE.Euler(0, 0, 0, 'XYZ'),
                   fileName: file.name,
-                  trialName: `Subject ${startIndex + index + 1}`,
-                  visible: true,  // Add this line
-                  playable: true, // Add playable property, default to true
-                  calculatedFps: fileFps // Store calculated FPS
+                  trialName: `Subject ${newAnimIndex + 1}`,
+                  visible: true,
+                  playable: true,
+                  calculatedFps: fileFps,
+                  speedMultiplier: 1.0
               });
 
               if (this.animations.length === 1) {
                   this.frames = data.time;
                   this.trial = { results: [] };
-                  // Set the global frameRate based on the first file loaded
                   this.frameRate = fileFps;
-                  // Reset frame counter to 0 and set initial time
                   this.frame = 0;
                   this.time = data.time && data.time.length > 0 ? parseFloat(data.time[0]).toFixed(2) : "0.00";
               }
 
-              // Initialize the alpha value for the new animation
-              this.initializeAlphaValue(startIndex + index);
+              this.initializeAlphaValue(newAnimIndex);
+              this.extractMarkerDataFromJson(data, newAnimIndex, file.name);
 
-              // Extract marker data from JSON file for plotting
-              this.extractMarkerDataFromJson(data, startIndex + index, file.name);
+              animationPayloads.push({ data, animIndex: newAnimIndex });
           });
 
-          // Ensure all color arrays are synchronized after adding new animations
+          if (smplPayloads.length > 0) {
+              const sceneReady = await this.ensureSceneReady();
+              if (!sceneReady) {
+                  this.$toasted.error('Unable to initialize viewer for SMPL data.');
+                  return;
+              }
+
+              // First, load the example JSON file to initialize the scene correctly
+              try {
+                  console.log('Loading example mocap file to initialize scene...');
+                  const exampleResponse = await fetch('/samples/squat/sample_mocap.json');
+                  const exampleData = await exampleResponse.json();
+                  
+                  // Add the example data as a temporary animation to initialize the scene
+                  const tempAnimIndex = this.animations.length;
+                  const fileFps = this.calculateFrameRate(exampleData.time);
+                  
+                  this.animations.push({
+                      data: exampleData,
+                      offset: new THREE.Vector3(0, 0, 0),
+                      rotation: new THREE.Euler(0, 0, 0, 'XYZ'),
+                      fileName: 'temp_example.json',
+                      trialName: 'Temp Subject',
+                      visible: true,
+                      playable: true,
+                      calculatedFps: fileFps
+                  });
+                  
+                  if (this.animations.length === 1) {
+                      this.frames = exampleData.time;
+                      this.trial = { results: [] };
+                      this.frameRate = fileFps;
+                      this.frame = 0;
+                      this.time = exampleData.time && exampleData.time.length > 0 ? parseFloat(exampleData.time[0]).toFixed(2) : "0.00";
+                  }
+                  
+                  // Initialize and extract marker data to properly set up the scene
+                  this.initializeAlphaValue(tempAnimIndex);
+                  this.extractMarkerDataFromJson(exampleData, tempAnimIndex, 'temp_example.json');
+                  
+                  // Wait a moment for initialization, then remove the temporary animation
+                  await new Promise(resolve => setTimeout(resolve, 100));
+                  
+                  // Remove the temporary example animation
+                  this.animations.splice(tempAnimIndex, 1);
+                  this.meshes = {}; // Clear meshes to start fresh
+                  
+                  console.log('Example file loaded and removed, scene initialized');
+              } catch (error) {
+                  console.error('Error loading example file:', error);
+              }
+
+              // Now load the actual SMPL files
+              for (const { data, file } of smplPayloads) {
+                  try {
+                      await this.addSmplSequence(data, file.name);
+                      this.$toasted.success(`SMPL file loaded: ${file.name}`);
+                  } catch (error) {
+                      console.error('Error adding SMPL sequence:', error);
+                      this.$toasted.error(`Failed to load SMPL file: ${file.name}`);
+                  }
+              }
+          }
+
           this.ensureColorArraysSync();
 
-          // Keep track of loaded geometries
           let geometriesLoaded = 0;
-          const totalGeometries = successfulResults.reduce((total, { data }) => {
-              return total + Object.values(data.bodies).reduce((sum, body) =>
+          const totalGeometries = animationPayloads.reduce((total, { data }) => {
+              return total + Object.values(data.bodies || {}).reduce((sum, body) =>
                   sum + body.attachedGeometries.length, 0);
           }, 0);
 
-          this.$nextTick(() => {
-              if (!this.scene) {
-                  this.initScene();
+          let loadsFinalized = false;
+          const finalizeLoads = () => {
+              if (loadsFinalized) return;
+              loadsFinalized = true;
+
+              if (this.animations.length > 1) {
+                  this.syncAllAnimations();
               }
 
-              // Only load geometries for new animations
-              this.animations.slice(startIndex).forEach((animation, relativeIndex) => {
-                  const animIndex = startIndex + relativeIndex;
-                  for (let body in animation.data.bodies) {
-                      let bd = animation.data.bodies[body];
+              if (this.frames && this.frames.length > 0 && this.frameRate > 0) {
+                  this.animationDurationInSeconds = (this.frames.length - 1) / this.frameRate;
+              }
+
+              this.animate();
+              this.frame = 0;
+              this.animateOneFrame();
+              if (!this.playing) {
+                  this.togglePlay(true);
+              }
+              window.allVisualsLoaded = true;
+          };
+
+          if (animationPayloads.length > 0) {
+              const sceneReady = await this.ensureSceneReady();
+              if (!sceneReady) {
+                  this.$toasted.error('Unable to initialize viewer for animation data.');
+                  return;
+              }
+
+              animationPayloads.forEach(({ data, animIndex }) => {
+                  for (let body in data.bodies) {
+                      let bd = data.bodies[body];
                       bd.attachedGeometries.forEach((geom) => {
                           let path = 'https://mc-opencap-public.s3.us-west-2.amazonaws.com/geometries/' +
                                    geom.substr(0, geom.length - 4) + ".obj";
@@ -7344,8 +7879,8 @@ export default {
                                       child.castShadow = false;
                                       child.material = new THREE.MeshPhongMaterial({
                                           color: this.colors[animIndex % this.colors.length],
-                                          transparent: false, // Default to opaque
-                                          opacity: 1.0 // Default to fully opaque
+                                          transparent: false,
+                                          opacity: 1.0
                                       });
                                   }
                               });
@@ -7357,59 +7892,47 @@ export default {
                                   bd.scaleFactors[1],
                                   bd.scaleFactors[2]
                               );
-                              root.position.add(animation.offset);
+                              const animation = this.animations[animIndex];
+                              if (animation && animation.offset) {
+                                  root.position.add(animation.offset);
+                              }
                               this.scene.add(root);
 
-                              // Track loaded geometries
                               geometriesLoaded++;
-
-                              // If all geometries are loaded
                               if (geometriesLoaded === totalGeometries) {
-                                  // After loading everything, sync the animations if we have more than one
-                                  if (this.animations.length > 1) {
-                                      this.syncAllAnimations();
-                                  }
-
-                                  // Calculate animation duration for headless operation
-                                  if (this.frames && this.frames.length > 0 && this.frameRate > 0) {
-                                      this.animationDurationInSeconds = (this.frames.length - 1) / this.frameRate;
-                                  }
-
-                                  // Start animation loop and render first frame
-                                  this.animate();
-                                  this.frame = 0;
-                                  this.animateOneFrame();
-                                  // Start playing automatically
-                                  this.togglePlay(true);
-
-                                  // Signal that all visuals are loaded for headless operation
-                                  window.allVisualsLoaded = true;
+                                  finalizeLoads();
                               }
                           });
                       });
                   }
               });
-          });
-      });
+          }
 
-      // Clear the file input value so the same file can be selected again
-      event.target.value = '';
+          if (totalGeometries === 0) {
+              finalizeLoads();
+          }
+      } finally {
+          event.target.value = '';
+      }
   },
   initScene(retryCount = 0) {
       // console.log('initScene called', retryCount > 0 ? `(retry ${retryCount})` : '');
       
-      // Prevent multiple simultaneous initializations
-      if (this._initializingScene && retryCount === 0) {
-        // console.log('Scene initialization already in progress, skipping...');
+      // Set the flag if not already set (allow external setting)
+      if (retryCount === 0 && !this.sceneInitializing) {
+        this.sceneInitializing = true;
+      }
+      
+      // Check if scene already exists
+      if (this.scene) {
+        console.log('Scene already exists, skipping initialization');
+        this.sceneInitializing = false;
         return;
       }
       
-      if (retryCount === 0) {
-        this._initializingScene = true;
-      }
-      
       // Check if component is mounted and DOM is ready
-      if (!this.$el || document.readyState !== 'complete') {
+      const domReady = document.readyState === 'complete' || document.readyState === 'interactive';
+      if (!this.$el || !domReady) {
         // console.log('Component not mounted or DOM not ready, retrying...');
         if (retryCount < 10) {
           this.$nextTick(() => {
@@ -7417,7 +7940,7 @@ export default {
           });
         } else {
           console.error('Failed to initialize scene after 10 retries - component not mounted');
-          this._initializingScene = false;
+          this.sceneInitializing = false;
         }
         return;
       }
@@ -7442,7 +7965,7 @@ export default {
           });
         } else {
           console.error('Failed to initialize scene after 10 retries');
-          this._initializingScene = false;
+          this.sceneInitializing = false;
         }
         return;
       }
@@ -7452,9 +7975,24 @@ export default {
       this.camera.position.x = 3.33;
       this.camera.position.z = -2.30;
       this.camera.position.y = 3.5;
+      this.camera.lookAt(0, 1, 0);
 
       this.scene = new THREE.Scene();
       // console.log('Scene and camera initialized');
+
+      // Re-add existing SMPL meshes if reinitializing the scene
+      if (this.smplSequences.length > 0) {
+        this.smplSequences.forEach(sequence => {
+          if (sequence.mesh && !this.scene.children.includes(sequence.mesh)) {
+            sequence.mesh.visible = sequence.visible;
+            this.scene.add(sequence.mesh);
+          }
+          if (sequence.skeleton && !this.scene.children.includes(sequence.skeleton)) {
+            sequence.skeleton.visible = sequence.visible && sequence.showSkeleton;
+            this.scene.add(sequence.skeleton);
+          }
+        });
+      }
 
       // Create group for axes objects
       this.axesGroup = new THREE.Group();
@@ -7568,6 +8106,8 @@ export default {
       
       try {
         this.controls = new THREE_OC.OrbitControls(this.camera, this.renderer.domElement);
+        this.controls.target.set(0, 1, 0);
+        this.controls.update();
         // console.log('[initScene] Orbit controls created successfully');
       } catch (error) {
         console.error('[initScene] Error creating orbit controls:', error);
@@ -7657,7 +8197,7 @@ export default {
       this.applyLoadedSceneSettings();
       
       // Reset initialization flag
-      this._initializingScene = false;
+      this.sceneInitializing = false;
       
       // console.log('[initScene] Scene initialization completed successfully:', {
       //   scene: !!this.scene,
@@ -7665,6 +8205,35 @@ export default {
       //   camera: !!this.camera,
       //   container: !!this.$refs.mocap
       // });
+  },
+  async ensureSceneReady(maxAttempts = 40) {
+      if (this.scene && this.renderer && this.camera && this.$refs.mocap) {
+        return true;
+      }
+
+      if (!this.scene && !this.sceneInitializing) {
+        this.sceneInitializing = true;
+        await this.$nextTick();
+        this.initScene();
+      }
+
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        await this.$nextTick();
+        await new Promise(resolve => setTimeout(resolve, 25));
+
+        if (this.scene && this.renderer && this.camera && this.$refs.mocap) {
+          return true;
+        }
+
+        if (!this.scene && !this.sceneInitializing) {
+          this.sceneInitializing = true;
+          await this.$nextTick();
+          this.initScene();
+        }
+      }
+
+      console.error('[ensureSceneReady] Unable to initialize scene within allotted attempts');
+      return false;
   },
   onChangeTime(time) {
       // Round the time value to 2 decimal places
@@ -8167,6 +8736,7 @@ export default {
     const trcFiles = files.filter(file => file.name.toLowerCase().endsWith('.trc'));
     const osimFiles = files.filter(file => file.name.toLowerCase().endsWith('.osim'));
     const motFiles = files.filter(file => file.name.toLowerCase().endsWith('.mot'));
+    const smplFiles = files.filter(file => file.name.toLowerCase().endsWith('.pkl'));
     const videoFiles = files.filter(file => file.type === 'video/mp4' || file.type === 'video/webm');
 
     // Categorize .mot files as either motion or force files
@@ -8178,6 +8748,7 @@ export default {
       osim: osimFiles.length,
       motion: motionFiles.length,
       force: forceFiles.length,
+      smpl: smplFiles.length,
       video: videoFiles.length
     });
 
@@ -8296,10 +8867,495 @@ export default {
     }
 
     // Initialize scene if needed
-    if (!this.scene && (jsonFiles.length > 0 || trcFiles.length > 0 || (osimFiles.length > 0 && motionFiles.length > 0))) {
+    if (!this.scene &&
+        !this.sceneInitializing &&
+        (jsonFiles.length > 0 || trcFiles.length > 0 || (osimFiles.length > 0 && motionFiles.length > 0))) {
+      this.sceneInitializing = true;
+      // Wait for Vue to update the DOM with the sceneInitializing flag
       this.$nextTick(() => {
-      this.initScene();
+        this.$nextTick(() => {
+          this.initScene();
+        });
       });
+    }
+  },
+  async processSmplSequenceFile(file) {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      if (!this.scene && !this.sceneInitializing) {
+        this.sceneInitializing = true;
+        await this.$nextTick();
+        this.initScene();
+      }
+
+      const response = await axiosInstance.post('/api/smpl/sequence', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
+      await this.addSmplSequence(response.data, file.name);
+      this.$toasted.success(`SMPL file loaded: ${file.name}`);
+    } catch (error) {
+      console.error('Error processing SMPL file:', error);
+      this.$toasted.error(`Failed to load SMPL file: ${file.name}`);
+    }
+  },
+  async addSmplSequence(sequenceData, originalFileName) {
+    if (!sequenceData) {
+      console.warn('Empty SMPL sequence data received.');
+      return;
+    }
+
+    const frameCount = sequenceData.frame_count || sequenceData.frameCount || (Array.isArray(sequenceData.time) ? sequenceData.time.length : 0);
+    const vertexCount = sequenceData.vertex_count || sequenceData.vertexCount;
+    const jointCount = sequenceData.joint_count || sequenceData.jointCount || 24;
+    const fps = sequenceData.fps || this.frameRate || 60;
+    const timeArray = Array.isArray(sequenceData.time) && sequenceData.time.length === frameCount
+      ? sequenceData.time
+      : this.generateTimeArray(frameCount, fps);
+    const verticesArray = this.decodeBase64ToFloat32(sequenceData.vertices);
+    const jointsArray = sequenceData.joints ? this.decodeBase64ToFloat32(sequenceData.joints) : null;
+
+    if (!verticesArray || verticesArray.length === 0 || !vertexCount) {
+      console.warn('No vertex data found in SMPL sequence.');
+      return;
+    }
+
+    const geometry = new THREE.BufferGeometry();
+    const initialPositions = verticesArray.slice(0, vertexCount * 3);
+    const positionAttribute = new THREE.Float32BufferAttribute(initialPositions, 3);
+    geometry.setAttribute('position', positionAttribute);
+    if (sequenceData.faces && sequenceData.faces.length) {
+      let facesArray = sequenceData.faces;
+      if (Array.isArray(facesArray[0])) {
+        facesArray = facesArray.flat();
+      }
+      const typedIndices = facesArray.constructor === Uint16Array || facesArray.constructor === Uint32Array
+        ? facesArray
+        : (vertexCount > 65535 ? new Uint32Array(facesArray) : new Uint16Array(facesArray));
+      geometry.setIndex(new THREE.BufferAttribute(typedIndices, 1));
+    }
+    geometry.computeVertexNormals();
+    geometry.computeBoundingBox();
+    geometry.computeBoundingSphere();
+
+    const colorIndex = this.smplSequences.length % this.colors.length;
+    const baseColor = this.colors[colorIndex] ? this.colors[colorIndex].clone() : new THREE.Color(0xd3d3d3);
+    const material = new THREE.MeshPhongMaterial({
+      color: baseColor,
+      transparent: false,
+      opacity: 1.0,
+      side: THREE.DoubleSide
+    });
+
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.castShadow = false;
+    mesh.receiveShadow = false;
+    mesh.frustumCulled = false;
+
+    const sequenceId = this.nextSmplSequenceId++;
+    const skeletonEdges = Array.isArray(sequenceData.skeleton_edges) && sequenceData.skeleton_edges.length > 0
+      ? sequenceData.skeleton_edges
+      : SMPL_SKELETON_EDGES;
+
+    // Skeleton rendering disabled - removed orange lines
+    const skeleton = null;
+    const skeletonAttribute = null;
+    
+    // Previously enabled skeleton rendering:
+    // if (jointsArray && skeletonEdges.length > 0) {
+    //   const skeletonGeometry = new THREE.BufferGeometry();
+    //   skeletonAttribute = new THREE.Float32BufferAttribute(new Float32Array(skeletonEdges.length * 2 * 3), 3);
+    //   skeletonGeometry.setAttribute('position', skeletonAttribute);
+    //   const skeletonMaterial = new THREE.LineBasicMaterial({ color: 0xffb04a });
+    //   skeleton = new THREE.LineSegments(skeletonGeometry, skeletonMaterial);
+    // }
+
+    const sequence = {
+      id: sequenceId,
+      name: sequenceData.name || originalFileName || `SMPL Sequence ${sequenceId}`,
+      fileName: originalFileName,
+      gender: sequenceData.gender || 'neutral',
+      vertexCount,
+      jointCount,
+      frameCount,
+      fps,
+      time: timeArray,
+      faces: sequenceData.faces || [],
+      vertices: verticesArray,
+      joints: jointsArray,
+      frameStride: vertexCount * 3,
+      jointStride: jointsArray ? jointCount * 3 : 0,
+      mesh,
+      geometry,
+      positionAttribute,
+      skeleton,
+      skeletonAttribute,
+      skeletonEdges,
+      offset: new THREE.Vector3(0, 0, 0),
+      rotation: new THREE.Euler(0, 0, 0, 'XYZ'),
+      color: baseColor.clone(),
+      baseColor: baseColor.clone(),
+      displayColor: this.formatColor(baseColor),
+      opacity: 1.0,
+      visible: true,
+      playable: true,
+      showSkeleton: false, // Disabled by default
+      lastRenderedFrame: -1,
+      speedMultiplier: 1.0
+    };
+
+    const sceneReady = await this.ensureSceneReady();
+    if (!sceneReady) {
+      console.error('Unable to prepare scene for SMPL sequence.');
+      return;
+    }
+
+    if (!this.scene.children.includes(mesh)) {
+      this.scene.add(mesh);
+    }
+    if (skeleton && !this.scene.children.includes(skeleton)) {
+      skeleton.visible = sequence.showSkeleton;
+      this.scene.add(skeleton);
+      skeleton.frustumCulled = false;
+    }
+
+    this.smplSequences.push(sequence);
+
+    sequence.mesh.visible = sequence.visible;
+    if (sequence.skeleton) {
+      sequence.skeleton.visible = sequence.visible && sequence.showSkeleton;
+    }
+
+    if (this.frames.length === 0 || timeArray.length > this.frames.length) {
+      this.frames = [...timeArray];
+      this.frameRate = fps;
+      this.frame = 0;
+      this.time = this.frames.length > 0 ? parseFloat(this.frames[0]).toFixed(2) : '0.00';
+    }
+
+    this.updateSmplSequenceFrame(sequence, 0, true);
+
+    if (sequence.mesh.parent) {
+      sequence.mesh.parent.updateMatrixWorld(true);
+    }
+    sequence.mesh.updateMatrixWorld(true);
+
+    if (sequence.skeleton && sequence.skeleton.parent) {
+      sequence.skeleton.parent.updateMatrixWorld(true);
+      sequence.skeleton.updateMatrixWorld(true);
+    }
+
+    if (this.animations.length === 0 && this.smplSequences.length === 1) {
+      this.centerCameraOnSmplSequence(sequence);
+    }
+
+    if (!this.animateLoopStarted) {
+      this.animate();
+    }
+
+    if (!this.playing) {
+      this.animateOneFrame();
+    } else if (this.renderer && this.scene && this.camera) {
+      this.renderer.render(this.scene, this.camera);
+    }
+  },
+  decodeBase64ToFloat32(base64String) {
+    if (!base64String) return null;
+    const binaryString = atob(base64String);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    return new Float32Array(bytes.buffer);
+  },
+  generateTimeArray(frameCount, fps) {
+    const timeArray = [];
+    if (!frameCount || frameCount <= 0) return timeArray;
+    const step = fps ? 1 / fps : 1 / this.frameRate;
+    for (let i = 0; i < frameCount; i++) {
+      timeArray.push(i * step);
+    }
+    return timeArray;
+  },
+  updateSmplSequenceFrame(sequence, frameIndex, force = false) {
+    if (!sequence || !sequence.mesh || frameIndex < 0) return;
+    const clampedFrame = Math.min(frameIndex, Math.max(sequence.frameCount - 1, 0));
+    if (!force && sequence.lastRenderedFrame === clampedFrame) {
+      return;
+    }
+
+    const start = clampedFrame * sequence.frameStride;
+    const end = start + sequence.frameStride;
+    const positions = sequence.vertices.subarray(start, end);
+    
+    // Apply rotation to the vertex positions
+    const rotatedPositions = new Float32Array(positions.length);
+    const quaternion = new THREE.Quaternion().setFromEuler(sequence.rotation);
+    
+    for (let i = 0; i < positions.length; i += 3) {
+      const vertex = new THREE.Vector3(positions[i], positions[i + 1], positions[i + 2]);
+      vertex.applyQuaternion(quaternion);
+      rotatedPositions[i] = vertex.x;
+      rotatedPositions[i + 1] = vertex.y;
+      rotatedPositions[i + 2] = vertex.z;
+    }
+    
+    sequence.positionAttribute.array.set(rotatedPositions);
+    sequence.positionAttribute.needsUpdate = true;
+    sequence.geometry.computeVertexNormals();
+    sequence.geometry.computeBoundingSphere();
+
+    if (sequence.skeleton && sequence.joints && sequence.skeletonAttribute) {
+      const jointStart = clampedFrame * sequence.jointStride;
+      const jointPositions = sequence.joints.subarray(jointStart, jointStart + sequence.jointStride);
+      const skeletonArray = sequence.skeletonAttribute.array;
+      let offset = 0;
+      for (const [parent, child] of sequence.skeletonEdges) {
+        const pIndex = parent * 3;
+        const cIndex = child * 3;
+        skeletonArray[offset++] = jointPositions[pIndex];
+        skeletonArray[offset++] = jointPositions[pIndex + 1];
+        skeletonArray[offset++] = jointPositions[pIndex + 2];
+        skeletonArray[offset++] = jointPositions[cIndex];
+        skeletonArray[offset++] = jointPositions[cIndex + 1];
+        skeletonArray[offset++] = jointPositions[cIndex + 2];
+      }
+      sequence.skeletonAttribute.needsUpdate = true;
+    }
+
+    sequence.lastRenderedFrame = clampedFrame;
+  },
+  toggleSmplSequenceVisibility(sequenceId) {
+    const sequence = this.smplSequences.find(seq => seq.id === sequenceId);
+    if (!sequence) return;
+    sequence.visible = !sequence.visible;
+    if (sequence.mesh) {
+      sequence.mesh.visible = sequence.visible;
+    }
+    if (sequence.skeleton) {
+      sequence.skeleton.visible = sequence.visible && sequence.showSkeleton;
+    }
+    if (this.renderer && this.scene && this.camera) {
+      this.renderer.render(this.scene, this.camera);
+    }
+  },
+  setSmplSequencePlayable(sequenceId, value) {
+    const sequence = this.smplSequences.find(seq => seq.id === sequenceId);
+    if (!sequence) return;
+    sequence.playable = value;
+  },
+  setSmplSequenceColor(sequenceId, colorValue) {
+    const sequence = this.smplSequences.find(seq => seq.id === sequenceId);
+    if (!sequence) return;
+
+    let targetColor;
+    if (colorValue === 'original' && sequence.baseColor) {
+      targetColor = sequence.baseColor.clone();
+    } else {
+      targetColor = new THREE.Color(colorValue);
+    }
+
+    sequence.color = targetColor.clone();
+    if (sequence.mesh && sequence.mesh.material) {
+      sequence.mesh.material.color.copy(targetColor);
+      sequence.mesh.material.needsUpdate = true;
+    }
+    if (this.renderer && this.scene && this.camera) {
+      this.renderer.render(this.scene, this.camera);
+    }
+  },
+  updateSmplSequenceColor(sequenceId, colorValue) {
+    const sequence = this.smplSequences.find(seq => seq.id === sequenceId);
+    if (!sequence) return;
+
+    // Handle both string colors and Vuetify color objects
+    let targetColor;
+    if (typeof colorValue === 'string') {
+      targetColor = new THREE.Color(colorValue);
+    } else if (colorValue.hex) {
+      targetColor = new THREE.Color(colorValue.hex);
+    } else {
+      targetColor = new THREE.Color(colorValue.r / 255, colorValue.g / 255, colorValue.b / 255);
+    }
+
+    sequence.color = targetColor.clone();
+    if (sequence.mesh && sequence.mesh.material) {
+      sequence.mesh.material.color.copy(targetColor);
+      sequence.mesh.material.needsUpdate = true;
+    }
+    if (this.renderer && this.scene && this.camera) {
+      this.renderer.render(this.scene, this.camera);
+    }
+  },
+  updateSmplOpacity(sequenceId, opacity) {
+    const sequence = this.smplSequences.find(seq => seq.id === sequenceId);
+    if (!sequence) return;
+    
+    sequence.opacity = opacity;
+    if (sequence.mesh && sequence.mesh.material) {
+      sequence.mesh.material.opacity = opacity;
+      sequence.mesh.material.transparent = opacity < 1;
+      sequence.mesh.material.needsUpdate = true;
+    }
+    if (this.renderer && this.scene && this.camera) {
+      this.renderer.render(this.scene, this.camera);
+    }
+  },
+  toggleSmplSkeleton(sequenceId) {
+    const sequence = this.smplSequences.find(seq => seq.id === sequenceId);
+    if (!sequence || !sequence.skeleton) return;
+    sequence.showSkeleton = !sequence.showSkeleton;
+    sequence.skeleton.visible = sequence.visible && sequence.showSkeleton;
+    if (this.renderer && this.scene && this.camera) {
+      this.renderer.render(this.scene, this.camera);
+    }
+  },
+  centerCameraOnSmplSequence(sequence) {
+    if (!sequence || !sequence.mesh || !this.camera || !this.controls) return;
+
+    // Ensure mesh has updated its geometry bounds
+    sequence.mesh.geometry.computeBoundingBox();
+    
+    // Force update matrix to ensure bounding box is calculated in world space
+    if (sequence.mesh.parent) {
+      sequence.mesh.parent.updateMatrixWorld(true);
+    }
+    sequence.mesh.updateMatrixWorld(true);
+
+    const boundingBox = new THREE.Box3().setFromObject(sequence.mesh);
+    const center = new THREE.Vector3();
+    boundingBox.getCenter(center);
+
+    const size = new THREE.Vector3();
+    boundingBox.getSize(size);
+    const maxDim = Math.max(size.x, size.y, size.z);
+
+    const fov = this.camera.fov * (Math.PI / 180);
+    const distance = Math.max(Math.abs(maxDim / Math.sin(fov / 2)) * 1.5, 1.0);
+    const direction = new THREE.Vector3(1, 1, 1).normalize();
+    const position = center.clone().add(direction.multiplyScalar(distance));
+
+    this.camera.position.copy(position);
+    this.camera.lookAt(center);
+    this.controls.target.copy(center);
+    this.controls.update();
+
+    if (this.renderer && this.scene && this.camera) {
+      this.renderer.render(this.scene, this.camera);
+    }
+  },
+  removeSmplSequence(sequenceId) {
+    const index = this.smplSequences.findIndex(seq => seq.id === sequenceId);
+    if (index === -1) return;
+
+    const sequence = this.smplSequences[index];
+    if (sequence.mesh) {
+      this.scene.remove(sequence.mesh);
+      sequence.mesh.geometry.dispose();
+      if (Array.isArray(sequence.mesh.material)) {
+        sequence.mesh.material.forEach(mat => mat.dispose && mat.dispose());
+      } else if (sequence.mesh.material && sequence.mesh.material.dispose) {
+        sequence.mesh.material.dispose();
+      }
+    }
+    if (sequence.skeleton) {
+      this.scene.remove(sequence.skeleton);
+      sequence.skeleton.geometry.dispose();
+      sequence.skeleton.material.dispose();
+    }
+
+    this.smplSequences.splice(index, 1);
+
+    if (this.animations.length === 0 && this.smplSequences.length === 0) {
+      this.frames = [];
+      this.frame = 0;
+      this.time = '0.00';
+    }
+
+    if (this.renderer && this.scene && this.camera) {
+      this.renderer.render(this.scene, this.camera);
+    }
+  },
+  updateSmplOffset(sequenceId, axis, value) {
+    const sequence = this.smplSequences.find(seq => seq.id === sequenceId);
+    if (!sequence || !sequence.offset) return;
+    sequence.offset[axis] = value;
+    // For SMPL, we need to apply offset to the mesh position
+    if (sequence.mesh) {
+      sequence.mesh.position.set(sequence.offset.x, sequence.offset.y, sequence.offset.z);
+    }
+    // Also update skeleton position if it exists
+    if (sequence.skeleton) {
+      sequence.skeleton.position.set(sequence.offset.x, sequence.offset.y, sequence.offset.z);
+    }
+    if (this.renderer && this.scene && this.camera) {
+      this.renderer.render(this.scene, this.camera);
+    }
+  },
+  debouncedUpdateSmplOffset(sequenceId, axis, value) {
+    if (this.offsetUpdateTimers[`smpl_${sequenceId}_${axis}`]) {
+      clearTimeout(this.offsetUpdateTimers[`smpl_${sequenceId}_${axis}`]);
+    }
+    this.offsetUpdateTimers[`smpl_${sequenceId}_${axis}`] = setTimeout(() => {
+      this.updateSmplOffset(sequenceId, axis, value);
+    }, 100);
+  },
+  updateSmplRotation(sequenceId, axis, value) {
+    const sequence = this.smplSequences.find(seq => seq.id === sequenceId);
+    if (!sequence || !sequence.rotation) return;
+    const radians = (parseFloat(value) * Math.PI) / 180;
+    sequence.rotation[axis] = radians;
+    // Force update the current frame to apply the rotation
+    if (sequence.lastRenderedFrame >= 0) {
+      this.updateSmplSequenceFrame(sequence, sequence.lastRenderedFrame, true);
+    }
+    if (this.renderer && this.scene && this.camera) {
+      this.renderer.render(this.scene, this.camera);
+    }
+  },
+  debouncedUpdateSmplRotation(sequenceId, axis, value) {
+    const key = `smpl_${sequenceId}_${axis}`;
+    if (this.rotationUpdateTimers[key]) {
+      clearTimeout(this.rotationUpdateTimers[key]);
+    }
+    this.rotationUpdateTimers[key] = setTimeout(() => {
+      this.updateSmplRotation(sequenceId, axis, value);
+    }, 100);
+  },
+  openSmplRotationDialog(sequenceId) {
+    this.$set(this.smplRotationDialogs, sequenceId, true);
+  },
+  resetSmplRotation(sequenceId) {
+    const sequence = this.smplSequences.find(seq => seq.id === sequenceId);
+    if (!sequence || !sequence.rotation) return;
+    sequence.rotation.set(0, 0, 0, 'XYZ');
+    if (sequence.mesh) {
+      sequence.mesh.rotation.set(0, 0, 0);
+    }
+    if (this.renderer && this.scene && this.camera) {
+      this.renderer.render(this.scene, this.camera);
+    }
+  },
+  updateAnimationSpeed(index) {
+    // Just ensure the speedMultiplier is valid
+    if (!this.animations[index]) return;
+    if (!this.animations[index].speedMultiplier || this.animations[index].speedMultiplier < 0.1) {
+      this.animations[index].speedMultiplier = 0.1;
+    } else if (this.animations[index].speedMultiplier > 5) {
+      this.animations[index].speedMultiplier = 5;
+    }
+  },
+  updateSmplSpeed(sequenceId) {
+    const sequence = this.smplSequences.find(seq => seq.id === sequenceId);
+    if (!sequence) return;
+    // Ensure the speedMultiplier is valid
+    if (!sequence.speedMultiplier || sequence.speedMultiplier < 0.1) {
+      sequence.speedMultiplier = 0.1;
+    } else if (sequence.speedMultiplier > 5) {
+      sequence.speedMultiplier = 5;
     }
   },
   deleteSubject(index) {
@@ -10975,7 +12031,97 @@ handleVideoTimeUpdate() {
         this.renderer.render(this.scene, this.camera);
   },
 
+  centerModelToOrigin(index) {
+    if (!this.animations[index]) return;
 
+    const animation = this.animations[index];
+    const meshKeys = Object.keys(this.meshes).filter(key => key.startsWith(`anim${index}_`));
+
+    if (meshKeys.length === 0) return;
+
+    // Calculate center from current mesh positions in world space
+    const boundingBox = new THREE.Box3();
+    let hasMeshes = false;
+    
+    meshKeys.forEach(key => {
+      const mesh = this.meshes[key];
+      if (mesh && mesh.visible) {
+        // Update matrix world to get correct position
+        mesh.updateMatrixWorld(true);
+        // Get bounding box in world space
+        const meshBox = new THREE.Box3().setFromObject(mesh);
+        boundingBox.union(meshBox);
+        hasMeshes = true;
+      }
+    });
+    
+    if (!hasMeshes) return;
+    
+    const center = new THREE.Vector3();
+    boundingBox.getCenter(center);
+    
+    // Calculate the offset needed to move center to origin
+    const currentOffset = animation.offset.clone();
+    const requiredOffset = new THREE.Vector3(-center.x, -center.y, -center.z);
+    
+    // Adjust the offset to account for the current mesh positions
+    animation.offset.copy(requiredOffset);
+    
+    // Update all mesh positions
+    meshKeys.forEach(key => {
+      const mesh = this.meshes[key];
+      if (mesh) {
+        // Get the base position from data
+        const bodyKey = key.split('_')[1];
+        if (bodyKey && animation.data.bodies[bodyKey]) {
+          const body = animation.data.bodies[bodyKey];
+          if (body.translation && body.translation[this.frame]) {
+            const trans = body.translation[this.frame];
+            const basePosition = new THREE.Vector3(trans[0], trans[1], trans[2]);
+            basePosition.add(animation.offset);
+            mesh.position.copy(basePosition);
+          }
+        }
+      }
+    });
+
+    if (this.renderer && this.scene && this.camera) {
+      this.renderer.render(this.scene, this.camera);
+    }
+  },
+
+  centerSmplModelToOrigin(sequenceId) {
+    const sequence = this.smplSequences.find(seq => seq.id === sequenceId);
+    if (!sequence || !sequence.mesh) return;
+
+    // Calculate bounding box in world space
+    sequence.mesh.updateMatrixWorld(true);
+    const worldBoundingBox = new THREE.Box3().setFromObject(sequence.mesh);
+    
+    if (!worldBoundingBox || worldBoundingBox.isEmpty()) return;
+
+    const center = new THREE.Vector3();
+    worldBoundingBox.getCenter(center);
+
+    // Calculate the offset needed to move the world center to origin
+    const currentWorldPosition = sequence.mesh.position.clone();
+    const requiredOffset = currentWorldPosition.clone().sub(center);
+    
+    // Update the offset property
+    sequence.offset.copy(requiredOffset);
+    
+    // Update mesh position
+    sequence.mesh.position.copy(requiredOffset);
+    
+    // Also update skeleton if it exists
+    if (sequence.skeleton) {
+      sequence.skeleton.position.copy(requiredOffset);
+    }
+
+    if (this.renderer && this.scene && this.camera) {
+      this.renderer.render(this.scene, this.camera);
+    }
+  },
 
   resetScene() {
     console.log('Resetting scene...');
@@ -11054,6 +12200,9 @@ handleVideoTimeUpdate() {
   setAllAnimationsPlayable(playable) {
     this.animations.forEach(animation => {
       animation.playable = playable;
+    });
+    this.smplSequences.forEach(sequence => {
+      sequence.playable = playable;
     });
     this.markersPlayable = playable;
   },

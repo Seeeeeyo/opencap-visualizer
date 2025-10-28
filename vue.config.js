@@ -25,7 +25,16 @@ module.exports = {
     },
   },
   devServer: {
-    port: 3000
+    port: 3001,
+    host: '0.0.0.0',
+    public: 'localhost:3001',
+    disableHostCheck: true,
+    proxy: {
+      '/api/smpl': {
+        target: 'http://localhost:8001',
+        changeOrigin: true
+      }
+    }
   },
   chainWebpack: config => {
     config
