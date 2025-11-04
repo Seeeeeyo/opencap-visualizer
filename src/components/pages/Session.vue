@@ -1,7 +1,7 @@
 <template>
     <div class="viewer-container d-flex">
-      <!-- Top-level video container - always rendered -->
-      <div id="video-overlay" v-if="videoFile" :style="{
+      <!-- Top-level video container - hide when video plane is visible (but keep in DOM with v-show so video element remains accessible) -->
+      <div id="video-overlay" v-if="videoFile" v-show="!videoPlaneSettings.visible" :style="{
         position: 'fixed',
         top: videoPosition.y + 'px',
         left: videoPosition.x + 'px',
@@ -149,6 +149,63 @@
                   hide-details
                   :value="Math.round(videoOverlayOpacity * 100)"
                   @input="onVideoOverlayOpacityInput"
+                  :min="10"
+                  :max="100"
+                  :step="5"
+                  color="cyan lighten-2"
+                ></v-slider>
+                <v-divider class="my-3" dark></v-divider>
+                <div class="text-caption grey--text mb-2">
+                  Scene Placement
+                </div>
+                <v-switch
+                  dense
+                  hide-details
+                  color="cyan lighten-2"
+                  class="mt-0"
+                  v-model="videoPlaneSettings.visible"
+                  label="Show video plane"
+                ></v-switch>
+                <v-switch
+                  dense
+                  hide-details
+                  color="cyan lighten-2"
+                  class="mt-1"
+                  v-model="videoPlaneSettings.followCamera"
+                  label="Follow camera"
+                ></v-switch>
+                <div class="text-caption grey--text mt-2 mb-1">
+                  Plane Distance (m): {{ videoPlaneSettings.distance.toFixed(2) }}
+                </div>
+                <v-slider
+                  dense
+                  hide-details
+                  v-model="videoPlaneSettings.distance"
+                  :min="0.5"
+                  :max="10"
+                  :step="0.1"
+                  color="cyan lighten-2"
+                ></v-slider>
+                <div class="text-caption grey--text mt-2 mb-1">
+                  Plane Width (m): {{ videoPlaneSettings.width.toFixed(2) }}
+                </div>
+                <v-slider
+                  dense
+                  hide-details
+                  v-model="videoPlaneSettings.width"
+                  :min="1"
+                  :max="8"
+                  :step="0.1"
+                  color="cyan lighten-2"
+                ></v-slider>
+                <div class="text-caption grey--text mt-2 mb-1">
+                  Plane Opacity: {{ Math.round(videoPlaneSettings.opacity * 100) }}%
+                </div>
+                <v-slider
+                  dense
+                  hide-details
+                  :value="Math.round(videoPlaneSettings.opacity * 100)"
+                  @input="onVideoPlaneOpacityInput"
                   :min="10"
                   :max="100"
                   :step="5"
@@ -730,8 +787,8 @@
                     :style="{ backgroundColor: formatColor(sequence.color) }"
                     @click="setActiveSubject('smpl', sequence.id)"
                   ></div>
-                  <div class="ml-2" style="flex-grow: 1; min-width: 0;">
-                    <div class="text-subtitle-2">{{ sequence.name }}</div>
+                  <div class="ml-2" style="flex-grow: 1; min-width: 0; padding-right: 8px; overflow: hidden;">
+                    <div class="text-subtitle-2" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ sequence.name }}</div>
                     <div class="text-caption grey--text">
                       {{ sequence.frameCount }} frames @ {{ sequence.fps ? sequence.fps.toFixed(2) : frameRate.toFixed(2) }} fps
                     </div>
@@ -739,6 +796,7 @@
                       {{ sequence.vertexCount }} vertices, {{ sequence.jointCount }} joints
                     </div>
                   </div>
+                  <div class="d-flex align-start" style="flex-shrink: 0;">
                   <v-btn
                     icon
                     small
@@ -795,6 +853,7 @@
                   <v-btn icon small color="error" @click="removeSmplSequence(sequence.id)">
                     <v-icon small>mdi-delete</v-icon>
                   </v-btn>
+                  </div>
                 </div>
   
                 <div class="d-flex align-center ml-8">
@@ -1710,10 +1769,6 @@
                   <span class="text-subtitle-1">This may take a moment...</span>
                 </div>
               </div>
-            </div>
-            
-            <div v-if="videoFile && !$refs.videoPreview" class="debug-info">
-              Video file loaded but preview not mounted
             </div>
           </div>
           <div class="controls-container" style="display: flex; align-items: center; padding: 0 10px;">
@@ -3471,7 +3526,7 @@
               dragOffset: { x: 0, y: 0 },
               resizeStartPosition: { x: 0, y: 0 },
               resizeStartSize: { width: 0, height: 0 },
-            showSidebar: false, // Add this line to control sidebar visibility
+              showSidebar: false, // Add this line to control sidebar visibility
               meshDialogs: {}, // Add this line to store mesh dialog states
               recentSubjectColors: [], // Store recent colors used for subjects
               maxRecentColors: 8, // Maximum number of recent colors to store
@@ -3479,6 +3534,24 @@
               cameraIntrinsics: null,
               cameraDistortion: null,
               cameraImageSize: null,
+              videoPlane: null,
+              videoTexture: null,
+              cameraExtrinsicsMap: {}, // Store camera extrinsics per sequence for video plane positioning
+              videoPlaneExtrinsicsKey: null, // Track which extrinsics key has been applied to prevent recalculation
+              videoPlaneSettings: {
+                visible: true,
+                followCamera: true,
+                width: 3,
+                distance: 3,
+                opacity: 0.95
+              },
+              videoChromaKey: {
+                enabled: false,
+                color: '#00ff00',
+                similarity: 0.45,
+                smoothness: 0.1,
+                spill: 0.1
+              },
   
               displayColors: [], // For v-color-picker visual representation
               showLoadObjectDialog: false, // Add this line to control the load object dialog
@@ -3815,7 +3888,8 @@
       if (this.videoUrl) {
         URL.revokeObjectURL(this.videoUrl);
       }
-  
+      this.disposeVideoPlane();
+
       if (this.resizeObserver) {
         this.resizeObserver.unobserve(this.$refs.mocap)
       }
@@ -3883,6 +3957,7 @@
         deep: false
       },
       videoOverlayMode(val) {
+        this.saveSettings();
         if (!this.videoFile) {
           this.clearProjectionCanvas();
           return;
@@ -3894,6 +3969,7 @@
         }
       },
       videoOverlayOpacity() {
+        this.saveSettings();
         if (this.videoOverlayMode && this.videoFile) {
           this.drawProjectedSkeleton();
         }
@@ -3901,8 +3977,12 @@
       videoFile(newFile) {
         if (!newFile) {
           this.clearProjectionCanvas();
+          this.disposeVideoPlane();
         } else if (this.videoOverlayMode) {
           this.$nextTick(() => this.drawProjectedSkeleton());
+        }
+        if (newFile && this.videoPlaneSettings.visible) {
+          this.$nextTick(() => this.ensureVideoPlane());
         }
       },
       syncMode() {
@@ -3927,6 +4007,33 @@
             this.syncReferenceFrame = max;
           }
         }
+      },
+      'videoPlaneSettings.visible'(val) {
+        this.saveSettings();
+        if (!val) {
+          this.disposeVideoPlane();
+          return;
+        }
+        if (this.videoFile) {
+          this.$nextTick(() => this.ensureVideoPlane());
+        }
+      },
+      'videoPlaneSettings.followCamera'() {
+        this.saveSettings();
+        this.updateVideoPlaneTransform();
+      },
+      'videoPlaneSettings.distance'() {
+        this.saveSettings();
+        this.updateVideoPlaneTransform();
+      },
+      'videoPlaneSettings.width'() {
+        this.saveSettings();
+        this.updateVideoPlaneGeometry();
+        this.updateVideoPlaneTransform();
+      },
+      'videoPlaneSettings.opacity'() {
+        this.saveSettings();
+        this.updateVideoPlaneMaterial();
       },
       trial() {
         if (this.trial) {
@@ -7310,7 +7417,9 @@
         }
         // Always schedule the next frame first
         requestAnimationFrame(this.animate);
-  
+
+        this.updateVideoPlaneTransform();
+
         // If not playing, just render the current state and exit
         if (!this.playing) {
           // Optionally log pause state
@@ -7555,6 +7664,7 @@
   
           // Render the scene (moved before marker update)
           if (this.renderer && this.scene && this.camera) {
+            this.updateVideoPlaneTransform();
             this.renderer.render(this.scene, this.camera);
           }
   
@@ -7568,14 +7678,16 @@
           if (Object.keys(this.forcesDatasets).length > 0 && this.showForces) {
             this.updateForceArrows(cframe);
           }
-  
+
           // Render the scene again after force updates
           if (this.renderer && this.scene && this.camera) {
+            this.updateVideoPlaneTransform();
             this.renderer.render(this.scene, this.camera);
           }
         } else {
             // If frame is out of bounds, still render the scene
             if (this.renderer && this.scene && this.camera) {
+              this.updateVideoPlaneTransform();
               this.renderer.render(this.scene, this.camera);
             }
         }
@@ -7682,6 +7794,27 @@
           setTimeout(() => {
             videoElement.ontimeupdate = originalHandler;
           }, 100);
+          } catch (error) {
+            console.log('Video sync error:', error);
+          }
+        }
+      },
+    syncVideoToFrame(frame, forceSync = false) {
+      // Sync video playback position to match the given frame
+      if (this.videoFile && this.$refs.videoPreview) {
+        try {
+          const videoElement = this.$refs.videoPreview;
+          
+          // Set the video time directly from the animation time when available
+          if (this.frames[frame] !== undefined) {
+            // Use the actual time value from the animation data if available
+            videoElement.currentTime = parseFloat(this.frames[frame]);
+          } else if (this.videoDuration > 0 && this.frames.length > 0) {
+            // Fall back to calculating based on frame position
+            const totalFrames = this.frames.length - 1;
+            const videoTimePosition = (frame / totalFrames) * this.videoDuration;
+            videoElement.currentTime = videoTimePosition;
+          }
           } catch (error) {
             console.log('Video sync error:', error);
           }
@@ -8523,7 +8656,8 @@
         this.renderer.setClearColor(this.backgroundColor);
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  
+        this.renderer.outputEncoding = THREE.sRGBEncoding;
+
         this.onResize();
         
         try {
@@ -8536,6 +8670,12 @@
         try {
           this.controls = new THREE_OC.OrbitControls(this.camera, this.renderer.domElement);
           this.controls.target.set(0, 1, 0);
+          this.controls.enableDamping = true;
+          this.controls.dampingFactor = 0.05;
+          this.controls.screenSpacePanning = false;
+          this.controls.minDistance = 0.5;
+          this.controls.maxDistance = 100;
+          this.controls.maxPolarAngle = Math.PI / 2;
           this.controls.enableDamping = true;
           this.controls.dampingFactor = 0.05;
           this.controls.screenSpacePanning = false;
@@ -9277,12 +9417,37 @@
       this.forcesFile = null;
       this.markersFile = null;
   
-      // Separate files by type
+      // Detect skeleton files (PKL files that are skeleton-only, NOT JSON files)
+      // JSON files should be loaded as regular OpenCap JSON format
+      const skeletonFiles = files.filter(file => {
+        const name = file.name.toLowerCase();
+        // Only PKL/pickle files are skeleton sequences, JSON files go to regular OpenCap loader
+        return (name.endsWith('.pkl') || name.endsWith('.pickle')) && 
+               (name.includes('skeleton') || name.includes('_pp') || name.includes('rotated'));
+      });
+      
+      // Separate files by type - all JSON files go to regular OpenCap JSON processing
       const jsonFiles = files.filter(file => file.name.toLowerCase().endsWith('.json'));
       const trcFiles = files.filter(file => file.name.toLowerCase().endsWith('.trc'));
       const osimFiles = files.filter(file => file.name.toLowerCase().endsWith('.osim'));
       const motFiles = files.filter(file => file.name.toLowerCase().endsWith('.mot'));
-      const smplFiles = files.filter(file => file.name.toLowerCase().endsWith('.pkl'));
+      const smplFiles = files.filter(file => {
+        const name = file.name.toLowerCase();
+        // Exclude skeleton files, intrinsics files, and camera files
+        return (name.endsWith('.pkl') || name.endsWith('.pickle')) && 
+               !name.includes('intrinsic') && 
+               !name.includes('extrinsic') &&
+               !name.includes('camera') &&
+               !name.includes('skeleton') &&
+               !name.includes('_pp') &&
+               !name.includes('rotated');
+      });
+      const intrinsicsFiles = files.filter(file => {
+        const name = file.name.toLowerCase();
+        // Match files with intrinsic/extrinsic/camera in name, or intrinsics-only files
+        return (name.endsWith('.pkl') || name.endsWith('.pickle')) && 
+               (name.includes('intrinsic') || name.includes('extrinsic') || name.includes('camera'));
+      });
       const videoFiles = files.filter(file => file.type === 'video/mp4' || file.type === 'video/webm');
   
       // Categorize .mot files as either motion or force files
@@ -9295,6 +9460,8 @@
         motion: motionFiles.length,
         force: forceFiles.length,
         smpl: smplFiles.length,
+        skeleton: skeletonFiles.length,
+        intrinsics: intrinsicsFiles.length,
         video: videoFiles.length
       });
   
@@ -9407,6 +9574,56 @@
         }
       }
   
+      // Handle SMPL files (PKL files)
+      if (smplFiles.length > 0) {
+        console.log('Processing SMPL files:', smplFiles.map(f => f.name));
+        if (intrinsicsFiles.length > 0) {
+          console.log('Found intrinsics files:', intrinsicsFiles.map(f => f.name));
+        }
+        // Wait to ensure scene is initialized if needed
+        if (!this.scene && !this.sceneInitializing) {
+          this.sceneInitializing = true;
+          await this.$nextTick();
+          this.initScene();
+        }
+        
+        // Use first intrinsics file for all SMPL files (or match by name if needed)
+        const intrinsicsFile = intrinsicsFiles.length > 0 ? intrinsicsFiles[0] : null;
+        
+        for (const smplFile of smplFiles) {
+          await this.processSmplSequenceFile(smplFile, intrinsicsFile);
+        }
+      }
+
+      // Handle skeleton files (PKL files with joints only)
+      if (skeletonFiles.length > 0) {
+        console.log('Processing skeleton files:', skeletonFiles.map(f => f.name));
+        if (intrinsicsFiles.length > 0) {
+          console.log('Found intrinsics files for skeleton:', intrinsicsFiles.map(f => f.name));
+        }
+        // Wait to ensure scene is initialized if needed
+        if (!this.scene && !this.sceneInitializing) {
+          this.sceneInitializing = true;
+          await this.$nextTick();
+          this.initScene();
+        }
+        
+        // Use first intrinsics file for all skeleton files
+        const intrinsicsFile = intrinsicsFiles.length > 0 ? intrinsicsFiles[0] : null;
+        
+        for (const skeletonFile of skeletonFiles) {
+          await this.processSkeletonSequenceFile(skeletonFile, intrinsicsFile);
+        }
+      }
+
+      // Handle intrinsics/extrinsics files directly (for video plane positioning with OpenCap JSON)
+      if (intrinsicsFiles.length > 0 && (jsonFiles.length > 0 || this.animations.length > 0)) {
+        // Process intrinsics files to extract camera parameters for video plane
+        for (const intrinsicsFile of intrinsicsFiles) {
+          await this.processIntrinsicsFile(intrinsicsFile);
+        }
+      }
+  
       // Show completion message
       if (files.length > 0) {
         this.$toasted.success(`Processed ${files.length} files successfully`);
@@ -9425,15 +9642,73 @@
         });
       }
     },
-    async processSmplSequenceFile(file) {
+    async processSmplSequenceFile(file, intrinsicsFile = null) {
       try {
         const formData = new FormData();
         formData.append('file', file);
+        
+        // Add intrinsics file if provided
+        if (intrinsicsFile) {
+          formData.append('intrinsics_file', intrinsicsFile);
+          console.log(`Including intrinsics file: ${intrinsicsFile.name}`);
+        }
   
         if (!this.scene && !this.sceneInitializing) {
           this.sceneInitializing = true;
           await this.$nextTick();
           this.initScene();
+        }
+
+        // If scene isn't properly initialized (no animations/frames), load example JSON first
+        // This is the same trick used when loading SMPL via JSON share files
+        if ((!this.animations || this.animations.length === 0) && (!this.frames || this.frames.length === 0)) {
+          try {
+            console.log('Loading example mocap file to initialize scene for PKL import...');
+            const exampleResponse = await fetch('/samples/squat/sample_mocap.json');
+            const exampleData = await exampleResponse.json();
+            
+            // Add the example data as a temporary animation to initialize the scene
+            const tempAnimIndex = this.animations.length;
+            const fileFps = this.calculateFrameRate(exampleData.time);
+            
+            this.animations.push({
+              data: exampleData,
+              offset: new THREE.Vector3(0, 0, 0),
+              rotation: new THREE.Euler(0, 0, 0, 'XYZ'),
+              fileName: 'temp_example.json',
+              trialName: 'Temp Subject',
+              visible: true,
+              playable: true,
+              calculatedFps: fileFps
+            });
+            
+            if (this.animations.length === 1) {
+              this.frames = exampleData.time;
+              this.trial = { results: [] };
+              this.frameRate = fileFps;
+              this.frame = 0;
+              if (Array.isArray(exampleData.time) && exampleData.time.length > 0) {
+                this.updateDisplayedTime(0);
+              } else {
+                this.time = "0.000";
+              }
+            }
+            
+            // Initialize and extract marker data to properly set up the scene
+            this.initializeAlphaValue(tempAnimIndex);
+            this.extractMarkerDataFromJson(exampleData, tempAnimIndex, 'temp_example.json');
+            
+            // Wait a moment for initialization, then remove the temporary animation
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            // Remove the temporary example animation
+            this.animations.splice(tempAnimIndex, 1);
+            this.meshes = {}; // Clear meshes to start fresh
+            
+            console.log('Example file loaded and removed, scene initialized for PKL import');
+          } catch (error) {
+            console.error('Error loading example file for PKL import:', error);
+          }
         }
   
         const response = await axiosInstance.post('/api/smpl/sequence', formData, {
@@ -9444,7 +9719,147 @@
         this.$toasted.success(`SMPL file loaded: ${file.name}`);
       } catch (error) {
         console.error('Error processing SMPL file:', error);
-        this.$toasted.error(`Failed to load SMPL file: ${file.name}`);
+        let errorMessage = `Failed to load SMPL file: ${file.name}`;
+        if (error.response && error.response.data) {
+          const detail = error.response.data.detail || error.response.data.message || JSON.stringify(error.response.data);
+          console.error('Backend error details:', detail);
+          errorMessage += ` - ${detail}`;
+        }
+        this.$toasted.error(errorMessage);
+      }
+    },
+    async processSkeletonSequenceFile(file, intrinsicsFile = null) {
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        // Add intrinsics file if provided
+        if (intrinsicsFile) {
+          formData.append('intrinsics_file', intrinsicsFile);
+          console.log(`Including intrinsics file for skeleton: ${intrinsicsFile.name}`);
+        }
+  
+        if (!this.scene && !this.sceneInitializing) {
+          this.sceneInitializing = true;
+          await this.$nextTick();
+          this.initScene();
+        }
+
+        // If scene isn't properly initialized, load example JSON first
+        if ((!this.animations || this.animations.length === 0) && (!this.frames || this.frames.length === 0)) {
+          try {
+            console.log('Loading example mocap file to initialize scene for skeleton import...');
+            const exampleResponse = await fetch('/samples/squat/sample_mocap.json');
+            const exampleData = await exampleResponse.json();
+            
+            const tempAnimIndex = this.animations.length;
+            const fileFps = this.calculateFrameRate(exampleData.time);
+            
+            this.animations.push({
+              data: exampleData,
+              offset: new THREE.Vector3(0, 0, 0),
+              rotation: new THREE.Euler(0, 0, 0, 'XYZ'),
+              fileName: 'temp_example.json',
+              trialName: 'Temp Subject',
+              visible: true,
+              playable: true,
+              calculatedFps: fileFps
+            });
+            
+            if (this.animations.length === 1) {
+              this.frames = exampleData.time;
+              this.trial = { results: [] };
+              this.frameRate = fileFps;
+              this.frame = 0;
+              if (Array.isArray(exampleData.time) && exampleData.time.length > 0) {
+                this.updateDisplayedTime(0);
+              } else {
+                this.time = "0.000";
+              }
+            }
+            
+            this.initializeAlphaValue(tempAnimIndex);
+            this.extractMarkerDataFromJson(exampleData, tempAnimIndex, 'temp_example.json');
+            
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            this.animations.splice(tempAnimIndex, 1);
+            this.meshes = {};
+            
+            console.log('Example file loaded and removed, scene initialized for skeleton import');
+          } catch (error) {
+            console.error('Error loading example file for skeleton import:', error);
+          }
+        }
+  
+        const response = await axiosInstance.post('/api/smpl/skeleton', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+  
+        await this.addSmplSequence(response.data, file.name);
+        this.$toasted.success(`Skeleton file loaded: ${file.name}`);
+      } catch (error) {
+        console.error('Error processing skeleton file:', error);
+        let errorMessage = `Failed to load skeleton file: ${file.name}`;
+        if (error.response && error.response.data) {
+          const detail = error.response.data.detail || error.response.data.message || JSON.stringify(error.response.data);
+          console.error('Backend error details:', detail);
+          errorMessage += ` - ${detail}`;
+        }
+        this.$toasted.error(errorMessage);
+      }
+    },
+    async processIntrinsicsFile(file) {
+      try {
+        // Send to backend to parse the intrinsics/extrinsics pickle file
+        const formData = new FormData();
+        formData.append('intrinsics_file', file);
+        
+        const response = await axiosInstance.post('/api/smpl/extract-intrinsics', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        
+        const data = response.data;
+        
+        // Store camera parameters for video plane positioning
+        if (data.intrinsicMat) {
+          this.cameraIntrinsics = data.intrinsicMat;
+        }
+        if (data.distortion) {
+          this.cameraDistortion = data.distortion;
+        }
+        if (data.imageSize) {
+          this.cameraImageSize = Array.isArray(data.imageSize) 
+            ? data.imageSize.map(v => Number(v))
+            : null;
+        }
+        
+        // Store extrinsics for video plane positioning (use a special key for standalone intrinsics)
+        if (!this.cameraExtrinsicsMap) {
+          this.cameraExtrinsicsMap = {};
+        }
+        if (data.cam_R && data.cam_T) {
+          this.cameraExtrinsicsMap['standalone_intrinsics'] = {
+            cam_R: data.cam_R,
+            cam_T: data.cam_T
+          };
+          console.log('Stored camera parameters from intrinsics file:', file.name);
+          this.$toasted.success(`Camera parameters loaded from ${file.name}`);
+          
+          // Update video plane if it's visible
+          if (this.videoPlaneSettings.visible && this.videoFile) {
+            this.$nextTick(() => this.updateVideoPlaneTransform());
+          }
+        }
+      } catch (error) {
+        console.error('Error processing intrinsics file:', error);
+        let errorMessage = `Failed to load intrinsics file: ${file.name}`;
+        if (error.response && error.response.data) {
+          const detail = error.response.data.detail || error.response.data.message || JSON.stringify(error.response.data);
+          console.error('Backend error details:', detail);
+          errorMessage += ` - ${detail}`;
+        }
+        this.$toasted.error(errorMessage);
       }
     },
     async addSmplSequence(sequenceData, originalFileName) {
@@ -9454,13 +9869,15 @@
       }
   
       const frameCount = sequenceData.frame_count || sequenceData.frameCount || (Array.isArray(sequenceData.time) ? sequenceData.time.length : 0);
-      const vertexCount = sequenceData.vertex_count || sequenceData.vertexCount;
+      const vertexCount = sequenceData.vertex_count || sequenceData.vertexCount || 0;
       const jointCount = sequenceData.joint_count || sequenceData.jointCount || 24;
       const fps = sequenceData.fps || this.frameRate || 60;
       const timeArray = Array.isArray(sequenceData.time) && sequenceData.time.length === frameCount
         ? sequenceData.time
         : this.generateTimeArray(frameCount, fps);
-      const verticesArray = this.decodeBase64ToFloat32(sequenceData.vertices);
+      const verticesArray = sequenceData.vertices && sequenceData.vertices.length > 0 
+        ? this.decodeBase64ToFloat32(sequenceData.vertices) 
+        : null;
       const jointsArray = sequenceData.joints ? this.decodeBase64ToFloat32(sequenceData.joints) : null;
       let projectedFramesBuffer = null;
       let projectedFrameList = null;
@@ -9498,14 +9915,17 @@
         }
       }
   
-      if (!verticesArray || verticesArray.length === 0 || !vertexCount) {
-        console.warn('No vertex data found in SMPL sequence.');
-        return;
-      }
-  
-      const geometry = new THREE.BufferGeometry();
+      // Handle skeleton-only sequences (no vertices)
+      const isSkeletonOnly = !verticesArray || verticesArray.length === 0 || !vertexCount;
+      
+      let geometry = null;
+      let positionAttribute = null;
+      let mesh = null;
+      
+      if (!isSkeletonOnly) {
       const initialPositions = verticesArray.slice(0, vertexCount * 3);
-      const positionAttribute = new THREE.Float32BufferAttribute(initialPositions, 3);
+        positionAttribute = new THREE.Float32BufferAttribute(initialPositions, 3);
+        geometry = new THREE.BufferGeometry();
       geometry.setAttribute('position', positionAttribute);
       if (sequenceData.faces && sequenceData.faces.length) {
         let facesArray = sequenceData.faces;
@@ -9530,19 +9950,36 @@
         side: THREE.DoubleSide
       });
   
-      const mesh = new THREE.Mesh(geometry, material);
+        mesh = new THREE.Mesh(geometry, material);
       mesh.castShadow = false;
       mesh.receiveShadow = false;
       mesh.frustumCulled = false;
+      } else {
+        // For skeleton-only, we still need joints
+        if (!jointsArray || jointsArray.length === 0) {
+          console.warn('No joints data found in skeleton sequence.');
+          return;
+        }
+      }
   
       const sequenceId = this.nextSmplSequenceId++;
       const skeletonEdges = Array.isArray(sequenceData.skeleton_edges) && sequenceData.skeleton_edges.length > 0
         ? sequenceData.skeleton_edges
         : SMPL_SKELETON_EDGES;
   
-      // Skeleton rendering disabled - removed orange lines
-      const skeleton = null;
-      const skeletonAttribute = null;
+      // For skeleton-only sequences, create skeleton visualization but don't auto-enable it
+      // Skeleton lines can be enabled manually if needed
+      let skeleton = null;
+      let skeletonAttribute = null;
+      
+      // Create skeleton visualization for skeleton-only sequences (but don't auto-show)
+      if (isSkeletonOnly && jointsArray && skeletonEdges.length > 0) {
+        const skeletonGeometry = new THREE.BufferGeometry();
+        skeletonAttribute = new THREE.Float32BufferAttribute(new Float32Array(skeletonEdges.length * 2 * 3), 3);
+        skeletonGeometry.setAttribute('position', skeletonAttribute);
+        const skeletonMaterial = new THREE.LineBasicMaterial({ color: 0xffb04a });
+        skeleton = new THREE.LineSegments(skeletonGeometry, skeletonMaterial);
+      }
       
       // Previously enabled skeleton rendering:
       // if (jointsArray && skeletonEdges.length > 0) {
@@ -9553,9 +9990,12 @@
       //   skeleton = new THREE.LineSegments(skeletonGeometry, skeletonMaterial);
       // }
   
+      const colorIndex = this.smplSequences.length % this.colors.length;
+      const baseColor = this.colors[colorIndex] ? this.colors[colorIndex].clone() : new THREE.Color(0xd3d3d3);
+  
       const sequence = {
         id: sequenceId,
-        name: sequenceData.name || originalFileName || `SMPL Sequence ${sequenceId}`,
+        name: sequenceData.name || originalFileName || (isSkeletonOnly ? `Skeleton Sequence ${sequenceId}` : `SMPL Sequence ${sequenceId}`),
         fileName: originalFileName,
         gender: sequenceData.gender || 'neutral',
         vertexCount,
@@ -9582,7 +10022,7 @@
         opacity: 1.0,
         visible: true,
         playable: true,
-        showSkeleton: false, // Disabled by default
+        showSkeleton: isSkeletonOnly, // Enable skeleton display for skeleton-only sequences (they have no mesh)
         lastRenderedFrame: -1,
         speedMultiplier: 1.0,
         projectedFrames: projectedFrameList || null,
@@ -9600,7 +10040,7 @@
         return;
       }
   
-      if (!this.scene.children.includes(mesh)) {
+      if (mesh && !this.scene.children.includes(mesh)) {
         this.scene.add(mesh);
       }
       if (skeleton && !this.scene.children.includes(skeleton)) {
@@ -9609,15 +10049,60 @@
         skeleton.frustumCulled = false;
       }
 
+      // Store camera parameters from sequence data for video plane positioning
+      // Note: We only need cam_R and cam_T for extrinsics (intrinsicMat is optional for plane positioning)
+      if (sequenceData.cam_R && sequenceData.cam_T) {
+        // Store intrinsics if available
+        if (sequenceData.intrinsicMat) {
+          this.cameraIntrinsics = sequenceData.intrinsicMat;
+          this.cameraDistortion = sequenceData.distortion || null;
+          if (sequenceData.imageSize) {
+            this.cameraImageSize = Array.isArray(sequenceData.imageSize) 
+              ? sequenceData.imageSize.map(v => Number(v))
+              : null;
+          }
+        }
+        // Store camera extrinsics for video plane positioning
+        if (!this.cameraExtrinsicsMap) {
+          this.cameraExtrinsicsMap = {};
+        }
+        this.cameraExtrinsicsMap[sequenceId] = {
+          cam_R: sequenceData.cam_R,
+          cam_T: sequenceData.cam_T
+        };
+        console.log('Stored camera extrinsics for sequence:', sequenceId, {
+          hasCam_R: !!sequenceData.cam_R,
+          hasCam_T: !!sequenceData.cam_T,
+          cam_R_type: Array.isArray(sequenceData.cam_R) ? 'array' : typeof sequenceData.cam_R,
+          cam_T_type: Array.isArray(sequenceData.cam_T) ? 'array' : typeof sequenceData.cam_T
+        });
+      } else {
+        console.warn('Missing camera extrinsics in sequence data:', {
+          hasCam_R: !!sequenceData.cam_R,
+          hasCam_T: !!sequenceData.cam_T,
+          sequenceId: sequenceId
+        });
+      }
+
       this.smplSequences.push(sequence);
       this.refreshSequenceProjectionValidity(sequence);
       if (!this.activeSubject || this.activeSubject.type !== 'smpl') {
         this.setActiveSubject('smpl', sequence.id);
       }
 
+      if (sequence.mesh) {
       sequence.mesh.visible = sequence.visible;
+      }
       if (sequence.skeleton) {
+        // For skeleton-only sequences, show skeleton if visible
         sequence.skeleton.visible = sequence.visible && sequence.showSkeleton;
+        console.log('Skeleton visibility set:', {
+          visible: sequence.visible,
+          showSkeleton: sequence.showSkeleton,
+          finalVisible: sequence.skeleton.visible,
+          isSkeletonOnly,
+          skeletonExists: !!sequence.skeleton
+        });
       }
   
       if (this.frames.length === 0 || timeArray.length > this.frames.length) {
@@ -9633,13 +10118,17 @@
   
       this.updateSmplSequenceFrame(sequence, 0, true);
   
+      if (sequence.mesh) {
       if (sequence.mesh.parent) {
         sequence.mesh.parent.updateMatrixWorld(true);
       }
       sequence.mesh.updateMatrixWorld(true);
+      }
   
-      if (sequence.skeleton && sequence.skeleton.parent) {
+      if (sequence.skeleton) {
+        if (sequence.skeleton.parent) {
         sequence.skeleton.parent.updateMatrixWorld(true);
+        }
         sequence.skeleton.updateMatrixWorld(true);
       }
   
@@ -9704,20 +10193,24 @@
       this.time = seconds.toFixed(3);
     },
     updateSmplSequenceFrame(sequence, frameIndex, force = false) {
-      if (!sequence || !sequence.mesh || frameIndex < 0) return;
+      if (!sequence || frameIndex < 0) return;
       const clampedFrame = Math.min(frameIndex, Math.max(sequence.frameCount - 1, 0));
       if (!force && sequence.lastRenderedFrame === clampedFrame) {
         return;
       }
   
+      // Update mesh vertices if mesh exists
+      if (sequence.mesh && sequence.vertices && sequence.vertexCount > 0) {
     const start = clampedFrame * sequence.frameStride;
     const end = start + sequence.frameStride;
     const positions = sequence.vertices.subarray(start, end);
-    if (sequence.positionAttribute.array !== positions) {
+        if (sequence.positionAttribute && sequence.positionAttribute.array !== positions) {
       sequence.positionAttribute.array = positions;
       sequence.positionAttribute.count = sequence.vertexCount;
     }
+        if (sequence.positionAttribute) {
     sequence.positionAttribute.needsUpdate = true;
+        }
     if (sequence.geometry && sequence.geometry.attributes && sequence.geometry.attributes.position !== sequence.positionAttribute) {
       sequence.geometry.setAttribute('position', sequence.positionAttribute);
     }
@@ -9727,6 +10220,9 @@
         sequence.mesh.position.set(sequence.offset.x, sequence.offset.y, sequence.offset.z);
       }
     }
+      }
+      
+      // Update skeleton position and joints
     if (sequence.skeleton) {
       sequence.skeleton.rotation.copy(sequence.rotation);
       if (sequence.offset) {
@@ -9734,22 +10230,29 @@
       }
     }
 
-    if (sequence.skeleton && sequence.joints && sequence.skeletonAttribute) {
+      // Update skeleton joints if skeleton exists and joints data is available
+      if (sequence.skeleton && sequence.joints && sequence.skeletonAttribute && sequence.skeletonEdges) {
       const jointStart = clampedFrame * sequence.jointStride;
+        if (jointStart + sequence.jointStride <= sequence.joints.length) {
       const jointPositions = sequence.joints.subarray(jointStart, jointStart + sequence.jointStride);
         const skeletonArray = sequence.skeletonAttribute.array;
         let offset = 0;
         for (const [parent, child] of sequence.skeletonEdges) {
+            if (parent < sequence.jointCount && child < sequence.jointCount) {
           const pIndex = parent * 3;
           const cIndex = child * 3;
+              if (pIndex + 2 < jointPositions.length && cIndex + 2 < jointPositions.length) {
           skeletonArray[offset++] = jointPositions[pIndex];
           skeletonArray[offset++] = jointPositions[pIndex + 1];
           skeletonArray[offset++] = jointPositions[pIndex + 2];
           skeletonArray[offset++] = jointPositions[cIndex];
           skeletonArray[offset++] = jointPositions[cIndex + 1];
           skeletonArray[offset++] = jointPositions[cIndex + 2];
+              }
+            }
         }
         sequence.skeletonAttribute.needsUpdate = true;
+        }
       }
   
       sequence.lastRenderedFrame = clampedFrame;
@@ -11541,6 +12044,7 @@
         this.textSprites = {};
         this.timelapseMeshes = {};
         this.timelapseGroups = {};
+        this.disposeVideoPlane();
     },
     clearConversionError() {
         this.conversionError = null;
@@ -11621,12 +12125,15 @@
         }
       }
   
-        // Set initial video position based on current frame
-        if (this.frames.length > 0) {
-          const totalFrames = this.frames.length - 1;
-          const videoTimePosition = (this.frame / totalFrames) * this.videoDuration;
-          this.$refs.videoPreview.currentTime = videoTimePosition;
-        }
+      // Set initial video position based on current frame
+      if (this.frames.length > 0) {
+        const totalFrames = this.frames.length - 1;
+        const videoTimePosition = (this.frame / totalFrames) * this.videoDuration;
+        this.$refs.videoPreview.currentTime = videoTimePosition;
+      }
+      if (this.videoPlaneSettings.visible) {
+        this.$nextTick(() => this.ensureVideoPlane());
+      }
       }
     },
   
@@ -11680,6 +12187,482 @@
     }
   },
 
+  onVideoPlaneOpacityInput(value) {
+    const clamped = Math.min(Math.max(Number(value) || 0, 10), 100);
+    const normalized = parseFloat((clamped / 100).toFixed(2));
+    if (this.videoPlaneSettings.opacity !== normalized) {
+      this.videoPlaneSettings.opacity = normalized;
+    }
+  },
+
+  ensureVideoPlane() {
+    if (!this.videoPlaneSettings.visible || !this.scene || !this.camera || !this.videoFile) {
+      console.log('Video plane not ready:', {
+        visible: this.videoPlaneSettings.visible,
+        scene: !!this.scene,
+        camera: !!this.camera,
+        videoFile: !!this.videoFile
+      });
+      return;
+    }
+    const videoElement = this.$refs.videoPreview;
+    if (!videoElement || videoElement.readyState < 2) {
+      console.log('Video element not ready:', {
+        videoElement: !!videoElement,
+        readyState: videoElement ? videoElement.readyState : 'N/A'
+      });
+      return;
+    }
+    console.log('Ensuring video plane is created and visible');
+
+    if (!this.videoTexture) {
+      this.videoTexture = new THREE.VideoTexture(videoElement);
+      this.videoTexture.encoding = THREE.sRGBEncoding;
+      this.videoTexture.generateMipmaps = false;
+      this.videoTexture.minFilter = THREE.LinearFilter;
+      this.videoTexture.magFilter = THREE.LinearFilter;
+    }
+
+    if (!this.videoPlane) {
+      const geometry = new THREE.PlaneGeometry(1, 1);
+      const material = new THREE.MeshBasicMaterial({
+        map: this.videoTexture,
+        transparent: true,
+        opacity: this.videoPlaneSettings.opacity,
+        side: THREE.DoubleSide,
+        depthWrite: false
+      });
+      this.videoPlane = new THREE.Mesh(geometry, material);
+      this.videoPlane.renderOrder = 1;
+      this.videoPlane.frustumCulled = false;
+      this.scene.add(this.videoPlane);
+    } else if (this.videoPlane.material && this.videoPlane.material.map !== this.videoTexture) {
+      this.videoPlane.material.map = this.videoTexture;
+      this.videoPlane.material.needsUpdate = true;
+    }
+
+    this.updateVideoPlaneGeometry();
+    this.updateVideoPlaneMaterial();
+    this.updateVideoPlaneTransform();
+  },
+
+  updateVideoPlaneGeometry() {
+    if (!this.videoPlane) {
+      return;
+    }
+    const aspect = this.getVideoAspect();
+    const width = Math.max(0.1, Number(this.videoPlaneSettings.width) || 3);
+    const height = width / aspect;
+    const geometry = new THREE.PlaneGeometry(width, height);
+    this.videoPlane.geometry.dispose();
+    this.videoPlane.geometry = geometry;
+  },
+
+  updateVideoPlaneMaterial() {
+    if (!this.videoPlane) {
+      return;
+    }
+    const material = this.videoPlane.material;
+    if (material) {
+      material.opacity = this.videoPlaneSettings.opacity;
+      material.transparent = material.opacity < 0.999;
+      material.depthWrite = false;
+      material.needsUpdate = true;
+    }
+  },
+
+  updateVideoPlaneTransform() {
+    if (!this.videoPlane || !this.camera) {
+      return;
+    }
+    const shouldBeVisible = !!(this.videoPlaneSettings.visible && this.videoFile);
+    this.videoPlane.visible = shouldBeVisible;
+    if (!shouldBeVisible) {
+      return;
+    }
+
+    if (!this._videoPlaneCameraPosition) {
+      this._videoPlaneCameraPosition = new THREE.Vector3();
+      this._videoPlaneCameraDirection = new THREE.Vector3();
+      this._videoPlaneTempVec = new THREE.Vector3();
+      this._videoPlaneRotationMatrix = new THREE.Matrix4();
+    }
+
+    // Use camera extrinsics if available from SMPL sequence or standalone intrinsics file
+    let useExtrinsics = false;
+    let extrinsics = null;
+    let extrinsicsKey = null;
+    
+    // First check for standalone intrinsics (from dropped intrinsics files)
+    if (this.cameraExtrinsicsMap && this.cameraExtrinsicsMap['standalone_intrinsics']) {
+      const standaloneExtrinsics = this.cameraExtrinsicsMap['standalone_intrinsics'];
+      if (standaloneExtrinsics && standaloneExtrinsics !== null) {
+        extrinsics = standaloneExtrinsics;
+        extrinsicsKey = 'standalone_intrinsics';
+        useExtrinsics = true;
+      }
+    }
+    // Otherwise check SMPL sequences for extrinsics
+    else if (this.cameraExtrinsicsMap && this.smplSequences.length > 0) {
+      // Use extrinsics from the first SMPL sequence that has them
+      for (const sequence of this.smplSequences) {
+        const seqExtrinsics = this.cameraExtrinsicsMap[sequence.id];
+        if (seqExtrinsics && seqExtrinsics !== null) {
+          extrinsics = seqExtrinsics;
+          extrinsicsKey = sequence.id;
+          useExtrinsics = true;
+          break;
+        }
+      }
+    }
+    
+    // Check if we've already applied extrinsics for this key and frame
+    // For per-frame camera poses, we need to update when frame changes
+    // We check if distance setting changed to allow updates when user adjusts it
+    const currentDistance = Number(this.videoPlaneSettings.distance) || 0;
+    const lastAppliedDistance = this._lastAppliedPlaneDistance;
+    const distanceChanged = lastAppliedDistance !== undefined && lastAppliedDistance !== currentDistance;
+    
+    // Check if we have per-frame camera poses (need to check frame index)
+    const currentFrame = this.frame;
+    const hasPerFramePoses = useExtrinsics && extrinsics && extrinsics !== null &&
+      ((extrinsics.cam_R && Array.isArray(extrinsics.cam_R) && 
+       (extrinsics.cam_R.length > 0 && Array.isArray(extrinsics.cam_R[0]))) ||
+      (extrinsics.cam_T && Array.isArray(extrinsics.cam_T) && 
+       (extrinsics.cam_T.length > 0 && Array.isArray(extrinsics.cam_T[0]))));
+    
+    // Build expected key including frame index if per-frame
+    const expectedKey = hasPerFramePoses 
+      ? `${extrinsicsKey}_frame_${currentFrame}` 
+      : extrinsicsKey;
+    
+    if (useExtrinsics && extrinsics && extrinsics !== null && this.videoPlaneExtrinsicsKey === expectedKey && !distanceChanged) {
+      // Extrinsics already applied for this frame and distance hasn't changed, don't recalculate
+      // But still ensure visibility is set and plane exists
+      if (this.videoPlane) {
+        this.videoPlane.visible = shouldBeVisible;
+      }
+      return;
+    }
+    
+    // If we get here, we need to apply or update extrinsics
+    // Make sure the plane exists first
+    if (!this.videoPlane) {
+      console.warn('Video plane does not exist, cannot apply extrinsics');
+      return;
+    }
+    
+      if (useExtrinsics && extrinsics && extrinsics !== null) {
+      console.log('Positioning video plane with extrinsics:', {
+        cam_R: extrinsics && extrinsics.cam_R ? 'present' : 'missing',
+        cam_T: extrinsics && extrinsics.cam_T ? 'present' : 'missing',
+        key: extrinsicsKey
+      });
+      
+      // Get per-frame camera pose if available, otherwise use single pose
+      // cam_R is camera→world rotation (not world→camera)
+      // cam_T/trans is camera center in world coordinates
+      let cam_R = extrinsics && extrinsics.cam_R ? extrinsics.cam_R : null;
+      let cam_T = extrinsics && extrinsics.cam_T ? extrinsics.cam_T : null;
+      
+      if (!cam_R || !cam_T) {
+        console.warn('Missing camera extrinsics:', { cam_R: !!cam_R, cam_T: !!cam_T });
+        return;
+      }
+      
+      // Check if we have per-frame camera poses (e.g., shape (1, 604, 3, 3) for cam_R)
+      const currentFrame = this.frame;
+      let frameIndex = currentFrame;
+      
+      // Handle per-frame camera poses
+      if (cam_R && Array.isArray(cam_R)) {
+        // Check if cam_R is per-frame: shape like (1, N, 3, 3) or (N, 3, 3)
+        if (cam_R.length > 0 && Array.isArray(cam_R[0]) && Array.isArray(cam_R[0][0])) {
+          // Nested array structure - could be per-frame
+          if (cam_R.length === 1 && cam_R[0].length > 1) {
+            // Shape (1, N, 3, 3) - extract frame N
+            const numFrames = cam_R[0].length;
+            frameIndex = Math.min(Math.max(0, currentFrame), numFrames - 1);
+            cam_R = cam_R[0][frameIndex];
+            console.log(`Using per-frame cam_R for frame ${frameIndex} of ${numFrames}`);
+          } else if (cam_R.length > 1 && cam_R[0].length === 3) {
+            // Shape (N, 3, 3) - extract frame N
+            const numFrames = cam_R.length;
+            frameIndex = Math.min(Math.max(0, currentFrame), numFrames - 1);
+            cam_R = cam_R[frameIndex];
+            console.log(`Using per-frame cam_R for frame ${frameIndex} of ${numFrames}`);
+          }
+        }
+      }
+      
+      if (cam_T && Array.isArray(cam_T)) {
+        // Check if cam_T is per-frame: shape like (N, 3)
+        if (cam_T.length > 0 && Array.isArray(cam_T[0]) && cam_T[0].length === 3) {
+          // Per-frame translation: shape (N, 3)
+          const numFrames = cam_T.length;
+          frameIndex = Math.min(Math.max(0, currentFrame), numFrames - 1);
+          cam_T = cam_T[frameIndex];
+          console.log(`Using per-frame cam_T for frame ${frameIndex} of ${numFrames}`);
+        } else if (cam_T.length === 3 && typeof cam_T[0] === 'number') {
+          // Single frame: shape (3,)
+          // Use as-is
+        }
+      }
+      
+      if (cam_R && cam_T) {
+        // Convert rotation matrix (3x3) to Three.js matrix
+        // cam_R is camera→world rotation (NOT world→camera)
+        const R = new THREE.Matrix3();
+        if (cam_R.length === 9) {
+          // Flat array [r00, r01, r02, r10, r11, r12, r20, r21, r22]
+          R.set(
+            cam_R[0], cam_R[1], cam_R[2],
+            cam_R[3], cam_R[4], cam_R[5],
+            cam_R[6], cam_R[7], cam_R[8]
+          );
+        } else if (Array.isArray(cam_R[0])) {
+          // Nested array [[r00, r01, r02], [r10, r11, r12], [r20, r21, r22]]
+          R.set(
+            cam_R[0][0], cam_R[0][1], cam_R[0][2],
+            cam_R[1][0], cam_R[1][1], cam_R[1][2],
+            cam_R[2][0], cam_R[2][1], cam_R[2][2]
+          );
+        }
+        
+        // cam_T is the camera center in world coordinates (already in world space)
+        // Validate cam_T is an array with at least 3 elements
+        if (!Array.isArray(cam_T) || cam_T.length < 3) {
+          console.error('Invalid cam_T:', cam_T);
+          return;
+        }
+        
+        const T = new THREE.Vector3(
+          Number(cam_T[0]) || 0,
+          Number(cam_T[1]) || 0,
+          Number(cam_T[2]) || 0
+        );
+        
+        // Validate T is a proper Vector3
+        if (!(T instanceof THREE.Vector3) || isNaN(T.x) || isNaN(T.y) || isNaN(T.z)) {
+          console.error('Failed to create valid camera position Vector3:', { cam_T, T });
+          return;
+        }
+        
+        // Calculate camera's forward direction in world space
+        // cam_R is camera→world, so camera's +Z axis in world = R * [0, 0, 1]
+        // Camera forward is +Z in camera space (not -Z)
+        const cameraForward = new THREE.Vector3(0, 0, 1);
+        cameraForward.applyMatrix3(R);
+        cameraForward.normalize();
+        
+        // Find a reference point on the skeleton (e.g., joint 0 - pelvis)
+        // Use the current frame's skeleton position if available
+        let subjectPoint = new THREE.Vector3(0, 0, 0);
+        let foundSubject = false;
+        
+        // Try to get subject point from current frame's skeleton
+        if (this.smplSequences.length > 0 && frameIndex >= 0) {
+          for (const seq of this.smplSequences) {
+            if (seq.joints && seq.jointCount > 0 && frameIndex < seq.frameCount) {
+              const jointIndex = 0; // Use joint 0 (pelvis) as reference
+              const jointStride = seq.jointStride || (seq.jointCount * 3);
+              const start = frameIndex * jointStride + jointIndex * 3;
+              if (start + 2 < seq.joints.length) {
+                subjectPoint.set(
+                  seq.joints[start],
+                  seq.joints[start + 1],
+                  seq.joints[start + 2]
+                );
+                foundSubject = true;
+                console.log(`Using joint ${jointIndex} from sequence ${seq.id} at frame ${frameIndex}`);
+                break;
+              }
+            }
+          }
+        }
+        
+        // Fallback: use scene center if no skeleton point found
+        if (!foundSubject) {
+          let sceneCenter = new THREE.Vector3(0, 1, 0);
+          if (this.animations.length > 0 || this.smplSequences.length > 0) {
+            const box = new THREE.Box3();
+            this.smplSequences.forEach(seq => {
+              if (seq.mesh && seq.mesh.visible) {
+                seq.mesh.updateMatrixWorld(true);
+                box.expandByObject(seq.mesh);
+              }
+              if (seq.skeleton && seq.skeleton.visible) {
+                seq.skeleton.updateMatrixWorld(true);
+                box.expandByObject(seq.skeleton);
+              }
+            });
+            Object.keys(this.meshes).forEach(key => {
+              const mesh = this.meshes[key];
+              if (mesh && mesh.visible) {
+                mesh.updateMatrixWorld(true);
+                box.expandByObject(mesh);
+              }
+            });
+            if (!box.isEmpty()) {
+              box.getCenter(sceneCenter);
+            }
+          }
+          subjectPoint.copy(sceneCenter);
+        }
+        
+        // Calculate camera-to-subject vector and depth
+        const cameraToSubject = subjectPoint.clone().sub(T);
+        const euclideanDistance = cameraToSubject.length();
+        const depth = cameraToSubject.dot(cameraForward); // Depth along optical axis
+        
+        // Position the plane at the camera position, offset by the depth setting
+        // The plane should be perpendicular to the optical axis (cameraForward)
+        const planeDistanceSetting = Number(this.videoPlaneSettings.distance) || Math.abs(depth) || 1.0;
+        
+        // Position plane: camera position + forward * distance
+        // This places the plane along the optical axis at the specified distance
+        const planePosition = T.clone().add(cameraForward.clone().multiplyScalar(planeDistanceSetting));
+        
+        this.videoPlane.position.copy(planePosition);
+        
+        // Store the distance we used so we can detect changes
+        this._lastAppliedPlaneDistance = planeDistanceSetting;
+        
+        console.log('Plane positioning details:', {
+          frameIndex: frameIndex,
+          cameraPos: T && T instanceof THREE.Vector3 ? { x: T.x.toFixed(4), y: T.y.toFixed(4), z: T.z.toFixed(4) } : 'invalid',
+          subjectPoint: { x: subjectPoint.x.toFixed(4), y: subjectPoint.y.toFixed(4), z: subjectPoint.z.toFixed(4) },
+          cameraForward: { x: cameraForward.x.toFixed(4), y: cameraForward.y.toFixed(4), z: cameraForward.z.toFixed(4) },
+          euclideanDistance: euclideanDistance.toFixed(4),
+          depth: depth.toFixed(4),
+          planeDistanceSetting: planeDistanceSetting.toFixed(4),
+          planePos: { x: planePosition.x.toFixed(4), y: planePosition.y.toFixed(4), z: planePosition.z.toFixed(4) },
+          planeInScene: this.videoPlane.parent === this.scene
+        });
+        
+        // Orient the plane using the camera's rotation matrix
+        // cam_R is camera→world, so we can directly use it to get camera axes in world space
+        // The plane should be perpendicular to the optical axis (cameraForward)
+        
+        // Get camera's coordinate axes in world space (R already transforms camera→world)
+        const cameraRight = new THREE.Vector3(1, 0, 0); // X is right in camera space
+        cameraRight.applyMatrix3(R);
+        cameraRight.normalize();
+        
+        const cameraUp = new THREE.Vector3(0, 1, 0); // Y is up in camera space
+        cameraUp.applyMatrix3(R);
+        cameraUp.normalize();
+        
+        // Plane normal should point opposite to camera forward (toward viewer)
+        // makeBasis(X, Y, Z) sets basis vectors where Z is the normal
+        const planeNormal = cameraForward.clone().negate(); // Normal points toward viewer
+        const planeRotationMatrix = new THREE.Matrix4();
+        planeRotationMatrix.makeBasis(
+          cameraRight,    // X axis (right)
+          cameraUp,       // Y axis (up)  
+          planeNormal     // Z axis (normal points toward viewer)
+        );
+        
+        // Extract Euler angles from the rotation matrix
+        const euler = new THREE.Euler();
+        euler.setFromRotationMatrix(planeRotationMatrix);
+        this.videoPlane.rotation.copy(euler);
+        
+        // Ensure the plane is visible and in scene
+        this.videoPlane.visible = true;
+        if (this.videoPlane.parent !== this.scene) {
+          console.warn('Plane not in scene, adding it');
+          this.scene.add(this.videoPlane);
+        }
+        
+        // Force update matrix to ensure position/rotation are applied
+        this.videoPlane.updateMatrixWorld(true);
+        
+        // Mark that we've applied extrinsics for this key and frame
+        this.videoPlaneExtrinsicsKey = `${extrinsicsKey}_frame_${frameIndex}`;
+        
+        // Get current viewer camera position for debugging
+        const currentCameraPos = new THREE.Vector3();
+        this.camera.getWorldPosition(currentCameraPos);
+        const distanceFromCamera = planePosition.distanceTo(currentCameraPos);
+        
+        console.log('Video plane positioned with extrinsics:', {
+          cameraPosition: T && T instanceof THREE.Vector3 ? { x: T.x.toFixed(2), y: T.y.toFixed(2), z: T.z.toFixed(2) } : 'invalid',
+          planePosition: { x: planePosition.x.toFixed(2), y: planePosition.y.toFixed(2), z: planePosition.z.toFixed(2) },
+          currentViewerCameraPos: { x: currentCameraPos.x.toFixed(2), y: currentCameraPos.y.toFixed(2), z: currentCameraPos.z.toFixed(2) },
+          distanceFromViewerCamera: distanceFromCamera.toFixed(2),
+          planeDistanceOffset: planeDistanceSetting.toFixed(2),
+          rotation: { x: this.videoPlane.rotation.x.toFixed(3), y: this.videoPlane.rotation.y.toFixed(3), z: this.videoPlane.rotation.z.toFixed(3) },
+          visible: this.videoPlane.visible,
+          inScene: this.videoPlane.parent === this.scene,
+          planeWidth: this.videoPlane.geometry ? this.videoPlane.geometry.parameters.width.toFixed(2) : 'N/A',
+          planeHeight: this.videoPlane.geometry ? this.videoPlane.geometry.parameters.height.toFixed(2) : 'N/A'
+        });
+        
+        // Don't use followCamera when extrinsics are set
+        this.videoPlaneSettings.followCamera = false;
+      }
+    } else {
+      // Clear extrinsics key when no extrinsics available
+      this.videoPlaneExtrinsicsKey = null;
+      this._lastAppliedPlaneDistance = undefined;
+      console.log('No extrinsics available, using fallback camera positioning');
+    }
+
+    // Fallback to follow camera mode if no extrinsics available
+    if (!useExtrinsics) {
+    const cameraPosition = this._videoPlaneCameraPosition;
+    const cameraDirection = this._videoPlaneCameraDirection;
+    this.camera.getWorldPosition(cameraPosition);
+    this.camera.getWorldDirection(cameraDirection);
+
+    if (this.videoPlaneSettings.followCamera) {
+      const planePosition = this._videoPlaneTempVec;
+      const distance = Number(this.videoPlaneSettings.distance) || 0;
+      planePosition.copy(cameraDirection).multiplyScalar(distance);
+      planePosition.add(cameraPosition);
+      this.videoPlane.position.copy(planePosition);
+    }
+
+    this.videoPlane.lookAt(cameraPosition);
+    }
+  },
+
+  disposeVideoPlane() {
+    if (this.videoPlane) {
+      if (this.scene) {
+        this.scene.remove(this.videoPlane);
+      }
+      if (this.videoPlane.geometry) {
+        this.videoPlane.geometry.dispose();
+      }
+      const material = this.videoPlane.material;
+      if (material) {
+        if (Array.isArray(material)) {
+          material.forEach(mat => mat.dispose && mat.dispose());
+        } else if (material.dispose) {
+          material.dispose();
+        }
+      }
+      this.videoPlane = null;
+    }
+    if (this.videoTexture) {
+      this.videoTexture.dispose();
+      this.videoTexture = null;
+    }
+  },
+
+  getVideoAspect() {
+    const videoElement = this.$refs.videoPreview;
+    if (videoElement && videoElement.videoWidth && videoElement.videoHeight) {
+      const aspect = videoElement.videoWidth / videoElement.videoHeight;
+      if (Number.isFinite(aspect) && aspect > 0) {
+        return aspect;
+      }
+    }
+    return 16 / 9;
+  },
+
   toggleVideoPreview() {
     this.videoMinimized = !this.videoMinimized;
 
@@ -11691,14 +12674,15 @@
       }
     },
   
-    closeVideo() {
-      if (this.videoUrl) {
-        URL.revokeObjectURL(this.videoUrl);
-      }
-      this.videoFile = null;
-      this.videoUrl = null;
-      this.videoDuration = 0;
-      console.log('Video closed');
+  closeVideo() {
+    if (this.videoUrl) {
+      URL.revokeObjectURL(this.videoUrl);
+    }
+    this.disposeVideoPlane();
+    this.videoFile = null;
+    this.videoUrl = null;
+    this.videoDuration = 0;
+    console.log('Video closed');
 
       // Reset position and size for next time
       this.videoPosition = { x: 20, y: 20 };
@@ -12051,6 +13035,12 @@
             const clampedOpacity = Math.min(Math.max(Number(settings.videoOverlayOpacity) || 0.65, 0.1), 1);
             this.videoOverlayOpacity = parseFloat(clampedOpacity.toFixed(2));
           }
+          if (settings.videoPlaneSettings) {
+            this.videoPlaneSettings = {
+              ...this.videoPlaneSettings,
+              ...settings.videoPlaneSettings
+            };
+          }
           // Force timelapseMode to false by default
           this.timelapseMode = false;
           if (settings.timelapseInterval) this.timelapseInterval = settings.timelapseInterval;
@@ -12093,6 +13083,7 @@
         videoMinimized: this.videoMinimized,
         videoOverlayMode: this.videoOverlayMode,
         videoOverlayOpacity: this.videoOverlayOpacity,
+        videoPlaneSettings: this.videoPlaneSettings,
         timelapseMode: this.timelapseMode,
         timelapseInterval: this.timelapseInterval,
         timelapseOpacity: this.timelapseOpacity,
