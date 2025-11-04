@@ -4,7 +4,7 @@ import io
 import pickle
 import zipfile
 from pathlib import Path
-from typing import Dict, Tuple
+from typing import Dict, Optional, Tuple
 
 import joblib
 import numpy as np
@@ -167,6 +167,28 @@ def _to_float32(array, expected_last_dim=None):
     return arr
 
 
+def _infer_fps_from_time(time: Optional[np.ndarray]) -> Optional[float]:
+    """Infer a frames-per-second value from a monotonic time array."""
+    if time is None or len(time) < 2:
+        return None
+
+    diffs = np.diff(time.astype(np.float64))
+    diffs = diffs[diffs > 0]
+    if diffs.size == 0:
+        return None
+
+    median_step = float(np.median(diffs))
+    if median_step <= 0:
+        return None
+
+    inferred_fps = 1.0 / median_step
+    if not np.isfinite(inferred_fps):
+        return None
+
+    # Clamp to a sensible mocap range to protect against bad data
+    return float(np.clip(inferred_fps, 10.0, 240.0))
+
+
 def _extract_sequence_dict(raw):
     """Some pickles wrap the sequence in a single-key dict (e.g. {'0': {...}})."""
     if isinstance(raw, dict) and len(raw) == 1:
@@ -235,12 +257,39 @@ def _normalize_sequence(raw: dict) -> Dict[str, np.ndarray]:
     if trans.shape[0] == 1:
         trans = np.repeat(trans, frames, axis=0)
 
-    fps = raw.get("fps") or raw.get("frame_rate") or 60.0
+    fps = raw.get("fps") or raw.get("frame_rate")
     time = raw.get("time")
     if time is None or len(time) != frames:
-        time = np.arange(frames, dtype=np.float32) / float(fps)
+        fps_value = float(fps) if fps is not None else 60.0
+        time = np.arange(frames, dtype=np.float32) / float(fps_value)
     else:
         time = _to_float32(time)
+
+    if fps is None:
+        inferred = _infer_fps_from_time(time)
+        fps = inferred if inferred is not None else 60.0
+    else:
+        fps = float(fps)
+
+    cam_R = raw.get("cam_R")
+    if cam_R is not None:
+        cam_R = _to_float32(cam_R)
+
+    cam_T = raw.get("cam_T")
+    if cam_T is not None:
+        cam_T = _to_float32(cam_T)
+
+    intrinsic_mat = raw.get("intrinsicMat")
+    if intrinsic_mat is not None:
+        intrinsic_mat = _to_float32(intrinsic_mat)
+
+    distortion = raw.get("distortion")
+    if distortion is not None:
+        distortion = _to_float32(distortion)
+
+    image_size = raw.get("imageSize")
+    if image_size is not None:
+        image_size = _to_float32(image_size)
 
     gender = str(raw.get("gender", "neutral")).lower()
     if gender not in {"male", "female", "neutral"}:
@@ -266,7 +315,88 @@ def _normalize_sequence(raw: dict) -> Dict[str, np.ndarray]:
         "verts": verts,
         "joints": joints,
         "faces": faces,
+        "cam_R": cam_R,
+        "cam_T": cam_T,
+        "intrinsicMat": intrinsic_mat,
+        "distortion": distortion,
+        "imageSize": image_size,
     }
+
+
+def _broadcast_camera_sequence(array, target_frames, expected_shape):
+    arr = np.asarray(array, dtype=np.float32)
+    if arr.shape == expected_shape:
+        return arr
+    if arr.ndim == 2 and expected_shape == (target_frames, 3, 3):
+        if arr.shape == (3, 3):
+            return np.broadcast_to(arr, (target_frames, 3, 3)).astype(np.float32, copy=False)
+    if arr.ndim == 1 and expected_shape == (target_frames, 3):
+        if arr.shape == (3,):
+            return np.broadcast_to(arr, (target_frames, 3)).astype(np.float32, copy=False)
+    if arr.shape[0] != target_frames:
+        first = np.asarray(arr[0], dtype=np.float32)
+        return np.broadcast_to(first, expected_shape).astype(np.float32, copy=False)
+    return arr.astype(np.float32, copy=False)
+
+
+def _compute_projected_points(sequence: Dict[str, np.ndarray], joints: np.ndarray):
+    cam_R = sequence.get("cam_R")
+    cam_T = sequence.get("cam_T")
+    intrinsic = sequence.get("intrinsicMat")
+    if cam_R is None or cam_T is None or intrinsic is None:
+        return None
+
+    frames, joint_count, _ = joints.shape
+    try:
+        cam_R = _broadcast_camera_sequence(cam_R, frames, (frames, 3, 3))
+        cam_T = _broadcast_camera_sequence(cam_T, frames, (frames, 3))
+        intrinsic = np.asarray(intrinsic, dtype=np.float32)
+    except Exception:
+        return None
+
+    if intrinsic.shape != (3, 3):
+        return None
+
+    distortion = sequence.get("distortion")
+    distortion_vec = np.zeros(5, dtype=np.float32)
+    if distortion is not None:
+        dist_arr = np.asarray(distortion, dtype=np.float32).flatten()
+        if dist_arr.size:
+            count = min(5, dist_arr.size)
+            distortion_vec[:count] = dist_arr[:count]
+    k1, k2, p1, p2, k3 = distortion_vec.tolist()
+
+    fx = float(intrinsic[0, 0])
+    fy = float(intrinsic[1, 1])
+    cx = float(intrinsic[0, 2])
+    cy = float(intrinsic[1, 2])
+
+    joints_world = joints.astype(np.float32, copy=False)
+    joints_cam = np.einsum("fij,fnj->fni", cam_R, joints_world) + cam_T[:, None, :]
+
+    x = joints_cam[..., 0]
+    y = joints_cam[..., 1]
+    z = joints_cam[..., 2]
+
+    valid = z > 1e-4
+    xn = np.zeros_like(x, dtype=np.float32)
+    yn = np.zeros_like(y, dtype=np.float32)
+    xn[valid] = x[valid] / z[valid]
+    yn[valid] = y[valid] / z[valid]
+
+    r2 = xn * xn + yn * yn
+    radial = 1.0 + k1 * r2 + k2 * r2 * r2 + k3 * r2 * r2 * r2
+    x_distorted = xn * radial + 2 * p1 * xn * yn + p2 * (r2 + 2 * xn * xn)
+    y_distorted = yn * radial + p1 * (r2 + 2 * yn * yn) + 2 * p2 * xn * yn
+
+    u = fx * x_distorted + cx
+    v = fy * y_distorted + cy
+
+    u[~valid] = np.nan
+    v[~valid] = np.nan
+
+    projected = np.stack([u, v], axis=-1).astype(np.float32, copy=False)
+    return projected
 
 
 def _encode_float32(array: np.ndarray) -> str:
@@ -297,6 +427,11 @@ async def upload_smpl_sequence(file: UploadFile = File(...)):
     except Exception as exc:  # pragma: no cover - protect against unexpected runtime errors
         raise HTTPException(status_code=500, detail=f"Failed to evaluate SMPL sequence: {exc}") from exc
 
+    try:
+        projected = _compute_projected_points(sequence, joints.reshape(vertices.shape[0], joints.shape[1], 3))
+    except Exception:
+        projected = None
+
     response = {
         "name": file.filename,
         "fps": sequence["fps"],
@@ -310,6 +445,22 @@ async def upload_smpl_sequence(file: UploadFile = File(...)):
         "joints": _encode_float32(joints),
         "skeleton_edges": SMPL_SKELETON_EDGES,
     }
+    if sequence.get("cam_R") is not None:
+        response["cam_R"] = sequence["cam_R"].astype(float).tolist()
+    if sequence.get("cam_T") is not None:
+        response["cam_T"] = sequence["cam_T"].astype(float).tolist()
+    if sequence.get("intrinsicMat") is not None:
+        response["intrinsicMat"] = sequence["intrinsicMat"].astype(float).tolist()
+    if sequence.get("distortion") is not None:
+        response["distortion"] = sequence["distortion"].astype(float).tolist()
+    if sequence.get("imageSize") is not None:
+        response["imageSize"] = sequence["imageSize"].astype(float).tolist()
+    if projected is not None:
+        response["projected_joints"] = _encode_float32(projected)
+        response["projected_shape"] = [int(projected.shape[0]), int(projected.shape[1]), int(projected.shape[2])]
+        image_size = sequence.get("imageSize")
+        if image_size is not None:
+            response["projected_image_size"] = sequence["imageSize"].astype(float).tolist()
     return JSONResponse(response)
 
 
