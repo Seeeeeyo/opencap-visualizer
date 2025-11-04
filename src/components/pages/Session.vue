@@ -9483,30 +9483,19 @@
         this.$toasted.success(`Video loaded: ${videoFiles[0].name}`);
       }
   
-      // Handle JSON files with intrinsics if available
+      // Handle JSON files
       if (jsonFiles.length > 0) {
-        const intrinsicsFile = intrinsicsFiles.length > 0 ? intrinsicsFiles[0] : null;
-        
-        if (intrinsicsFile) {
-          console.log('Processing JSON files with intrinsics:', intrinsicsFile.name);
-          // Process JSON files with camera alignment
-          for (const jsonFile of jsonFiles) {
-            await this.processJsonFileWithIntrinsics(jsonFile, intrinsicsFile);
+        const dataTransfer = new DataTransfer();
+        jsonFiles.forEach(file => dataTransfer.items.add(file));
+  
+        const fakeEvent = {
+          target: {
+            files: dataTransfer.files,
+            value: ''
           }
-        } else {
-          // Fallback to regular processing without intrinsics
-          const dataTransfer = new DataTransfer();
-          jsonFiles.forEach(file => dataTransfer.items.add(file));
-
-          const fakeEvent = {
-            target: {
-              files: dataTransfer.files,
-              value: ''
-            }
-          };
-
-          this.handleFileUpload(fakeEvent);
-        }
+        };
+  
+        this.handleFileUpload(fakeEvent);
       }
   
       // Handle TRC files as marker files
