@@ -279,7 +279,8 @@ Examples:
     if args.file is None:
         project_root = Path(__file__).resolve().parent
         default_candidates = [
-            project_root / "STS1_optimized.pkl",
+            # project_root / "test/test.pkl",
+            project_root / "test/STS1_optimized.pkl",
             project_root / "wham_output.pkl",
         ]
         chosen = next((p for p in default_candidates if p.exists()), default_candidates[0])

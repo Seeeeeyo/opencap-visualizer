@@ -133,27 +133,6 @@
                 <div class="text-caption grey--text mb-2">
                   Sequence FPS: {{ frameRateDisplay }}
                 </div>
-                <v-switch
-                  dense
-                  hide-details
-                  color="cyan lighten-2"
-                  class="mt-0"
-                  v-model="videoOverlayMode"
-                  label="Overlay skeleton"
-                ></v-switch>
-                <div class="text-caption grey--text mt-2 mb-1">
-                  Overlay Opacity
-                </div>
-                <v-slider
-                  dense
-                  hide-details
-                  :value="Math.round(videoOverlayOpacity * 100)"
-                  @input="onVideoOverlayOpacityInput"
-                  :min="10"
-                  :max="100"
-                  :step="5"
-                  color="cyan lighten-2"
-                ></v-slider>
                 <v-divider class="my-3" dark></v-divider>
                 <div class="text-caption grey--text mb-2">
                   Scene Placement
@@ -182,7 +161,7 @@
                   hide-details
                   v-model="videoPlaneSettings.distance"
                   :min="0.5"
-                  :max="10"
+                  :max="50"
                   :step="0.1"
                   color="cyan lighten-2"
                 ></v-slider>
@@ -194,7 +173,7 @@
                   hide-details
                   v-model="videoPlaneSettings.width"
                   :min="1"
-                  :max="8"
+                  :max="100"
                   :step="0.1"
                   color="cyan lighten-2"
                 ></v-slider>
@@ -2970,6 +2949,22 @@
                         class="mt-0"
                       ></v-slider>
                     </div>
+                    <div class="mt-3">
+                      <div class="text-caption mb-2">
+                        Height Position: {{ groundPositionY.toFixed(2) }}m
+                      </div>
+                      <v-slider
+                        v-model="groundPositionY"
+                        @input="updateGroundPosition"
+                        :min="-5"
+                        :max="5"
+                        step="0.01"
+                        hide-details
+                        :disabled="!showGround"
+                        dense
+                        class="mt-0"
+                      ></v-slider>
+                    </div>
                   </div>
                 </v-card>
               </v-menu>
@@ -3479,6 +3474,7 @@
               backgroundColor: '#FFFFFF',
               groundColor: '#cccccc',
               groundOpacity: 1.0,
+              groundPositionY: 0,
               useGroundTexture: true,
               groundMesh: null,
               groundTexture: null,
@@ -3538,6 +3534,12 @@
               videoTexture: null,
               cameraExtrinsicsMap: {}, // Store camera extrinsics per sequence for video plane positioning
               videoPlaneExtrinsicsKey: null, // Track which extrinsics key has been applied to prevent recalculation
+              videoPlaneFrameCache: null, // Cache of the most recent computed video plane frame for reuse
+              videoPlaneBaseWidth: null, // Store base width derived from intrinsics to support scaling
+              videoPlaneWidthLockedByUser: false, // Track if the user has overridden automatic width sizing
+              suppressVideoPlaneWidthWatcher: false, // Prevent recursive watcher triggers when updating width programmatically
+              videoPlaneDistanceLockedByUser: false, // Track if distance slider has been manually overridden
+              suppressVideoPlaneDistanceWatcher: false, // Prevent recursive distance watcher feedback
               videoPlaneSettings: {
                 visible: true,
                 followCamera: true,
@@ -3810,7 +3812,8 @@
           }
           this.renderer.render(this.scene, this.camera);
         };
-        console.log('🔧 Debug functions available: window.setBackgroundWhite(), window.setBackgroundBlack(), window.clearSettings(), window.toggleFog()');
+        window.alignCameraWithCapture = (behindPlane = true, distance = null) => { this.alignCameraWithCapture(behindPlane, distance); };
+        console.log('🔧 Debug functions available: window.setBackgroundWhite(), window.setBackgroundBlack(), window.clearSettings(), window.toggleFog(), window.alignCameraWithCapture(behindPlane=true, distance=null)');
   
         // Add global click handler to help with UI debugging
         document.addEventListener('click', this.handleGlobalClick, true);
@@ -4022,12 +4025,19 @@
         this.saveSettings();
         this.updateVideoPlaneTransform();
       },
-      'videoPlaneSettings.distance'() {
+      'videoPlaneSettings.distance'(newVal, oldVal) {
         this.saveSettings();
+        if (!this.suppressVideoPlaneDistanceWatcher && newVal !== oldVal) {
+          this.videoPlaneDistanceLockedByUser = true;
+        }
+        this.updateVideoPlaneGeometry();
         this.updateVideoPlaneTransform();
       },
-      'videoPlaneSettings.width'() {
+      'videoPlaneSettings.width'(newVal, oldVal) {
         this.saveSettings();
+        if (!this.suppressVideoPlaneWidthWatcher && newVal !== oldVal) {
+          this.videoPlaneWidthLockedByUser = true;
+        }
         this.updateVideoPlaneGeometry();
         this.updateVideoPlaneTransform();
       },
@@ -5088,13 +5098,13 @@
     const fallbackWidth = this.$refs.videoPreview?.videoWidth || displayWidth;
     const fallbackHeight = this.$refs.videoPreview?.videoHeight || displayHeight;
     const imageSize = Array.isArray(sequence.projectedImageSize)
-      ? sequence.projectedImageSize
-      : (Array.isArray(this.cameraImageSize) ? this.cameraImageSize : null);
-    const imageWidth = imageSize && Number.isFinite(Number(imageSize[0])) && Number(imageSize[0]) > 0
-      ? Number(imageSize[0])
+      ? this.normalizeImageSize(sequence.projectedImageSize)
+      : (this.cameraImageSize || null);
+    const imageWidth = imageSize && Number.isFinite(Number(imageSize.width)) && Number(imageSize.width) > 0
+      ? Number(imageSize.width)
       : fallbackWidth;
-    const imageHeight = imageSize && Number.isFinite(Number(imageSize[1])) && Number(imageSize[1]) > 0
-      ? Number(imageSize[1])
+    const imageHeight = imageSize && Number.isFinite(Number(imageSize.height)) && Number(imageSize.height) > 0
+      ? Number(imageSize.height)
       : fallbackHeight;
     const scaleX = imageWidth ? displayWidth / imageWidth : 1;
     const scaleY = imageHeight ? displayHeight / imageHeight : 1;
@@ -6987,6 +6997,7 @@
           const settings = shareData.settings;
           this.backgroundColor = settings.backgroundColor || this.backgroundColor;
           this.groundColor = settings.groundColor || this.groundColor;
+          this.groundPositionY = settings.groundPositionY !== undefined ? settings.groundPositionY : this.groundPositionY;
           this.showGround = settings.showGround !== undefined ? settings.showGround : this.showGround;
           this.useGroundTexture = settings.useGroundTexture !== undefined ? settings.useGroundTexture : this.useGroundTexture;
           this.useCheckerboard = settings.useCheckerboard !== undefined ? settings.useCheckerboard : this.useCheckerboard;
@@ -8712,7 +8723,7 @@
         });
         const groundMesh = new THREE.Mesh(planeGeo, planeMat);
         groundMesh.rotation.x = Math.PI * -.5;
-        groundMesh.position.y = 0;
+        groundMesh.position.y = this.groundPositionY;
         groundMesh.receiveShadow = true;
         this.scene.add(groundMesh);
   
@@ -9472,19 +9483,30 @@
         this.$toasted.success(`Video loaded: ${videoFiles[0].name}`);
       }
   
-      // Handle JSON files
+      // Handle JSON files with intrinsics if available
       if (jsonFiles.length > 0) {
-        const dataTransfer = new DataTransfer();
-        jsonFiles.forEach(file => dataTransfer.items.add(file));
-  
-        const fakeEvent = {
-          target: {
-            files: dataTransfer.files,
-            value: ''
+        const intrinsicsFile = intrinsicsFiles.length > 0 ? intrinsicsFiles[0] : null;
+        
+        if (intrinsicsFile) {
+          console.log('Processing JSON files with intrinsics:', intrinsicsFile.name);
+          // Process JSON files with camera alignment
+          for (const jsonFile of jsonFiles) {
+            await this.processJsonFileWithIntrinsics(jsonFile, intrinsicsFile);
           }
-        };
-  
-        this.handleFileUpload(fakeEvent);
+        } else {
+          // Fallback to regular processing without intrinsics
+          const dataTransfer = new DataTransfer();
+          jsonFiles.forEach(file => dataTransfer.items.add(file));
+
+          const fakeEvent = {
+            target: {
+              files: dataTransfer.files,
+              value: ''
+            }
+          };
+
+          this.handleFileUpload(fakeEvent);
+        }
       }
   
       // Handle TRC files as marker files
@@ -9823,15 +9845,13 @@
         
         // Store camera parameters for video plane positioning
         if (data.intrinsicMat) {
-          this.cameraIntrinsics = data.intrinsicMat;
+          this.cameraIntrinsics = this.normalizeMatrix3x3(data.intrinsicMat);
         }
         if (data.distortion) {
-          this.cameraDistortion = data.distortion;
+          this.cameraDistortion = this.flattenNumericArray(data.distortion);
         }
         if (data.imageSize) {
-          this.cameraImageSize = Array.isArray(data.imageSize) 
-            ? data.imageSize.map(v => Number(v))
-            : null;
+          this.cameraImageSize = this.normalizeImageSize(data.imageSize);
         }
         
         // Store extrinsics for video plane positioning (use a special key for standalone intrinsics)
@@ -9839,16 +9859,61 @@
           this.cameraExtrinsicsMap = {};
         }
         if (data.cam_R && data.cam_T) {
-          this.cameraExtrinsicsMap['standalone_intrinsics'] = {
-            cam_R: data.cam_R,
-            cam_T: data.cam_T
-          };
-          console.log('Stored camera parameters from intrinsics file:', file.name);
-          this.$toasted.success(`Camera parameters loaded from ${file.name}`);
+          // Convert cam_T: check if it needs unit conversion from mm to meters
+          let cam_T_converted = this.toPlainNumeric(data.cam_T);
+          let cam_T_magnitude = 0;
+          let unit_conversion_applied = false;
           
-          // Update video plane if it's visible
+          if (cam_T_converted) {
+            // Calculate magnitude of cam_T to detect if it's in mm (typically > 100 for mm, < 10 for meters)
+            if (Array.isArray(cam_T_converted)) {
+              if (Array.isArray(cam_T_converted[0])) {
+                // Per-frame: [[x,y,z], [x,y,z], ...]
+                const first = cam_T_converted[0];
+                cam_T_magnitude = Math.sqrt(first[0]*first[0] + first[1]*first[1] + first[2]*first[2]);
+              } else {
+                // Single frame: [x, y, z]
+                cam_T_magnitude = Math.sqrt(cam_T_converted[0]*cam_T_converted[0] + 
+                                           cam_T_converted[1]*cam_T_converted[1] + 
+                                           cam_T_converted[2]*cam_T_converted[2]);
+              }
+            }
+            
+            // If magnitude suggests millimeters (> 50), convert to meters
+            if (cam_T_magnitude > 50) {
+              unit_conversion_applied = true;
+              if (Array.isArray(cam_T_converted[0])) {
+                // Per-frame
+                cam_T_converted = cam_T_converted.map(frame => 
+                  frame.map(val => val / 1000)
+                );
+              } else {
+                // Single frame
+                cam_T_converted = cam_T_converted.map(val => val / 1000);
+              }
+            }
+          }
+          
+          this.cameraExtrinsicsMap['standalone_intrinsics'] = {
+            cam_R: this.toPlainNumeric(data.cam_R),
+            cam_T: cam_T_converted
+          };
+          this.videoPlaneWidthLockedByUser = false;
+          this.videoPlaneBaseWidth = null;
+          this.videoPlaneDistanceLockedByUser = false;
+          this.videoPlaneFrameCache = null;
+          console.log('Stored camera parameters from intrinsics file:', file.name, {
+            cam_T_magnitude_original: cam_T_magnitude.toFixed(2),
+            unit_conversion_applied
+          });
+          this.$toasted.success(`Camera parameters loaded from ${file.name}${unit_conversion_applied ? ' (converted from mm to m)' : ''}`);
+          
+          // Update video plane if it's visible and video is loaded
           if (this.videoPlaneSettings.visible && this.videoFile) {
-            this.$nextTick(() => this.updateVideoPlaneTransform());
+            this.$nextTick(() => {
+              this.updateVideoPlaneGeometry();
+              this.updateVideoPlaneTransform();
+            });
           }
         }
       } catch (error) {
@@ -10054,28 +10119,84 @@
       if (sequenceData.cam_R && sequenceData.cam_T) {
         // Store intrinsics if available
         if (sequenceData.intrinsicMat) {
-          this.cameraIntrinsics = sequenceData.intrinsicMat;
-          this.cameraDistortion = sequenceData.distortion || null;
-          if (sequenceData.imageSize) {
-            this.cameraImageSize = Array.isArray(sequenceData.imageSize) 
-              ? sequenceData.imageSize.map(v => Number(v))
-              : null;
+          const intrinsics = this.normalizeMatrix3x3(sequenceData.intrinsicMat);
+          if (intrinsics) {
+            this.cameraIntrinsics = intrinsics;
+          }
+          const distortion = this.flattenNumericArray(sequenceData.distortion);
+          if (distortion) {
+            this.cameraDistortion = distortion;
+          } else if (sequenceData.distortion === null) {
+            this.cameraDistortion = null;
+          }
+          const imageSize = this.normalizeImageSize(sequenceData.imageSize);
+          if (imageSize) {
+            this.cameraImageSize = imageSize;
           }
         }
         // Store camera extrinsics for video plane positioning
         if (!this.cameraExtrinsicsMap) {
           this.cameraExtrinsicsMap = {};
         }
+        // Convert cam_T: check if it needs unit conversion from mm to meters
+        let cam_T_converted = this.toPlainNumeric(sequenceData.cam_T);
+        let cam_T_magnitude = 0;
+        let unit_conversion_applied = false;
+        
+        if (cam_T_converted) {
+          // Calculate magnitude of cam_T to detect if it's in mm (typically > 100 for mm, < 10 for meters)
+          if (Array.isArray(cam_T_converted)) {
+            if (Array.isArray(cam_T_converted[0])) {
+              // Per-frame: [[x,y,z], [x,y,z], ...]
+              const first = cam_T_converted[0];
+              cam_T_magnitude = Math.sqrt(first[0]*first[0] + first[1]*first[1] + first[2]*first[2]);
+            } else {
+              // Single frame: [x, y, z]
+              cam_T_magnitude = Math.sqrt(cam_T_converted[0]*cam_T_converted[0] + 
+                                         cam_T_converted[1]*cam_T_converted[1] + 
+                                         cam_T_converted[2]*cam_T_converted[2]);
+            }
+          }
+          
+          // If magnitude suggests millimeters (> 50), convert to meters
+          if (cam_T_magnitude > 50) {
+            unit_conversion_applied = true;
+            if (Array.isArray(cam_T_converted[0])) {
+              // Per-frame
+              cam_T_converted = cam_T_converted.map(frame => 
+                frame.map(val => val / 1000)
+              );
+            } else {
+              // Single frame
+              cam_T_converted = cam_T_converted.map(val => val / 1000);
+            }
+          }
+        }
+        
         this.cameraExtrinsicsMap[sequenceId] = {
-          cam_R: sequenceData.cam_R,
-          cam_T: sequenceData.cam_T
+          cam_R: this.toPlainNumeric(sequenceData.cam_R),
+          cam_T: cam_T_converted
         };
+        this.videoPlaneWidthLockedByUser = false;
+        this.videoPlaneBaseWidth = null;
+        this.videoPlaneDistanceLockedByUser = false;
+        this.videoPlaneFrameCache = null;
         console.log('Stored camera extrinsics for sequence:', sequenceId, {
           hasCam_R: !!sequenceData.cam_R,
           hasCam_T: !!sequenceData.cam_T,
           cam_R_type: Array.isArray(sequenceData.cam_R) ? 'array' : typeof sequenceData.cam_R,
-          cam_T_type: Array.isArray(sequenceData.cam_T) ? 'array' : typeof sequenceData.cam_T
+          cam_T_type: Array.isArray(sequenceData.cam_T) ? 'array' : typeof sequenceData.cam_T,
+          cam_T_magnitude_original: cam_T_magnitude.toFixed(2),
+          unit_conversion_applied
         });
+        
+        // Update video plane if it's visible and video is loaded
+        if (this.videoPlaneSettings.visible && this.videoFile) {
+          this.$nextTick(() => {
+            this.updateVideoPlaneGeometry();
+            this.updateVideoPlaneTransform();
+          });
+        }
       } else {
         console.warn('Missing camera extrinsics in sequence data:', {
           hasCam_R: !!sequenceData.cam_R,
@@ -11144,6 +11265,16 @@
         }
         this.saveSettings(); // Explicitly save
     },
+
+    updateGroundPosition() {
+        if (this.groundMesh) {
+            this.groundMesh.position.y = this.groundPositionY;
+            if (this.renderer && this.scene && this.camera) {
+                this.renderer.render(this.scene, this.camera);
+            }
+        }
+        this.saveSettings();
+    },
     toggleGroundTexture() {
         this.useGroundTexture = !this.useGroundTexture;
   
@@ -12101,9 +12232,19 @@
       if (this.$refs.videoPreview) {
         this.videoDuration = this.$refs.videoPreview.duration;
         if (this.$refs.videoPreview.videoWidth && this.$refs.videoPreview.videoHeight) {
-          this.cameraImageSize = [this.$refs.videoPreview.videoWidth, this.$refs.videoPreview.videoHeight];
+          this.cameraImageSize = {
+            width: this.$refs.videoPreview.videoWidth,
+            height: this.$refs.videoPreview.videoHeight
+          };
         }
         console.log('Video duration:', this.videoDuration);
+        
+        // Trigger video plane creation/update now that video is ready
+        if (this.videoPlaneSettings.visible && this.cameraExtrinsicsMap && Object.keys(this.cameraExtrinsicsMap).length > 0) {
+          this.$nextTick(() => {
+            this.ensureVideoPlane();
+          });
+        }
   
       // Estimate video frame rate - most common values are 30 or 60 fps
       // If the animation fps is much different than video, it could cause sync issues
@@ -12195,6 +12336,539 @@
     }
   },
 
+  // ---------------------------------------------------------------------------
+  // Video plane helper utilities
+  // ---------------------------------------------------------------------------
+
+  toPlainNumeric(value) {
+    if (value === null || value === undefined) {
+      return null;
+    }
+    if (typeof value === 'number') {
+      return Number.isFinite(value) ? value : null;
+    }
+    if (typeof value === 'string' && value.trim() !== '') {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : null;
+    }
+    if (Array.isArray(value)) {
+      return value.map(item => this.toPlainNumeric(item));
+    }
+    if (ArrayBuffer.isView(value) && typeof value.length === 'number') {
+      return Array.from(value, item => this.toPlainNumeric(item));
+    }
+    return value;
+  },
+
+  flattenNumericArray(value) {
+    if (value === null || value === undefined) {
+      return null;
+    }
+    let elements;
+    if (Array.isArray(value)) {
+      elements = value.flat(Infinity);
+    } else if (ArrayBuffer.isView(value) && typeof value.length === 'number') {
+      elements = Array.from(value);
+    } else {
+      const parsed = Number(value);
+      if (Number.isFinite(parsed)) {
+        return [parsed];
+      }
+      return null;
+    }
+    const numeric = elements
+      .map(element => Number(element))
+      .filter(element => Number.isFinite(element));
+    return numeric.length ? numeric : null;
+  },
+
+  normalizeMatrix3x3(value) {
+    if (!value) {
+      return null;
+    }
+    const plain = this.toPlainNumeric(value);
+    const isMatrix = matrix =>
+      Array.isArray(matrix) &&
+      matrix.length === 3 &&
+      matrix.every(
+        row =>
+          Array.isArray(row) &&
+          row.length === 3 &&
+          row.every(cell => Number.isFinite(Number(cell)))
+      );
+    if (isMatrix(plain)) {
+      return plain.map(row => row.map(cell => Number(cell)));
+    }
+    if (Array.isArray(plain) && plain.length === 9) {
+      const numeric = plain.map(cell => Number(cell));
+      if (numeric.every(cell => Number.isFinite(cell))) {
+        return [
+          [numeric[0], numeric[1], numeric[2]],
+          [numeric[3], numeric[4], numeric[5]],
+          [numeric[6], numeric[7], numeric[8]]
+        ];
+      }
+    }
+    return null;
+  },
+
+  normalizeImageSize(value) {
+    if (!value) {
+      return null;
+    }
+    if (typeof value === 'object' && !Array.isArray(value) && value.width !== undefined && value.height !== undefined) {
+      const width = Number(value.width);
+      const height = Number(value.height);
+      return Number.isFinite(width) && Number.isFinite(height)
+        ? { width, height }
+        : null;
+    }
+    const flatten = Array.isArray(value)
+      ? value.flat(Infinity)
+      : (ArrayBuffer.isView(value) && typeof value.length === 'number'
+          ? Array.from(value)
+          : null);
+    if (flatten) {
+      const numbers = flatten
+        .map(entry => Number(entry))
+        .filter(entry => Number.isFinite(entry));
+      if (numbers.length >= 2) {
+        return { width: numbers[0], height: numbers[1] };
+      }
+    }
+    return null;
+  },
+
+  extractCameraRotationFrame(raw, frameIndex = 0) {
+    if (!raw) {
+      return null;
+    }
+    const clampIndex = (length) => Math.min(Math.max(frameIndex, 0), Math.max(0, length - 1));
+    const isMatrix = matrix =>
+      Array.isArray(matrix) &&
+      matrix.length === 3 &&
+      matrix.every(
+        row =>
+          Array.isArray(row) &&
+          row.length === 3 &&
+          row.every(cell => Number.isFinite(Number(cell)))
+      );
+    let value = this.toPlainNumeric(raw);
+    if (!value) {
+      return null;
+    }
+    while (Array.isArray(value) && value.length === 1 && !isMatrix(value[0])) {
+      value = value[0];
+    }
+    if (isMatrix(value)) {
+      return value.map(row => row.map(cell => Number(cell)));
+    }
+    if (Array.isArray(value)) {
+      const candidate = value[clampIndex(value.length)];
+      if (candidate !== undefined) {
+        let frameValue = candidate;
+        while (Array.isArray(frameValue) && frameValue.length === 1 && !isMatrix(frameValue[0])) {
+          frameValue = frameValue[0];
+        }
+        if (isMatrix(frameValue)) {
+          return frameValue.map(row => row.map(cell => Number(cell)));
+        }
+      }
+    }
+    if (Array.isArray(value) && value.length === 9) {
+      const numeric = value.map(cell => Number(cell));
+      if (numeric.every(cell => Number.isFinite(cell))) {
+        return [
+          [numeric[0], numeric[1], numeric[2]],
+          [numeric[3], numeric[4], numeric[5]],
+          [numeric[6], numeric[7], numeric[8]]
+        ];
+      }
+    }
+    return null;
+  },
+
+  extractCameraTranslationFrame(raw, frameIndex = 0) {
+    if (!raw) {
+      return null;
+    }
+    const clampIndex = (length) => Math.min(Math.max(frameIndex, 0), Math.max(0, length - 1));
+    const isVector = vec =>
+      Array.isArray(vec) &&
+      vec.length === 3 &&
+      vec.every(component => Number.isFinite(Number(component)));
+    let value = this.toPlainNumeric(raw);
+    if (!value) {
+      return null;
+    }
+    while (Array.isArray(value) && value.length === 1 && !isVector(value[0])) {
+      value = value[0];
+    }
+    if (isVector(value)) {
+      return value.map(component => Number(component));
+    }
+    if (Array.isArray(value)) {
+      const candidate = value[clampIndex(value.length)];
+      if (candidate !== undefined) {
+        let frameValue = candidate;
+        while (Array.isArray(frameValue) && frameValue.length === 1 && !isVector(frameValue[0])) {
+          frameValue = frameValue[0];
+        }
+        if (isVector(frameValue)) {
+          return frameValue.map(component => Number(component));
+        }
+      }
+    }
+    if (Array.isArray(value) && value.length === 3) {
+      const numeric = value.map(component => Number(component));
+      return numeric.every(component => Number.isFinite(component)) ? numeric : null;
+    }
+    return null;
+  },
+
+  resolveCameraExtrinsics() {
+    if (!this.cameraExtrinsicsMap) {
+      return null;
+    }
+    if (this.cameraExtrinsicsMap['standalone_intrinsics']) {
+      return {
+        key: 'standalone_intrinsics',
+        extrinsics: this.cameraExtrinsicsMap['standalone_intrinsics']
+      };
+    }
+    if (this.smplSequences && this.smplSequences.length > 0) {
+      for (const sequence of this.smplSequences) {
+        const entry = this.cameraExtrinsicsMap[sequence.id];
+        if (entry) {
+          return { key: sequence.id, extrinsics: entry };
+        }
+      }
+    }
+    return null;
+  },
+
+  getCameraPoseFromExtrinsics(extrinsics, frameIndex = 0) {
+    if (!extrinsics || (!extrinsics.cam_R && !extrinsics.cam_T)) {
+      return null;
+    }
+    const rotationArray = this.extractCameraRotationFrame(extrinsics.cam_R, frameIndex);
+    const translationArray = this.extractCameraTranslationFrame(extrinsics.cam_T, frameIndex);
+    if (!rotationArray || !translationArray) {
+      return null;
+    }
+
+    // Coordinate convention: cam_R is world→camera, cam_T is camera center in world
+    // X_w = R * X_c + t  (where t is camera center)
+    const R_cam = new THREE.Matrix3().set(
+      rotationArray[0][0], rotationArray[0][1], rotationArray[0][2],
+      rotationArray[1][0], rotationArray[1][1], rotationArray[1][2],
+      rotationArray[2][0], rotationArray[2][1], rotationArray[2][2]
+    );
+
+    // cam_T is already the camera center in world coordinates
+    const cameraPosition = new THREE.Vector3(
+      Number(translationArray[0]) || 0,
+      Number(translationArray[1]) || 0,
+      Number(translationArray[2]) || 0
+    );
+
+    // Camera axes in world coordinates: R @ [axis in camera coords]
+    const cameraForward = new THREE.Vector3(0, 0, 1).applyMatrix3(R_cam).normalize();
+    const cameraRight = new THREE.Vector3(1, 0, 0).applyMatrix3(R_cam).normalize();
+    const cameraUp = new THREE.Vector3(0, -1, 0).applyMatrix3(R_cam).normalize(); // Y-axis flipped (image Y down, world Y up)
+    const planeNormal = cameraForward.clone().negate();
+
+    // Debug logging for camera position
+    if (frameIndex === 0) {
+      console.log('[Camera Pose Debug]', {
+        cam_T: translationArray,
+        cameraPosition: cameraPosition.toArray(),
+        cameraPosition_magnitude: cameraPosition.length().toFixed(3),
+        cameraForward: cameraForward.toArray(),
+        cameraUp: cameraUp.toArray()
+      });
+    }
+
+    return {
+      R_cam,
+      cameraPosition,
+      cameraForward,
+      cameraRight,
+      cameraUp,
+      planeNormal
+    };
+  },
+
+  computeVideoPlaneFrame(distanceInput, frameIndex = 0) {
+    const extrResult = this.resolveCameraExtrinsics();
+    if (!extrResult) {
+      this.videoPlaneFrameCache = null;
+      return null;
+    }
+    const pose = this.getCameraPoseFromExtrinsics(extrResult.extrinsics, frameIndex);
+    if (!pose) {
+      this.videoPlaneFrameCache = null;
+      return null;
+    }
+
+    const intrinsics = Array.isArray(this.cameraIntrinsics)
+      ? this.cameraIntrinsics
+      : this.normalizeMatrix3x3(this.cameraIntrinsics);
+
+    const videoElement = this.$refs.videoPreview;
+    const fallbackWidth = videoElement?.videoWidth || 0;
+    const fallbackHeight = videoElement?.videoHeight || 0;
+    const normalizedSize = this.normalizeImageSize(this.cameraImageSize);
+    const sliderDistanceMin = 0.05;
+    const sliderDistanceMax = 50.0;
+    const sliderWidthMax = 100.0;
+
+    if (!intrinsics) {
+      this.videoPlaneFrameCache = null;
+      return null;
+    }
+
+    const fx = Number(intrinsics[0][0]) || 0;
+    const fy = Number(intrinsics[1][1]) || 0;
+    const cx = Number(intrinsics[0][2]) || 0;
+    const cy = Number(intrinsics[1][2]) || 0;
+    if (fx === 0 || fy === 0) {
+      this.videoPlaneFrameCache = null;
+      return null;
+    }
+
+    let widthPx = normalizedSize && Number.isFinite(Number(normalizedSize.width))
+      ? Number(normalizedSize.width)
+      : 0;
+    let heightPx = normalizedSize && Number.isFinite(Number(normalizedSize.height))
+      ? Number(normalizedSize.height)
+      : 0;
+
+    if (fallbackWidth && fallbackHeight) {
+      widthPx = fallbackWidth;
+      heightPx = fallbackHeight;
+    } else {
+      if (!widthPx && fallbackWidth) {
+        widthPx = fallbackWidth;
+      }
+      if (!heightPx && fallbackHeight) {
+        heightPx = fallbackHeight;
+      }
+    }
+
+    if (!widthPx || !heightPx) {
+      this.videoPlaneFrameCache = null;
+      return null;
+    }
+
+    const safeFrameIndex = Math.max(0, Math.floor(Number.isFinite(frameIndex) ? frameIndex : 0));
+    let subjectPoint = null;
+    if (Array.isArray(this.smplSequences) && this.smplSequences.length > 0) {
+      for (const seq of this.smplSequences) {
+        if (!seq || !seq.joints || !seq.jointCount) {
+          continue;
+        }
+        const jointStride = seq.jointStride || (seq.jointCount * 3);
+        const totalFrames = jointStride > 0 ? Math.floor(seq.joints.length / jointStride) : 0;
+        if (totalFrames <= 0) {
+          continue;
+        }
+        const clampedFrame = Math.min(safeFrameIndex, totalFrames - 1);
+        const jointIndex = 0; // pelvis/root
+        const start = clampedFrame * jointStride + jointIndex * 3;
+        if (start + 2 < seq.joints.length) {
+          subjectPoint = new THREE.Vector3(
+            seq.joints[start],
+            seq.joints[start + 1],
+            seq.joints[start + 2]
+          );
+          break;
+        }
+      }
+    }
+    if (!subjectPoint) {
+      subjectPoint = pose.cameraPosition.clone().add(
+        pose.cameraForward.clone().multiplyScalar(Math.max(1, Number(distanceInput) || 1))
+      );
+    }
+
+    const cameraToSubject = subjectPoint.clone().sub(pose.cameraPosition);
+    const subjectDepth = cameraToSubject.dot(pose.cameraForward);
+
+    let effectiveDistance = Math.min(
+      sliderDistanceMax,
+      Math.max(sliderDistanceMin, Number(distanceInput) || 1)
+    );
+    if (Number.isFinite(subjectDepth) && subjectDepth > 0.05) {
+      if (!this.videoPlaneDistanceLockedByUser) {
+        // Place the plane at the actual subject depth for physical accuracy
+        // This represents the camera's view plane at the distance where the subject was captured
+        const autoDistance = Math.min(
+          sliderDistanceMax,
+          Math.max(sliderDistanceMin, subjectDepth)
+        );
+        effectiveDistance = autoDistance;
+        if (!Number.isFinite(this.videoPlaneSettings.distance) ||
+            Math.abs(this.videoPlaneSettings.distance - autoDistance) > 1e-3) {
+          this.suppressVideoPlaneDistanceWatcher = true;
+          this.videoPlaneSettings.distance = parseFloat(autoDistance.toFixed(3));
+          this.$nextTick(() => {
+            this.suppressVideoPlaneDistanceWatcher = false;
+          });
+        }
+      }
+    }
+
+    // Debug logging for depth calculation
+    if (safeFrameIndex === 0) {
+      console.log('[Video Plane Debug]', {
+        subjectPoint: subjectPoint.toArray(),
+        cameraPosition: pose.cameraPosition.toArray(),
+        cameraToSubject: cameraToSubject.toArray(),
+        cameraToSubject_magnitude: cameraToSubject.length().toFixed(3),
+        subjectDepth: subjectDepth.toFixed(3),
+        effectiveDistance: effectiveDistance.toFixed(3),
+        ratio: (effectiveDistance / subjectDepth).toFixed(3)
+      });
+    }
+
+    // Place the image plane very close to the camera (represents camera sensor/viewfinder)
+    // The SMPL will be at the full captured distance from this plane
+    // Use a very small distance to avoid z-fighting but keep plane essentially at camera
+    const imagePlaneDistance = 0.01; // meters from camera (essentially at camera position)
+    
+    // Calculate plane dimensions at this fixed distance
+    const xLeft = (-cx) * imagePlaneDistance / fx;
+    const xRight = (widthPx - cx) * imagePlaneDistance / fx;
+    const yTop = (-cy) * imagePlaneDistance / fy;
+    const yBottom = (heightPx - cy) * imagePlaneDistance / fy;
+
+    const cornersCam = [
+      new THREE.Vector3(xLeft, yTop, imagePlaneDistance),      // Top-left
+      new THREE.Vector3(xRight, yTop, imagePlaneDistance),     // Top-right
+      new THREE.Vector3(xLeft, yBottom, imagePlaneDistance),   // Bottom-left
+      new THREE.Vector3(xRight, yBottom, imagePlaneDistance)   // Bottom-right
+    ];
+
+    const centerCam = cornersCam[0].clone().add(cornersCam[3]).multiplyScalar(0.5);
+    const baseWidth = xRight - xLeft;
+    const baseHeight = yBottom - yTop;
+
+    // Calculate the "virtual" width at subject depth for proper scaling
+    const virtualWidthAtSubject = baseWidth * (effectiveDistance / imagePlaneDistance);
+    
+    if (Number.isFinite(virtualWidthAtSubject) && virtualWidthAtSubject > 0) {
+      this.videoPlaneBaseWidth = virtualWidthAtSubject;
+      if (!this.videoPlaneWidthLockedByUser) {
+        const currentWidth = Number(this.videoPlaneSettings.width);
+        const autoWidth = Math.min(sliderWidthMax, Math.max(0.1, virtualWidthAtSubject));
+        if (!Number.isFinite(currentWidth) || Math.abs(currentWidth - autoWidth) > 1e-3) {
+          this.suppressVideoPlaneWidthWatcher = true;
+          this.videoPlaneSettings.width = parseFloat(autoWidth.toFixed(3));
+          this.$nextTick(() => {
+            this.suppressVideoPlaneWidthWatcher = false;
+          });
+        }
+      }
+    }
+
+    const targetWidth = Math.min(
+      sliderWidthMax,
+      Math.max(0.05, Number(this.videoPlaneSettings.width) || 1)
+    );
+    // Scale from actual baseWidth to targetWidth (since plane is at different distance)
+    const scale = Number.isFinite(targetWidth) && baseWidth > 0
+      ? Math.max(0.05, targetWidth / baseWidth)
+      : 1;
+
+    const centerX = centerCam.x;
+    const centerY = centerCam.y;
+
+    const localCorners = cornersCam.map(corner => new THREE.Vector3(
+      (corner.x - centerX) * scale,
+      (centerY - corner.y) * scale,
+      0
+    ));
+
+    // Position the plane center in world space
+    // Formula: P_plane = t_f + R @ [cx, cy, d] where t_f is camera center
+    // Transform from camera space to world space: X_w = R * X_c + t
+    const planeCenterWorld = centerCam.clone()
+      .applyMatrix3(pose.R_cam)
+      .add(pose.cameraPosition);
+
+    // Debug: verify plane positioning and scaling
+    if (safeFrameIndex === 0) {
+      const cameraToPlaneVec = planeCenterWorld.clone().sub(pose.cameraPosition);
+      const planeDistanceFromCamera = cameraToPlaneVec.dot(pose.cameraForward);
+      const planeToSubjectVec = subjectPoint.clone().sub(planeCenterWorld);
+      const subjectDistanceFromPlane = planeToSubjectVec.length();
+      const subjectDepthFromPlane = planeToSubjectVec.dot(pose.cameraForward);
+      console.log('[Plane Position Debug]', {
+        imagePlaneDistance: imagePlaneDistance.toFixed(3),
+        planeDistanceFromCamera: planeDistanceFromCamera.toFixed(3),
+        subjectDepth: subjectDepth.toFixed(3),
+        subjectDistanceFromPlane: subjectDistanceFromPlane.toFixed(3),
+        subjectDepthFromPlane: subjectDepthFromPlane.toFixed(3),
+        expectedSubjectDepthFromPlane: (subjectDepth - imagePlaneDistance).toFixed(3),
+        baseWidth: baseWidth.toFixed(3),
+        virtualWidthAtSubject: virtualWidthAtSubject.toFixed(3),
+        scale: scale.toFixed(3),
+        planeCenterWorld: planeCenterWorld.toArray(),
+        subjectPoint: subjectPoint.toArray()
+      });
+    }
+
+    const frame = {
+      extrinsicsKey: extrResult.key,
+      pose,
+      effectiveDistance,
+      cornersCam,
+      localCorners,
+      planeCenterWorld,
+      cameraRight: pose.cameraRight.clone(),
+      cameraUp: pose.cameraUp.clone(),
+      planeNormal: pose.planeNormal.clone(),
+      baseWidth,
+      baseHeight,
+      pixelSize: { width: widthPx, height: heightPx },
+      intrinsics,
+      principalPoint: { cx, cy },
+      subjectDepth
+    };
+
+    this.videoPlaneFrameCache = frame;
+    return frame;
+  },
+
+  buildVideoPlaneGeometry(frame) {
+    if (!frame || !frame.localCorners || frame.localCorners.length !== 4) {
+      return null;
+    }
+    const [topLeft, topRight, bottomLeft, bottomRight] = frame.localCorners;
+    const positions = new Float32Array([
+      topLeft.x, topLeft.y, 0,
+      bottomLeft.x, bottomLeft.y, 0,
+      topRight.x, topRight.y, 0,
+      bottomLeft.x, bottomLeft.y, 0,
+      bottomRight.x, bottomRight.y, 0,
+      topRight.x, topRight.y, 0
+    ]);
+    const uvs = new Float32Array([
+      0, 1,
+      0, 0,
+      1, 1,
+      0, 0,
+      1, 0,
+      1, 1
+    ]);
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+    geometry.computeVertexNormals();
+    return geometry;
+  },
+
   ensureVideoPlane() {
     if (!this.videoPlaneSettings.visible || !this.scene || !this.camera || !this.videoFile) {
       console.log('Video plane not ready:', {
@@ -12250,12 +12924,30 @@
     if (!this.videoPlane) {
       return;
     }
+    const distance = Math.max(0.05, Number(this.videoPlaneSettings.distance) || 1);
+    const frameIndex = Math.max(0, Math.floor(Number.isFinite(this.frame) ? this.frame : 0));
+    const frame = this.computeVideoPlaneFrame(distance, frameIndex);
+    if (frame) {
+      const geometry = this.buildVideoPlaneGeometry(frame);
+      if (geometry) {
+        if (this.videoPlane.geometry) {
+          this.videoPlane.geometry.dispose();
+        }
+        this.videoPlane.geometry = geometry;
+        return;
+      }
+    }
+
+    // Fallback geometry when camera information is unavailable
     const aspect = this.getVideoAspect();
     const width = Math.max(0.1, Number(this.videoPlaneSettings.width) || 3);
     const height = width / aspect;
     const geometry = new THREE.PlaneGeometry(width, height);
-    this.videoPlane.geometry.dispose();
+    if (this.videoPlane.geometry) {
+      this.videoPlane.geometry.dispose();
+    }
     this.videoPlane.geometry = geometry;
+    this.videoPlaneFrameCache = null;
   },
 
   updateVideoPlaneMaterial() {
@@ -12281,336 +12973,40 @@
       return;
     }
 
+    let distanceSetting = Math.max(0.05, Number(this.videoPlaneSettings.distance) || 1);
+    const frameIndex = Math.max(0, Math.floor(Number.isFinite(this.frame) ? this.frame : 0));
+    let frame = this.videoPlaneFrameCache;
+    if (!frame || Math.abs(frame.distance - distanceSetting) > 1e-3) {
+      frame = this.computeVideoPlaneFrame(distanceSetting, frameIndex);
+      if (frame) {
+        distanceSetting = frame.distance;
+      }
+    }
+
+    if (frame) {
+      this.videoPlane.position.copy(frame.planeCenterWorld);
+      const planeMatrix = new THREE.Matrix4().makeBasis(
+        frame.cameraRight.clone().normalize(),
+        frame.cameraUp.clone().normalize(),
+        frame.planeNormal.clone().normalize()
+      );
+      this.videoPlane.quaternion.setFromRotationMatrix(planeMatrix);
+      this.videoPlane.updateMatrixWorld(true);
+      this.videoPlaneExtrinsicsKey = `${frame.extrinsicsKey || 'camera'}_frame0`;
+      this._lastAppliedPlaneDistance = distanceSetting;
+      this.videoPlaneSettings.followCamera = false;
+      return;
+    }
+
+    // Fallback: follow viewer camera if extrinsics are unavailable
+    this.videoPlaneFrameCache = null;
+    this.videoPlaneExtrinsicsKey = null;
+    this._lastAppliedPlaneDistance = undefined;
     if (!this._videoPlaneCameraPosition) {
       this._videoPlaneCameraPosition = new THREE.Vector3();
       this._videoPlaneCameraDirection = new THREE.Vector3();
       this._videoPlaneTempVec = new THREE.Vector3();
-      this._videoPlaneRotationMatrix = new THREE.Matrix4();
     }
-
-    // Use camera extrinsics if available from SMPL sequence or standalone intrinsics file
-    let useExtrinsics = false;
-    let extrinsics = null;
-    let extrinsicsKey = null;
-    
-    // First check for standalone intrinsics (from dropped intrinsics files)
-    if (this.cameraExtrinsicsMap && this.cameraExtrinsicsMap['standalone_intrinsics']) {
-      const standaloneExtrinsics = this.cameraExtrinsicsMap['standalone_intrinsics'];
-      if (standaloneExtrinsics && standaloneExtrinsics !== null) {
-        extrinsics = standaloneExtrinsics;
-        extrinsicsKey = 'standalone_intrinsics';
-        useExtrinsics = true;
-      }
-    }
-    // Otherwise check SMPL sequences for extrinsics
-    else if (this.cameraExtrinsicsMap && this.smplSequences.length > 0) {
-      // Use extrinsics from the first SMPL sequence that has them
-      for (const sequence of this.smplSequences) {
-        const seqExtrinsics = this.cameraExtrinsicsMap[sequence.id];
-        if (seqExtrinsics && seqExtrinsics !== null) {
-          extrinsics = seqExtrinsics;
-          extrinsicsKey = sequence.id;
-          useExtrinsics = true;
-          break;
-        }
-      }
-    }
-    
-    // Check if we've already applied extrinsics for this key and frame
-    // For per-frame camera poses, we need to update when frame changes
-    // We check if distance setting changed to allow updates when user adjusts it
-    const currentDistance = Number(this.videoPlaneSettings.distance) || 0;
-    const lastAppliedDistance = this._lastAppliedPlaneDistance;
-    const distanceChanged = lastAppliedDistance !== undefined && lastAppliedDistance !== currentDistance;
-    
-    // Check if we have per-frame camera poses (need to check frame index)
-    const currentFrame = this.frame;
-    const hasPerFramePoses = useExtrinsics && extrinsics && extrinsics !== null &&
-      ((extrinsics.cam_R && Array.isArray(extrinsics.cam_R) && 
-       (extrinsics.cam_R.length > 0 && Array.isArray(extrinsics.cam_R[0]))) ||
-      (extrinsics.cam_T && Array.isArray(extrinsics.cam_T) && 
-       (extrinsics.cam_T.length > 0 && Array.isArray(extrinsics.cam_T[0]))));
-    
-    // Build expected key including frame index if per-frame
-    const expectedKey = hasPerFramePoses 
-      ? `${extrinsicsKey}_frame_${currentFrame}` 
-      : extrinsicsKey;
-    
-    if (useExtrinsics && extrinsics && extrinsics !== null && this.videoPlaneExtrinsicsKey === expectedKey && !distanceChanged) {
-      // Extrinsics already applied for this frame and distance hasn't changed, don't recalculate
-      // But still ensure visibility is set and plane exists
-      if (this.videoPlane) {
-        this.videoPlane.visible = shouldBeVisible;
-      }
-      return;
-    }
-    
-    // If we get here, we need to apply or update extrinsics
-    // Make sure the plane exists first
-    if (!this.videoPlane) {
-      console.warn('Video plane does not exist, cannot apply extrinsics');
-      return;
-    }
-    
-      if (useExtrinsics && extrinsics && extrinsics !== null) {
-      console.log('Positioning video plane with extrinsics:', {
-        cam_R: extrinsics && extrinsics.cam_R ? 'present' : 'missing',
-        cam_T: extrinsics && extrinsics.cam_T ? 'present' : 'missing',
-        key: extrinsicsKey
-      });
-      
-      // Get per-frame camera pose if available, otherwise use single pose
-      // cam_R is camera→world rotation (not world→camera)
-      // cam_T/trans is camera center in world coordinates
-      let cam_R = extrinsics && extrinsics.cam_R ? extrinsics.cam_R : null;
-      let cam_T = extrinsics && extrinsics.cam_T ? extrinsics.cam_T : null;
-      
-      if (!cam_R || !cam_T) {
-        console.warn('Missing camera extrinsics:', { cam_R: !!cam_R, cam_T: !!cam_T });
-        return;
-      }
-      
-      // Check if we have per-frame camera poses (e.g., shape (1, 604, 3, 3) for cam_R)
-      const currentFrame = this.frame;
-      let frameIndex = currentFrame;
-      
-      // Handle per-frame camera poses
-      if (cam_R && Array.isArray(cam_R)) {
-        // Check if cam_R is per-frame: shape like (1, N, 3, 3) or (N, 3, 3)
-        if (cam_R.length > 0 && Array.isArray(cam_R[0]) && Array.isArray(cam_R[0][0])) {
-          // Nested array structure - could be per-frame
-          if (cam_R.length === 1 && cam_R[0].length > 1) {
-            // Shape (1, N, 3, 3) - extract frame N
-            const numFrames = cam_R[0].length;
-            frameIndex = Math.min(Math.max(0, currentFrame), numFrames - 1);
-            cam_R = cam_R[0][frameIndex];
-            console.log(`Using per-frame cam_R for frame ${frameIndex} of ${numFrames}`);
-          } else if (cam_R.length > 1 && cam_R[0].length === 3) {
-            // Shape (N, 3, 3) - extract frame N
-            const numFrames = cam_R.length;
-            frameIndex = Math.min(Math.max(0, currentFrame), numFrames - 1);
-            cam_R = cam_R[frameIndex];
-            console.log(`Using per-frame cam_R for frame ${frameIndex} of ${numFrames}`);
-          }
-        }
-      }
-      
-      if (cam_T && Array.isArray(cam_T)) {
-        // Check if cam_T is per-frame: shape like (N, 3)
-        if (cam_T.length > 0 && Array.isArray(cam_T[0]) && cam_T[0].length === 3) {
-          // Per-frame translation: shape (N, 3)
-          const numFrames = cam_T.length;
-          frameIndex = Math.min(Math.max(0, currentFrame), numFrames - 1);
-          cam_T = cam_T[frameIndex];
-          console.log(`Using per-frame cam_T for frame ${frameIndex} of ${numFrames}`);
-        } else if (cam_T.length === 3 && typeof cam_T[0] === 'number') {
-          // Single frame: shape (3,)
-          // Use as-is
-        }
-      }
-      
-      if (cam_R && cam_T) {
-        // Convert rotation matrix (3x3) to Three.js matrix
-        // cam_R is camera→world rotation (NOT world→camera)
-        const R = new THREE.Matrix3();
-        if (cam_R.length === 9) {
-          // Flat array [r00, r01, r02, r10, r11, r12, r20, r21, r22]
-          R.set(
-            cam_R[0], cam_R[1], cam_R[2],
-            cam_R[3], cam_R[4], cam_R[5],
-            cam_R[6], cam_R[7], cam_R[8]
-          );
-        } else if (Array.isArray(cam_R[0])) {
-          // Nested array [[r00, r01, r02], [r10, r11, r12], [r20, r21, r22]]
-          R.set(
-            cam_R[0][0], cam_R[0][1], cam_R[0][2],
-            cam_R[1][0], cam_R[1][1], cam_R[1][2],
-            cam_R[2][0], cam_R[2][1], cam_R[2][2]
-          );
-        }
-        
-        // cam_T is the camera center in world coordinates (already in world space)
-        // Validate cam_T is an array with at least 3 elements
-        if (!Array.isArray(cam_T) || cam_T.length < 3) {
-          console.error('Invalid cam_T:', cam_T);
-          return;
-        }
-        
-        const T = new THREE.Vector3(
-          Number(cam_T[0]) || 0,
-          Number(cam_T[1]) || 0,
-          Number(cam_T[2]) || 0
-        );
-        
-        // Validate T is a proper Vector3
-        if (!(T instanceof THREE.Vector3) || isNaN(T.x) || isNaN(T.y) || isNaN(T.z)) {
-          console.error('Failed to create valid camera position Vector3:', { cam_T, T });
-          return;
-        }
-        
-        // Calculate camera's forward direction in world space
-        // cam_R is camera→world, so camera's +Z axis in world = R * [0, 0, 1]
-        // Camera forward is +Z in camera space (not -Z)
-        const cameraForward = new THREE.Vector3(0, 0, 1);
-        cameraForward.applyMatrix3(R);
-        cameraForward.normalize();
-        
-        // Find a reference point on the skeleton (e.g., joint 0 - pelvis)
-        // Use the current frame's skeleton position if available
-        let subjectPoint = new THREE.Vector3(0, 0, 0);
-        let foundSubject = false;
-        
-        // Try to get subject point from current frame's skeleton
-        if (this.smplSequences.length > 0 && frameIndex >= 0) {
-          for (const seq of this.smplSequences) {
-            if (seq.joints && seq.jointCount > 0 && frameIndex < seq.frameCount) {
-              const jointIndex = 0; // Use joint 0 (pelvis) as reference
-              const jointStride = seq.jointStride || (seq.jointCount * 3);
-              const start = frameIndex * jointStride + jointIndex * 3;
-              if (start + 2 < seq.joints.length) {
-                subjectPoint.set(
-                  seq.joints[start],
-                  seq.joints[start + 1],
-                  seq.joints[start + 2]
-                );
-                foundSubject = true;
-                console.log(`Using joint ${jointIndex} from sequence ${seq.id} at frame ${frameIndex}`);
-                break;
-              }
-            }
-          }
-        }
-        
-        // Fallback: use scene center if no skeleton point found
-        if (!foundSubject) {
-          let sceneCenter = new THREE.Vector3(0, 1, 0);
-          if (this.animations.length > 0 || this.smplSequences.length > 0) {
-            const box = new THREE.Box3();
-            this.smplSequences.forEach(seq => {
-              if (seq.mesh && seq.mesh.visible) {
-                seq.mesh.updateMatrixWorld(true);
-                box.expandByObject(seq.mesh);
-              }
-              if (seq.skeleton && seq.skeleton.visible) {
-                seq.skeleton.updateMatrixWorld(true);
-                box.expandByObject(seq.skeleton);
-              }
-            });
-            Object.keys(this.meshes).forEach(key => {
-              const mesh = this.meshes[key];
-              if (mesh && mesh.visible) {
-                mesh.updateMatrixWorld(true);
-                box.expandByObject(mesh);
-              }
-            });
-            if (!box.isEmpty()) {
-              box.getCenter(sceneCenter);
-            }
-          }
-          subjectPoint.copy(sceneCenter);
-        }
-        
-        // Calculate camera-to-subject vector and depth
-        const cameraToSubject = subjectPoint.clone().sub(T);
-        const euclideanDistance = cameraToSubject.length();
-        const depth = cameraToSubject.dot(cameraForward); // Depth along optical axis
-        
-        // Position the plane at the camera position, offset by the depth setting
-        // The plane should be perpendicular to the optical axis (cameraForward)
-        const planeDistanceSetting = Number(this.videoPlaneSettings.distance) || Math.abs(depth) || 1.0;
-        
-        // Position plane: camera position + forward * distance
-        // This places the plane along the optical axis at the specified distance
-        const planePosition = T.clone().add(cameraForward.clone().multiplyScalar(planeDistanceSetting));
-        
-        this.videoPlane.position.copy(planePosition);
-        
-        // Store the distance we used so we can detect changes
-        this._lastAppliedPlaneDistance = planeDistanceSetting;
-        
-        console.log('Plane positioning details:', {
-          frameIndex: frameIndex,
-          cameraPos: T && T instanceof THREE.Vector3 ? { x: T.x.toFixed(4), y: T.y.toFixed(4), z: T.z.toFixed(4) } : 'invalid',
-          subjectPoint: { x: subjectPoint.x.toFixed(4), y: subjectPoint.y.toFixed(4), z: subjectPoint.z.toFixed(4) },
-          cameraForward: { x: cameraForward.x.toFixed(4), y: cameraForward.y.toFixed(4), z: cameraForward.z.toFixed(4) },
-          euclideanDistance: euclideanDistance.toFixed(4),
-          depth: depth.toFixed(4),
-          planeDistanceSetting: planeDistanceSetting.toFixed(4),
-          planePos: { x: planePosition.x.toFixed(4), y: planePosition.y.toFixed(4), z: planePosition.z.toFixed(4) },
-          planeInScene: this.videoPlane.parent === this.scene
-        });
-        
-        // Orient the plane using the camera's rotation matrix
-        // cam_R is camera→world, so we can directly use it to get camera axes in world space
-        // The plane should be perpendicular to the optical axis (cameraForward)
-        
-        // Get camera's coordinate axes in world space (R already transforms camera→world)
-        const cameraRight = new THREE.Vector3(1, 0, 0); // X is right in camera space
-        cameraRight.applyMatrix3(R);
-        cameraRight.normalize();
-        
-        const cameraUp = new THREE.Vector3(0, 1, 0); // Y is up in camera space
-        cameraUp.applyMatrix3(R);
-        cameraUp.normalize();
-        
-        // Plane normal should point opposite to camera forward (toward viewer)
-        // makeBasis(X, Y, Z) sets basis vectors where Z is the normal
-        const planeNormal = cameraForward.clone().negate(); // Normal points toward viewer
-        const planeRotationMatrix = new THREE.Matrix4();
-        planeRotationMatrix.makeBasis(
-          cameraRight,    // X axis (right)
-          cameraUp,       // Y axis (up)  
-          planeNormal     // Z axis (normal points toward viewer)
-        );
-        
-        // Extract Euler angles from the rotation matrix
-        const euler = new THREE.Euler();
-        euler.setFromRotationMatrix(planeRotationMatrix);
-        this.videoPlane.rotation.copy(euler);
-        
-        // Ensure the plane is visible and in scene
-        this.videoPlane.visible = true;
-        if (this.videoPlane.parent !== this.scene) {
-          console.warn('Plane not in scene, adding it');
-          this.scene.add(this.videoPlane);
-        }
-        
-        // Force update matrix to ensure position/rotation are applied
-        this.videoPlane.updateMatrixWorld(true);
-        
-        // Mark that we've applied extrinsics for this key and frame
-        this.videoPlaneExtrinsicsKey = `${extrinsicsKey}_frame_${frameIndex}`;
-        
-        // Get current viewer camera position for debugging
-        const currentCameraPos = new THREE.Vector3();
-        this.camera.getWorldPosition(currentCameraPos);
-        const distanceFromCamera = planePosition.distanceTo(currentCameraPos);
-        
-        console.log('Video plane positioned with extrinsics:', {
-          cameraPosition: T && T instanceof THREE.Vector3 ? { x: T.x.toFixed(2), y: T.y.toFixed(2), z: T.z.toFixed(2) } : 'invalid',
-          planePosition: { x: planePosition.x.toFixed(2), y: planePosition.y.toFixed(2), z: planePosition.z.toFixed(2) },
-          currentViewerCameraPos: { x: currentCameraPos.x.toFixed(2), y: currentCameraPos.y.toFixed(2), z: currentCameraPos.z.toFixed(2) },
-          distanceFromViewerCamera: distanceFromCamera.toFixed(2),
-          planeDistanceOffset: planeDistanceSetting.toFixed(2),
-          rotation: { x: this.videoPlane.rotation.x.toFixed(3), y: this.videoPlane.rotation.y.toFixed(3), z: this.videoPlane.rotation.z.toFixed(3) },
-          visible: this.videoPlane.visible,
-          inScene: this.videoPlane.parent === this.scene,
-          planeWidth: this.videoPlane.geometry ? this.videoPlane.geometry.parameters.width.toFixed(2) : 'N/A',
-          planeHeight: this.videoPlane.geometry ? this.videoPlane.geometry.parameters.height.toFixed(2) : 'N/A'
-        });
-        
-        // Don't use followCamera when extrinsics are set
-        this.videoPlaneSettings.followCamera = false;
-      }
-    } else {
-      // Clear extrinsics key when no extrinsics available
-      this.videoPlaneExtrinsicsKey = null;
-      this._lastAppliedPlaneDistance = undefined;
-      console.log('No extrinsics available, using fallback camera positioning');
-    }
-
-    // Fallback to follow camera mode if no extrinsics available
-    if (!useExtrinsics) {
     const cameraPosition = this._videoPlaneCameraPosition;
     const cameraDirection = this._videoPlaneCameraDirection;
     this.camera.getWorldPosition(cameraPosition);
@@ -12618,14 +13014,13 @@
 
     if (this.videoPlaneSettings.followCamera) {
       const planePosition = this._videoPlaneTempVec;
-      const distance = Number(this.videoPlaneSettings.distance) || 0;
-      planePosition.copy(cameraDirection).multiplyScalar(distance);
+      const fallbackDistance = Number(this.videoPlaneSettings.distance) || 0;
+      planePosition.copy(cameraDirection).multiplyScalar(fallbackDistance);
       planePosition.add(cameraPosition);
       this.videoPlane.position.copy(planePosition);
     }
 
     this.videoPlane.lookAt(cameraPosition);
-    }
   },
 
   disposeVideoPlane() {
@@ -12650,6 +13045,14 @@
       this.videoTexture.dispose();
       this.videoTexture = null;
     }
+    this.videoPlaneFrameCache = null;
+    this.videoPlaneBaseWidth = null;
+    this.videoPlaneWidthLockedByUser = false;
+    this.videoPlaneDistanceLockedByUser = false;
+    this.suppressVideoPlaneWidthWatcher = false;
+    this.suppressVideoPlaneDistanceWatcher = false;
+    this._lastAppliedPlaneDistance = undefined;
+    this.videoPlaneExtrinsicsKey = null;
   },
 
   getVideoAspect() {
@@ -13016,6 +13419,7 @@
           if (settings.backgroundColor) this.backgroundColor = settings.backgroundColor;
           if (settings.groundColor) this.groundColor = settings.groundColor;
           if (settings.groundOpacity !== undefined) this.groundOpacity = settings.groundOpacity;
+          if (settings.groundPositionY !== undefined) this.groundPositionY = settings.groundPositionY;
           if (settings.showGround !== undefined) this.showGround = settings.showGround;
           if (settings.useGroundTexture !== undefined) this.useGroundTexture = settings.useGroundTexture;
           if (settings.useCheckerboard !== undefined) this.useCheckerboard = settings.useCheckerboard;
@@ -13067,6 +13471,7 @@
         backgroundColor: this.backgroundColor,
         groundColor: this.groundColor,
         groundOpacity: this.groundOpacity,
+        groundPositionY: this.groundPositionY,
         showGround: this.showGround,
         useGroundTexture: this.useGroundTexture,
         useCheckerboard: this.useCheckerboard,
@@ -13114,6 +13519,7 @@
       // Ground settings
       if (this.groundMesh) {
           this.groundMesh.visible = this.showGround;
+          this.groundMesh.position.y = this.groundPositionY;
           this.updateGroundColor(this.groundColor); // Update color first
   
           // Apply texture settings
@@ -14067,23 +14473,155 @@
   
     resetCameraView() {
       if (!this.camera || !this.controls) return;
-  
+
       const initialPosition = new THREE.Vector3(3.33, 3.5, -2.30);
       const initialTarget = new THREE.Vector3(0, 1, 0);
-  
+
       // *** Update controls target FIRST ***
       this.controls.target.copy(initialTarget);
-  
+
       // Apply new position
       this.camera.position.copy(initialPosition);
-  
+
       // *** Update controls state AFTER position and target are set ***
       this.controls.update();
-  
+
       // Re-render the scene
       if (this.renderer) {
         this.renderer.render(this.scene, this.camera);
       }
+    },
+
+    alignCameraWithCapture(behindPlane = true, distanceBehind = null) {
+      if (!this.camera || !this.controls) {
+        console.warn('Camera or controls not initialized');
+        return;
+      }
+
+      const extrResult = this.resolveCameraExtrinsics();
+      if (!extrResult) {
+        console.warn('No camera extrinsics available');
+        return;
+      }
+
+      const pose = this.getCameraPoseFromExtrinsics(extrResult.extrinsics, 0);
+      if (!pose) {
+        console.warn('Failed to compute camera pose');
+        return;
+      }
+
+      // Get intrinsics to calculate proper viewing distance
+      const intrinsics = Array.isArray(this.cameraIntrinsics)
+        ? this.cameraIntrinsics
+        : this.normalizeMatrix3x3(this.cameraIntrinsics);
+      
+      // Calculate viewing distance from intrinsics if not provided
+      let computedDistance = distanceBehind;
+      if (behindPlane && computedDistance === null && intrinsics) {
+        // Get image dimensions
+        const videoElement = this.$refs.videoPreview;
+        const normalizedSize = this.normalizeImageSize(this.cameraImageSize);
+        const widthPx = normalizedSize?.width || videoElement?.videoWidth || 1920;
+        const heightPx = normalizedSize?.height || videoElement?.videoHeight || 1080;
+        
+        const fx = Number(intrinsics[0][0]) || 1000;
+        const fy = Number(intrinsics[1][1]) || 1000;
+        
+        // Image plane distance from capture camera (from computeVideoPlaneFrame)
+        const imagePlaneDistance = 0.01; // meters
+        
+        // Calculate physical dimensions of image plane at imagePlaneDistance
+        const planeWidth = (widthPx * imagePlaneDistance) / fx;
+        const planeHeight = (heightPx * imagePlaneDistance) / fy;
+        
+        // To see the full image plane with correct perspective, the viewer should be
+        // positioned at a distance where the plane subtends the same angle as the original FOV
+        // This distance equals the image plane distance (to maintain same perspective)
+        // But we add a small offset to be "behind" the plane for the window effect
+        computedDistance = imagePlaneDistance + 0.2; // 20cm behind image plane
+        
+        console.log('Computed viewing distance from intrinsics:', {
+          fx: fx.toFixed(2),
+          fy: fy.toFixed(2),
+          imageDimensions: [widthPx, heightPx],
+          planeWidth: planeWidth.toFixed(3),
+          planeHeight: planeHeight.toFixed(3),
+          imagePlaneDistance: imagePlaneDistance.toFixed(3),
+          viewerDistanceBehind: computedDistance.toFixed(3)
+        });
+      } else if (computedDistance === null) {
+        computedDistance = 0.5; // Default fallback
+      }
+
+      // Find SMPL subject position (same logic as in computeVideoPlaneFrame)
+      let subjectPoint = null;
+      if (Array.isArray(this.smplSequences) && this.smplSequences.length > 0) {
+        for (const seq of this.smplSequences) {
+          if (!seq || !seq.joints || !seq.jointCount) {
+            continue;
+          }
+          const jointStride = seq.jointStride || (seq.jointCount * 3);
+          const totalFrames = jointStride > 0 ? Math.floor(seq.joints.length / jointStride) : 0;
+          if (totalFrames <= 0) {
+            continue;
+          }
+          const jointIndex = 0; // pelvis/root
+          const start = jointIndex * 3;
+          if (start + 2 < seq.joints.length) {
+            subjectPoint = new THREE.Vector3(
+              seq.joints[start],
+              seq.joints[start + 1],
+              seq.joints[start + 2]
+            );
+            break;
+          }
+        }
+      }
+
+      if (!subjectPoint) {
+        subjectPoint = new THREE.Vector3(0, 0, 0);
+      }
+
+      let cameraPos;
+      if (behindPlane) {
+        // Position viewer camera BEHIND the image plane (away from SMPL)
+        // Distance computed from intrinsics to maintain correct perspective
+        const backwardDirection = pose.cameraForward.clone().negate();
+        cameraPos = pose.cameraPosition.clone().add(
+          backwardDirection.multiplyScalar(computedDistance)
+        );
+        console.log('Positioning camera behind image plane', {
+          captureCamera: pose.cameraPosition.toArray(),
+          viewerCamera: cameraPos.toArray(),
+          distanceBehind: computedDistance.toFixed(3),
+          computedFromIntrinsics: distanceBehind === null
+        });
+      } else {
+        // Position at capture camera location
+        cameraPos = pose.cameraPosition.clone();
+        console.log('Positioning camera at capture location', {
+          cameraPosition: cameraPos.toArray()
+        });
+      }
+
+      // Position camera
+      this.camera.position.copy(cameraPos);
+      
+      // Look at the subject (through the plane)
+      this.controls.target.copy(subjectPoint);
+      
+      // Update controls
+      this.controls.update();
+
+      // Re-render
+      if (this.renderer) {
+        this.renderer.render(this.scene, this.camera);
+      }
+
+      console.log('Camera aligned - looking at SMPL through image plane', {
+        cameraPosition: cameraPos.toArray(),
+        lookingAt: subjectPoint.toArray()
+      });
     },
   
   

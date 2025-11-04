@@ -31,8 +31,11 @@ module.exports = {
     disableHostCheck: true,
     proxy: {
       '/api/smpl': {
-        target: 'http://localhost:8001',
-        changeOrigin: true
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true,
+        secure: false,
+        ws: true,
+        logLevel: 'debug'
       }
     }
   },
