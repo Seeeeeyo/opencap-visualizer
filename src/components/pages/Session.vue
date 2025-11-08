@@ -3327,8 +3327,15 @@
   import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue';
   import { apiError } from '@/util/ErrorMessage.js';
   
-  // Create a new axios instance without a base URL
-  const axiosInstance = axios.create();
+  // Create a new axios instance for SMPL service
+  // In production, use the deployed service; in development, use the proxy
+  const smplServiceUrl = process.env.NODE_ENV === 'production' 
+    ? 'https://opencap-visualizer-smpl-service.onrender.com'
+    : ''; // Empty string uses the proxy in development (configured in vue.config.js)
+  
+  const axiosInstance = axios.create({
+    baseURL: smplServiceUrl
+  });
   
   // Initialize loaders
   const objLoader = new OBJLoader();
