@@ -6514,6 +6514,10 @@
   
     async storeShareData(shareId, data) {
       try {
+        if (!shareId || !data) {
+          throw new Error('shareId and data are required');
+        }
+
         // Try cloud storage first
         const response = await fetch('https://opencap-share-backend.onrender.com/api/share', {
           method: 'POST',
@@ -6524,15 +6528,31 @@
         });
   
         if (response.ok) {
-          console.log(`Stored share data in cloud with ID: ${shareId}`);
+          const result = await response.json();
+          if (result.success) {
+            console.log(`Stored share data in cloud with ID: ${shareId}`);
+            return;
+          } else {
+            throw new Error('Server returned unsuccessful response');
+          }
+        } else {
+          // Parse error response
+          let errorMessage = 'Failed to store share data';
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.error || errorData.details || errorMessage;
+            console.error('Server error:', errorData);
+          } catch (e) {
+            console.error('Failed to parse error response:', e);
+          }
+          
+          // Fallback to localStorage if cloud fails
+          console.warn('Cloud storage failed, falling back to localStorage:', errorMessage);
+          const shareKey = `opencap_share_${shareId}`;
+          localStorage.setItem(shareKey, JSON.stringify(data));
+          console.log(`Stored share data locally with ID: ${shareId}`);
           return;
         }
-  
-        // Fallback to localStorage if cloud fails
-        console.warn('Cloud storage failed, falling back to localStorage');
-        const shareKey = `opencap_share_${shareId}`;
-        localStorage.setItem(shareKey, JSON.stringify(data));
-        console.log(`Stored share data locally with ID: ${shareId}`);
   
       } catch (error) {
         console.error('Error storing share data:', error);
@@ -6542,34 +6562,60 @@
           localStorage.setItem(shareKey, JSON.stringify(data));
           console.log(`Fallback: Stored share data locally with ID: ${shareId}`);
         } catch (localError) {
-          throw new Error('Failed to store share data');
+          console.error('Failed to store in localStorage:', localError);
+          throw new Error('Failed to store share data in both cloud and local storage');
         }
       }
     },
   
     async loadShareData(shareId) {
       try {
+        if (!shareId) {
+          throw new Error('Share ID is required');
+        }
+
         // Try cloud storage first
         const response = await fetch(`https://opencap-share-backend.onrender.com/api/share/${shareId}`);
   
         if (response.ok) {
           const result = await response.json();
-          console.log(`Loaded share data from cloud with ID: ${shareId}`);
-          return result.data;
+          if (result.success && result.data) {
+            console.log(`Loaded share data from cloud with ID: ${shareId}`);
+            return result.data;
+          } else {
+            throw new Error('Invalid response format from server');
+          }
+        } else {
+          // Parse error response
+          let errorMessage = 'Share not found';
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.error || errorMessage;
+          } catch (e) {
+            // If response is not JSON, use status text
+            errorMessage = response.statusText || errorMessage;
+          }
+          
+          // Only fallback to localStorage if it's a 404 (not found)
+          if (response.status === 404) {
+            console.warn('Cloud data not found, trying localStorage');
+            const shareKey = `opencap_share_${shareId}`;
+            const storedData = localStorage.getItem(shareKey);
+            if (storedData) {
+              console.log(`Loaded share data from localStorage with ID: ${shareId}`);
+              return JSON.parse(storedData);
+            }
+          }
+          
+          throw new Error(errorMessage);
         }
-  
-        // Fallback to localStorage if cloud fails or data not found
-        console.warn('Cloud data not found, trying localStorage');
-        const shareKey = `opencap_share_${shareId}`;
-        const storedData = localStorage.getItem(shareKey);
-        if (!storedData) {
-          throw new Error('Share data not found');
-        }
-        console.log(`Loaded share data from localStorage with ID: ${shareId}`);
-        return JSON.parse(storedData);
   
       } catch (error) {
         console.error('Error loading share data:', error);
+        // Re-throw with more context
+        if (error.message) {
+          throw error;
+        }
         throw new Error('Invalid or expired share ID');
       }
     },
@@ -6587,6 +6633,35 @@
             y: THREE.Math.radToDeg(anim.rotation.y),
             z: THREE.Math.radToDeg(anim.rotation.z)
           } : { x: 0, y: 0, z: 0 }
+        })),
+        smplSequences: this.smplSequences.map(seq => ({
+          name: seq.name,
+          fileName: seq.fileName,
+          gender: seq.gender,
+          frame_count: seq.frameCount,
+          vertex_count: seq.vertexCount,
+          joint_count: seq.jointCount,
+          fps: seq.fps,
+          time: seq.time,
+          faces: seq.faces || [],
+          vertices: seq.vertices ? this.encodeFloat32ToBase64(seq.vertices) : '',
+          joints: seq.joints ? this.encodeFloat32ToBase64(seq.joints) : '',
+          skeleton_edges: seq.skeletonEdges || [],
+          offset: [seq.offset.x, seq.offset.y, seq.offset.z],
+          rotation: seq.rotation ? {
+            x: THREE.Math.radToDeg(seq.rotation.x),
+            y: THREE.Math.radToDeg(seq.rotation.y),
+            z: THREE.Math.radToDeg(seq.rotation.z)
+          } : { x: 0, y: 0, z: 0 },
+          color: seq.color ? seq.color.getHex() : null,
+          opacity: seq.opacity !== undefined ? seq.opacity : 1.0,
+          visible: seq.visible !== undefined ? seq.visible : true,
+          playable: seq.playable !== undefined ? seq.playable : true,
+          showSkeleton: seq.showSkeleton !== undefined ? seq.showSkeleton : false,
+          speedMultiplier: seq.speedMultiplier !== undefined ? seq.speedMultiplier : 1.0,
+          projected_joints: seq.projectedFramesBuffer ? this.encodeFloat32ToBase64(seq.projectedFramesBuffer) : null,
+          projected_shape: seq.projectedFramesShape || null,
+          projected_image_size: seq.projectedImageSize || null
         })),
         forces: this.forcesDatasets,
         markers: this.markersDatasets
@@ -6982,6 +7057,108 @@
           this.ensureColorArraysSync();
         }
   
+        // Load SMPL sequences from shared data
+        if (shareData.smplSequences && Array.isArray(shareData.smplSequences)) {
+          for (let i = 0; i < shareData.smplSequences.length; i++) {
+            const seqData = shareData.smplSequences[i];
+            
+            // Prepare sequence data in the format expected by addSmplSequence
+            const sequenceData = {
+              name: seqData.name,
+              frame_count: seqData.frame_count,
+              vertex_count: seqData.vertex_count,
+              joint_count: seqData.joint_count,
+              fps: seqData.fps,
+              time: seqData.time,
+              faces: seqData.faces || [],
+              vertices: seqData.vertices || '',
+              joints: seqData.joints || '',
+              skeleton_edges: seqData.skeleton_edges || [],
+              gender: seqData.gender || 'neutral',
+              projected_joints: seqData.projected_joints || null,
+              projected_shape: seqData.projected_shape || null,
+              projected_image_size: seqData.projected_image_size || seqData.projected_imageSize || null
+            };
+            
+            // Load the SMPL sequence
+            await this.addSmplSequence(sequenceData, seqData.fileName || seqData.name);
+            
+            // Apply offset, rotation, color, and other properties after loading
+            const loadedSequence = this.smplSequences[this.smplSequences.length - 1];
+            if (loadedSequence) {
+              // Apply offset
+              if (Array.isArray(seqData.offset)) {
+                loadedSequence.offset.set(seqData.offset[0] || 0, seqData.offset[1] || 0, seqData.offset[2] || 0);
+              } else if (seqData.offset) {
+                loadedSequence.offset.set(seqData.offset.x || 0, seqData.offset.y || 0, seqData.offset.z || 0);
+              }
+              
+              // Apply rotation
+              if (seqData.rotation) {
+                const rotX = seqData.rotation.x !== undefined ? THREE.Math.degToRad(seqData.rotation.x) : 0;
+                const rotY = seqData.rotation.y !== undefined ? THREE.Math.degToRad(seqData.rotation.y) : 0;
+                const rotZ = seqData.rotation.z !== undefined ? THREE.Math.degToRad(seqData.rotation.z) : 0;
+                loadedSequence.rotation.set(rotX, rotY, rotZ);
+              }
+              
+              // Apply color
+              if (seqData.color !== undefined && seqData.color !== null) {
+                loadedSequence.color.setHex(seqData.color);
+                loadedSequence.baseColor.setHex(seqData.color);
+                loadedSequence.displayColor = this.formatColor(loadedSequence.color);
+                if (loadedSequence.mesh && loadedSequence.mesh.material) {
+                  loadedSequence.mesh.material.color.setHex(seqData.color);
+                }
+              }
+              
+              // Apply opacity
+              if (seqData.opacity !== undefined) {
+                loadedSequence.opacity = seqData.opacity;
+                if (loadedSequence.mesh && loadedSequence.mesh.material) {
+                  loadedSequence.mesh.material.opacity = seqData.opacity;
+                  loadedSequence.mesh.material.transparent = seqData.opacity < 1.0;
+                }
+              }
+              
+              // Apply visibility and playability
+              if (seqData.visible !== undefined) {
+                loadedSequence.visible = seqData.visible;
+                if (loadedSequence.mesh) {
+                  loadedSequence.mesh.visible = seqData.visible;
+                }
+                if (loadedSequence.skeleton) {
+                  loadedSequence.skeleton.visible = seqData.visible && loadedSequence.showSkeleton;
+                }
+              }
+              
+              if (seqData.playable !== undefined) {
+                loadedSequence.playable = seqData.playable;
+              }
+              
+              if (seqData.showSkeleton !== undefined) {
+                loadedSequence.showSkeleton = seqData.showSkeleton;
+                if (loadedSequence.skeleton) {
+                  loadedSequence.skeleton.visible = loadedSequence.visible && seqData.showSkeleton;
+                }
+              }
+              
+              if (seqData.speedMultiplier !== undefined) {
+                loadedSequence.speedMultiplier = seqData.speedMultiplier;
+              }
+              
+              // Update mesh position and rotation
+              if (loadedSequence.mesh) {
+                loadedSequence.mesh.position.copy(loadedSequence.offset);
+                loadedSequence.mesh.rotation.copy(loadedSequence.rotation);
+              }
+              if (loadedSequence.skeleton) {
+                loadedSequence.skeleton.position.copy(loadedSequence.offset);
+                loadedSequence.skeleton.rotation.copy(loadedSequence.rotation);
+              }
+            }
+          }
+        }
+
         // Load forces and markers if they exist
         if (shareData.forces) {
           this.forcesDatasets = shareData.forces;
@@ -6989,14 +7166,19 @@
         if (shareData.markers) {
           this.markersDatasets = shareData.markers;
         }
-  
-        // Set frames from first animation
+
+        // Set frames from first animation or SMPL sequence
         if (this.animations.length > 0) {
           this.frames = this.animations[0].data.time;
           this.frameRate = this.animations[0].calculatedFps;
           console.log(`[loadSharedVisualization] Frames setup - Total frames: ${this.frames.length}, Frame rate: ${this.frameRate}, Current frame: ${this.frame}`);
           console.log(`[loadSharedVisualization] First few frames:`, this.frames.slice(0, 5));
           console.log(`[loadSharedVisualization] Last few frames:`, this.frames.slice(-5));
+        } else if (this.smplSequences.length > 0 && this.smplSequences[0].time) {
+          this.frames = [...this.smplSequences[0].time];
+          this.frameRate = this.smplSequences[0].fps || 60;
+          this.frame = 0;
+          console.log(`[loadSharedVisualization] Frames setup from SMPL - Total frames: ${this.frames.length}, Frame rate: ${this.frameRate}`);
         }
   
         // Apply shared settings
@@ -8282,7 +8464,8 @@
             }
   
             const shareFiles = successfulResults.filter(({ data }) =>
-                data && data.animations && Array.isArray(data.animations)
+                (data && data.animations && Array.isArray(data.animations)) ||
+                (data && data.smplSequences && Array.isArray(data.smplSequences))
             );
   
             if (shareFiles.length > 0) {
@@ -10266,6 +10449,16 @@
         this.$nextTick(() => this.applySyncMode());
       }
     },
+    encodeFloat32ToBase64(float32Array) {
+      if (!float32Array || float32Array.length === 0) return '';
+      const bytes = new Uint8Array(float32Array.buffer);
+      let binaryString = '';
+      for (let i = 0; i < bytes.length; i++) {
+        binaryString += String.fromCharCode(bytes[i]);
+      }
+      return btoa(binaryString);
+    },
+    
     decodeBase64ToFloat32(base64String) {
       if (!base64String) return null;
       const binaryString = atob(base64String);
