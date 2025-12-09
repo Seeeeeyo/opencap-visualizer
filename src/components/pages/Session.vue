@@ -1750,7 +1750,7 @@
               </div>
             </div>
           </div>
-          <div class="controls-container" style="display: flex; align-items: center; padding: 0 10px;">
+          <div class="controls-container" style="display: flex; align-items: center; padding: 0 10px;" v-if="$route.query.embed !== 'true'">
             <!-- Video controls on the left -->
             <VideoNavigation
               :playing="playing"
@@ -2979,10 +2979,18 @@
             </div>
   
             <!-- Camera setting -->
-            <div class="d-flex align-center">
+            <div class="d-flex align-center mb-3">
               <div class="mr-2 text-caption" style="width: 80px; flex-shrink: 0;">Camera:</div>
               <v-btn icon small @click="toggleCameraControls" title="Toggle Camera Controls Visibility">
                 <v-icon small :color="showCameraControls ? 'white' : 'grey'">{{ 'mdi-cube-scan' }}</v-icon>
+              </v-btn>
+            </div>
+
+            <!-- Lights setting -->
+            <div class="d-flex align-center">
+              <div class="mr-2 text-caption" style="width: 80px; flex-shrink: 0;">Lights:</div>
+              <v-btn icon small @click="toggleLights" title="Toggle Lighting (disable for uniform color)">
+                <v-icon small :color="enableLights ? 'white' : 'grey'">{{ enableLights ? 'mdi-lightbulb-on' : 'mdi-lightbulb-off' }}</v-icon>
               </v-btn>
             </div>
           </div>
@@ -3490,6 +3498,7 @@
               showGround: true,
               alphaValues: [], // Array to store alpha values for each animation
               lights: { hemisphere: null, directionals: [] }, // Store light references
+              enableLights: true, // Toggle for lighting (disabled = uniform color for screenshots)
               osimFile: null,
               motFile: null,
               converting: false,
@@ -8904,6 +8913,7 @@
   
         // Create a ground plane with fog for distance fading
         const planeGeo = new THREE.PlaneGeometry(planeSize, planeSize);
+        // Always use MeshPhongMaterial - lighting mode is controlled by light intensities
         const planeMat = new THREE.MeshPhongMaterial({
             map: this.useGroundTexture ? texture : null,
             side: THREE.DoubleSide,
@@ -8930,7 +8940,8 @@
         const hemisphereLight = new THREE.HemisphereLight(skyColor, groundColor, hemisphereIntensity);
         this.scene.add(hemisphereLight);
         this.lights.hemisphere = hemisphereLight;
-  
+        this.lights.hemisphereOriginalIntensity = hemisphereIntensity;
+
         // Main directional light with softer intensity
         const lightIntensity = 0.5;
         const lightColor = 0xFFFFFF;
@@ -8940,9 +8951,11 @@
         this.scene.add(directionalLight);
         this.scene.add(directionalLight.target);
         this.lights.directionals = [directionalLight];
-  
+        this.lights.directionalOriginalIntensity = lightIntensity;
+
         // Add spotlight to create the gradient lighting effect around subjects
-        const spotLight = new THREE.SpotLight(0xffffff, 1); // Increased intensity from 1 to 1.2
+        const spotLightIntensity = 1;
+        const spotLight = new THREE.SpotLight(0xffffff, spotLightIntensity);
         spotLight.position.set(0, 15, 0);
         spotLight.angle = Math.PI / 4;
         spotLight.penumbra = 0.9; // Increased from 0.8 to 0.9 for softer edge
@@ -8954,11 +8967,14 @@
         spotLight.shadow.bias = -0.0001;
         this.scene.add(spotLight);
         this.lights.spotlight = spotLight;
-  
+        this.lights.spotlightOriginalIntensity = spotLightIntensity;
+
         // Create an ambient light with higher intensity for better marker visibility
-        const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+        const ambientIntensity = 0.6;
+        const ambientLight = new THREE.AmbientLight(0x404040, ambientIntensity);
         this.scene.add(ambientLight);
         this.lights.ambient = ambientLight;
+        this.lights.ambientOriginalIntensity = ambientIntensity;
   
         // Initial render
         try {
@@ -10187,6 +10203,7 @@
   
       const colorIndex = this.smplSequences.length % this.colors.length;
       const baseColor = this.colors[colorIndex] ? this.colors[colorIndex].clone() : new THREE.Color(0xd3d3d3);
+      // Always use MeshPhongMaterial - lighting mode is controlled by light intensities
       const material = new THREE.MeshPhongMaterial({
         color: baseColor,
         transparent: false,
@@ -11573,6 +11590,44 @@
         }
         // Watcher should handle saving now that this.showGround is updated
         this.saveSettings(); // Let watcher handle this one as example
+    },
+    toggleLights() {
+        this.enableLights = !this.enableLights;
+        
+        // Update light intensities
+        // When disabled, turn off directional/hemisphere/spot lights but boost ambient for uniform lighting
+        if (this.lights.hemisphere) {
+            this.lights.hemisphere.intensity = this.enableLights 
+                ? (this.lights.hemisphereOriginalIntensity || 0.8) 
+                : 0;
+        }
+        if (this.lights.directionals && this.lights.directionals.length > 0) {
+            this.lights.directionals.forEach(light => {
+                light.intensity = this.enableLights 
+                    ? (this.lights.directionalOriginalIntensity || 0.5) 
+                    : 0;
+            });
+        }
+        if (this.lights.spotlight) {
+            this.lights.spotlight.intensity = this.enableLights 
+                ? (this.lights.spotlightOriginalIntensity || 1) 
+                : 0;
+        }
+        // Boost ambient light when directional lights are disabled for uniform illumination
+        if (this.lights.ambient) {
+            this.lights.ambient.intensity = this.enableLights 
+                ? (this.lights.ambientOriginalIntensity || 0.6) 
+                : 2.0; // High ambient light for uniform color when directional lights are off
+        }
+        
+        // No material conversion needed - keep using MeshPhongMaterial
+        // The uniform ambient lighting will provide even illumination without shading
+        
+        if (this.renderer && this.scene && this.camera) {
+            this.renderer.render(this.scene, this.camera);
+        }
+        
+        this.saveSettings();
     },
     captureScreenshot() {
         if (!this.renderer) return;
@@ -13641,6 +13696,7 @@
         if (settings.showTimelapseSettings !== undefined) this.showTimelapseSettings = settings.showTimelapseSettings;
           if (settings.recentSubjectColors) this.recentSubjectColors = settings.recentSubjectColors;
           if (settings.showCameraControls !== undefined) this.showCameraControls = settings.showCameraControls;
+          if (settings.enableLights !== undefined) this.enableLights = settings.enableLights;
           if (settings.syncMode) this.syncMode = settings.syncMode;
           if (typeof settings.syncReferenceFrame === 'number') this.syncReferenceFrame = settings.syncReferenceFrame;
 
@@ -13684,6 +13740,7 @@
       showTimelapseSettings: this.showTimelapseSettings,
         recentSubjectColors: this.recentSubjectColors, // Save recent colors
         showCameraControls: this.showCameraControls, // Save camera controls visibility
+        enableLights: this.enableLights, // Save lighting state
         syncMode: this.syncMode,
         syncReferenceFrame: this.syncReferenceFrame,
       };
@@ -13740,6 +13797,31 @@
                     } else {
           console.warn('[applyLoadedSceneSettings] Ground mesh not ready when applying settings.');
           console.warn('[applyLoadedSceneSettings] Ground mesh not ready.');
+      }
+      
+      // Apply lighting state
+      if (this.lights.hemisphere) {
+          this.lights.hemisphere.intensity = this.enableLights 
+              ? (this.lights.hemisphereOriginalIntensity || 0.8) 
+              : 0;
+      }
+      if (this.lights.directionals && this.lights.directionals.length > 0) {
+          this.lights.directionals.forEach(light => {
+              light.intensity = this.enableLights 
+                  ? (this.lights.directionalOriginalIntensity || 0.5) 
+                  : 0;
+          });
+      }
+      if (this.lights.spotlight) {
+          this.lights.spotlight.intensity = this.enableLights 
+              ? (this.lights.spotlightOriginalIntensity || 1) 
+              : 0;
+      }
+      // Boost ambient light when directional lights are disabled for uniform illumination
+      if (this.lights.ambient) {
+          this.lights.ambient.intensity = this.enableLights 
+              ? (this.lights.ambientOriginalIntensity || 0.6) 
+              : 2.0; // High ambient light for uniform color
       }
   
       // Marker settings that affect meshes
