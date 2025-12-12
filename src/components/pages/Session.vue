@@ -13975,11 +13975,11 @@
           this.liveStatus = 'error';
         };
 
-        socket.onmessage = (event) => {
+        socket.onmessage = async (event) => {
           try {
             const msg = JSON.parse(event.data);
             if (msg.type === 'init') {
-              this.handleLiveInit(msg);
+              await this.handleLiveInit(msg);
             } else if (msg.type === 'frame') {
               this.handleLiveFrame(msg);
             }
