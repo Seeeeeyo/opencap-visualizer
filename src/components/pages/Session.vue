@@ -1808,96 +1808,57 @@
   
           <div class="text-center drop-zone" :class="{ 'opacity-reduced': converting }" @click="openFileBrowser">
             <!-- Welcome Documentation Section -->
-            <div v-if="!converting && !conversionError" class="welcome-section pa-6 text-center" style="max-width: 800px;">
-              <div class="mb-6">
-                <v-icon size="48" color="primary" class="mb-3">mdi-human-handsup</v-icon>
-                <h1 class="text-h4 white--text mb-2">Welcome to OpenCap Visualizer</h1>
-                <p class="text-subtitle-1 grey--text">
+            <div v-if="!converting && !conversionError" class="welcome-section pa-4 text-center" style="width: 100%; max-width: 100%; box-sizing: border-box;">
+              <div class="mb-4">
+                <v-icon size="40" color="primary" class="mb-2">mdi-human-handsup</v-icon>
+                <h1 class="text-h5 white--text mb-1">Welcome to OpenCap Visualizer</h1>
+                <p class="text-body-2 grey--text">
                   Visualize and analyze human motion capture data in 3D
                 </p>
               </div>
   
-              <v-row class="mb-6">
-                <v-col cols="12" md="6">
-                  <v-card dark class="pa-4 h-100" style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1);">
-                    <v-icon size="32" color="indigo" class="mb-3">mdi-file-document-outline</v-icon>
-                    <h3 class="text-h6 mb-3">Supported File Types</h3>
-                    <div class="text-left">
-                      <div class="mb-2">
-                        <v-chip small color="indigo" dark class="mr-2">JSON</v-chip>
+              <v-row class="mb-3" dense>
+                <v-col cols="12" sm="6" md="4">
+                  <v-card dark class="pa-3 h-100 text-center d-flex flex-column" style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1);">
+                    <v-icon size="24" color="indigo" class="mb-2 mx-auto">mdi-file-document-outline</v-icon>
+                    <h3 class="text-subtitle-2 mb-2">Supported File Types</h3>
+                    <div class="text-center">
+                      <div class="mb-1">
+                        <v-chip x-small color="indigo" dark class="mr-1">JSON</v-chip>
                         <span class="text-caption">Pre-processed motion data</span>
                       </div>
-  
-                                           <div class="mb-2">
-                         <v-chip small color="orange" dark class="mr-2">OSIM + MOT</v-chip>
-                         <span class="text-caption">OpenSim models & motion</span>
-                       </div>
-                       <div class="mb-2">
-                         <v-chip small color="red" dark class="mr-2">Forces</v-chip>
-                         <span class="text-caption">Ground reaction forces (.mot)</span>
-                       </div>
-                       <div class="mb-2">
-                         <v-chip small color="purple" dark class="mr-2">TRC</v-chip>
-                         <span class="text-caption">Motion capture marker files</span>
-                       </div>
-                       <div class="mb-2">
-                         <v-chip small color="cyan" dark class="mr-2">MP4/WebM</v-chip>
-                         <span class="text-caption">Video files for sync</span>
-                       </div>
+                      <div class="mb-1">
+                        <v-chip x-small color="orange" dark class="mr-1">OSIM + MOT</v-chip>
+                        <span class="text-caption">OpenSim models & motion</span>
+                      </div>
+                      <div class="mb-1">
+                        <v-chip x-small color="red" dark class="mr-1">Forces</v-chip>
+                        <span class="text-caption">Ground reaction forces (.mot)</span>
+                      </div>
+                      <div class="mb-1">
+                        <v-chip x-small color="purple" dark class="mr-1">TRC</v-chip>
+                        <span class="text-caption">Motion capture marker files</span>
+                      </div>
+                      <div class="mb-1">
+                        <v-chip x-small color="cyan" dark class="mr-1">MP4/WebM</v-chip>
+                        <span class="text-caption">Video files for sync</span>
+                      </div>
                     </div>
                   </v-card>
                 </v-col>
   
-                <v-col cols="12" md="6">
-                  <v-card dark class="pa-4 h-100" style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1);">
-                    <v-icon size="32" color="green" class="mb-3">mdi-play-circle-outline</v-icon>
-                    <h3 class="text-h6 mb-3">Quick Start</h3>
-                                       <div class="text-left">
-                       <ol class="text-caption pl-4">
-                         <li class="mb-1">Click "Try with Sample Files" to explore</li>
-                         <li class="mb-1">Or drag & drop multiple files at once</li>
-                         <li class="mb-1">Use the Import button for specific types</li>
-                         <li class="mb-1">Control playback with the timeline</li>
-                         <li class="mb-1">Record videos or capture screenshots</li>
-                       </ol>
-                     </div>
-                  </v-card>
-                </v-col>
-              </v-row>
-  
-              <v-row class="mb-6">
-                <v-col cols="12" md="4">
-                  <v-card dark class="pa-4 h-100" style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1);">
-                    <v-icon size="24" color="blue" class="mb-2">mdi-mouse-move-up</v-icon>
-                    <h4 class="text-subtitle-1 mb-2">Navigation</h4>
-                    <div class="text-caption text-left">
-                      <div class="mb-1">• Left click + drag to orbit</div>
-                      <div class="mb-1">• Right click + drag to pan</div>
-                      <div class="mb-1">• Scroll wheel to zoom</div>
-                    </div>
-                  </v-card>
-                </v-col>
-  
-                <v-col cols="12" md="4">
-                  <v-card dark class="pa-4 h-100" style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1);">
-                    <v-icon size="24" color="purple" class="mb-2">mdi-palette</v-icon>
-                    <h4 class="text-subtitle-1 mb-2">Customization</h4>
-                    <div class="text-caption text-left">
-                      <div class="mb-1">• Change colors & transparency</div>
-                      <div class="mb-1">• Show/hide body parts</div>
-                      <div class="mb-1">• Adjust playback speed</div>
-                    </div>
-                  </v-card>
-                </v-col>
-  
-                <v-col cols="12" md="4">
-                  <v-card dark class="pa-4 h-100" style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1);">
-                    <v-icon size="24" color="red" class="mb-2">mdi-record-circle</v-icon>
-                    <h4 class="text-subtitle-1 mb-2">Export</h4>
-                    <div class="text-caption text-left">
-                      <div class="mb-1">• Record high-quality videos</div>
-                      <div class="mb-1">• Capture screenshots</div>
-                      <div class="mb-1">• Share visualizations</div>
+                <v-col cols="12" sm="6" md="4">
+                  <v-card dark class="pa-3 h-100 text-center d-flex flex-column" style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1);">
+                    <v-icon size="24" color="green" class="mb-2 mx-auto">mdi-play-circle-outline</v-icon>
+                    <h3 class="text-subtitle-2 mb-2">Quick Start</h3>
+                    <div class="text-center">
+                      <ol class="text-caption" style="margin: 0; padding-left: 0; list-style-position: inside;">
+                        <li class="mb-1">Click "Try with Sample Files" to explore</li>
+                        <li class="mb-1">Or drag & drop multiple files at once</li>
+                        <li class="mb-1">Use the Import button for specific types</li>
+                        <li class="mb-1">Control playback with the timeline</li>
+                        <li class="mb-1">Record videos or capture screenshots</li>
+                      </ol>
                     </div>
                   </v-card>
                 </v-col>
@@ -16013,7 +15974,12 @@
         background: rgba(255, 255, 255, 0.08);
   }
   
-  
+  .welcome-section {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
+  }
   
   .custom-btn {
   border-radius: 8px !important;
