@@ -51,36 +51,11 @@ async def stream_from_json(websocket, json_path: Path, speed: float = 1.0):
         speed = 1.0
     print(f"Estimated FPS from JSON: {fps:.2f}, speed factor: {speed:.2f}")
 
-    # Build init message: geometry + scale factors only
-    init_bodies = {}
-    for name, bd in bodies.items():
-        init_bodies[name] = {
-            "attachedGeometries": bd.get("attachedGeometries", []),
-            "scaleFactors": bd.get("scaleFactors", [1.0, 1.0, 1.0]),
-        }
-
-    # Nominal output FPS (after downsampling and speed scaling)
+    # Decide downsampling to target ~30 Hz
     target_fps = 30.0
-    nominal_out_fps = (min(fps, target_fps) if fps > 0 else target_fps) * speed
-
-    init_msg = {
-        "type": "init",
-        # Inform client about nominal frame rate (after speed scaling)
-        "frameRate": nominal_out_fps,
-        "bodies": init_bodies,
-    }
-    await websocket.send(json.dumps(init_msg))
-
-    # Give the client a brief moment to load meshes
-    await asyncio.sleep(1.0)
-
-    # Stream frames in a loop; when we reach the end, loop again.
-    # We use the recorded timestamps to pace playback against wall-clock time
-    # and downsample to approximately target_fps (30 Hz) to reduce load.
     num_frames = len(time_array)
     start_time = time_array[0]
 
-    # Build list of frame indices to keep for ~30 Hz
     if fps <= target_fps:
         kept_indices = list(range(num_frames))
         effective_base_fps = fps
@@ -95,8 +70,7 @@ async def stream_from_json(websocket, json_path: Path, speed: float = 1.0):
                 next_t += period
         if kept_indices and kept_indices[-1] != num_frames - 1:
             kept_indices.append(num_frames - 1)
-        # Effective base FPS after downsampling (before speed scaling)
-        duration = time_array[-1] - start_time
+        duration = time_array[kept_indices[-1]] - time_array[kept_indices[0]]
         effective_base_fps = (len(kept_indices) - 1) / duration if duration > 0 else target_fps
 
     print(
@@ -104,6 +78,27 @@ async def stream_from_json(websocket, json_path: Path, speed: float = 1.0):
         f"({len(kept_indices)}/{num_frames} frames)"
     )
 
+    # Build init message: geometry + scale factors only
+    init_bodies = {}
+    for name, bd in bodies.items():
+        init_bodies[name] = {
+            "attachedGeometries": bd.get("attachedGeometries", []),
+            "scaleFactors": bd.get("scaleFactors", [1.0, 1.0, 1.0]),
+        }
+
+    init_msg = {
+        "type": "init",
+        # Inform client about nominal frame rate (after speed scaling)
+        "frameRate": effective_base_fps * speed,
+        "bodies": init_bodies,
+    }
+    await websocket.send(json.dumps(init_msg))
+
+    # Give the client a brief moment to load meshes
+    await asyncio.sleep(1.0)
+
+    # Stream frames in a loop; when we reach the end, loop again.
+    # We use the recorded timestamps to pace playback against wall-clock time.
     while True:
         loop_start_wall = time.perf_counter()
         for frame_idx in kept_indices:
