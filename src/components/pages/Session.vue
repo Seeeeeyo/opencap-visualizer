@@ -193,6 +193,48 @@
               </v-card-text>
             </v-card>
 
+            <!-- Live IK Stream controls -->
+            <v-card class="mb-4" dark outlined>
+              <v-card-title class="py-2 px-3 d-flex align-center">
+                <v-icon small left class="mr-2">mdi-wifi</v-icon>
+                <span class="subtitle-2">Live IK Stream</span>
+              </v-card-title>
+              <v-card-text class="py-2 px-3">
+                <v-text-field
+                  v-model="liveUrl"
+                  dense
+                  hide-details
+                  label="WebSocket URL"
+                ></v-text-field>
+                <div class="d-flex align-center mt-2">
+                  <v-btn
+                    small
+                    color="indigo"
+                    class="mr-2"
+                    :disabled="liveStatus === 'connecting'"
+                    @click="connectLiveStream"
+                    v-if="liveStatus !== 'connected'"
+                  >
+                    <v-icon left small>mdi-play-circle</v-icon>
+                    Connect
+                  </v-btn>
+                  <v-btn
+                    small
+                    color="red darken-1"
+                    class="mr-2"
+                    v-else
+                    @click="disconnectLiveStream"
+                  >
+                    <v-icon left small>mdi-stop-circle</v-icon>
+                    Disconnect
+                  </v-btn>
+                  <span class="text-caption grey--text">
+                    Status: {{ liveStatus }}
+                  </span>
+                </div>
+              </v-card-text>
+            </v-card>
+
             <v-card class="mb-4" dark outlined>
               <v-card-title class="py-2 px-3 d-flex align-center">
                 <v-icon small left class="mr-2">mdi-timeline-clock</v-icon>
@@ -1756,7 +1798,7 @@
               :playing="playing"
               :value="frame"
               :maxFrame="frames.length - 1"
-              :disabled="videoControlsDisabled"
+              :disabled="videoControlsDisabled || liveMode"
               @play="togglePlay(true)"
               @pause="togglePlay(false)"
               @input="onNavigate"
@@ -1773,10 +1815,28 @@
             <!-- Time and slider on the right -->
             <div style="flex: 1; display: flex; flex-wrap: wrap; align-items: center;">
               <div style="flex: 0.1; min-width: 10px; margin-right: 5px; display: flex; align-items: center;">
-                <v-text-field type="number" :step="0.01" :value="formattedTime" dark style="flex: 1;" @input="onChangeTime" />
+                <v-text-field
+                  type="number"
+                  :step="0.01"
+                  :value="formattedTime"
+                  dark
+                  style="flex: 1;"
+                  @input="onChangeTime"
+                  :disabled="liveMode"
+                />
                 <span class="ml-1 white--text">(s)</span>
               </div>
-              <v-slider :value="frame" :min="0" :max="frames.length - 1" @input="onNavigate" hide-details class="mb-2" style="flex: 1;" />
+              <!-- Hide timeline slider in live mode -->
+              <v-slider
+                v-if="!liveMode"
+                :value="frame"
+                :min="0"
+                :max="frames.length - 1"
+                @input="onNavigate"
+                hide-details
+                class="mb-2"
+                style="flex: 1;"
+              />
             </div>
           </div>
         </div>
@@ -1817,7 +1877,7 @@
                 </p>
               </div>
   
-              <v-row class="mb-3" dense>
+              <v-row class="mb-3" dense justify="center">
                 <v-col cols="12" sm="6" md="4">
                   <v-card dark class="pa-3 h-100 text-center d-flex flex-column" style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1);">
                     <v-icon size="24" color="indigo" class="mb-2 mx-auto">mdi-file-document-outline</v-icon>
@@ -3598,6 +3658,12 @@
                 labels: [],
                 datasets: []
               },
+              // Live IK streaming over WebSocket
+              liveMode: false,
+              liveUrl: 'ws://localhost:8765',
+              liveSocket: null,
+              liveStatus: 'disconnected', // 'connecting' | 'connected' | 'error'
+              liveAnimationIndex: null,
               // Forces visualization properties
               showForcesDialog: false,
               forcesFile: null,
@@ -7590,6 +7656,15 @@
 
         this.updateVideoPlaneTransform();
 
+        // In live streaming mode, don't advance frames based on our own clock.
+        // Just render the current state; frames are driven by incoming WebSocket data.
+        if (this.liveMode) {
+          if (this.renderer && this.scene && this.camera) {
+            this.renderer.render(this.scene, this.camera);
+          }
+          return;
+        }
+
         // If not playing, just render the current state and exit
         if (!this.playing) {
           // Optionally log pause state
@@ -7888,12 +7963,26 @@
         console.log(`[togglePlay] Actual playing state set to: ${this.playing}`);
 
         if (this.playing) {
-          // Reset timing references when starting playback
-          this.lastFrameTime = performance.now();
-          this.frameAccumulator = 0;
-          this.updateDisplayedTime();
-          // Make sure first frame gets displayed immediately if starting from pause
-          this.animateOneFrame();
+          if (this.liveMode) {
+            // In live mode, jump to the latest streamed frame when resuming
+            if (this.liveAnimationIndex !== null) {
+              const anim = this.animations[this.liveAnimationIndex];
+              if (anim && Array.isArray(anim.data.time) && anim.data.time.length > 0) {
+                this.frames = anim.data.time;
+                this.frame = this.frames.length - 1;
+                this.updateDisplayedTime();
+              }
+            }
+            // Render the current frame without resetting internal timing (handled by streamer)
+            this.animateOneFrame();
+          } else {
+            // Normal playback: reset timing references when starting
+            this.lastFrameTime = performance.now();
+            this.frameAccumulator = 0;
+            this.updateDisplayedTime();
+            // Make sure first frame gets displayed immediately if starting from pause
+            this.animateOneFrame();
+          }
         }
         // No specific 'else' action needed here for pause, the animate loop handles it.
   
@@ -13854,7 +13943,144 @@
         };
   
         // Process the JSON using our existing handler
-        this.handleFileUpload(fakeEvent);
+        return this.handleFileUpload(fakeEvent);
+    },
+
+    connectLiveStream() {
+      if (this.liveSocket) {
+        this.disconnectLiveStream();
+      }
+
+      try {
+        this.liveStatus = 'connecting';
+        const socket = new WebSocket(this.liveUrl);
+        this.liveSocket = socket;
+
+        socket.onopen = () => {
+          this.liveStatus = 'connected';
+          this.liveMode = true;
+          console.log('[live] Connected to', this.liveUrl);
+        };
+
+        socket.onclose = () => {
+          console.log('[live] Disconnected');
+          this.liveStatus = 'disconnected';
+          this.liveMode = false;
+          this.liveSocket = null;
+          this.liveAnimationIndex = null;
+        };
+
+        socket.onerror = (err) => {
+          console.error('[live] WebSocket error', err);
+          this.liveStatus = 'error';
+        };
+
+        socket.onmessage = (event) => {
+          try {
+            const msg = JSON.parse(event.data);
+            if (msg.type === 'init') {
+              this.handleLiveInit(msg);
+            } else if (msg.type === 'frame') {
+              this.handleLiveFrame(msg);
+            }
+          } catch (e) {
+            console.error('[live] Failed to parse message', e);
+          }
+        };
+      } catch (e) {
+        console.error('[live] Failed to connect', e);
+        this.liveStatus = 'error';
+      }
+    },
+
+    disconnectLiveStream() {
+      if (this.liveSocket) {
+        this.liveSocket.close();
+      }
+      this.liveSocket = null;
+      this.liveStatus = 'disconnected';
+      this.liveMode = false;
+      this.liveAnimationIndex = null;
+    },
+
+    async handleLiveInit(msg) {
+      console.log('[live] init', msg);
+
+      const baseJson = {
+        time: [0],
+        bodies: {}
+      };
+
+      Object.entries(msg.bodies || {}).forEach(([name, bd]) => {
+        baseJson.bodies[name] = {
+          attachedGeometries: bd.attachedGeometries || [],
+          scaleFactors: bd.scaleFactors || [1.0, 1.0, 1.0],
+          rotation: [[0, 0, 0]],
+          translation: [[0, 0, 0]]
+        };
+      });
+
+      await this.loadJsonData(baseJson);
+
+      const liveIndex = this.animations.length - 1;
+      if (liveIndex < 0) {
+        console.error('[live] No animation created from init');
+        return;
+      }
+
+      this.liveAnimationIndex = liveIndex;
+      const anim = this.animations[liveIndex];
+
+      anim.data.time = [];
+      Object.values(anim.data.bodies).forEach((bd) => {
+        bd.rotation = [];
+        bd.translation = [];
+      });
+
+      if (typeof msg.frameRate === 'number' && msg.frameRate > 0) {
+        this.frameRate = msg.frameRate;
+      }
+
+      this.frames = anim.data.time;
+      this.frame = 0;
+      this.playing = false;
+      this.updateDisplayedTime();
+    },
+
+    handleLiveFrame(msg) {
+      if (this.liveAnimationIndex === null) {
+        console.warn('[live] Frame received before init; ignoring');
+        return;
+      }
+
+      const anim = this.animations[this.liveAnimationIndex];
+      const data = anim.data;
+
+      const t = typeof msg.time === 'number'
+        ? msg.time
+        : (data.time.length > 0 ? data.time[data.time.length - 1] : 0);
+      data.time.push(t);
+
+      Object.entries(msg.bodies || {}).forEach(([name, bodyMsg]) => {
+        if (!data.bodies[name]) {
+          return;
+        }
+        const bd = data.bodies[name];
+        const rot = Array.isArray(bodyMsg.rotation) ? bodyMsg.rotation : [0, 0, 0];
+        const trn = Array.isArray(bodyMsg.translation) ? bodyMsg.translation : [0, 0, 0];
+        bd.rotation.push(rot);
+        bd.translation.push(trn);
+      });
+
+      // If playback is paused, buffer frames but don't update the visible pose yet.
+      if (!this.playing) {
+        return;
+      }
+
+      this.frames = data.time;
+      this.frame = this.frames.length - 1;
+      this.updateDisplayedTime();
+      this.animateOneFrame();
     },
   
     centerCameraOnSubject() {
