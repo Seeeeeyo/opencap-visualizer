@@ -63,6 +63,17 @@ The core visualization engine is built on Three.js, providing hardware-accelerat
 - **Timelapse mode** for creating accelerated visualizations of long-duration movements (see \autoref{fig:timelapse})
 - **Color controls** for customizing background, ground plane, skeletal models, and markers
 
+## Live Streaming of Kinematics
+
+Beyond playing back precomputed motion files, OpenCap Visualizer supports low-latency live streaming of kinematics from external analysis pipelines. A lightweight Python WebSocket server streams OpenSim-based kinematics or precomputed JSON trajectories frame-by-frame to the browser using the same body-wise transform format as offline visualizations. The viewer exposes a "live mode" that:
+
+- **Subscribes to a local WebSocket endpoint** (e.g., `ws://localhost:8765`) and incrementally updates body transforms as new frames arrive.
+- **Downsamples high-frequency data** (e.g., 100 Hz motion capture) to ~30 Hz for smooth browser rendering while preserving the recorded timing.
+- **Handles multiple concurrent subjects**, allowing two kinematic streams (e.g., experimental vs. reference) to be visualized in real time with distinct default colors and offsets.
+- **Supports normal playback controls** (play/pause, looping) while buffering incoming frames so that users can pause, inspect a pose, and resume from the most recent streamed frame.
+
+This live streaming capability enables workflows such as monitoring ongoing inverse kinematics computations, validating OpenSim models during data collection, or comparing real-time markerless kinematics against a traditional marker-based reference.
+
 ## Python API for Automated Video Creation
 
 The `opencap-visualizer` Python package provides programmatic access to video generation functionality:
@@ -127,7 +138,8 @@ OpenCap Visualizer is implemented as a modern web application with a complementa
 - **Node.js sharing backend** for URL-based data sharing
 - **Python CLI and API** using Playwright for automated browser control
 - **Headless video generation** with configurable quality and format options
-- **OpenSim file converter backend** to convert .osim and .mot into .json.
+- **OpenSim file converter backend** to convert .osim and .mot into .json
+- **Python WebSocket streamer** for real-time delivery of kinematics to the browser in live mode, using a simple JSON protocol compatible with the offline visualizer format.
 
 # Applications
 
@@ -166,4 +178,3 @@ OpenCap Visualizer's browser-based approach eliminates installation barriers whi
 We acknowledge the contributions of the OpenCap development team and the broader biomechanics research community for their feedback and testing of the platform. This work builds upon the foundation of open-source biomechanics tools including OpenSim and the Three.js graphics library.
 
 # References 
-
