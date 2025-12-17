@@ -1798,7 +1798,7 @@
               :playing="playing"
               :value="frame"
               :maxFrame="frames.length - 1"
-              :disabled="videoControlsDisabled"
+              :disabled="videoControlsDisabled || liveMode"
               @play="togglePlay(true)"
               @pause="togglePlay(false)"
               @input="onNavigate"
@@ -3664,7 +3664,6 @@
               liveSocket: null,
               liveStatus: 'disconnected', // 'connecting' | 'connected' | 'error'
               liveAnimationIndex: null,
-              liveStreams: {}, // Map subjectId -> animation index
               // Forces visualization properties
               showForcesDialog: false,
               forcesFile: null,
@@ -8016,11 +8015,6 @@
         }
       },
       onNavigate(frame) {
-        // In live mode, ignore manual navigation; timeline is driven by the stream
-        if (this.liveMode) {
-          return;
-        }
-
         // Update frame and time
         const framesLength = Array.isArray(this.frames) ? this.frames.length : 0;
         if (framesLength > 0) {
@@ -8941,13 +8935,7 @@
           this.controls.screenSpacePanning = false;
           this.controls.minDistance = 0.5;
           this.controls.maxDistance = 100;
-          this.controls.maxPolarAngle = Math.PI / 2;
-          this.controls.enableDamping = true;
-          this.controls.dampingFactor = 0.05;
-          this.controls.screenSpacePanning = false;
-          this.controls.minDistance = 0.5;
-          this.controls.maxDistance = 100;
-          this.controls.maxPolarAngle = Math.PI / 2;
+          this.controls.maxPolarAngle = Math.PI; // Allow full vertical rotation
           this.controls.update();
           // console.log('[initScene] Orbit controls created successfully');
         } catch (error) {
@@ -13957,29 +13945,6 @@
         this.disconnectLiveStream();
       }
 
-      // Clear any previously loaded animations/objects so the scene only shows live streams
-      // Reset high-level animation state
-      this.animations = [];
-      this.smplSequences = [];
-      this.frames = [];
-      this.frame = 0;
-      this.time = '0.000';
-      this.trial = null;
-      this.playing = false;
-      this.liveAnimationIndex = null;
-      this.liveStreams = {};
-
-      // Clear visual elements from the scene
-      this.clearTimelapse();
-      this.clearExistingObjects();
-      this.clearAllMarkers();
-      this.clearForceArrows();
-
-      // Render the cleared scene
-      if (this.renderer && this.scene && this.camera) {
-        this.renderer.render(this.scene, this.camera);
-      }
-
       try {
         this.liveStatus = 'connecting';
         const socket = new WebSocket(this.liveUrl);
@@ -14004,11 +13969,11 @@
           this.liveStatus = 'error';
         };
 
-        socket.onmessage = async (event) => {
+        socket.onmessage = (event) => {
           try {
             const msg = JSON.parse(event.data);
             if (msg.type === 'init') {
-              await this.handleLiveInit(msg);
+              this.handleLiveInit(msg);
             } else if (msg.type === 'frame') {
               this.handleLiveFrame(msg);
             }
@@ -14029,142 +13994,76 @@
       this.liveSocket = null;
       this.liveStatus = 'disconnected';
       this.liveMode = false;
-      // Clear live stream mappings
       this.liveAnimationIndex = null;
-      this.liveStreams = {};
-
-      // Clear live animations and all associated meshes/sprites
-      this.animations = [];
-      this.frames = [];
-      this.frame = 0;
-      this.time = '0.000';
-      this.playing = false;
-      this.trial = null;
-      this.clearTimelapse();
-      this.clearExistingObjects();
-      this.clearAllMarkers();
-      this.clearForceArrows();
-
-      // Render empty scene
-      if (this.renderer && this.scene && this.camera) {
-        this.renderer.render(this.scene, this.camera);
-      }
     },
 
     async handleLiveInit(msg) {
       console.log('[live] init', msg);
 
-      // Reset live stream mapping
-      this.liveStreams = {};
+      const baseJson = {
+        time: [0],
+        bodies: {}
+      };
 
-      // Multi-subject format: msg.subjects = [{ id, label, bodies }, ...]
-      const subjects = Array.isArray(msg.subjects) && msg.subjects.length > 0
-        ? msg.subjects
-        : [{ id: 'default', label: 'Subject 1', bodies: msg.bodies || {} }];
-
-      let subjectIndex = 0;
-
-      for (const subject of subjects) {
-        const baseJson = {
-          time: [0],
-          bodies: {}
+      Object.entries(msg.bodies || {}).forEach(([name, bd]) => {
+        baseJson.bodies[name] = {
+          attachedGeometries: bd.attachedGeometries || [],
+          scaleFactors: bd.scaleFactors || [1.0, 1.0, 1.0],
+          rotation: [[0, 0, 0]],
+          translation: [[0, 0, 0]]
         };
+      });
 
-        Object.entries(subject.bodies || {}).forEach(([name, bd]) => {
-          baseJson.bodies[name] = {
-            attachedGeometries: bd.attachedGeometries || [],
-            scaleFactors: bd.scaleFactors || [1.0, 1.0, 1.0],
-            rotation: [[0, 0, 0]],
-            translation: [[0, 0, 0]]
-          };
-        });
+      await this.loadJsonData(baseJson);
 
-        await this.loadJsonData(baseJson);
-
-        const liveIndex = this.animations.length - 1;
-        if (liveIndex < 0) {
-          console.error('[live] No animation created from init for subject', subject.id);
-          continue;
-        }
-
-        this.liveStreams[subject.id] = liveIndex;
-        // For backwards compatibility, track the first subject as liveAnimationIndex
-        if (this.liveAnimationIndex === null) {
-          this.liveAnimationIndex = liveIndex;
-        }
-
-        const anim = this.animations[liveIndex];
-        anim.trialName = subject.label || anim.trialName;
-
-        // In live mode, give each subject a distinct default color for easier visual differentiation.
-        // Use the first palette color for subject 0, second for subject 1.
-        if (subjectIndex === 0) {
-          // Ensure the first subject uses the first color slot
-          if (this.colors[0]) {
-            this.colors[liveIndex] = this.colors[0].clone();
-          }
-        } else if (subjectIndex === 1) {
-          // Force a contrasting color (e.g., blue) for the second subject
-          const secondColorHex = '#4995e0'; // matches palette entry 1
-          this.updateSubjectColor(liveIndex, secondColorHex);
-        }
-        subjectIndex += 1;
-
-        // Clear time and per-frame arrays to start fresh
-        anim.data.time = [];
-        Object.values(anim.data.bodies).forEach((bd) => {
-          bd.rotation = [];
-          bd.translation = [];
-        });
-      }
-
-      if (this.liveAnimationIndex === null) {
-        console.error('[live] No animations created from init');
+      const liveIndex = this.animations.length - 1;
+      if (liveIndex < 0) {
+        console.error('[live] No animation created from init');
         return;
       }
+
+      this.liveAnimationIndex = liveIndex;
+      const anim = this.animations[liveIndex];
+
+      anim.data.time = [];
+      Object.values(anim.data.bodies).forEach((bd) => {
+        bd.rotation = [];
+        bd.translation = [];
+      });
 
       if (typeof msg.frameRate === 'number' && msg.frameRate > 0) {
         this.frameRate = msg.frameRate;
       }
 
-      // Use the first subject as the primary timeline
-      this.frames = this.animations[this.liveAnimationIndex].data.time;
+      this.frames = anim.data.time;
       this.frame = 0;
       this.playing = false;
       this.updateDisplayedTime();
     },
 
     handleLiveFrame(msg) {
-      if (this.liveAnimationIndex === null && (!this.liveStreams || Object.keys(this.liveStreams).length === 0)) {
+      if (this.liveAnimationIndex === null) {
         console.warn('[live] Frame received before init; ignoring');
         return;
       }
 
-      // Multi-stream format: msg.streams = { subjectId: { time, bodies }, ... }
-      const streams = msg.streams || { default: { time: msg.time, bodies: msg.bodies || {} } };
+      const anim = this.animations[this.liveAnimationIndex];
+      const data = anim.data;
 
-      // Update each subject's animation data
-      Object.entries(streams).forEach(([subjectId, stream]) => {
-        const animIndex = this.liveStreams[subjectId] ?? this.liveAnimationIndex;
-        if (animIndex == null) return;
-        const anim = this.animations[animIndex];
-        const data = anim.data;
+      const t = typeof msg.time === 'number'
+        ? msg.time
+        : (data.time.length > 0 ? data.time[data.time.length - 1] : 0);
+      data.time.push(t);
 
-        const t = typeof stream.time === 'number'
-          ? stream.time
-          : (data.time.length > 0 ? data.time[data.time.length - 1] : 0);
-        data.time.push(t);
-
-        Object.entries(stream.bodies || {}).forEach(([name, bodyMsg]) => {
-          if (!data.bodies[name]) {
-            return;
-          }
-          const bd = data.bodies[name];
-          const rot = Array.isArray(bodyMsg.rotation) ? bodyMsg.rotation : [0, 0, 0];
-          const trn = Array.isArray(bodyMsg.translation) ? bodyMsg.translation : [0, 0, 0];
-          bd.rotation.push(rot);
-          bd.translation.push(trn);
-        });
+      Object.entries(msg.bodies || {}).forEach(([name, bodyMsg]) => {
+        if (!data.bodies[name]) {
+          return;
+        }
+        const bd = data.bodies[name];
+        const rot = Array.isArray(bodyMsg.rotation) ? bodyMsg.rotation : [0, 0, 0];
+        const trn = Array.isArray(bodyMsg.translation) ? bodyMsg.translation : [0, 0, 0];
+        bd.rotation.push(rot);
+        bd.translation.push(trn);
       });
 
       // If playback is paused, buffer frames but don't update the visible pose yet.
@@ -14172,9 +14071,7 @@
         return;
       }
 
-      // Use the primary subject's time as the global timeline
-      const primaryAnim = this.animations[this.liveAnimationIndex];
-      this.frames = primaryAnim.data.time;
+      this.frames = data.time;
       this.frame = this.frames.length - 1;
       this.updateDisplayedTime();
       this.animateOneFrame();
