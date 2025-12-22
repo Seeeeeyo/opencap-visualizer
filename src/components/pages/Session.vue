@@ -8929,13 +8929,13 @@
         
         try {
           this.controls = new THREE_OC.OrbitControls(this.camera, this.renderer.domElement);
+          // Keep the target centered at head-height but otherwise use default control behavior
           this.controls.target.set(0, 1, 0);
-          this.controls.enableDamping = true;
-          this.controls.dampingFactor = 0.05;
-          this.controls.screenSpacePanning = false;
-          this.controls.minDistance = 0.5;
-          this.controls.maxDistance = 100;
-          this.controls.maxPolarAngle = Math.PI; // Allow full vertical rotation
+          this.controls.screenSpacePanning = true; // default: pan in screen space for intuitive drag
+          this.controls.enableDamping = false; // default behavior (no smoothing) to match previous feel
+          this.controls.minDistance = 0; // restore default zoom range
+          this.controls.maxDistance = Infinity;
+          this.controls.maxPolarAngle = Math.PI; // allow full vertical rotation (default)
           this.controls.update();
           // console.log('[initScene] Orbit controls created successfully');
         } catch (error) {
