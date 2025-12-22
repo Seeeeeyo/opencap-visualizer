@@ -371,57 +371,72 @@
             <!-- Legend -->
             <div class="legend flex-grow-1 mb-4">
               <!-- Add animation control buttons -->
-              <div class="d-flex align-center mb-4" v-if="animations.length > 0 || smplSequences.length > 0">
+              <div class="d-flex align-center mb-4" v-if="animations.length > 0 || smplSequences.length > 0" style="cursor: pointer;" @click="showAnimationsDetails = !showAnimationsDetails">
                 <div class="text-subtitle-2 mr-2">Animations</div>
                 <v-spacer></v-spacer>
-                <v-btn x-small text color="primary" @click="setAllAnimationsPlayable(true)" class="mr-1">
+                <v-icon small>{{ showAnimationsDetails ? 'mdi-chevron-up' : 'mdi-chevron-down' }}</v-icon>
+              </div>
+              <div class="d-flex align-center mb-4" v-if="animations.length > 0 || smplSequences.length > 0" style="cursor: pointer;" @click="showAnimationsDetails = !showAnimationsDetails">
+                <v-spacer></v-spacer>
+                <v-btn x-small text color="primary" @click.stop="setAllAnimationsPlayable(true)" class="mr-1">
                   <v-icon x-small left>mdi-play-circle</v-icon>
                   All
                 </v-btn>
-                <v-btn x-small text color="grey" @click="setAllAnimationsPlayable(false)">
+                <v-btn x-small text color="grey" @click.stop="setAllAnimationsPlayable(false)">
                   <v-icon x-small left>mdi-pause-circle</v-icon>
                   None
                 </v-btn>
               </div>
+              <v-expand-transition>
+                <div v-show="showAnimationsDetails">
   
               <!-- Animation Files List -->
               <div v-for="(animation, index) in animations" :key="`animation-${index}`" class="legend-item mb-4">
                 <div class="d-flex mb-2">
                   <div class="color-box" :style="{ backgroundColor: formatColor(colors[index]) }"></div>
                   <div class="ml-2" style="flex-grow: 1; min-width: 0;">
-                    <v-text-field v-model="animation.trialName" dense hide-details class="trial-name-input" />
-                    <div class="file-name text-caption" style="word-wrap: break-word; overflow-wrap: break-word; white-space: normal; line-height: 1.2;">{{ animation.fileName }}</div>
-                    <div class="fps-info text-caption grey--text">
-                      {{ animation.calculatedFps ? animation.calculatedFps.toFixed(2) + ' fps' : '' }}
+                    <div class="d-flex align-center">
+                      <v-text-field v-model="animation.trialName" dense hide-details class="trial-name-input" style="flex: 1;" />
+                      <v-icon small class="ml-2" style="cursor: pointer;" @click="toggleAnimationDetails(index)">{{ getAnimationDetailsExpanded(index) ? 'mdi-chevron-up' : 'mdi-chevron-down' }}</v-icon>
                     </div>
-                    <!-- Forces section -->
-                    <div v-if="forcesDatasets[index]" class="ml-8 mb-2">
-                      <div class="d-flex align-center">
-                        <v-icon small color="green" class="mr-2">mdi-arrow-up</v-icon>
-                        <span class="text-caption">Forces</span>
-                        <v-spacer></v-spacer>
-                        <v-btn icon x-small @click="toggleForceVisibility(index)">
-                          <v-icon x-small>{{ forcesVisible[String(index)] ? 'mdi-eye' : 'mdi-eye-off' }}</v-icon>
-                        </v-btn>
-                      </div>
-                    </div>
+                    <v-expand-transition>
+                      <div v-show="getAnimationDetailsExpanded(index)">
+                        <div class="file-name text-caption" style="word-wrap: break-word; overflow-wrap: break-word; white-space: normal; line-height: 1.2;">{{ animation.fileName }}</div>
+                        <div class="fps-info text-caption grey--text">
+                          {{ animation.calculatedFps ? animation.calculatedFps.toFixed(2) + ' fps' : '' }}
+                        </div>
+                        <!-- Forces section -->
+                        <div v-if="forcesDatasets[index]" class="ml-8 mb-2">
+                          <div class="d-flex align-center">
+                            <v-icon small color="green" class="mr-2">mdi-arrow-up</v-icon>
+                            <span class="text-caption">Forces</span>
+                            <v-spacer></v-spacer>
+                            <v-btn icon x-small @click="toggleForceVisibility(index)">
+                              <v-icon x-small>{{ forcesVisible[String(index)] ? 'mdi-eye' : 'mdi-eye-off' }}</v-icon>
+                            </v-btn>
+                          </div>
+                        </div>
   
-                    <!-- Markers section -->
-                    <div v-if="markersDatasets[index]" class="ml-8 mb-2">
-                      <div class="d-flex align-center">
-                        <v-icon small color="blue" class="mr-2">mdi-record-circle</v-icon>
-                        <span class="text-caption">Markers</span>
-                        <v-spacer></v-spacer>
-                        <v-btn icon x-small @click="toggleMarkerVisibility(index)">
-                          <v-icon x-small>{{ markersVisible[index] ? 'mdi-eye' : 'mdi-eye-off' }}</v-icon>
-                        </v-btn>
+                        <!-- Markers section -->
+                        <div v-if="markersDatasets[index]" class="ml-8 mb-2">
+                          <div class="d-flex align-center">
+                            <v-icon small color="blue" class="mr-2">mdi-record-circle</v-icon>
+                            <span class="text-caption">Markers</span>
+                            <v-spacer></v-spacer>
+                            <v-btn icon x-small @click="toggleMarkerVisibility(index)">
+                              <v-icon x-small>{{ markersVisible[index] ? 'mdi-eye' : 'mdi-eye-off' }}</v-icon>
+                            </v-btn>
+                          </div>
+                        </div>
                       </div>
-                    </div>
+                    </v-expand-transition>
   
                   </div>
                 </div>
   
                 <!-- Buttons row - add checkbox here -->
+                <v-expand-transition>
+                  <div v-show="getAnimationDetailsExpanded(index)">
                 <div class="d-flex align-center ml-8" style="flex-wrap: wrap; gap: 4px;">
                   <v-tooltip bottom>
                     <template v-slot:activator="{ on, attrs }">
@@ -654,6 +669,8 @@
                     <span class="text-caption grey--text ml-2">×</span>
                   </div>
                 </div>
+                  </div>
+                </v-expand-transition>
   
                 <!-- Add mesh dialog -->
                 <v-dialog
@@ -803,6 +820,8 @@
                   </v-card>
                 </v-dialog>
               </div>
+                </div>
+              </v-expand-transition>
   
               <!-- SMPL Sequences -->
               <div
@@ -817,15 +836,23 @@
                     @click="setActiveSubject('smpl', sequence.id)"
                   ></div>
                   <div class="ml-2" style="flex-grow: 1; min-width: 0; padding-right: 8px; overflow: hidden;">
-                    <div class="text-subtitle-2" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ sequence.name }}</div>
-                    <div class="text-caption grey--text">
-                      {{ sequence.frameCount }} frames @ {{ sequence.fps ? sequence.fps.toFixed(2) : frameRate.toFixed(2) }} fps
+                    <div class="d-flex align-center">
+                      <div class="text-subtitle-2" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;">{{ sequence.name }}</div>
+                      <v-icon small class="ml-2" style="cursor: pointer; flex-shrink: 0;" @click="toggleSmplDetails(sequence.id)">{{ getSmplDetailsExpanded(sequence.id) ? 'mdi-chevron-up' : 'mdi-chevron-down' }}</v-icon>
                     </div>
-                    <div class="text-caption grey--text">
-                      {{ sequence.vertexCount }} vertices, {{ sequence.jointCount }} joints
-                    </div>
+                    <v-expand-transition>
+                      <div v-show="getSmplDetailsExpanded(sequence.id)">
+                        <div class="text-caption grey--text">
+                          {{ sequence.frameCount }} frames @ {{ sequence.fps ? sequence.fps.toFixed(2) : frameRate.toFixed(2) }} fps
+                        </div>
+                        <div class="text-caption grey--text">
+                          {{ sequence.vertexCount }} vertices, {{ sequence.jointCount }} joints
+                        </div>
+                      </div>
+                    </v-expand-transition>
                   </div>
-                  <div class="d-flex align-start" style="flex-shrink: 0;">
+                  <v-expand-transition>
+                    <div v-show="getSmplDetailsExpanded(sequence.id)" class="d-flex align-start" style="flex-shrink: 0;">
                   <v-btn
                     icon
                     small
@@ -882,9 +909,12 @@
                   <v-btn icon small color="error" @click="removeSmplSequence(sequence.id)">
                     <v-icon small>mdi-delete</v-icon>
                   </v-btn>
-                  </div>
+                    </div>
+                  </v-expand-transition>
                 </div>
   
+                <v-expand-transition>
+                  <div v-show="getSmplDetailsExpanded(sequence.id)">
                 <div class="d-flex align-center ml-8" style="flex-wrap: wrap; gap: 4px;">
                   <v-tooltip bottom>
                     <template v-slot:activator="{ on, attrs }">
@@ -1056,6 +1086,8 @@
                     />
                   </div>
                 </div>
+                  </div>
+                </v-expand-transition>
   
                 <!-- Rotation dialog for SMPL -->
                 <v-dialog
@@ -1188,6 +1220,13 @@
               </div>
   
               <!-- Forces Visualization Section -->
+              <div v-if="Object.keys(forcesDatasets).length > 0" class="d-flex align-center mb-4" style="cursor: pointer;" @click="showForcesDetails = !showForcesDetails">
+                <div class="text-subtitle-2 mr-2">Forces</div>
+                <v-spacer></v-spacer>
+                <v-icon small>{{ showForcesDetails ? 'mdi-chevron-up' : 'mdi-chevron-down' }}</v-icon>
+              </div>
+              <v-expand-transition>
+                <div v-show="showForcesDetails">
               <div v-for="(forcesData, animationIndex) in forcesDatasets" :key="`forces-${animationIndex}`" class="legend-item mb-4">
                 <div class="d-flex mb-2">
                   <div class="color-box" :style="{ backgroundColor: getForceColor(animationIndex) }"></div>
@@ -1293,8 +1332,17 @@
                 <!-- Divider -->
                 <v-divider class="mt-4" style="opacity: 0.2"></v-divider>
               </div>
+                </div>
+              </v-expand-transition>
   
               <!-- Custom Objects List -->
+              <div v-if="customObjects.length > 0" class="d-flex align-center mb-4" style="cursor: pointer;" @click="showCustomObjectsDetails = !showCustomObjectsDetails">
+                <div class="text-subtitle-2 mr-2">Custom Objects</div>
+                <v-spacer></v-spacer>
+                <v-icon small>{{ showCustomObjectsDetails ? 'mdi-chevron-up' : 'mdi-chevron-down' }}</v-icon>
+              </div>
+              <v-expand-transition>
+                <div v-show="showCustomObjectsDetails">
               <div v-for="obj in customObjects" :key="obj.id" class="legend-item mb-4">
                 <div class="d-flex mb-2">
                   <div class="color-box" :style="{ backgroundColor: obj.color }"></div>
@@ -1486,9 +1534,18 @@
                   </div>
                 </div>
               </div>
+                </div>
+              </v-expand-transition>
             </div>
   
             <!-- Standalone Marker Visualization Section (when no animations exist) -->
+            <div v-if="animations.length === 0 && smplSequences.length === 0 && Object.keys(markersDatasets).length > 0" class="d-flex align-center mb-4" style="cursor: pointer;" @click="showMarkersDetails = !showMarkersDetails">
+              <div class="text-subtitle-2 mr-2">Markers</div>
+              <v-spacer></v-spacer>
+              <v-icon small>{{ showMarkersDetails ? 'mdi-chevron-up' : 'mdi-chevron-down' }}</v-icon>
+            </div>
+            <v-expand-transition>
+              <div v-show="showMarkersDetails" v-if="animations.length === 0 && smplSequences.length === 0 && Object.keys(markersDatasets).length > 0">
             <template v-if="animations.length === 0 && smplSequences.length === 0 && Object.keys(markersDatasets).length > 0">
               <div v-for="(markersData, animationIndex) in markersDatasets" :key="`standalone-markers-${animationIndex}`" class="legend-item mb-4">
               <div class="d-flex mb-2">
@@ -1614,6 +1671,8 @@
               <v-divider class="mt-4" style="opacity: 0.2"></v-divider>
               </div>
             </template>
+              </div>
+            </v-expand-transition>
   
             <!-- Clear All Markers Button (only show when there are multiple marker files) -->
             <div v-if="animations.length === 0 && smplSequences.length === 0 && Object.keys(markersDatasets).length > 1" class="mb-4">
@@ -1630,7 +1689,14 @@
             </div>
   
             <!-- Marker Visualization Section (only when animations exist) -->
-            <template v-if="animations.length > 0">
+            <div v-if="(animations.length > 0 || smplSequences.length > 0) && Object.keys(markersDatasets).length > 0" class="d-flex align-center mb-4" style="cursor: pointer;" @click="showMarkersDetails = !showMarkersDetails">
+              <div class="text-subtitle-2 mr-2">Markers</div>
+              <v-spacer></v-spacer>
+              <v-icon small>{{ showMarkersDetails ? 'mdi-chevron-up' : 'mdi-chevron-down' }}</v-icon>
+            </div>
+            <v-expand-transition>
+              <div v-show="showMarkersDetails">
+            <template v-if="animations.length > 0 || smplSequences.length > 0">
             <div v-for="(markersData, animationIndex) in markersDatasets" :key="`markers-${animationIndex}`" class="legend-item mb-4">
               <div class="d-flex mb-2">
                 <div class="color-box" :style="{ backgroundColor: getMarkerColor(animationIndex) }"></div>
@@ -1758,6 +1824,8 @@
               <v-divider class="mt-4" style="opacity: 0.2"></v-divider>
             </div>
             </template>
+              </div>
+            </v-expand-transition>
   
   
           </div>
@@ -2897,10 +2965,15 @@
   
         <!-- Scene Controls Card -->
         <div class="scene-section mb-4 pa-3" style="background: rgba(0, 0, 0, 0.3); border-radius: 8px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1);">
-          <div class="section-title mb-3" style="font-size: 0.9rem; color: rgba(255, 255, 255, 0.7);">Scene Settings</div>
+          <div class="section-title mb-3 d-flex align-center" style="font-size: 0.9rem; color: rgba(255, 255, 255, 0.7); cursor: pointer;" @click="showSceneSettingsDetails = !showSceneSettingsDetails">
+            <span>Scene Settings</span>
+            <v-spacer></v-spacer>
+            <v-icon small>{{ showSceneSettingsDetails ? 'mdi-chevron-up' : 'mdi-chevron-down' }}</v-icon>
+          </div>
   
           <!-- Scene settings row -->
-          <div class="scene-settings">
+          <v-expand-transition>
+            <div v-show="showSceneSettingsDetails" class="scene-settings">
             <!-- Background setting -->
             <div class="d-flex align-center mb-3">
               <div class="mr-2 text-caption" style="width: 80px; flex-shrink: 0;">Background:</div>
@@ -3022,15 +3095,22 @@
                 <v-icon small :color="enableLights ? 'white' : 'grey'">{{ enableLights ? 'mdi-lightbulb-on' : 'mdi-lightbulb-off' }}</v-icon>
               </v-btn>
             </div>
-          </div>
+            </div>
+          </v-expand-transition>
         </div>
   
       <div class="mt-6"></div> <!-- Added vertical spacing -->
   
         <!-- Timelapse Controls -->
       <div class="timelapse-section mb-4 pa-3" style="background: rgba(0, 0, 0, 0.3); border-radius: 8px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1);">
-        <div class="section-title mb-3" style="font-size: 0.9rem; color: rgba(255, 255, 255, 0.7);">Timelapse Mode</div>
+        <div class="section-title mb-3 d-flex align-center" style="font-size: 0.9rem; color: rgba(255, 255, 255, 0.7); cursor: pointer;" @click="showTimelapseDetails = !showTimelapseDetails">
+          <span>Timelapse Mode</span>
+          <v-spacer></v-spacer>
+          <v-icon small>{{ showTimelapseDetails ? 'mdi-chevron-up' : 'mdi-chevron-down' }}</v-icon>
+        </div>
   
+        <v-expand-transition>
+          <div v-show="showTimelapseDetails">
         <!-- Timelapse toggle with settings button -->
         <div class="d-flex align-center mb-3">
           <v-switch
@@ -3073,6 +3153,8 @@
             Manage Models
           </v-btn>
         </div>
+          </div>
+        </v-expand-transition>
       </div>
   
       <!-- Timelapse Settings Dialog -->
@@ -3674,6 +3756,14 @@
               liveAnimationIndex: null,
               showLiveStreamDetails: false, // Toggle for Live IK Stream section
               showSyncDetails: false, // Toggle for Sync section
+              showAnimationsDetails: true, // Toggle for Animations section (default true since it's the main content)
+              showForcesDetails: true, // Toggle for Forces section (default true)
+              showMarkersDetails: true, // Toggle for Markers section (default true)
+              showCustomObjectsDetails: true, // Toggle for Custom Objects section (default true)
+              showSceneSettingsDetails: false, // Toggle for Scene Settings section
+              showTimelapseDetails: false, // Toggle for Timelapse Mode section
+              animationDetailsExpanded: {}, // Track expanded state for each animation item
+              smplDetailsExpanded: {}, // Track expanded state for each SMPL sequence
               // Forces visualization properties
               showForcesDialog: false,
               forcesFile: null,
@@ -4216,8 +4306,22 @@
       }
     },
     methods: {
-  
-  
+
+    // Animation details toggle methods
+    toggleAnimationDetails(index) {
+      this.$set(this.animationDetailsExpanded, index, !this.getAnimationDetailsExpanded(index));
+    },
+    getAnimationDetailsExpanded(index) {
+      return this.animationDetailsExpanded[index] !== false; // Default to true (expanded)
+    },
+    // SMPL details toggle methods
+    toggleSmplDetails(id) {
+      this.$set(this.smplDetailsExpanded, id, !this.getSmplDetailsExpanded(id));
+    },
+    getSmplDetailsExpanded(id) {
+      return this.smplDetailsExpanded[id] !== false; // Default to true (expanded)
+    },
+
     // Forces visualization methods
     openForcesDialog() {
       this.showForcesDialog = true;
@@ -12071,6 +12175,8 @@
         } else {
           // Reset frame count when turning on
           this.timelapseFrameCount = 0;
+          // Expand the section when enabling timelapse mode
+          this.showTimelapseDetails = true;
         }
       },
   
