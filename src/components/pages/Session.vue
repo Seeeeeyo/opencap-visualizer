@@ -195,84 +195,92 @@
 
             <!-- Live IK Stream controls -->
             <v-card class="mb-4" dark outlined>
-              <v-card-title class="py-2 px-3 d-flex align-center">
+              <v-card-title class="py-2 px-3 d-flex align-center" style="cursor: pointer;" @click="showLiveStreamDetails = !showLiveStreamDetails">
                 <v-icon small left class="mr-2">mdi-wifi</v-icon>
                 <span class="subtitle-2">Live IK Stream</span>
+                <v-spacer></v-spacer>
+                <v-icon small>{{ showLiveStreamDetails ? 'mdi-chevron-up' : 'mdi-chevron-down' }}</v-icon>
               </v-card-title>
-              <v-card-text class="py-2 px-3">
-                <v-text-field
-                  v-model="liveUrl"
-                  dense
-                  hide-details
-                  label="WebSocket URL"
-                ></v-text-field>
-                <div class="d-flex align-center mt-2">
-                  <v-btn
-                    small
-                    color="indigo"
-                    class="mr-2"
-                    :disabled="liveStatus === 'connecting'"
-                    @click="connectLiveStream"
-                    v-if="liveStatus !== 'connected'"
-                  >
-                    <v-icon left small>mdi-play-circle</v-icon>
-                    Connect
-                  </v-btn>
-                  <v-btn
-                    small
-                    color="red darken-1"
-                    class="mr-2"
-                    v-else
-                    @click="disconnectLiveStream"
-                  >
-                    <v-icon left small>mdi-stop-circle</v-icon>
-                    Disconnect
-                  </v-btn>
-                  <span class="text-caption grey--text">
-                    Status: {{ liveStatus }}
-                  </span>
-                </div>
-              </v-card-text>
+              <v-expand-transition>
+                <v-card-text v-show="showLiveStreamDetails" class="py-2 px-3">
+                  <v-text-field
+                    v-model="liveUrl"
+                    dense
+                    hide-details
+                    label="WebSocket URL"
+                  ></v-text-field>
+                  <div class="d-flex align-center mt-2">
+                    <v-btn
+                      small
+                      color="indigo"
+                      class="mr-2"
+                      :disabled="liveStatus === 'connecting'"
+                      @click="connectLiveStream"
+                      v-if="liveStatus !== 'connected'"
+                    >
+                      <v-icon left small>mdi-play-circle</v-icon>
+                      Connect
+                    </v-btn>
+                    <v-btn
+                      small
+                      color="red darken-1"
+                      class="mr-2"
+                      v-else
+                      @click="disconnectLiveStream"
+                    >
+                      <v-icon left small>mdi-stop-circle</v-icon>
+                      Disconnect
+                    </v-btn>
+                    <span class="text-caption grey--text">
+                      Status: {{ liveStatus }}
+                    </span>
+                  </div>
+                </v-card-text>
+              </v-expand-transition>
             </v-card>
 
             <v-card class="mb-4" dark outlined>
-              <v-card-title class="py-2 px-3 d-flex align-center">
+              <v-card-title class="py-2 px-3 d-flex align-center" style="cursor: pointer;" @click="showSyncDetails = !showSyncDetails">
                 <v-icon small left class="mr-2">mdi-timeline-clock</v-icon>
                 <span class="subtitle-2">Sync</span>
+                <v-spacer></v-spacer>
+                <v-icon small>{{ showSyncDetails ? 'mdi-chevron-up' : 'mdi-chevron-down' }}</v-icon>
               </v-card-title>
-              <v-card-text class="py-2 px-3">
-                <v-select
-                  dense
-                  hide-details
-                  outlined
-                  v-model="syncMode"
-                  :items="syncModeOptions"
-                  label="Sync mode"
-                ></v-select>
-                <div v-if="syncMode === 'time'" class="mt-2">
-                  <v-alert text dense color="indigo darken-2">
-                    <span class="text-caption">Align all datasets so their time starts at zero.</span>
-                  </v-alert>
-                </div>
-                <div v-if="syncMode === 'frame'" class="mt-3">
-                  <div class="text-caption grey--text mb-1">
-                    Reference Frame: {{ syncReferenceFrame }}
-                  </div>
-                  <v-slider
+              <v-expand-transition>
+                <v-card-text v-show="showSyncDetails" class="py-2 px-3">
+                  <v-select
                     dense
                     hide-details
-                    v-model="syncReferenceFrame"
-                    :min="0"
-                    :max="maxFrameIndex"
-                    :step="1"
-                    :disabled="maxFrameIndex === 0"
-                    color="indigo lighten-2"
-                  ></v-slider>
-                  <v-alert text dense color="indigo darken-2" class="mt-2">
-                    <span class="text-caption">Shift all datasets so this frame becomes time zero.</span>
-                  </v-alert>
-                </div>
-              </v-card-text>
+                    outlined
+                    v-model="syncMode"
+                    :items="syncModeOptions"
+                    label="Sync mode"
+                  ></v-select>
+                  <div v-if="syncMode === 'time'" class="mt-2">
+                    <v-alert text dense color="indigo darken-2">
+                      <span class="text-caption">Align all datasets so their time starts at zero.</span>
+                    </v-alert>
+                  </div>
+                  <div v-if="syncMode === 'frame'" class="mt-3">
+                    <div class="text-caption grey--text mb-1">
+                      Reference Frame: {{ syncReferenceFrame }}
+                    </div>
+                    <v-slider
+                      dense
+                      hide-details
+                      v-model="syncReferenceFrame"
+                      :min="0"
+                      :max="maxFrameIndex"
+                      :step="1"
+                      :disabled="maxFrameIndex === 0"
+                      color="indigo lighten-2"
+                    ></v-slider>
+                    <v-alert text dense color="indigo darken-2" class="mt-2">
+                      <span class="text-caption">Shift all datasets so this frame becomes time zero.</span>
+                    </v-alert>
+                  </div>
+                </v-card-text>
+              </v-expand-transition>
             </v-card>
 
   
@@ -414,7 +422,7 @@
                 </div>
   
                 <!-- Buttons row - add checkbox here -->
-                <div class="d-flex align-center ml-8" style="min-width: 300px;">
+                <div class="d-flex align-center ml-8" style="flex-wrap: wrap; gap: 4px;">
                   <v-tooltip bottom>
                     <template v-slot:activator="{ on, attrs }">
                       <div v-bind="attrs" v-on="on">
@@ -877,7 +885,7 @@
                   </div>
                 </div>
   
-                <div class="d-flex align-center ml-8">
+                <div class="d-flex align-center ml-8" style="flex-wrap: wrap; gap: 4px;">
                   <v-tooltip bottom>
                     <template v-slot:activator="{ on, attrs }">
                       <div v-bind="attrs" v-on="on">
@@ -1297,7 +1305,7 @@
                 </div>
   
                 <!-- Buttons row -->
-                <div class="d-flex align-center ml-8" style="min-width: 300px;">
+                <div class="d-flex align-center ml-8" style="flex-wrap: wrap; gap: 4px;">
                   <v-menu offset-y :close-on-content-click="false">
                     <template v-slot:activator="{ on, attrs }">
                       <v-btn icon small v-bind="attrs" v-on="on" class="mr-2">
@@ -3664,6 +3672,8 @@
               liveSocket: null,
               liveStatus: 'disconnected', // 'connecting' | 'connected' | 'error'
               liveAnimationIndex: null,
+              showLiveStreamDetails: false, // Toggle for Live IK Stream section
+              showSyncDetails: false, // Toggle for Sync section
               // Forces visualization properties
               showForcesDialog: false,
               forcesFile: null,
@@ -13945,6 +13955,9 @@
         this.disconnectLiveStream();
       }
 
+      // Expand the section when connecting
+      this.showLiveStreamDetails = true;
+
       try {
         this.liveStatus = 'connecting';
         const socket = new WebSocket(this.liveUrl);
@@ -13953,6 +13966,7 @@
         socket.onopen = () => {
           this.liveStatus = 'connected';
           this.liveMode = true;
+          this.showLiveStreamDetails = true; // Keep expanded when connected
           console.log('[live] Connected to', this.liveUrl);
         };
 
@@ -15994,8 +16008,8 @@
   .right {
   position: absolute;
   top: 10px;
+  bottom: 70px; /* Position above controls container (60px height + 10px margin) */
   width: 330px;
-  max-height: calc(100vh - 120px); /* Set max height to leave more space at bottom */
   background: rgba(28, 28, 30, 0.9); /* Dark semi-transparent */
   backdrop-filter: blur(10px);
   border-radius: 12px;
@@ -16025,8 +16039,6 @@
   
   .left {
   left: 10px;
-  height: calc(100vh - 120px); /* Adjust height to leave more space at bottom */
-  overflow-y: auto;
   }
   
   .left.hidden {
@@ -16039,8 +16051,6 @@
   
   .right {
   right: 10px;
-  height: calc(100vh - 120px); /* Match left sidebar height */
-  overflow-y: auto;
   }
   
   .right.hidden {
@@ -16110,6 +16120,18 @@
   background: rgba(255, 255, 255, 0.05);
   border-radius: 8px;
   padding: 12px;
+  overflow: hidden;
+  box-sizing: border-box;
+  }
+  
+  /* Ensure control button rows are contained */
+  .legend-item .d-flex.align-center.ml-8 {
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  
+  .legend-item .d-flex.align-center.ml-8 .v-btn {
+    flex-shrink: 0;
   }
   
   .legend-item.active-subject {
