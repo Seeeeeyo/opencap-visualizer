@@ -62,14 +62,14 @@ There are three ways to interact with this tool.
 The core visualization engine is built on Three.js, providing 3D rendering directly in web browsers. The web interface is accessible at https://opencap-visualizer.onrender.com/ and requires no installation or registration. Key features include:
 
 - **3D rendering** of skeletal models with anatomically accurate geometry
-- **Multi-subject comparison** with independent color coding and transparency controls (see [@fig:multisubject])
-- **Marker visualization** supporting standard motion capture marker sets (.trc file) (see [@fig:markersforces])
-- **Ground reaction forces visualization** using .mot file (see [@fig:markersforces])
+- **Multi-subject comparison** with independent color coding and transparency controls (see Figure \ref{fig:multisubject})
+- **Marker visualization** supporting standard motion capture marker sets (.trc file) (see Figure \ref{fig:markersforces})
+- **Ground reaction forces visualization** using .mot file (see Figure \ref{fig:markersforces})
 - **Video synchronisation** with skeleton to enable simultaneous viewing of original footage and motion data 
 - **Timeline controls** with adjustable playback speed and frame-by-frame navigation
 - **Recording capabilities** for capturing custom video segments directly from the web interface
 - **Image capture** for generating high-resolution screenshots at specific time points
-- **Timelapse capture** to capture sequential motion frames, enabling the representation of dynamic movement within a single static figure (see [@fig:timelapse]).
+- **Timelapse capture** to capture sequential motion frames, enabling the representation of dynamic movement within a single static figure (see Figure \ref{fig:timelapse}).
 - **Color controls** for customizing background, ground plane, skeletal models, and markers.
 
 ## 2. Live Streaming of Kinematics
@@ -167,15 +167,30 @@ OpenCap Visualizer is designed to support high-throughput research and modern bi
 
 # Figures
 
-[@fig:multisubject] shows a multi-subject comparison on the interface, demonstrating the comparison between OpenCap monocular motion capture and traditional marker-based motion capture data in this example.
-[@fig:markersforces] demonstrates the comprehensive visualization capabilities including traditional motion capture markers and ground reaction forces. 
-[@fig:timelapse] showcases the timelapse functionality, which enables researchers to create accelerated visualizations of movement patterns using skeleton trajectory traces.
+Figure \ref{fig:multisubject} shows a multi-subject comparison on the interface, demonstrating the comparison between OpenCap monocular motion capture and traditional marker-based motion capture data in this example.
+Figure \ref{fig:markersforces} demonstrates the comprehensive visualization capabilities including traditional motion capture markers and ground reaction forces. 
+Figure \ref{fig:timelapse} showcases the timelapse functionality, which enables researchers to create accelerated visualizations of movement patterns using skeleton trajectory traces.
 
-![Example visualization of the web interface with multiple subjects.](demo.png){#fig:multisubject}
+\begin{figure}
+\centering
+\includegraphics{demo.png}
+\caption{Example visualization of the web interface with multiple subjects.}
+\label{fig:multisubject}
+\end{figure}
 
-![Example visualization of the web interface with markers and forces.](demo2.png){#fig:markersforces}
+\begin{figure}
+\centering
+\includegraphics{demo2.png}
+\caption{Example visualization of the web interface with markers and forces.}
+\label{fig:markersforces}
+\end{figure}
 
-![Example timelapse screenshot generated on the visualizer.](sample.png){#fig:timelapse}
+\begin{figure}
+\centering
+\includegraphics{sample.png}
+\caption{Example timelapse screenshot generated on the visualizer.}
+\label{fig:timelapse}
+\end{figure}
 
 
 # Comparison with Related Work
