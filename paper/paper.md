@@ -146,6 +146,7 @@ OpenCap Visualizer is implemented as a modern web application with a complementa
 ## Backend Services
 
 **Deployed, cloud based:**
+
 - **Node.js sharing backend** for URL-based data sharing
 - **Python OpenSim file converter backend** to convert .osim and .mot into .json
 
@@ -206,6 +207,6 @@ OpenCap Visualizer's browser-based approach eliminates installation barriers whi
 
 # Acknowledgements
 
-We acknowledge the contributions of the OpenCap development team and the broader biomechanics research community for their feedback and testing of the platform. This work builds upon the foundation of open-source biomechanics tools including OpenSim and the Three.js graphics library.
+This work builds upon the foundation of open-source biomechanics tools including OpenSim and OpenCap. 
 
 # References 
