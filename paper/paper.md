@@ -26,15 +26,15 @@ bibliography: paper.bib
 
 # Summary
 
-Biomechanics research relies heavily on visualizing 3D movement data to validate models and interpret results. However, as datasets grow larger and processing pipelines move to the cloud, the traditional reliance on manual, desktop-based graphical user interfaces (GUIs) has become a significant bottleneck for efficiency and reproducibility. OpenCap Visualizer is a web-based platform and Python package designed to resolve this by enabling the interactive visualization and programmatic video generation of human movement data.
+Biomechanics research relies heavily on visualizing 3D movement data to validate models and interpret results. However, as datasets grow and processing pipelines migrate to the cloud, the traditional reliance on manual, desktop-based graphical user interfaces (GUIs) has become a bottleneck for efficiency and reproducibility. Current tools require significant manual "clicking" to load models, load the associated motion, configure scenes, and export media.
 
-The software provides two primary interfaces: a browser-based viewer for real-time, shareable 3D visualization, and a Python API for automated rendering. Built with Vue.js and Three.js, it supports standard biomechanics formats—including OpenSim models (.osim), kinematics (.mot, .json), markers (.trc), and force data (.mot). This architecture allows researchers to process, analyze, and render videos for large datasets programmatically, removing the need for human interaction during the visualization pipeline.
+OpenCap Visualizer is a web-based platform and Python package designed to resolve these challenges by enabling both interactive 3D visualization and programmatic video generation. The software provides two primary interfaces: a browser-based viewer for real-time, shareable visualization, and a Python API for automated rendering. Built with Vue.js and Three.js, it supports standard biomechanics formats—including OpenSim models (.osim), kinematics (.mot, .json), markers (.trc), and force data (.mot). This architecture allows researchers to process, analyze, and render videos for large datasets programmatically, minimizing the need for human interaction during the visualization pipeline.
 
-The platform is freely available at: https://opencap-visualizer.onrender.com
+The platform is available at https://opencap-visualizer.onrender.com/.
 
 # Statement of need
 
-The volume of biomechanics data is expanding rapidly due to the rise of markerless motion capture and large-scale, multi-subject studies. Concurrently, data processing is shifting from local desktop computers to cloud-based or high-performance computing (HPC) environments (e.g., OpenCap, AddBiomech). While current visualization tools, such as the OpenSim GUI, are powerful, they are primarily designed for interactive, single-trial analysis on a local machine with a display.
+The volume of biomechanics data is expanding rapidly due to the rise of markerless motion capture and large-scale, multi-subject studies. Concurrently, data processing is shifting from local desktop computers to cloud-based environments (e.g., OpenCap, AddBiomech). While current visualization tools, such as the OpenSim GUI, are powerful, they are primarily designed for interactive, single-trial analysis on a local machine with a display.
 
 This creates three specific challenges for modern biomechanics workflows:
 
