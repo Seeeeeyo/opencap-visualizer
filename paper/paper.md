@@ -150,8 +150,9 @@ OpenCap Visualizer is implemented as a modern web application with a complementa
 - **Python OpenSim file converter backend** to convert .osim and .mot into .json
 
 **Using the deployed web-app but requiring some code locally:**
-- **Python WebSocket streamer** for real-time delivery of kinematics to the browser in live mode, using a simple JSON protocol compatible with the offline visualizer format.
-- **Python headless video generation** via pip package.
+
+- **Python WebSocket streamer** for real-time delivery of kinematics to the browser in live mode, using a simple JSON protocol compatible with the offline visualizer format
+- **Python headless video generation** via pip package
 
 # Applications
 
