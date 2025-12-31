@@ -62,14 +62,14 @@ There are three ways to interact with this tool.
 The core visualization engine is built on Three.js, providing 3D rendering directly in web browsers. The web interface is accessible at https://opencap-visualizer.onrender.com/ and requires no installation or registration. Key features include:
 
 - **3D rendering** of skeletal models with anatomically accurate geometry
-- **Multi-subject comparison** with independent color coding and transparency controls (see \autoref{fig:multisubject})
-- **Marker visualization** supporting standard motion capture marker sets (.trc file) (see \autoref{fig:markersforces})
-- **Ground reaction forces visualization** using .mot file (see \autoref{fig:markersforces})
+- **Multi-subject comparison** with independent color coding and transparency controls (see [@fig:multisubject])
+- **Marker visualization** supporting standard motion capture marker sets (.trc file) (see [@fig:markersforces])
+- **Ground reaction forces visualization** using .mot file (see [@fig:markersforces])
 - **Video synchronisation** with skeleton to enable simultaneous viewing of original footage and motion data 
 - **Timeline controls** with adjustable playback speed and frame-by-frame navigation
 - **Recording capabilities** for capturing custom video segments directly from the web interface
 - **Image capture** for generating high-resolution screenshots at specific time points
-- **Timelapse capture** to capture sequential motion frames, enabling the representation of dynamic movement within a single static figure (see \autoref{fig:timelapse}).
+- **Timelapse capture** to capture sequential motion frames, enabling the representation of dynamic movement within a single static figure (see [@fig:timelapse]).
 - **Color controls** for customizing background, ground plane, skeletal models, and markers.
 
 ## 2. Live Streaming of Kinematics
@@ -81,7 +81,7 @@ Beyond playing back pre-computed motion files, OpenCap Visualizer supports live 
 - **Handles multiple concurrent subjects**, allowing two kinematic streams (e.g., experimental vs. reference) to be visualized in real time with distinct default colors and offsets.
 - **Supports normal playback controls** (play/pause, looping) while buffering incoming frames so that users can pause, inspect a pose, and resume from the most recent streamed frame.
 
-This live streaming capability enables workflows such as monitoring ongoing inverse kinematics computations, validating OpenSim models during data collection, or comparing real-time kinematics against an offline reference (e.g OpenSenseRT[@opensenseRT]).
+This live streaming capability enables workflows such as monitoring ongoing inverse kinematics computations, validating OpenSim models during data collection, or comparing real-time kinematics against an offline reference (e.g OpenSenseRT [@opensenseRT]).
 
 ## 3. Python API for Automated Video Creation
 
@@ -167,13 +167,15 @@ OpenCap Visualizer is designed to support high-throughput research and modern bi
 
 # Figures
 
-\autoref{fig:multisubject} shows a multi-subject comparison on the interface, demonstrating the comparison between OpenCap monocular motion capture and traditional marker-based motion capture data in this example.
-\autoref{fig:markersforces} demonstrates the comprehensive visualization capabilities including traditional motion capture markers and ground reaction forces. 
-\autoref{fig:timelapse} showcases the timelapse functionality, which enables researchers to create accelerated visualizations of movement patterns using skeleton trajectory traces.
+[@fig:multisubject] shows a multi-subject comparison on the interface, demonstrating the comparison between OpenCap monocular motion capture and traditional marker-based motion capture data in this example.
+[@fig:markersforces] demonstrates the comprehensive visualization capabilities including traditional motion capture markers and ground reaction forces. 
+[@fig:timelapse] showcases the timelapse functionality, which enables researchers to create accelerated visualizations of movement patterns using skeleton trajectory traces.
 
-![Figure 1: Example visualization of the web interface with multiple subjects.\label{fig:multisubject}](demo.png)
-![Figure 2: Example visualization of the web interface with markers and forces.\label{fig:markersforces}](demo2.png)
-![Figure 3: Example timelapse screenshot generated on the visualizer.\label{fig:timelapse}](sample.png)
+![Example visualization of the web interface with multiple subjects.](demo.png){#fig:multisubject}
+
+![Example visualization of the web interface with markers and forces.](demo2.png){#fig:markersforces}
+
+![Example timelapse screenshot generated on the visualizer.](sample.png){#fig:timelapse}
 
 
 # Comparison with Related Work
