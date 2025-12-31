@@ -28,7 +28,7 @@
   abstract = {C3D file format is widely used in the biomechanical field by companies and laboratories to store motion capture systems data. However, few software packages can visualize and modify the integrality of the data in the C3D file. Our objective was to develop an open-source and multi-platform framework to read, write, modify and visualize data from any motion analysis systems using standard (C3D) and proprietary file formats (used by many companies producing motion capture systems). The Biomechanical ToolKit (BTK) was developed to provide cost-effective and efficient tools for the biomechanical community to easily deal with motion analysis data. A large panel of operations is available to read, modify and process data through C++ API, bindings for high-level languages (Matlab, Octave, and Python), and standalone application (Mokka). All these tools are open-source and cross-platform and run on all major operating systems (Windows, Linux, MacOS X).}
 }
 
-@article{mujoco,
+@INPROCEEDINGS{mujoco,
   author={Todorov, Emanuel and Erez, Tom and Tassa, Yuval},
   booktitle={2012 IEEE/RSJ International Conference on Intelligent Robots and Systems}, 
   title={MuJoCo: A physics engine for model-based control}, 
@@ -38,7 +38,6 @@
   pages={5026-5033},
   keywords={Engines;Optimization;Computational modeling;Heuristic algorithms;Dynamics;Mathematical model},
   doi={10.1109/IROS.2012.6386109}}
-
 
 @article{opencap,
   doi = {10.1371/journal.pcbi.1011462},
@@ -56,16 +55,27 @@
 }
 
 
+
 @article{opensenseRT,
-	abstract = {Analyzing human motion is essential for diagnosing movement disorders and guiding rehabilitation interventions for conditions such as osteoarthritis, stroke, and Parkinson{\textquoteright}s disease. Optical motion capture systems are the current standard for estimating kinematics but require expensive equipment located in a predefined space. While wearable sensor systems can estimate kinematics in any environment, existing systems are generally less accurate than optical motion capture. Further, many wearable sensor systems require a computer in close proximity and rely on proprietary software, making it difficult for researchers to reproduce experimental findings. Here, we present OpenSenseRT, an open-source and wearable system that estimates upper and lower extremity kinematics in real time by using inertial measurement units and a portable microcontroller. We compared the OpenSenseRT system to optical motion capture and found an average RMSE of 4.4 degrees across 5 lower-limb joint angles during three minutes of walking (n = 5) and an average RMSE of 5.6 degrees across 8 upper extremity joint angles during a Fugl-Meyer task (n = 5). The open-source software and hardware are scalable, tracking between 1 and 14 body segments, with one sensor per segment. Kinematics are estimated in real-time using a musculoskeletal model and inverse kinematics solver. The computation frequency, depends on the number of tracked segments, but is sufficient for real-time measurement for many tasks of interest; for example, the system can track up to 7 segments at 30 Hz in real-time. The system uses off-the-shelf parts costing approximately $100 USD plus $20 for each tracked segment. The OpenSenseRT system is accurate, low-cost, and simple to replicate, enabling movement analysis in labs, clinics, homes, and free-living settings.Competing Interest StatementThe authors have declared no competing interest.},
-	author = {Slade, Patrick and Habib, Ayman and Hicks, Jennifer L. and Delp, Scott L.},
-	doi = {10.1101/2021.03.24.436725},
-	elocation-id = {2021.03.24.436725},
-	eprint = {https://www.biorxiv.org/content/early/2021/03/24/2021.03.24.436725.full.pdf},
-	journal = {bioRxiv},
-	publisher = {Cold Spring Harbor Laboratory},
-	title = {An open-source and wearable system for measuring 3D human motion in real-time},
-	url = {https://www.biorxiv.org/content/early/2021/03/24/2021.03.24.436725},
+	author = {Slade, Patrick and Habib, A. and Hicks, Jennifer and Delp, Scott},
+	doi = {10.1109/TBME.2021.3103201},
+	journal = {IEEE Transactions on Biomedical Engineering},
+	month = {08},
+	pages = {1-1},
+	title = {An Open-Source and Wearable System for Measuring 3D Human Motion in Real-Time},
+	volume = {PP},
 	year = {2021},
-	bdsk-url-1 = {https://www.biorxiv.org/content/early/2021/03/24/2021.03.24.436725},
-	bdsk-url-2 = {https://doi.org/10.1101/2021.03.24.436725}}
+	bdsk-url-1 = {https://doi.org/10.1109/TBME.2021.3103201}}
+
+
+
+
+@article{opensense,
+	author = {Borno, Mazen and O'Day, Johanna and Ibarra, Vanessa and Dunne, James and Seth, Ajay and Habib, A. and Ong, Carmichael and Uhlrich, Scott and Delp, Scott},
+	doi = {10.1186/s12984-022-01001-x},
+	journal = {Journal of NeuroEngineering and Rehabilitation},
+	month = {02},
+	title = {OpenSense: An open-source toolbox for inertial-measurement-unit-based measurement of lower extremity kinematics over long durations},
+	volume = {19},
+	year = {2022},
+	bdsk-url-1 = {https://doi.org/10.1186/s12984-022-01001-x}}
