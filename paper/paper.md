@@ -173,21 +173,21 @@ Figure \ref{fig:timelapse} showcases the timelapse functionality, which enables 
 
 \begin{figure}
 \centering
-\includegraphics{demo.png}
+\includegraphics[width=\textwidth]{demo.png}
 \caption{Example visualization of the web interface with multiple subjects.}
 \label{fig:multisubject}
 \end{figure}
 
 \begin{figure}
 \centering
-\includegraphics{demo2.png}
+\includegraphics[width=\textwidth]{demo2.png}
 \caption{Example visualization of the web interface with markers and forces.}
 \label{fig:markersforces}
 \end{figure}
 
 \begin{figure}
 \centering
-\includegraphics{sample.png}
+\includegraphics[width=\textwidth]{sample.png}
 \caption{Example timelapse screenshot generated on the visualizer.}
 \label{fig:timelapse}
 \end{figure}
