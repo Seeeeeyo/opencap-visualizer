@@ -106,7 +106,7 @@ Figure \ref{fig:multisubject} illustrates multi-subject comparison, including ov
 
 \begin{figure}[h!]
 \centering
-\includegraphics[width=\textwidth]{sample.png}
+\includegraphics[width=0.8\textwidth]{sample.png}
 \caption{Example timelapse screenshot generated on the visualizer.}
 \label{fig:timelapse}
 \end{figure}
