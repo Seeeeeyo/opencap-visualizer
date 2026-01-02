@@ -6842,6 +6842,26 @@
         data.currentFrame = this.frame;
       }
   
+      // Include timelapse data if timelapse mode is enabled and there are timelapse meshes
+      if (this.timelapseMode && Object.keys(this.timelapseMeshes).length > 0) {
+        data.timelapse = {
+          enabled: true,
+          interval: this.timelapseInterval,
+          opacity: this.timelapseOpacity,
+          meshes: Object.values(this.timelapseMeshes).map(({mesh, frame, animIndex, body, geom}) => {
+            return {
+              frame: frame,
+              animIndex: animIndex,
+              body: body,
+              geom: geom,
+              position: [mesh.position.x, mesh.position.y, mesh.position.z],
+              rotation: [mesh.quaternion.x, mesh.quaternion.y, mesh.quaternion.z, mesh.quaternion.w],
+              scale: [mesh.scale.x, mesh.scale.y, mesh.scale.z]
+            };
+          })
+        };
+      }
+  
       return data;
     },
   
@@ -7032,6 +7052,10 @@
         optimized.fr = data.currentFrame;
       }
   
+      if (data.timelapse) {
+        optimized.tl = data.timelapse;
+      }
+  
       return optimized;
     },
   
@@ -7079,6 +7103,10 @@
   
       if (optimized.fr !== undefined) {
         data.currentFrame = optimized.fr;
+      }
+  
+      if (optimized.tl) {
+        data.timelapse = optimized.tl;
       }
   
       return data;
@@ -7409,6 +7437,11 @@
             setTimeout(() => {
               this.animateOneFrame();
               console.log(`[loadSharedVisualization] Initial frame animation complete. Try using play controls or navigating frames.`);
+              
+              // Restore timelapse meshes if they exist in shared data
+              if (shareData.timelapse && shareData.timelapse.enabled && shareData.timelapse.meshes) {
+                this.restoreTimelapseFromShare(shareData.timelapse);
+              }
             }, 100);
           }
         };
@@ -7422,6 +7455,11 @@
   
           setTimeout(() => {
             this.animateOneFrame();
+            
+            // Restore timelapse meshes if they exist in shared data
+            if (shareData.timelapse && shareData.timelapse.enabled && shareData.timelapse.meshes) {
+              this.restoreTimelapseFromShare(shareData.timelapse);
+            }
           }, 100);
         }
   
@@ -12289,6 +12327,85 @@
         if (this.renderer) {
           this.renderer.render(this.scene, this.camera);
         }
+      },
+  
+      restoreTimelapseFromShare(timelapseData) {
+        // Enable timelapse mode
+        this.timelapseMode = true;
+        this.timelapseInterval = timelapseData.interval || 5;
+        this.timelapseOpacity = timelapseData.opacity !== undefined ? timelapseData.opacity : 0.3;
+        
+        // Clear any existing timelapse meshes
+        this.clearTimelapse();
+        
+        // Reset counter
+        this.timelapseCounter = 1;
+        
+        // Restore each timelapse mesh
+        if (timelapseData.meshes && Array.isArray(timelapseData.meshes)) {
+          timelapseData.meshes.forEach((meshData) => {
+            const { frame, animIndex, body, geom, position, rotation, scale } = meshData;
+            
+            // Get the original mesh to clone from
+            const originalMesh = this.meshes[`anim${animIndex}_${body}${geom}`];
+            if (!originalMesh) {
+              console.warn(`Could not find original mesh for timelapse: anim${animIndex}_${body}${geom}`);
+              return;
+            }
+            
+            // Create the timelapse mesh
+            const meshId = this.timelapseCounter++;
+            const meshKey = `timelapse_${meshId}`;
+            
+            const clone = originalMesh.clone();
+            
+            // Set position, rotation, and scale from stored data
+            clone.position.set(position[0], position[1], position[2]);
+            clone.quaternion.set(rotation[0], rotation[1], rotation[2], rotation[3]);
+            clone.scale.set(scale[0], scale[1], scale[2]);
+            
+            // Apply timelapse opacity
+            clone.traverse((child) => {
+              if (child instanceof THREE.Mesh) {
+                const material = child.material.clone();
+                material.transparent = true;
+                material.opacity = this.timelapseOpacity;
+                child.material = material;
+              }
+            });
+            
+            // Add to scene
+            this.scene.add(clone);
+            
+            // Store metadata
+            this.timelapseMeshes[meshKey] = {
+              mesh: clone,
+              frame: frame,
+              animIndex: animIndex,
+              body: body,
+              geom: geom,
+              id: meshId
+            };
+            
+            // Update timelapse groups
+            if (!this.timelapseGroups[animIndex]) {
+              this.$set(this.timelapseGroups, animIndex, []);
+            }
+            if (!this.timelapseGroups[animIndex].includes(frame)) {
+              this.timelapseGroups[animIndex].push(frame);
+              this.timelapseGroups[animIndex].sort((a, b) => a - b);
+            }
+            
+            this.timelapseFrameCount++;
+          });
+        }
+        
+        // Re-render the scene
+        if (this.renderer) {
+          this.renderer.render(this.scene, this.camera);
+        }
+        
+        console.log(`Restored ${this.timelapseFrameCount} timelapse meshes from shared data`);
       },
   
       deleteTimelapseGroup(animIndex) {
