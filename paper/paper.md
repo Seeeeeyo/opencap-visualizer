@@ -20,7 +20,7 @@ authors:
 affiliations:
   - name: University of Utah
     index: 1
-date: 2026-01-02
+date: '2026-01-02'
 bibliography: paper.bib
 ---
 
