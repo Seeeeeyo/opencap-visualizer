@@ -18,7 +18,7 @@ authors:
     orcid: 0000-0002-3113-367X
     affiliation: 1
 affiliations:
-  - name: University of Utah
+  - name: Department of Mechanical Engineering, University of Utah, Salt Lake City, UT, USA
     index: 1
 date: 2 January 2026
 bibliography: paper.bib
