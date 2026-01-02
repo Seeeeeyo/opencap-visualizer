@@ -97,14 +97,14 @@ Figure \ref{fig:multisubject} illustrates multi-subject comparison, including ov
 \label{fig:multisubject}
 \end{figure}
 
-\begin{figure}
+\begin{figure}[h!]
 \centering
 \includegraphics[width=\textwidth]{demo2.png}
 \caption{Example visualization of the web interface with markers and forces.}
 \label{fig:markersforces}
 \end{figure}
 
-\begin{figure}
+\begin{figure}[h!]
 \centering
 \includegraphics[width=\textwidth]{sample.png}
 \caption{Example timelapse screenshot generated on the visualizer.}
