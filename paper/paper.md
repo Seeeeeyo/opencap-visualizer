@@ -46,8 +46,7 @@ OpenCap Visualizer supports three complementary modes of interaction: browser-ba
 
 ## 1. Interactive Web-Based Visualization
 
-OpenCap Visualizer provides installation-free 3D visualization directly in the browser using Three.js (https://opencap-visualizer.onrender.com/
-). It supports anatomically accurate skeletal rendering, multi-subject overlays, markers (.trc), ground reaction forces (.mot), and synchronized video playback. Users can interactively control playback, camera views, colors, and transparency, and export high-resolution images, videos, or timelapse composites for figures and presentations.
+OpenCap Visualizer provides installation-free 3D visualization directly in the browser using Three.js (TODO). It supports anatomically accurate skeletal rendering, multi-subject overlays, markers (.trc), ground reaction forces (.mot), and synchronized video playback. Users can interactively control playback, camera views, colors, and transparency, and export high-resolution images, videos, or timelapse composites for figures and presentations.
 
 ## 2. Live Streaming of Kinematics
 
