@@ -34,9 +34,9 @@ The platform is available at TODO.
 
 # Statement of need
 
-Biomechanics datasets are rapidly growing due to markerless motion capture and large-scale studies, while data processing is increasingly performed on cloud-based, headless servers (e.g., OpenCap, AddBiomech). Existing visualization tools, such as the OpenSim GUI, are optimized for interactive, single-trial analysis on local machines and do not scale well to modern, automated workflows.
+Biomechanics datasets are rapidly growing due to markerless motion capture and large-scale studies, while data processing is increasingly performed on cloud-based servers (e.g., OpenCap [@opencap], AddBiomechanics [@AddBiomechanics]). Existing visualization tools, such as the OpenSim GUI, are optimized for interactive, single-trial analysis on local machines and do not scale well to modern, automated workflows.
 
-As a result, visual quality control and qualitative comparison across large datasets remain time-consuming, error-prone, and difficult to reproduce. Generating consistent visual outputs—such as overlaying predicted and reference motions with fixed camera views—typically requires manual GUI interaction or screen recording, which is incompatible with server-side pipelines and limits reproducibility.
+As a result, quality control and qualitative comparison across large datasets are time-consuming, error-prone, and difficult to reproduce, as generating consistent visual outputs (e.g., predicted–reference motion overlays) requires extensive manual GUI interaction.
 
 OpenCap Visualizer addresses these challenges by providing a scriptable, platform-agnostic visualization system that supports both interactive web-based viewing and fully automated, server-side rendering. Through its Python API, researchers can batch-generate reproducible videos and figures with programmatically defined camera settings, overlays, and styling, enabling scalable quality control and consistent qualitative comparison without manual intervention. Interactive browser-based visualization further allows collaborators to inspect 3D data directly via lightweight URLs.
 
