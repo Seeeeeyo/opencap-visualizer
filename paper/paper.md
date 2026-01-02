@@ -18,15 +18,15 @@ authors:
     orcid: 0000-0002-3113-367X
     affiliation: 1
 affiliations:
- - name: University of Utah
-   index: 1
-date:  28 August 2025
+  - name: University of Utah
+    index: 1
+date: 2026-01-02
 bibliography: paper.bib
 ---
 
 # Summary
 
-Biomechanics research relies heavily on visualizing 3D movement data to validate models and interpret results. However, as datasets grow and processing pipelines migrate to the cloud, the traditional reliance on manual, desktop-based graphical user interfaces (GUIs) has become a bottleneck for efficiency and reproducibility. Current tools require significant manual "clicking" to load models, load the associated motion, configure scenes, and export media.
+Biomechanics research relies heavily on visualizing 3D movement data to interpret and validate results. However, as datasets grow and processing pipelines migrate to the cloud, the traditional reliance on manual, desktop-based graphical user interfaces (GUIs) has become a bottleneck for efficiency and reproducibility. Current tools require significant manual "clicking" to load models, load the associated motion, configure scenes, and export media.
 
 OpenCap Visualizer is a web-based platform and Python package designed to resolve these challenges by enabling both interactive 3D visualization and programmatic video generation. The software provides two primary interfaces: a browser-based viewer for real-time, shareable visualization, and a Python API for automated rendering. Built with Vue.js and Three.js, it supports standard biomechanics formats—including OpenSim models (.osim), kinematics (.mot, .json), markers (.trc), and force data (.mot). This architecture allows researchers to process, analyze, and render videos for large datasets programmatically, minimizing the need for human interaction during the visualization pipeline.
 
@@ -137,13 +137,13 @@ The software supports multiple data formats common in biomechanics research:
 
 OpenCap Visualizer is implemented as a modern web application with a complementary Python package:
 
-## Frontend Architecture
+### Frontend Architecture
 
 - **Vue.js** for reactive user interface components
 - **Three.js** for 3D graphics rendering and animation
 - **Vuetify** for Material Design components
 
-## Backend Services
+### Backend Services
 
 **Deployed, cloud based:**
 
