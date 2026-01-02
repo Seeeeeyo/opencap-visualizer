@@ -57,7 +57,7 @@ In addition to offline playback, the visualizer supports real-time streaming of 
 The opencap-visualizer Python package (https://pypi.org/project/opencap-visualizer
 ) enables fully programmatic video generation for integration into automated pipelines and headless servers. Users can batch-render videos with configurable camera views, subject overlays, colors, and looping behavior from standard OpenCap and OpenSim inputs, eliminating the need for manual GUI interaction.
 
-
+Example usage:
 ```python
 import opencap_visualizer as ocv
 
@@ -70,7 +70,7 @@ ocv.create_video(["model.osim","motion.mot","markers.trc","forces.mot"], "opensi
 
 OpenCap Visualizer consists of a web-based frontend and a complementary Python package. The frontend is built with Vue.js and Three.js for interactive 3D visualization, with Vuetify providing UI components. The deployed web application includes cloud-based services for URL-based sharing and server-side conversion of OpenSim models and motion files into a browser-compatible JSON format.
 
-For local and automated workflows, a lightweight Python package enables headless video generation, while a separate local Python script supports real-time kinematics streaming via WebSockets for integration with live analysis pipelines.
+For local and automated workflows, a lightweight Python package enables headless video generation for batch rendering, while a separate local Python script supports real-time kinematics streaming via WebSockets.
 
 
 # Applications
@@ -79,7 +79,7 @@ OpenCap Visualizer supports high-throughput biomechanics workflows where manual,
 
 - **Algorithm development and quality control**: Enables rapid visual inspection of large datasets, allowing researchers to identify model failures or artifacts across many trials without manual GUI interaction.
 
-- **Reproducible figures for publications:**: Timelapse rendering allows dynamic motion to be represented in static, publication-quality figures, facilitating clear qualitative comparisons in print.
+- **Reproducible figures for publications**: Timelapse rendering allows dynamic motion to be represented in static, publication-quality figures, facilitating clear qualitative comparisons in print.
 
 
 - **Education and clinical documentation**: Browser-based visualization removes installation barriers, enabling interactive teaching materials and standardized video generation for documenting patient movement and intervention outcomes.
