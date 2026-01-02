@@ -32,6 +32,8 @@ The software provides two primary interfaces: a browser-based viewer for real-ti
 
 The platform is available at TODO. 
 
+# Statement of need
+
 Biomechanics datasets are rapidly growing due to markerless motion capture and large-scale studies, while data processing is increasingly performed on cloud-based, headless servers (e.g., OpenCap, AddBiomech). Existing visualization tools, such as the OpenSim GUI, are optimized for interactive, single-trial analysis on local machines and do not scale well to modern, automated workflows.
 
 As a result, visual quality control and qualitative comparison across large datasets remain time-consuming, error-prone, and difficult to reproduce. Generating consistent visual outputs—such as overlaying predicted and reference motions with fixed camera views—typically requires manual GUI interaction or screen recording, which is incompatible with server-side pipelines and limits reproducibility.
