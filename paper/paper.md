@@ -34,7 +34,7 @@ The platform is available at TODO.
 
 # Statement of need
 
-Biomechanics datasets are rapidly growing due to markerless motion capture and large-scale studies, while data processing is increasingly performed on cloud-based servers (e.g., OpenCap [@opencap], AddBiomechanics [@AddBiomechanics]). Existing visualization tools, such as the OpenSim GUI, are optimized for interactive, single-trial analysis on local machines and do not scale well to modern, automated workflows.
+Biomechanics datasets are rapidly growing due to markerless motion capture and large-scale studies, while data processing is increasingly performed on cloud-based servers such as OpenCap [@opencap] or AddBiomechanics [@AddBiomechanics]. Existing visualization tools, such as the OpenSim GUI, are optimized for interactive, single-trial analysis on local machines and do not scale well to modern, automated workflows.
 
 As a result, quality control and qualitative comparison across large datasets are time-consuming, error-prone, and difficult to reproduce, as generating consistent visual outputs (e.g., predicted–reference motion overlays) requires extensive manual GUI interaction.
 
@@ -56,8 +56,7 @@ In addition to offline playback, the visualizer supports real-time streaming of 
 
 ## 3. Python API for Automated Video Creation
 
-The opencap-visualizer Python package (https://pypi.org/project/opencap-visualizer
-) enables fully programmatic video generation for integration into automated pipelines and headless servers. Users can batch-render videos with configurable camera views, subject overlays, colors, and looping behavior from standard OpenCap and OpenSim inputs, eliminating the need for manual GUI interaction.
+The opencap-visualizer Python package (https://pypi.org/project/opencap-visualizer) enables fully programmatic video generation for integration into automated pipelines and headless servers. Users can batch-render videos with configurable camera views, subject overlays, colors, and looping behavior from standard OpenCap and OpenSim inputs, eliminating the need for manual GUI interaction.
 
 Example usage:
 ```python
