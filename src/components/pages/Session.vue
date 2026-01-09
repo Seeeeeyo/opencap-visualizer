@@ -2614,26 +2614,16 @@
                   v-for="sampleSet in availableSampleSets"
                   :key="sampleSet.id"
                   cols="12"
-                  :md="sampleSet.id === 'default' ? 12 : 4"
+                  md="6"
                   class="sample-option-col"
                 >
                   <v-card
-                    class="sample-option-card"
-                    :class="{ 'sample-option-hover': true, 'full-width-sample': sampleSet.id === 'default' }"
+                    class="sample-option-card sample-option-hover"
                     @click="selectSampleSet(sampleSet.id)"
                     dark
                     outlined
                   >
-                    <v-card-text v-if="sampleSet.id === 'default'" class="pa-4 d-flex align-center">
-                      <v-icon size="48" color="primary" class="mr-4">
-                        {{ getSampleIcon(sampleSet.id) }}
-                      </v-icon>
-                      <div>
-                        <div class="text-h6 mb-1">{{ sampleSet.name }}</div>
-                        <div class="text-caption grey--text">{{ sampleSet.description }}</div>
-                      </div>
-                    </v-card-text>
-                    <v-card-text v-else class="pa-4 text-center">
+                    <v-card-text class="pa-4 text-center">
                       <v-icon size="48" color="primary" class="mb-3">
                         {{ getSampleIcon(sampleSet.id) }}
                       </v-icon>
@@ -3778,10 +3768,10 @@
               // Sample selection dialog
               showSampleSelectionDialog: false,
               availableSampleSets: [
-                { id: 'default', name: 'Default', description: 'Default motion set' },
                 { id: 'STS', name: 'Sit-to-Stand', description: 'Sit-to-stand on chair' },
                 { id: 'squat', name: 'Squats', description: 'Squat exercise movements' },
-                { id: 'walk', name: 'Walking', description: 'Normal walking' },
+                { id: 'walk', name: 'Walking 1', description: 'Normal walking' },
+                { id: 'walk_ts', name: 'Walking 2', description: 'Walking with disability' },
               ],
               // Marker visualization properties
               showMarkersDialog: false,
@@ -4007,7 +3997,7 @@
   
         // Determine if we need to load samples and which set
         let sampleSetToLoad = null;
-        if (this.$route.query.sample_set && ['squat', 'walk', 'STS', 'rmasb', 'default'].includes(this.$route.query.sample_set)) {
+        if (this.$route.query.sample_set && ['squat', 'walk', 'STS', 'rmasb', 'walk_ts'].includes(this.$route.query.sample_set)) {
             sampleSetToLoad = this.$route.query.sample_set;
             console.log(`Query parameter found, loading sample set: ${sampleSetToLoad}`);
         } else if (this.$route.query.load_samples === 'true') {
@@ -6611,7 +6601,7 @@
         'squat': 'mdi-human-handsdown',
         'walk': 'mdi-walk',
         'rmasb': 'mdi-run-fast',
-        'default': 'mdi-play-circle-outline'
+        'walk_ts': 'mdi-walk'
       };
       return iconMap[sampleSetId] || 'mdi-play-circle';
     },
@@ -11336,20 +11326,14 @@
         console.log(`loadSampleFiles called for set: ${sampleSet}`);
   
         // Validate sample set name, default to 'STS' if invalid
-        const validSets = ['squat', 'walk', 'STS', 'rmasb', 'default']; // Added rmasb here too
+        const validSets = ['squat', 'walk', 'STS', 'rmasb', 'walk_ts'];
         if (!validSets.includes(sampleSet)) {
             console.warn(`Invalid sample set "${sampleSet}" provided. Defaulting to 'STS'.`);
             sampleSet = 'STS';
         }
   
         // Define the URLs for the sample files relative to the root and the specific set
-        const sampleFiles = sampleSet === 'default'
-          ? [
-              '/samples/default/sample.json',
-              '/samples/default/sample_forces.mot',
-              '/samples/default/sample_markers.trc',
-            ]
-          : [
+        const sampleFiles = [
               `/samples/${sampleSet}/sample_mocap.json`,
               `/samples/${sampleSet}/sample_mono.json`,
               `/samples/${sampleSet}/sample_wham.json`
