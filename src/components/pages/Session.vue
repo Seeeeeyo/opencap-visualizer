@@ -2636,7 +2636,7 @@
   
               <div class="text-caption grey--text mt-4 text-center">
                 <v-icon small class="mr-1">mdi-information-outline</v-icon>
-                Each set contains multiple motion capture files with different analysis methods capture methods (WHAM, OpenCap Monocular and OpenCap 2 cameras)
+                Each set contains multiple motion capture files with different analysis methods capture methods (Motion Capture, WHAM, and OpenCap Monocular)
               </div>
             </v-card-text>
   
