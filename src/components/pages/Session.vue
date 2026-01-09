@@ -1999,6 +1999,20 @@
                   </v-card>
                 </v-col>
               </v-row>
+              
+              <!-- Sample Data Button -->
+              <div class="mt-4 mb-2">
+                <v-btn
+                  large
+                  outlined
+                  color="white"
+                  @click.stop="showSampleSelectionDialog = true"
+                  class="px-6"
+                >
+                  <v-icon left>mdi-play-circle</v-icon>
+                  Try with Sample Files
+                </v-btn>
+              </div>
             </div>
   
             <div class="text-center">
