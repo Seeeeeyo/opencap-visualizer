@@ -11364,8 +11364,23 @@
         this.animations = [];
         this.clearExistingObjects(); // Clear meshes and sprites from previous loads
   
+        // First, try to fetch param.json for offsets
+        const paramUrl = `/samples/${sampleSet}/param.json`;
+        const paramPromise = fetch(paramUrl)
+            .then(response => {
+                if (!response.ok) {
+                    console.log(`No param.json found for ${sampleSet}, using default offsets`);
+                    return null;
+                }
+                return response.json();
+            })
+            .catch(error => {
+                console.log(`Error fetching param.json for ${sampleSet}:`, error);
+                return null;
+            });
+
         // Fetch all potential sample files, handling individual failures
-        Promise.all(sampleFiles.map(url => {
+        Promise.all([paramPromise, ...sampleFiles.map(url => {
           const isMotOrTrc = url.endsWith('.mot') || url.endsWith('.trc');
           return fetch(url)
               .then(response => {
@@ -11385,10 +11400,25 @@
                   console.warn(`Error fetching sample file ${url}:`, error);
                   return null; // Indicate failure
               })
-        }))
+        })]) // Close the map, then close the array, then close Promise.all
         .then(results => {
+            // First result is paramData, rest are sample files
+            const paramData = results[0];
+            const sampleResults = results.slice(1);
+            
+            // Extract offsets from param.json if available
+            let mocapOffsets = { x: 0, y: 0, z: 0 };
+            if (paramData && paramData.mocap) {
+                mocapOffsets = {
+                    x: paramData.mocap.x_offset || 0,
+                    y: paramData.mocap.y_offset || 0,
+                    z: paramData.mocap.z_offset || 0
+                };
+                console.log('Loaded mocap offsets from param.json:', mocapOffsets);
+            }
+            
             // Filter out null results (failed fetches)
-            const successfulResults = results.filter(r => r !== null);
+            const successfulResults = sampleResults.filter(r => r !== null);
   
             console.log(`Successfully loaded ${successfulResults.length} sample files.`);
   
@@ -11419,10 +11449,20 @@
                 // Calculate FPS for this specific file
                 const fileFps = this.calculateFrameRate(data.time);
   
+                // Determine offset based on file type (apply mocap offsets only to mocap files)
+                const isMocapFile = fileName.includes('mocap');
+                const fileOffset = isMocapFile 
+                    ? new THREE.Vector3(mocapOffsets.x, mocapOffsets.y, mocapOffsets.z)
+                    : new THREE.Vector3(0, 0, 0);
+                
+                if (isMocapFile && (mocapOffsets.x !== 0 || mocapOffsets.y !== 0 || mocapOffsets.z !== 0)) {
+                    console.log(`Applying offsets to ${fileName}:`, fileOffset);
+                }
+  
                 // Create animation data with better names
                 this.animations.push({
                     data: data,
-                    offset: new THREE.Vector3(0, 0, 0),
+                    offset: fileOffset,
                     rotation: new THREE.Euler(0, 0, 0, 'XYZ'),
                     fileName: fileName,
                     trialName: fileName.replace('sample_', '').replace('.json', ''),
