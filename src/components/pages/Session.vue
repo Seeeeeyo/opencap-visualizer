@@ -9114,12 +9114,14 @@
         // Create a ground plane with fog for distance fading
         const planeGeo = new THREE.PlaneGeometry(planeSize, planeSize);
         // Always use MeshPhongMaterial - lighting mode is controlled by light intensities
+        const isTransparent = this.groundOpacity < 1.0;
         const planeMat = new THREE.MeshPhongMaterial({
             map: this.useGroundTexture ? texture : null,
             side: THREE.DoubleSide,
             color: new THREE.Color(this.groundColor),
             opacity: this.groundOpacity,
-            transparent: this.groundOpacity < 1.0
+            transparent: isTransparent,
+            depthWrite: !isTransparent // Disable depth write for transparent ground to fix view-angle issues
         });
         const groundMesh = new THREE.Mesh(planeGeo, planeMat);
         groundMesh.rotation.x = Math.PI * -.5;
@@ -11668,11 +11670,13 @@
     updateGroundColor(color) {
         this.groundColor = color;
         if (this.groundMesh && this.groundMesh.material) {
+            const isTransparent = this.groundOpacity < 1.0;
             // If not using texture, just set the color
             if (!this.useGroundTexture) {
                 this.groundMesh.material.color = new THREE.Color(color);
                 this.groundMesh.material.opacity = this.groundOpacity;
-                this.groundMesh.material.transparent = this.groundOpacity < 1.0;
+                this.groundMesh.material.transparent = isTransparent;
+                this.groundMesh.material.depthWrite = !isTransparent;
             } else {
                 // If using texture, create a new material with both texture and color
                 const oldMaterial = this.groundMesh.material;
@@ -11681,15 +11685,16 @@
                     side: THREE.DoubleSide,
                     color: new THREE.Color(color),
                     opacity: this.groundOpacity,
-                    transparent: this.groundOpacity < 1.0
+                    transparent: isTransparent,
+                    depthWrite: !isTransparent
                 });
-  
+
                 this.groundMesh.material = newMaterial;
-  
+
                 // Dispose of old material
                 if (oldMaterial) oldMaterial.dispose();
             }
-  
+
             this.renderer.render(this.scene, this.camera);
         }
         this.saveSettings(); // Explicitly save
@@ -11698,9 +11703,11 @@
         this.groundOpacity = opacity;
         if (this.groundMesh && this.groundMesh.material) {
             // Update the material's opacity and transparency
+            const isTransparent = opacity < 1.0;
             this.groundMesh.material.opacity = opacity;
-            this.groundMesh.material.transparent = opacity < 1.0;
-  
+            this.groundMesh.material.transparent = isTransparent;
+            this.groundMesh.material.depthWrite = !isTransparent; // Disable depth write for transparent ground to fix view-angle issues
+
             this.renderer.render(this.scene, this.camera);
         }
         this.saveSettings(); // Explicitly save
@@ -11717,10 +11724,11 @@
     },
     toggleGroundTexture() {
         this.useGroundTexture = !this.useGroundTexture;
-  
+
         if (this.groundMesh) {
             const oldMaterial = this.groundMesh.material;
-  
+            const isTransparent = this.groundOpacity < 1.0;
+
             if (this.useGroundTexture) {
                 // Use textured material with either checkerboard or grid
                 const textureToUse = this.useCheckerboard ? this.groundTexture : this.gridTexture;
@@ -11729,7 +11737,8 @@
                     side: THREE.DoubleSide,
                     color: new THREE.Color(this.groundColor),
                     opacity: this.groundOpacity,
-                    transparent: this.groundOpacity < 1.0
+                    transparent: isTransparent,
+                    depthWrite: !isTransparent
                 });
             } else {
                 // Use plain colored material
@@ -11737,13 +11746,14 @@
                     color: new THREE.Color(this.groundColor),
                     side: THREE.DoubleSide,
                     opacity: this.groundOpacity,
-                    transparent: this.groundOpacity < 1.0
+                    transparent: isTransparent,
+                    depthWrite: !isTransparent
                 });
             }
-  
+
             // Dispose of old material
             if (oldMaterial) oldMaterial.dispose();
-  
+
             this.renderer.render(this.scene, this.camera);
         }
         this.saveSettings(); // Explicitly save
@@ -11797,16 +11807,18 @@
             }
   
             // Create new material with the appropriate texture
+            const isTransparent = this.groundOpacity < 1.0;
             const newMaterial = new THREE.MeshPhongMaterial({
                 map: this.useCheckerboard ? this.groundTexture : this.gridTexture,
                 side: THREE.DoubleSide,
                 color: new THREE.Color(this.groundColor),
                 opacity: this.groundOpacity,
-                transparent: this.groundOpacity < 1.0
+                transparent: isTransparent,
+                depthWrite: !isTransparent
             });
-  
+
             this.groundMesh.material = newMaterial;
-  
+
             // Dispose of old material
             if (oldMaterial) oldMaterial.dispose();
   
@@ -14085,6 +14097,7 @@
   
           // Apply texture settings
           const oldMaterial = this.groundMesh.material;
+          const isTransparent = this.groundOpacity < 1.0;
           if (this.useGroundTexture) {
               const textureToUse = this.useCheckerboard ? this.groundTexture : this.gridTexture;
               if (!textureToUse && !this.useCheckerboard) {
@@ -14096,14 +14109,16 @@
                   side: THREE.DoubleSide,
                   color: new THREE.Color(this.groundColor),
                   opacity: this.groundOpacity,
-                  transparent: this.groundOpacity < 1.0
+                  transparent: isTransparent,
+                  depthWrite: !isTransparent
                             });
                         } else {
               this.groundMesh.material = new THREE.MeshPhongMaterial({
                   color: new THREE.Color(this.groundColor),
                   side: THREE.DoubleSide,
                   opacity: this.groundOpacity,
-                  transparent: this.groundOpacity < 1.0
+                  transparent: isTransparent,
+                  depthWrite: !isTransparent
               });
           }
           if (oldMaterial && oldMaterial !== this.groundMesh.material) {
