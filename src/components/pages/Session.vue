@@ -4043,9 +4043,14 @@
   
         if (sampleSetToLoad) {
             console.log(`Loading sample set: ${sampleSetToLoad}`);
+            // Check for subjects filter from URL (e.g., subjects=mocap,mono)
+            const subjectsFilter = this.$route.query.subjects || null;
+            if (subjectsFilter) {
+                console.log(`Subjects filter from URL: ${subjectsFilter}`);
+            }
             // Add a small delay to ensure scene is fully initialized
             setTimeout(() => {
-                this.loadSampleFiles(sampleSetToLoad);
+                this.loadSampleFiles(sampleSetToLoad, subjectsFilter);
             }, 100);
         }
   
@@ -4286,9 +4291,13 @@
   
         if (to.path === '/samples' || to.path === '/samples/') {
           console.log('Loading sample files from route watcher');
+          // Get subjects filter from URL if provided
+          const subjectsFilter = to.query.subjects || null;
+          // Get sample set from URL if provided
+          const sampleSet = to.query.sample_set || 'STS';
           // Add a small delay to ensure scene is ready
           setTimeout(() => {
-            this.loadSampleFiles();
+            this.loadSampleFiles(sampleSet, subjectsFilter);
           }, 100);
         }
       },
@@ -11360,8 +11369,8 @@
             }
         });
     },
-    loadSampleFiles(sampleSet = 'STS') { // Default to 'STS' if no set is provided
-        console.log(`loadSampleFiles called for set: ${sampleSet}`);
+    loadSampleFiles(sampleSet = 'STS', subjectsFilter = null) { // Default to 'STS' if no set is provided
+        console.log(`loadSampleFiles called for set: ${sampleSet}, subjects filter: ${subjectsFilter}`);
   
         // Validate sample set name, default to 'STS' if invalid
         const validSets = ['squat', 'walk', 'STS', 'rmasb', 'walk_ts'];
@@ -11370,12 +11379,33 @@
             sampleSet = 'STS';
         }
   
-        // Define the URLs for the sample files relative to the root and the specific set
-        const sampleFiles = [
-              `/samples/${sampleSet}/sample_mocap.json`,
-              `/samples/${sampleSet}/sample_mono.json`,
-              `/samples/${sampleSet}/sample_wham.json`
-            ];
+        // Define available subjects and their corresponding sample files
+        const availableSubjects = {
+            'mocap': `/samples/${sampleSet}/sample_mocap.json`,
+            'mono': `/samples/${sampleSet}/sample_mono.json`,
+            'wham': `/samples/${sampleSet}/sample_wham.json`
+        };
+
+        // Filter subjects based on URL parameter if provided
+        let sampleFiles;
+        if (subjectsFilter && subjectsFilter.length > 0) {
+            // Parse comma-separated subjects and filter to valid ones
+            const requestedSubjects = subjectsFilter
+                .split(',')
+                .map(s => s.trim().toLowerCase())
+                .filter(s => Object.prototype.hasOwnProperty.call(availableSubjects, s));
+            
+            if (requestedSubjects.length > 0) {
+                sampleFiles = requestedSubjects.map(s => availableSubjects[s]);
+                console.log(`Filtered to subjects: ${requestedSubjects.join(', ')}`);
+            } else {
+                console.warn(`No valid subjects in filter "${subjectsFilter}". Loading all subjects.`);
+                sampleFiles = Object.values(availableSubjects);
+            }
+        } else {
+            // No filter, load all subjects
+            sampleFiles = Object.values(availableSubjects);
+        }
   
         console.log('Attempting to fetch potential sample files:', sampleFiles);
   
