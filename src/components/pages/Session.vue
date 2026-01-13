@@ -2052,7 +2052,27 @@
       >
         <v-icon>{{ showSidebar ? 'mdi-chevron-right' : 'mdi-chevron-left' }}</v-icon>
       </v-btn>
-  
+
+      <!-- GitHub Repository Link -->
+      <v-tooltip right>
+        <template v-slot:activator="{ on, attrs }">
+          <v-btn
+            icon
+            dark
+            small
+            class="github-link-btn"
+            href="https://github.com/Seeeeeyo/opencap-visualizer"
+            target="_blank"
+            v-bind="attrs"
+            v-on="on"
+            v-if="$route.query.embed !== 'true'"
+          >
+            <v-icon small>mdi-github</v-icon>
+          </v-btn>
+        </template>
+        <span>View on GitHub</span>
+      </v-tooltip>
+
       <!-- Right Panel: Controls, Legend, etc. -->
       <div class="right d-flex flex-column" :class="{ 'hidden': !showSidebar }" v-if="$route.query.embed !== 'true'">
         <!-- Recording controls -->
@@ -16377,7 +16397,23 @@
   .sidebar-toggle.sidebar-open {
   transform: translateX(-340px); /* Move with sidebar (width + padding/margin) */
   }
-  
+
+  /* GitHub link button */
+  .github-link-btn {
+    position: absolute;
+    bottom: 80px;
+    left: 15px;
+    z-index: 11;
+    background: rgba(40, 40, 40, 0.8) !important;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+  }
+
+  .github-link-btn:hover {
+    background: rgba(60, 60, 60, 0.9) !important;
+    transform: scale(1.1);
+  }
+
   /* Legend and Controls specific styles */
   .left .left-content, .right .right-content /* Define a content wrapper if needed */ {
   flex-grow: 1;

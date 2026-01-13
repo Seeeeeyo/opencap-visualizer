@@ -356,6 +356,6 @@ We acknowledge the contributions of the OpenCap development team and the broader
 
 ## 📞 Support
 
-- **GitHub Issues**: [Report bugs and request features](https://github.com/utahmobl/opencap-visualizer/issues)
+- **GitHub Issues**: [Report bugs and request features](https://github.com/Seeeeeyo/opencap-visualizer/issues)
 - **Web App**: [https://opencap-visualizer.onrender.com/](https://opencap-visualizer.onrender.com/)
 - **Documentation**: Check the individual repository READMEs for detailed usage instructions
