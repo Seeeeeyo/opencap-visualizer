@@ -30,7 +30,7 @@ Biomechanics research relies on visualizing 3D movement data to interpret and va
 
 The software provides two primary interfaces: a browser-based viewer for real-time, shareable visualization, and a Python API for automated rendering. Built with Vue.js and Three.js, it supports standard biomechanics formats—including OpenSim models (.osim), kinematics (.mot, .json), markers (.trc), and force data (.mot)—allowing researchers to process, analyze, render, and share biomechanics videos with minimal human intervention.
 
-The platform is available at TODO. 
+The platform is available at https://www.visualizer.opencap.ai
 
 # Statement of need
 
@@ -48,7 +48,7 @@ OpenCap Visualizer supports three complementary modes of interaction: browser-ba
 
 ## 1. Interactive Web-Based Visualization
 
-OpenCap Visualizer provides installation-free 3D visualization directly in the browser using Three.js (TODO). It supports anatomically accurate skeletal rendering, multi-subject overlays, markers (.trc), ground reaction forces (.mot), and synchronized video playback. Users can interactively control playback, camera views, colors, and transparency, and export high-resolution images, videos, or timelapse composites for figures and presentations.
+OpenCap Visualizer provides installation-free 3D visualization directly in the browser using Three.js (https://www.visualizer.opencap.ai). It supports anatomically accurate skeletal rendering, multi-subject overlays, markers (.trc), ground reaction forces (.mot), and synchronized video playback. Users can interactively control playback, camera views, colors, and transparency, and export high-resolution images, videos, or timelapse composites for figures and presentations.
 
 ## 2. Live Streaming of Kinematics
 
