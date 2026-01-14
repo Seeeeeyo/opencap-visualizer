@@ -4374,6 +4374,16 @@
           }
         }
       },
+      playSpeed(newSpeed) {
+        // Send playback speed updates to parent window if running in an iframe
+        if (window.parent && window.parent !== window) {
+          try {
+            window.parent.postMessage({ type: 'playSpeedChanged', speed: newSpeed }, '*');
+          } catch (error) {
+            console.error('Error sending playSpeed message to parent:', error);
+          }
+        }
+      },
       $route(to) {
         console.log('Route changed to:', to.path);
   
@@ -14370,6 +14380,27 @@
           // Handle JSON data loading
           if (event.data.jsonData) {
             this.loadJsonData(event.data.jsonData);
+          }
+        } else if (event.data.type === 'setPlaySpeed') {
+          // Handle playback speed setting
+          if (typeof event.data.speed === 'number' && isFinite(event.data.speed)) {
+            // Clamp speed between 0.1 and 4.0 to match keyboard shortcut limits
+            const clampedSpeed = Math.max(0.1, Math.min(4.0, event.data.speed));
+            this.playSpeed = clampedSpeed;
+          }
+        } else if (event.data.type === 'next') {
+          // Navigate to next frame (equivalent to step-forward button)
+          if (this.frames && this.frames.length > 0) {
+            const nextFrame = Math.min(this.frames.length - 1, this.frame + 1);
+            this.playing = false; // Stop playback when manually navigating
+            this.onNavigate(nextFrame);
+          }
+        } else if (event.data.type === 'previous') {
+          // Navigate to previous frame (equivalent to step-backward button)
+          if (this.frames && this.frames.length > 0) {
+            const prevFrame = Math.max(0, this.frame - 1);
+            this.playing = false; // Stop playback when manually navigating
+            this.onNavigate(prevFrame);
           }
         }
       }
