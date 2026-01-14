@@ -2199,7 +2199,7 @@
                 color="blue darken-2"
                 dark
                 class="mb-3"
-                @click="window.open('https://github.com/Seeeeeyo/opencap-visualizer', '_blank')"
+                @click="openGitHubRepository"
               >
                 <v-icon left>mdi-github</v-icon>
                 View Source Code
@@ -2207,7 +2207,7 @@
               <v-btn
                 color="grey darken-2"
                 dark
-                @click="window.open('https://github.com/Seeeeeyo/opencap-visualizer/issues', '_blank')"
+                @click="openGitHubIssues"
               >
                 <v-icon left>mdi-message-question</v-icon>
                 Ask Questions
@@ -4520,6 +4520,12 @@
     methods: {
     openGitHubRepo() {
       this.showGitHubDialog = true;
+    },
+    openGitHubRepository() {
+      window.open('https://github.com/Seeeeeyo/opencap-visualizer', '_blank');
+    },
+    openGitHubIssues() {
+      window.open('https://github.com/Seeeeeyo/opencap-visualizer/issues', '_blank');
     },
 
     // Animation details toggle methods
