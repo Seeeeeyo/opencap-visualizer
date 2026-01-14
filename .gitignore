@@ -43,5 +43,6 @@ package-lock.json
 
 # folder 
 body_models/
-*.mot
 *.pkl
+smpl_service/
+test/
