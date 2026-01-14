@@ -3945,7 +3945,7 @@
               forceArrows: [], // Array to store force arrow objects
               showForces: true,
               forceScale: 0.001, // Scale factor for force arrows
-              forceMinMagnitude: 15, // Minimum force magnitude threshold in Newtons
+              forceMinMagnitude: 50, // Minimum force magnitude threshold in Newtons
                     forceColors: {}, // Object to store colors per animation index
       forceDisplayColors: {}, // Object to store display colors for v-color-picker by animation index
               loadingForces: false,
