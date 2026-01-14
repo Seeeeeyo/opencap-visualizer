@@ -1882,7 +1882,7 @@
             />
             <!-- Add Loop button here -->
             <v-btn icon dark @click="toggleLooping" :disabled="videoControlsDisabled" class="mr-2">
-              <v-icon :color="isLooping ? 'indigo lighten-1' : 'grey'">{{ isLooping ? 'mdi-repeat' : 'mdi-repeat-off' }}</v-icon>
+              <v-icon :color="isLooping ? 'cyan lighten-2' : 'grey'">{{ isLooping ? 'mdi-repeat' : 'mdi-repeat-off' }}</v-icon>
             </v-btn>
             <!-- Playback speed control -->
             <div class="mr-3">
@@ -11232,7 +11232,7 @@
         }
   
         // Rebuild meshes and text sprites with correct indices
-        this.reindexSubjects();
+        this.reindexSubjects(index);
   
         if (this.animations.length > 0) {
             this.frames = this.animations[0].data.time;
@@ -11301,7 +11301,7 @@
         // Save settings after deletion
         this.saveSettings();
     },
-    reindexSubjects() {
+    reindexSubjects(deletedIndex) {
         // Reindex all mesh keys and text sprites after subject deletion
         const oldMeshes = { ...this.meshes };
         const oldTextSprites = { ...this.textSprites };
@@ -11317,16 +11317,20 @@
                 const oldIndex = parseInt(match[1]);
                 const meshName = match[2];
   
-                // Find the new index for this mesh
-                let newIndex = -1;
-                for (let i = 0; i < this.animations.length; i++) {
-                    if (i >= oldIndex) {
-                        newIndex = i;
-                        break;
-                    }
+                // Calculate new index based on deleted index
+                // If oldIndex < deletedIndex: newIndex = oldIndex (no change)
+                // If oldIndex > deletedIndex: newIndex = oldIndex - 1 (decrement by 1)
+                let newIndex = oldIndex;
+                if (oldIndex > deletedIndex) {
+                    newIndex = oldIndex - 1;
+                }
+                // Skip if this was the deleted index
+                if (oldIndex === deletedIndex) {
+                    return;
                 }
   
-                if (newIndex !== -1) {
+                // Validate newIndex is within bounds
+                if (newIndex >= 0 && newIndex < this.animations.length) {
                     const newKey = `anim${newIndex}_${meshName}`;
                     this.meshes[newKey] = oldMeshes[key];
   
@@ -11350,16 +11354,20 @@
             if (match) {
                 const oldIndex = parseInt(match[1]);
   
-                // Find the new index for this text sprite
-                let newIndex = -1;
-                for (let i = 0; i < this.animations.length; i++) {
-                    if (i >= oldIndex) {
-                        newIndex = i;
-                        break;
-                    }
+                // Calculate new index based on deleted index
+                // If oldIndex < deletedIndex: newIndex = oldIndex (no change)
+                // If oldIndex > deletedIndex: newIndex = oldIndex - 1 (decrement by 1)
+                let newIndex = oldIndex;
+                if (oldIndex > deletedIndex) {
+                    newIndex = oldIndex - 1;
+                }
+                // Skip if this was the deleted index
+                if (oldIndex === deletedIndex) {
+                    return;
                 }
   
-                if (newIndex !== -1) {
+                // Validate newIndex is within bounds
+                if (newIndex >= 0 && newIndex < this.animations.length) {
                     const newKey = `text_${newIndex}`;
                     this.textSprites[newKey] = oldTextSprites[key];
   
