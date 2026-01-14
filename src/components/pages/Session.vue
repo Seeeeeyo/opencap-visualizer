@@ -2165,13 +2165,57 @@
             v-on="on"
             v-if="$route.query.embed !== 'true'"
           >
-            <svg class="github-icon" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-            </svg>
+            <v-icon>mdi-help-circle</v-icon>
           </v-btn>
         </template>
         <span>View on GitHub</span>
       </v-tooltip>
+
+      <!-- GitHub Info Dialog -->
+      <v-dialog
+        v-model="showGitHubDialog"
+        max-width="500"
+      >
+        <v-card>
+          <v-card-title class="text-subtitle-1">
+            Source Code & Support
+            <v-spacer></v-spacer>
+            <v-btn icon small @click="showGitHubDialog = false">
+              <v-icon small>mdi-close</v-icon>
+            </v-btn>
+          </v-card-title>
+          <v-divider></v-divider>
+          <v-card-text class="pa-4">
+            <div class="d-flex align-center justify-center mb-4">
+              <svg class="github-logo-popup" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+              </svg>
+            </div>
+            <p class="mb-4 text-center">
+              The source code for this project is available on GitHub. You can view the repository, contribute to the project, or ask questions through GitHub issues.
+            </p>
+            <div class="d-flex flex-column">
+              <v-btn
+                color="blue darken-2"
+                dark
+                class="mb-3"
+                @click="window.open('https://github.com/Seeeeeyo/opencap-visualizer', '_blank')"
+              >
+                <v-icon left>mdi-github</v-icon>
+                View Source Code
+              </v-btn>
+              <v-btn
+                color="grey darken-2"
+                dark
+                @click="window.open('https://github.com/Seeeeeyo/opencap-visualizer/issues', '_blank')"
+              >
+                <v-icon left>mdi-message-question</v-icon>
+                Ask Questions
+              </v-btn>
+            </div>
+          </v-card-text>
+        </v-card>
+      </v-dialog>
 
       <!-- Right Panel: Controls, Legend, etc. -->
       <div class="right d-flex flex-column" :class="{ 'hidden': !showSidebar }" v-if="$route.query.embed !== 'true'">
@@ -3856,6 +3900,9 @@
               plotDragOffset: { x: 0, y: 0 },
               plotResizeStartPosition: { x: 0, y: 0 },
               plotResizeStartSize: { width: 0, height: 0 },
+              
+              // GitHub dialog
+              showGitHubDialog: false,
   
               // Plot configuration
               selectedPlotType: null,
@@ -4375,6 +4422,15 @@
         }
       },
       playSpeed(newSpeed) {
+        // Update video playback rate to match animation speed
+        if (this.$refs.videoPreview && this.videoFile) {
+          const videoElement = this.$refs.videoPreview;
+          if (videoElement && typeof videoElement.playbackRate !== 'undefined') {
+            videoElement.playbackRate = newSpeed;
+            console.log(`Video playback rate updated to: ${newSpeed}x`);
+          }
+        }
+        
         // Send playback speed updates to parent window if running in an iframe
         if (window.parent && window.parent !== window) {
           try {
@@ -4463,7 +4519,7 @@
     },
     methods: {
     openGitHubRepo() {
-      window.open('https://github.com/Seeeeeyo/opencap-visualizer', '_blank');
+      this.showGitHubDialog = true;
     },
 
     // Animation details toggle methods
@@ -8371,6 +8427,11 @@
         // Video sync logic
         if (this.videoFile && this.$refs.videoPreview) {
           try {
+            // Set video playback rate to match current playSpeed
+            if (typeof this.$refs.videoPreview.playbackRate !== 'undefined') {
+              this.$refs.videoPreview.playbackRate = this.playSpeed;
+            }
+            
             if (this.playing) {
               const playPromise = this.$refs.videoPreview.play();
               if (playPromise !== undefined) {
@@ -13329,6 +13390,13 @@
         const videoTimePosition = (this.frame / totalFrames) * this.videoDuration;
         this.$refs.videoPreview.currentTime = videoTimePosition;
       }
+      
+      // Set video playback rate to match current playSpeed
+      if (this.$refs.videoPreview && typeof this.$refs.videoPreview.playbackRate !== 'undefined') {
+        this.$refs.videoPreview.playbackRate = this.playSpeed;
+        console.log(`Video playback rate set to: ${this.playSpeed}x on metadata load`);
+      }
+      
       if (this.videoPlaneSettings.visible) {
         this.$nextTick(() => this.ensureVideoPlane());
       }
@@ -17156,6 +17224,13 @@
   .github-link-btn:hover {
     background: rgba(60, 60, 60, 0.9) !important;
     transform: scale(1.1);
+  }
+
+  /* GitHub logo in popup */
+  .github-logo-popup {
+    width: 48px;
+    height: 48px;
+    fill: rgba(255, 255, 255, 0.9);
   }
 
   /* Legend and Controls specific styles */
