@@ -1324,6 +1324,42 @@
                     </v-card>
                   </v-menu>
   
+                  <v-menu offset-y :close-on-content-click="false">
+                    <template v-slot:activator="{ on, attrs }">
+                      <v-btn icon small v-bind="attrs" v-on="on" class="mr-2">
+                        <v-icon small>mdi-filter</v-icon>
+                      </v-btn>
+                    </template>
+                    <v-card class="scale-picker pa-3" width="250">
+                      <div class="text-subtitle-2 mb-2">
+                        Minimum Force Threshold
+                        <span class="text-caption ml-2">
+                          ({{ forceMinMagnitude }}N)
+                        </span>
+                      </div>
+                      <v-slider
+                        v-model="forceMinMagnitude"
+                        :min="0"
+                        :max="100"
+                        step="1"
+                        hide-details
+                        :thumb-label="true"
+                        thumb-size="24"
+                        @input="updateForceMinMagnitude"
+                      >
+                        <template v-slot:thumb-label="{ value }">
+                          {{ value }}N
+                        </template>
+                        <template v-slot:prepend>
+                          <div class="text-caption grey--text">0N</div>
+                        </template>
+                        <template v-slot:append>
+                          <div class="text-caption grey--text">100N</div>
+                        </template>
+                      </v-slider>
+                    </v-card>
+                  </v-menu>
+  
                   <v-btn icon small class="mr-2" @click="clearForceArrowsForAnimation(animationIndex)">
                     <v-icon small color="error">mdi-delete</v-icon>
                   </v-btn>
@@ -3794,6 +3830,7 @@
               forceArrows: [], // Array to store force arrow objects
               showForces: true,
               forceScale: 0.001, // Scale factor for force arrows
+              forceMinMagnitude: 15, // Minimum force magnitude threshold in Newtons
                     forceColors: {}, // Object to store colors per animation index
       forceDisplayColors: {}, // Object to store display colors for v-color-picker by animation index
               loadingForces: false,
@@ -5126,8 +5163,8 @@
           //   });
           // }
   
-          // Update arrow visibility based on original force magnitude (lowered threshold for debugging)
-          arrowGroup.visible = originalMagnitude > 0.1; // Show if force > 0.1N (was 1.0N)
+          // Update arrow visibility based on original force magnitude
+          arrowGroup.visible = originalMagnitude > this.forceMinMagnitude;
   
           // Arrow visibility logging (commented out to reduce console spam)
           // if (frameIndex === 0 || frameIndex % 30 === 0) {
@@ -5489,6 +5526,19 @@
         // Update for current frame
         if (this.frames && this.frame < this.frames.length) {
           this.updateForceArrows(this.frame);
+        }
+      }
+    },
+  
+    updateForceMinMagnitude() {
+      // Update force arrow visibility based on new threshold
+      if (Object.keys(this.forcesDatasets).length > 0) {
+        // Update for current frame
+        if (this.frames && this.frames.length) {
+          this.updateForceArrows(this.frame);
+        } else if (this.forceArrows.length > 0) {
+          // For standalone forces, update with current frame index
+          this.updateForceArrows(this.frame || 0);
         }
       }
     },
