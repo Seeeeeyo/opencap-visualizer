@@ -11415,6 +11415,184 @@
                 }
             });
         }
+
+        // Clear force arrows for the deleted animation
+        if (this.forcesDatasets[index]) {
+            this.clearForceArrowsForAnimation(index);
+        }
+
+        // Reindex force datasets
+        const oldForcesDatasets = { ...this.forcesDatasets };
+        this.forcesDatasets = {};
+        Object.keys(oldForcesDatasets).forEach(key => {
+            const oldIndex = parseInt(key);
+            if (oldIndex === index) {
+                // Already cleared by clearForceArrowsForAnimation
+                return;
+            }
+            // Calculate new index (same logic as timelapse)
+            let newIndex = oldIndex;
+            if (oldIndex > index) {
+                newIndex = oldIndex - 1;
+            }
+            if (newIndex >= 0 && newIndex < this.animations.length) {
+                this.forcesDatasets[newIndex] = oldForcesDatasets[oldIndex];
+                // Update associatedAnimationIndex in the dataset
+                if (this.forcesDatasets[newIndex]) {
+                    this.forcesDatasets[newIndex].associatedAnimationIndex = newIndex;
+                }
+            }
+        });
+
+        // Reindex force arrows
+        this.forceArrows.forEach(arrowGroup => {
+            if (arrowGroup.userData && typeof arrowGroup.userData.animationIndex !== 'undefined') {
+                const oldIndex = arrowGroup.userData.animationIndex;
+                if (oldIndex === index) {
+                    // This arrow belongs to deleted animation - should have been cleared
+                    return;
+                }
+                // Update animation index
+                if (oldIndex > index) {
+                    arrowGroup.userData.animationIndex = oldIndex - 1;
+                }
+            }
+        });
+
+        // Reindex forcesVisible
+        const oldForcesVisible = { ...this.forcesVisible };
+        this.forcesVisible = {};
+        Object.keys(oldForcesVisible).forEach(key => {
+            const oldIndex = parseInt(key);
+            if (oldIndex === index) return; // Skip deleted animation
+            let newIndex = oldIndex;
+            if (oldIndex > index) {
+                newIndex = oldIndex - 1;
+            }
+            if (newIndex >= 0 && newIndex < this.animations.length) {
+                this.$set(this.forcesVisible, String(newIndex), oldForcesVisible[key]);
+            }
+        });
+
+        // Reindex forceColors and forceDisplayColors
+        if (this.forceColors && typeof this.forceColors === 'object' && !Array.isArray(this.forceColors)) {
+            const oldForceColors = { ...this.forceColors };
+            this.forceColors = {};
+            Object.keys(oldForceColors).forEach(key => {
+                const oldIndex = parseInt(key);
+                if (oldIndex === index) return;
+                let newIndex = oldIndex;
+                if (oldIndex > index) {
+                    newIndex = oldIndex - 1;
+                }
+                if (newIndex >= 0 && newIndex < this.animations.length) {
+                    this.$set(this.forceColors, newIndex, oldForceColors[oldIndex]);
+                }
+            });
+        }
+        // Same for forceDisplayColors if it exists
+        if (this.forceDisplayColors && typeof this.forceDisplayColors === 'object' && !Array.isArray(this.forceDisplayColors)) {
+            const oldForceDisplayColors = { ...this.forceDisplayColors };
+            this.forceDisplayColors = {};
+            Object.keys(oldForceDisplayColors).forEach(key => {
+                const oldIndex = parseInt(key);
+                if (oldIndex === index) return;
+                let newIndex = oldIndex;
+                if (oldIndex > index) {
+                    newIndex = oldIndex - 1;
+                }
+                if (newIndex >= 0 && newIndex < this.animations.length) {
+                    this.$set(this.forceDisplayColors, newIndex, oldForceDisplayColors[oldIndex]);
+                }
+            });
+        }
+
+        // Reindex markersDatasets
+        const oldMarkersDatasets = { ...this.markersDatasets };
+        this.markersDatasets = {};
+        Object.keys(oldMarkersDatasets).forEach(key => {
+            const oldIndex = parseInt(key);
+            if (oldIndex === index) return; // Delete markers for removed animation
+            let newIndex = oldIndex;
+            if (oldIndex > index) {
+                newIndex = oldIndex - 1;
+            }
+            if (newIndex >= 0 && newIndex < this.animations.length) {
+                this.markersDatasets[newIndex] = oldMarkersDatasets[oldIndex];
+            }
+        });
+
+        // Reindex markersVisible
+        const oldMarkersVisible = { ...this.markersVisible };
+        this.markersVisible = {};
+        Object.keys(oldMarkersVisible).forEach(key => {
+            const oldIndex = parseInt(key);
+            if (oldIndex === index) return;
+            let newIndex = oldIndex;
+            if (oldIndex > index) {
+                newIndex = oldIndex - 1;
+            }
+            if (newIndex >= 0 && newIndex < this.animations.length) {
+                this.$set(this.markersVisible, String(newIndex), oldMarkersVisible[key]);
+            }
+        });
+
+        // Reindex marker spheres
+        if (this.markerSpheres && Array.isArray(this.markerSpheres)) {
+            this.markerSpheres.forEach(sphere => {
+                if (sphere.userData && typeof sphere.userData.animationIndex !== 'undefined') {
+                    const oldIndex = sphere.userData.animationIndex;
+                    if (oldIndex === index) {
+                        // Remove marker spheres for deleted animation
+                        if (this.scene && this.scene.children.includes(sphere)) {
+                            this.scene.remove(sphere);
+                        }
+                        if (sphere.geometry) sphere.geometry.dispose();
+                        if (sphere.material) {
+                            if (Array.isArray(sphere.material)) {
+                                sphere.material.forEach(mat => mat.dispose && mat.dispose());
+                            } else if (sphere.material.dispose) {
+                                sphere.material.dispose();
+                            }
+                        }
+                    } else if (oldIndex > index) {
+                        // Update animation index
+                        sphere.userData.animationIndex = oldIndex - 1;
+                    }
+                }
+            });
+            // Remove marker spheres for deleted animation from array
+            this.markerSpheres = this.markerSpheres.filter(sphere => {
+                if (sphere.userData && sphere.userData.animationIndex === index) {
+                    return false; // Remove spheres for deleted animation
+                }
+                return true;
+            });
+        }
+
+        // Update selectedAnimationForForces if it references the deleted animation
+        if (this.selectedAnimationForForces === index) {
+            // Find the first available animation with forces, or default to 0
+            const availableIndex = Object.keys(this.forcesDatasets).length > 0 
+                ? Math.min(...Object.keys(this.forcesDatasets).map(k => parseInt(k)))
+                : 0;
+            this.selectedAnimationForForces = availableIndex < this.animations.length ? availableIndex : 0;
+        } else if (this.selectedAnimationForForces > index) {
+            // Decrement if the selected index is after the deleted one
+            this.selectedAnimationForForces = this.selectedAnimationForForces - 1;
+        }
+
+        // Update selectedAnimationForMarkers if it references the deleted animation
+        if (this.selectedAnimationForMarkers === index) {
+            // Find the first available animation with markers, or default to 0
+            const availableIndex = Object.keys(this.markersDatasets).length > 0 
+                ? Math.min(...Object.keys(this.markersDatasets).map(k => parseInt(k)))
+                : 0;
+            this.selectedAnimationForMarkers = availableIndex < this.animations.length ? availableIndex : 0;
+        } else if (this.selectedAnimationForMarkers !== null && this.selectedAnimationForMarkers > index) {
+            // Decrement if the selected index is after the deleted one
+            this.selectedAnimationForMarkers = this.selectedAnimationForMarkers - 1;
+        }
   
         // Rebuild meshes and text sprites with correct indices
         this.reindexSubjects(index);
