@@ -3839,7 +3839,7 @@
               showSyncDetails: false, // Toggle for Sync section
               showAnimationsDetails: true, // Toggle for Animations section (default true since it's the main content)
               showForcesDetails: true, // Toggle for Forces section (default true)
-              showVideoDetails: true, // Toggle for Video section (default true)
+              showVideoDetails: false, // Toggle for Video section (default false - collapsed)
               showMarkersDetails: true, // Toggle for Markers section (default true)
               showCustomObjectsDetails: true, // Toggle for Custom Objects section (default true)
               showSceneSettingsDetails: false, // Toggle for Scene Settings section
