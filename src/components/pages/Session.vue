@@ -112,6 +112,25 @@
               </v-card>
             </div>
   
+            <!-- Shared Session Loading Status Indicator -->
+            <div v-if="loadingSharedSession" class="conversion-status mb-4">
+              <v-card class="pa-3" color="rgba(79, 70, 229, 0.2)" outlined>
+                <div class="d-flex align-center">
+                  <v-progress-circular
+                    indeterminate
+                    color="indigo"
+                    size="20"
+                    width="2"
+                    class="mr-3"
+                  />
+                  <div>
+                    <div class="text-subtitle-2 white--text">Loading Shared Visualization</div>
+                    <div class="text-caption grey--text">Loading visualization data...</div>
+                  </div>
+                </div>
+              </v-card>
+            </div>
+  
             <!-- Add Import Button Here -->
             <v-btn color="#4B5563" class="mb-4 white--text custom-btn" block @click="openImportDialog" :disabled="converting">
               <v-icon left>mdi-import</v-icon>
@@ -1912,7 +1931,7 @@
         </div>
   
         <!-- Main Content -->
-        <div v-if="trial || (markerSpheres.length > 0) || (animations.length > 0) || (smplSequences.length > 0) || trialLoading || converting || conversionError || loadingMarkers || scene || sceneInitializing" class="d-flex flex-column h-100">
+        <div v-if="trial || (markerSpheres.length > 0) || (animations.length > 0) || (smplSequences.length > 0) || trialLoading || converting || conversionError || loadingMarkers || loadingSharedSession || scene || sceneInitializing" class="d-flex flex-column h-100">
           <div id="mocap" ref="mocap" class="flex-grow-1 position-relative">
             <!-- Conversion loading overlay on top of scene -->
             <div v-if="converting" class="conversion-overlay-scene">
@@ -1920,6 +1939,16 @@
                 <v-progress-circular indeterminate color="indigo" size="64" width="6" />
                 <div class="mt-4 text-h6 text-center white--text">
                   Converting OpenSim Files<br>
+                  <span class="text-subtitle-1">This may take a moment...</span>
+                </div>
+              </div>
+            </div>
+            <!-- Shared session loading overlay on top of scene -->
+            <div v-if="loadingSharedSession" class="conversion-overlay-scene">
+              <div class="conversion-content">
+                <v-progress-circular indeterminate color="indigo" size="64" width="6" />
+                <div class="mt-4 text-h6 text-center white--text">
+                  Loading Shared Visualization<br>
                   <span class="text-subtitle-1">This may take a moment...</span>
                 </div>
               </div>
@@ -1982,6 +2011,15 @@
             <v-progress-circular indeterminate color="indigo" size="64" width="6" />
             <div class="mt-4 text-h6 text-center">
               Converting OpenSim Files<br>
+              <span class="text-subtitle-1">This may take a moment...</span>
+            </div>
+          </div>
+  
+          <!-- Shared session loading overlay -->
+          <div v-if="loadingSharedSession" class="conversion-overlay">
+            <v-progress-circular indeterminate color="indigo" size="64" width="6" />
+            <div class="mt-4 text-h6 text-center">
+              Loading Shared Visualization<br>
               <span class="text-subtitle-1">This may take a moment...</span>
             </div>
           </div>
@@ -3693,6 +3731,7 @@
               osimFile: null,
               motFile: null,
               converting: false,
+              loadingSharedSession: false,
               // apiUrl: 'http://localhost:8000/convert-opensim-to-visualizer-json',
               apiUrl: 'https://opensim-to-visualizer-api.onrender.com/convert-opensim-to-visualizer-json',
               convertedJsonDataMap: {}, // Map to store converted JSON data keyed by filename
@@ -4067,6 +4106,7 @@
         // Check for shared visualization first
         if (this.$route.query.share || this.$route.query.shareId) {
             console.log('Found shared visualization in URL');
+            this.loadingSharedSession = true;
             try {
                 let shareData;
                 if (this.$route.query.shareId) {
@@ -4085,6 +4125,7 @@
             } catch (error) {
                 console.error('Failed to load shared visualization:', error);
                 this.$toasted.error('Invalid or expired share URL');
+                this.loadingSharedSession = false;
             }
         }
   
@@ -7658,10 +7699,12 @@
         }
   
         console.log('Shared visualization loaded successfully');
+        this.loadingSharedSession = false;
   
       } catch (error) {
         console.error('Error loading shared visualization:', error);
         this.$toasted.error('Failed to load shared visualization');
+        this.loadingSharedSession = false;
       }
     },
   
