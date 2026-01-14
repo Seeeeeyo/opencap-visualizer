@@ -119,11 +119,14 @@
             </v-btn>
 
             <v-card v-if="videoFile" class="mb-4 video-info-card" dark outlined>
-              <v-card-title class="py-2 px-3 d-flex align-center">
+              <v-card-title class="py-2 px-3 d-flex align-center" style="cursor: pointer;" @click="showVideoDetails = !showVideoDetails">
                 <v-icon small left class="mr-2">mdi-video</v-icon>
                 <span class="subtitle-2 text-truncate">{{ videoFile.name }}</span>
+                <v-spacer></v-spacer>
+                <v-icon small>{{ showVideoDetails ? 'mdi-chevron-up' : 'mdi-chevron-down' }}</v-icon>
               </v-card-title>
-              <v-card-text class="py-2 px-3">
+              <v-expand-transition>
+                <v-card-text v-show="showVideoDetails" class="py-2 px-3">
                 <div class="text-caption grey--text mb-1">
                   Duration: {{ formattedVideoDuration }}
                 </div>
@@ -145,52 +148,55 @@
                   v-model="videoPlaneSettings.visible"
                   label="Show video plane"
                 ></v-switch>
-                <v-switch
-                  dense
-                  hide-details
-                  color="cyan lighten-2"
-                  class="mt-1"
-                  v-model="videoPlaneSettings.followCamera"
-                  label="Follow camera"
-                ></v-switch>
-                <div class="text-caption grey--text mt-2 mb-1">
-                  Plane Distance (m): {{ videoPlaneSettings.distance.toFixed(2) }}
+                <div v-show="videoPlaneSettings.visible">
+                  <v-switch
+                    dense
+                    hide-details
+                    color="cyan lighten-2"
+                    class="mt-1"
+                    v-model="videoPlaneSettings.followCamera"
+                    label="Follow camera"
+                  ></v-switch>
+                  <div class="text-caption grey--text mt-2 mb-1">
+                    Plane Distance (m): {{ videoPlaneSettings.distance.toFixed(2) }}
+                  </div>
+                  <v-slider
+                    dense
+                    hide-details
+                    v-model="videoPlaneSettings.distance"
+                    :min="0.5"
+                    :max="50"
+                    :step="0.1"
+                    color="cyan lighten-2"
+                  ></v-slider>
+                  <div class="text-caption grey--text mt-2 mb-1">
+                    Plane Width (m): {{ videoPlaneSettings.width.toFixed(2) }}
+                  </div>
+                  <v-slider
+                    dense
+                    hide-details
+                    v-model="videoPlaneSettings.width"
+                    :min="1"
+                    :max="100"
+                    :step="0.1"
+                    color="cyan lighten-2"
+                  ></v-slider>
+                  <div class="text-caption grey--text mt-2 mb-1">
+                    Plane Opacity: {{ Math.round(videoPlaneSettings.opacity * 100) }}%
+                  </div>
+                  <v-slider
+                    dense
+                    hide-details
+                    :value="Math.round(videoPlaneSettings.opacity * 100)"
+                    @input="onVideoPlaneOpacityInput"
+                    :min="10"
+                    :max="100"
+                    :step="5"
+                    color="cyan lighten-2"
+                  ></v-slider>
                 </div>
-                <v-slider
-                  dense
-                  hide-details
-                  v-model="videoPlaneSettings.distance"
-                  :min="0.5"
-                  :max="50"
-                  :step="0.1"
-                  color="cyan lighten-2"
-                ></v-slider>
-                <div class="text-caption grey--text mt-2 mb-1">
-                  Plane Width (m): {{ videoPlaneSettings.width.toFixed(2) }}
-                </div>
-                <v-slider
-                  dense
-                  hide-details
-                  v-model="videoPlaneSettings.width"
-                  :min="1"
-                  :max="100"
-                  :step="0.1"
-                  color="cyan lighten-2"
-                ></v-slider>
-                <div class="text-caption grey--text mt-2 mb-1">
-                  Plane Opacity: {{ Math.round(videoPlaneSettings.opacity * 100) }}%
-                </div>
-                <v-slider
-                  dense
-                  hide-details
-                  :value="Math.round(videoPlaneSettings.opacity * 100)"
-                  @input="onVideoPlaneOpacityInput"
-                  :min="10"
-                  :max="100"
-                  :step="5"
-                  color="cyan lighten-2"
-                ></v-slider>
-              </v-card-text>
+                </v-card-text>
+              </v-expand-transition>
             </v-card>
 
             <!-- Live IK Stream controls -->
@@ -3743,7 +3749,7 @@
               videoPlaneDistanceLockedByUser: false, // Track if distance slider has been manually overridden
               suppressVideoPlaneDistanceWatcher: false, // Prevent recursive distance watcher feedback
               videoPlaneSettings: {
-                visible: true,
+                visible: false,
                 followCamera: true,
                 width: 3,
                 distance: 3,
@@ -3833,6 +3839,7 @@
               showSyncDetails: false, // Toggle for Sync section
               showAnimationsDetails: true, // Toggle for Animations section (default true since it's the main content)
               showForcesDetails: true, // Toggle for Forces section (default true)
+              showVideoDetails: true, // Toggle for Video section (default true)
               showMarkersDetails: true, // Toggle for Markers section (default true)
               showCustomObjectsDetails: true, // Toggle for Custom Objects section (default true)
               showSceneSettingsDetails: false, // Toggle for Scene Settings section
@@ -4685,24 +4692,41 @@
         this.forcesVisible = {};
       }
   
-      // Find the first animation without forces, starting from the most recently added
-      let targetAnimationIndex = this.animations.length - 1; // Start with newest animation
-      let foundAvailable = false;
+      // First, try to find an animation with "mono" in the fileName that doesn't have forces
+      let targetAnimationIndex = -1;
+      let foundMono = false;
   
-      // Check from newest to oldest
-      for (let i = this.animations.length - 1; i >= 0; i--) {
-        if (!this.forcesDatasets[i]) {
+      // Search for mono animation without forces
+      for (let i = 0; i < this.animations.length; i++) {
+        const anim = this.animations[i];
+        if (anim.fileName && anim.fileName.includes('mono') && !this.forcesDatasets[i]) {
           targetAnimationIndex = i;
-          foundAvailable = true;
+          foundMono = true;
           break;
         }
       }
   
-      // If all animations have forces, use the most recent one and replace
-      if (!foundAvailable) {
-        targetAnimationIndex = this.animations.length - 1;
-        const animationName = this.animations[targetAnimationIndex].trialName || `Animation ${targetAnimationIndex + 1}`;
-        this.$toasted.info(`Replacing existing forces for ${animationName}`);
+      // If no mono animation found (or all mono animations have forces), use existing logic
+      if (!foundMono) {
+        // Find the first animation without forces, starting from the most recently added
+        targetAnimationIndex = this.animations.length - 1; // Start with newest animation
+        let foundAvailable = false;
+        
+        // Check from newest to oldest
+        for (let i = this.animations.length - 1; i >= 0; i--) {
+          if (!this.forcesDatasets[i]) {
+            targetAnimationIndex = i;
+            foundAvailable = true;
+            break;
+          }
+        }
+        
+        // If all animations have forces, use the most recent one and replace
+        if (!foundAvailable) {
+          targetAnimationIndex = this.animations.length - 1;
+          const animationName = this.animations[targetAnimationIndex].trialName || `Animation ${targetAnimationIndex + 1}`;
+          this.$toasted.info(`Replacing existing forces for ${animationName}`);
+        }
       }
   
       this.selectedAnimationForForces = targetAnimationIndex;
@@ -11517,6 +11541,11 @@
         } else {
             // No filter, load all subjects
             sampleFiles = Object.values(availableSubjects);
+        }
+  
+        // Add GRF.mot for walk sample set
+        if (sampleSet === 'walk') {
+            sampleFiles.push(`/samples/${sampleSet}/GRF.mot`);
         }
   
         console.log('Attempting to fetch potential sample files:', sampleFiles);
