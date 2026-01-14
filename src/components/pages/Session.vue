@@ -4149,9 +4149,14 @@
             if (subjectsFilter) {
                 console.log(`Subjects filter from URL: ${subjectsFilter}`);
             }
+            // Check for video parameter from URL (e.g., video=true)
+            const loadVideo = this.$route.query.video === 'true';
+            if (loadVideo) {
+                console.log('Video loading enabled from URL parameter');
+            }
             // Add a small delay to ensure scene is fully initialized
             setTimeout(() => {
-                this.loadSampleFiles(sampleSetToLoad, subjectsFilter);
+                this.loadSampleFiles(sampleSetToLoad, subjectsFilter, loadVideo);
             }, 100);
         }
   
@@ -4396,9 +4401,11 @@
           const subjectsFilter = to.query.subjects || null;
           // Get sample set from URL if provided
           const sampleSet = to.query.sample_set || 'STS';
+          // Check for video parameter from URL (e.g., video=true)
+          const loadVideo = to.query.video === 'true';
           // Add a small delay to ensure scene is ready
           setTimeout(() => {
-            this.loadSampleFiles(sampleSet, subjectsFilter);
+            this.loadSampleFiles(sampleSet, subjectsFilter, loadVideo);
           }, 100);
         }
       },
@@ -6768,7 +6775,8 @@
     selectSampleSet(sampleSetId) {
       console.log('Selected sample set:', sampleSetId);
       this.showSampleSelectionDialog = false;
-      this.loadSampleFiles(sampleSetId);
+      // Always load video when selecting from UI dialog
+      this.loadSampleFiles(sampleSetId, null, true);
     },
   
     getSampleIcon(sampleSetId) {
@@ -11548,8 +11556,8 @@
             }
         });
     },
-    loadSampleFiles(sampleSet = 'STS', subjectsFilter = null) { // Default to 'STS' if no set is provided
-        console.log(`loadSampleFiles called for set: ${sampleSet}, subjects filter: ${subjectsFilter}`);
+    loadSampleFiles(sampleSet = 'STS', subjectsFilter = null, loadVideo = false) { // Default to 'STS' if no set is provided
+        console.log(`loadSampleFiles called for set: ${sampleSet}, subjects filter: ${subjectsFilter}, loadVideo: ${loadVideo}`);
   
         // Validate sample set name, default to 'STS' if invalid
         const validSets = ['squat', 'walk', 'STS', 'rmasb', 'walk_ts'];
@@ -11664,6 +11672,50 @@
                 alert(`Could not load any sample files for the set: ${sampleSet}. Please check the /public/samples/${sampleSet} folder.`);
                 this.trialLoading = false;
                 return; // Stop processing
+            }
+  
+            // Load video if requested
+            if (loadVideo) {
+                const videoUrl = `/samples/${sampleSet}/video.mp4`;
+                fetch(videoUrl)
+                    .then(response => {
+                        if (!response.ok) {
+                            console.warn(`Video file not found: ${videoUrl}`);
+                            return null;
+                        }
+                        return response.blob();
+                    })
+                    .then(blob => {
+                        if (blob) {
+                            // Clean up previous video URL if it exists
+                            if (this.videoUrl) {
+                                URL.revokeObjectURL(this.videoUrl);
+                            }
+                            // Create File object from blob
+                            const videoFile = new File([blob], `video.mp4`, { type: 'video/mp4' });
+                            this.videoFile = videoFile;
+                            this.videoUrl = URL.createObjectURL(videoFile);
+                            this.videoMinimized = false; // Ensure video starts in full size
+                            
+                            // Reset video plane settings to defaults (show video plane = false)
+                            this.videoPlaneSettings.visible = false;
+                            this.videoPlaneSettings.followCamera = true;
+                            
+                            console.log('Sample video loaded:', videoUrl);
+                            
+                            // Force a redraw
+                            this.$nextTick(() => {
+                                console.log('Video container should be visible now');
+                                this.drawProjectedSkeleton();
+                            });
+                            
+                            this.videoOverlayMode = true;
+                            this.saveSettings();
+                        }
+                    })
+                    .catch(error => {
+                        console.warn(`Error loading sample video: ${error}`);
+                    });
             }
   
             // Process the successfully loaded files
