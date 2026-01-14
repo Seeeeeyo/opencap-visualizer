@@ -485,6 +485,21 @@
                       {{ animations[index].visible ? 'mdi-eye' : 'mdi-eye-off' }}
                     </v-icon>
                   </v-btn>
+                  <v-tooltip bottom v-if="convertedJsonDataMap[animation.fileName]">
+                    <template v-slot:activator="{ on, attrs }">
+                      <v-btn
+                        icon
+                        small
+                        class="mr-2"
+                        v-bind="attrs"
+                        v-on="on"
+                        @click="downloadConvertedJson(index)"
+                      >
+                        <v-icon small>mdi-download</v-icon>
+                      </v-btn>
+                    </template>
+                    <span>Download converted JSON file</span>
+                  </v-tooltip>
                   <v-tooltip bottom>
                     <template v-slot:activator="{ on, attrs }">
                       <v-btn
@@ -3674,6 +3689,7 @@
               converting: false,
               // apiUrl: 'http://localhost:8000/convert-opensim-to-visualizer-json',
               apiUrl: 'https://opensim-to-visualizer-api.onrender.com/convert-opensim-to-visualizer-json',
+              convertedJsonDataMap: {}, // Map to store converted JSON data keyed by filename
               showRgbPicker: false,
               rgbValues: [],
               // Add new timelapse properties
@@ -7698,6 +7714,44 @@
       } catch (error) {
         console.error('Error downloading share file:', error);
         this.$toasted.error('Failed to download share file');
+      }
+    },
+    downloadConvertedJson(animationIndex) {
+      try {
+        const animation = this.animations[animationIndex];
+        if (!animation) {
+          this.$toasted.error('Animation not found');
+          return;
+        }
+  
+        // Get the converted JSON data from the map using the filename
+        const convertedJsonData = this.convertedJsonDataMap[animation.fileName];
+        if (!convertedJsonData) {
+          this.$toasted.error('Converted JSON data not found for this animation');
+          return;
+        }
+  
+        // Create JSON string
+        const jsonString = JSON.stringify(convertedJsonData, null, 2);
+  
+        // Create blob and download
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+  
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = animation.fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+  
+        // Clean up the URL
+        URL.revokeObjectURL(url);
+  
+        this.$toasted.success('Converted JSON file downloaded successfully!');
+      } catch (error) {
+        console.error('Error downloading converted JSON file:', error);
+        this.$toasted.error('Failed to download converted JSON file');
       }
     },
     async loadTrial() {
@@ -12239,23 +12293,27 @@
   
             // Create a "virtual" File object with the JSON data
             const jsonBlob = new Blob([JSON.stringify(data)], { type: 'application/json' });
-            const jsonFile = new File([jsonBlob], `${this.osimFile.name.replace('.osim', '')}.json`, { type: 'application/json' });
-  
+            const jsonFileName = `${this.osimFile.name.replace('.osim', '')}.json`;
+            const jsonFile = new File([jsonBlob], jsonFileName, { type: 'application/json' });
+            
+            // Store the converted JSON data for later download
+            this.$set(this.convertedJsonDataMap, jsonFileName, JSON.parse(JSON.stringify(data)));
+            
             // Use our existing file handler with a fake event
             const dataTransfer = new DataTransfer();
             dataTransfer.items.add(jsonFile);
-  
+            
             const fakeEvent = {
                 target: {
                     files: dataTransfer.files,
                     value: ''
                 }
             };
-  
+            
             // Process the converted JSON
             // console.log('Processing converted JSON file...');
             this.handleFileUpload(fakeEvent);
-  
+            
             // Clear the selected files after successful conversion
             this.osimFile = null;
             this.motFile = null;
@@ -12265,7 +12323,7 @@
             //   animations: this.animations.length,
             //   frames: this.frames ? this.frames.length : 0
             // });
-  
+            
             // Give more time for scene initialization and ensure it's properly set up
             await new Promise(resolve => setTimeout(resolve, 500));
             
