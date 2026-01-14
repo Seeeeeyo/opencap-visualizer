@@ -137,6 +137,12 @@
               Import
             </v-btn>
 
+            <!-- Clear Scene Button -->
+            <v-btn color="#4B5563" class="mb-4 white--text custom-btn" block @click="clearScene" :disabled="animations.length === 0 && smplSequences.length === 0 && customObjects.length === 0 && Object.keys(markersDatasets).length === 0">
+              <v-icon left>mdi-delete-sweep</v-icon>
+              Clear Scene
+            </v-btn>
+
             <v-card v-if="videoFile" class="mb-4 video-info-card" dark outlined>
               <v-card-title class="py-2 px-3 d-flex align-center" style="cursor: pointer;" @click="showVideoDetails = !showVideoDetails">
                 <v-icon small left class="mr-2">mdi-video</v-icon>
@@ -15360,6 +15366,246 @@
       }
   
       console.log('Scene reset complete');
+    },
+
+    clearScene() {
+      console.log('Clearing scene...');
+
+      if (!this.scene) {
+        console.warn('Scene not initialized, cannot clear');
+        return;
+      }
+
+      // Collect objects to preserve (scene infrastructure)
+      const objectsToPreserve = new Set();
+      
+      // Preserve ground mesh
+      if (this.groundMesh) {
+        objectsToPreserve.add(this.groundMesh);
+      }
+      
+      // Preserve axes group
+      if (this.axesGroup) {
+        objectsToPreserve.add(this.axesGroup);
+      }
+      
+      // Preserve lights
+      if (this.lights) {
+        if (this.lights.hemisphere) {
+          objectsToPreserve.add(this.lights.hemisphere);
+        }
+        if (this.lights.directionals && Array.isArray(this.lights.directionals)) {
+          this.lights.directionals.forEach(light => {
+            objectsToPreserve.add(light);
+            if (light.target) {
+              objectsToPreserve.add(light.target);
+            }
+          });
+        }
+        if (this.lights.spotlight) {
+          objectsToPreserve.add(this.lights.spotlight);
+        }
+        if (this.lights.ambient) {
+          objectsToPreserve.add(this.lights.ambient);
+        }
+      }
+
+      // Remove all meshes from animations
+      Object.keys(this.meshes).forEach(key => {
+        const mesh = this.meshes[key];
+        if (mesh && this.scene.children.includes(mesh) && !objectsToPreserve.has(mesh)) {
+          this.scene.remove(mesh);
+          // Dispose geometry and materials to free memory
+          if (mesh.geometry) {
+            mesh.geometry.dispose();
+          }
+          if (Array.isArray(mesh.material)) {
+            mesh.material.forEach(mat => mat.dispose && mat.dispose());
+          } else if (mesh.material && mesh.material.dispose) {
+            mesh.material.dispose();
+          }
+        }
+      });
+
+      // Remove SMPL meshes and skeletons
+      this.smplSequences.forEach(sequence => {
+        if (sequence.mesh && this.scene.children.includes(sequence.mesh) && !objectsToPreserve.has(sequence.mesh)) {
+          this.scene.remove(sequence.mesh);
+          if (sequence.mesh.geometry) {
+            sequence.mesh.geometry.dispose();
+          }
+          if (Array.isArray(sequence.mesh.material)) {
+            sequence.mesh.material.forEach(mat => mat.dispose && mat.dispose());
+          } else if (sequence.mesh.material && sequence.mesh.material.dispose) {
+            sequence.mesh.material.dispose();
+          }
+        }
+        if (sequence.skeleton && this.scene.children.includes(sequence.skeleton) && !objectsToPreserve.has(sequence.skeleton)) {
+          this.scene.remove(sequence.skeleton);
+          if (sequence.skeleton.geometry) {
+            sequence.skeleton.geometry.dispose();
+          }
+          if (sequence.skeleton.material && sequence.skeleton.material.dispose) {
+            sequence.skeleton.material.dispose();
+          }
+        }
+      });
+
+      // Remove measurement line
+      if (this.measurementLine && this.scene.children.includes(this.measurementLine) && !objectsToPreserve.has(this.measurementLine)) {
+        this.scene.remove(this.measurementLine);
+        if (this.measurementLine.geometry) {
+          this.measurementLine.geometry.dispose();
+        }
+        if (this.measurementLine.material && this.measurementLine.material.dispose) {
+          this.measurementLine.material.dispose();
+        }
+        this.measurementLine = null;
+      }
+
+      // Remove force arrows
+      if (this.forceArrows && Array.isArray(this.forceArrows)) {
+        this.forceArrows.forEach(arrowGroup => {
+          if (arrowGroup && this.scene.children.includes(arrowGroup) && !objectsToPreserve.has(arrowGroup)) {
+            this.scene.remove(arrowGroup);
+            if (arrowGroup.geometry) {
+              arrowGroup.geometry.dispose();
+            }
+            if (arrowGroup.material && arrowGroup.material.dispose) {
+              arrowGroup.material.dispose();
+            }
+          }
+        });
+      }
+
+      // Remove video plane and dispose video resources
+      if (this.videoPlane) {
+        if (this.scene.children.includes(this.videoPlane) && !objectsToPreserve.has(this.videoPlane)) {
+          this.scene.remove(this.videoPlane);
+        }
+        if (this.videoPlane.geometry) {
+          this.videoPlane.geometry.dispose();
+        }
+        const material = this.videoPlane.material;
+        if (material) {
+          if (Array.isArray(material)) {
+            material.forEach(mat => mat.dispose && mat.dispose());
+          } else if (material.dispose) {
+            material.dispose();
+          }
+        }
+        this.videoPlane = null;
+      }
+      // Dispose video texture
+      if (this.videoTexture) {
+        this.videoTexture.dispose();
+        this.videoTexture = null;
+      }
+      // Clear video URL and revoke object URL if it exists
+      if (this.videoUrl) {
+        URL.revokeObjectURL(this.videoUrl);
+        this.videoUrl = null;
+      }
+      // Clear video file and related properties
+      this.videoFile = null;
+      this.videoDuration = 0;
+      // Reset video position and size
+      this.videoPosition = { x: 20, y: 20 };
+      this.videoSize = { width: 300, height: 'auto' };
+      // Clear projection canvas
+      this.clearProjectionCanvas();
+
+      // Remove text sprites
+      Object.values(this.textSprites).forEach(sprite => {
+        if (sprite && this.scene.children.includes(sprite) && !objectsToPreserve.has(sprite)) {
+          this.scene.remove(sprite);
+          if (sprite.material && sprite.material.map) {
+            sprite.material.map.dispose();
+          }
+          if (sprite.material && sprite.material.dispose) {
+            sprite.material.dispose();
+          }
+        }
+      });
+
+      // Remove timelapse meshes
+      Object.values(this.timelapseMeshes).forEach(({mesh}) => {
+        if (mesh && this.scene.children.includes(mesh) && !objectsToPreserve.has(mesh)) {
+          this.scene.remove(mesh);
+          if (mesh.geometry) {
+            mesh.geometry.dispose();
+          }
+          if (Array.isArray(mesh.material)) {
+            mesh.material.forEach(mat => mat.dispose && mat.dispose());
+          } else if (mesh.material && mesh.material.dispose) {
+            mesh.material.dispose();
+          }
+        }
+      });
+
+      // Remove any remaining markers/sprites by traversing scene
+      const objectsToRemove = [];
+      this.scene.traverse((object) => {
+        if (!objectsToPreserve.has(object)) {
+          // Check if it's a sprite or marker (not a light, ground, or axes)
+          // Skip lights and their targets
+          if (object instanceof THREE.Light || object instanceof THREE.Object3D && object.isLight) {
+            return;
+          }
+          if (object instanceof THREE.Sprite || 
+              (object instanceof THREE.Mesh && object !== this.groundMesh) ||
+              (object instanceof THREE.Group && object !== this.axesGroup)) {
+            objectsToRemove.push(object);
+          }
+        }
+      });
+      
+      objectsToRemove.forEach(obj => {
+        // Remove from scene (works even if nested in groups)
+        if (obj.parent) {
+          obj.parent.remove(obj);
+        } else if (this.scene.children.includes(obj)) {
+          this.scene.remove(obj);
+        }
+        // Dispose resources
+        if (obj.geometry) {
+          obj.geometry.dispose();
+        }
+        if (obj.material) {
+          if (Array.isArray(obj.material)) {
+            obj.material.forEach(mat => mat.dispose && mat.dispose());
+          } else if (obj.material.dispose) {
+            obj.material.dispose();
+          }
+        }
+      });
+
+      // Clear all data structures
+      this.animations = [];
+      this.smplSequences = [];
+      this.meshes = {};
+      this.customObjects = [];
+      this.markersDatasets = {};
+      this.forcesDatasets = {};
+      this.forceArrows = [];
+      this.textSprites = {};
+      this.timelapseMeshes = {};
+      
+      // Reset frame data
+      this.frames = [];
+      this.frame = 0;
+      this.time = 0;
+      this.frameRate = 60;
+
+      // Clear active subject
+      this.activeSubject = null;
+
+      // Render the scene
+      if (this.renderer && this.scene && this.camera) {
+        this.renderer.render(this.scene, this.camera);
+      }
+
+      console.log('Scene cleared successfully');
     },
   
     testScene() {
