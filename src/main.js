@@ -21,6 +21,16 @@ import VueSocialSharing from 'vue-social-sharing'
 
 Vue.use(VueSocialSharing);
 
+// Set favicon using @ alias
+const faviconLink = document.querySelector("link[rel='icon']") || document.createElement('link')
+faviconLink.rel = 'icon'
+faviconLink.href = require('@/assets/favicon.png')
+if (!document.querySelector("link[rel='icon']")) {
+  document.head.appendChild(faviconLink)
+} else {
+  document.querySelector("link[rel='icon']").href = require('@/assets/favicon.png')
+}
+
 // Add rules
 extend('required', required)
 extend('confirmed', confirmed)
