@@ -31,8 +31,14 @@ if (!document.querySelector("link[rel='icon']")) {
   document.querySelector("link[rel='icon']").href = require('@/assets/favicon.png')
 }
 
-// Set Open Graph thumbnail using @ alias
-const thumbnailUrl = require('@/assets/thumbnail-visualizer.png')
+// Set Open Graph thumbnail with absolute URL (required by Facebook/Twitter)
+// Use static path from public/images for stable URLs that social media crawlers can access
+const baseUrl = process.env.NODE_ENV === 'production' 
+  ? 'https://www.visualizer.opencap.ai'
+  : window.location.origin
+// Static path for Open Graph (stable URL for social media crawlers)
+const thumbnailUrl = `${baseUrl}/images/thumbnail-visualizer.png`
+
 const ogImageMeta = document.querySelector("meta[property='og:image']")
 const twitterImageMeta = document.querySelector("meta[name='twitter:image']")
 if (ogImageMeta) {
