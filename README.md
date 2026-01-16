@@ -4,14 +4,14 @@ A comprehensive web-based platform for interactive visualization and automated v
 
 ## 🌐 Live Demo
 
-**Try it now**: [https://opencap-visualizer.onrender.com/](https://opencap-visualizer.onrender.com/)
+**Try it now**: [https://www.visualizer.opencap.ai/](https://www.visualizer.opencap.ai/)
 
 No installation required - works directly in your browser!
 
 ## 🚀 Quick Start
 
 ### Web Interface
-1. Visit [https://opencap-visualizer.onrender.com/](https://opencap-visualizer.onrender.com/)
+1. Visit [https://www.visualizer.opencap.ai/](hhttps://www.visualizer.opencap.ai/)
 2. Upload your biomechanics data files
 3. Explore interactive 3D visualizations
 4. Generate videos and screenshots
@@ -338,7 +338,7 @@ python -m pytest
 
 ## 📚 Documentation
 
-- **Web Interface**: [https://opencap-visualizer.onrender.com/](https://opencap-visualizer.onrender.com/)
+- **Web Interface**: [https://www.visualizer.opencap.ai/](https://www.visualizer.opencap.ai/)
 - **Python Package**: [opencap-visualizer-pip](https://github.com/Seeeeeyo/opencap-visualizer-pip)
 - **OpenSim Converter**: [opensim-to-visualizer-api](https://github.com/Seeeeeyo/opensim-to-visualizer-api)
 
@@ -357,5 +357,5 @@ We acknowledge the contributions of the OpenCap development team and the broader
 ## 📞 Support
 
 - **GitHub Issues**: [Report bugs and request features](https://github.com/Seeeeeyo/opencap-visualizer/issues)
-- **Web App**: [https://opencap-visualizer.onrender.com/](https://opencap-visualizer.onrender.com/)
+- **Web App**: [https://www.visualizer.opencap.ai/](https://www.visualizer.opencap.ai)
 - **Documentation**: Check the individual repository READMEs for detailed usage instructions
