@@ -31,6 +31,17 @@ if (!document.querySelector("link[rel='icon']")) {
   document.querySelector("link[rel='icon']").href = require('@/assets/favicon.png')
 }
 
+// Set Open Graph thumbnail using @ alias
+const thumbnailUrl = require('@/assets/thumbnail-visualizer.png')
+const ogImageMeta = document.querySelector("meta[property='og:image']")
+const twitterImageMeta = document.querySelector("meta[name='twitter:image']")
+if (ogImageMeta) {
+  ogImageMeta.setAttribute('content', thumbnailUrl)
+}
+if (twitterImageMeta) {
+  twitterImageMeta.setAttribute('content', thumbnailUrl)
+}
+
 // Add rules
 extend('required', required)
 extend('confirmed', confirmed)

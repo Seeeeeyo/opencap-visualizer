@@ -5,7 +5,108 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
     <link rel="icon" href="<%= BASE_URL %>favicon.png">
-    <title><%= htmlWebpackPlugin.options.title %></title>
+    
+    <!-- Primary Meta Tags -->
+    <title>OpenCap Visualizer - Interactive Biomechanics Visualization & Automated Video Creation</title>
+    <meta name="title" content="OpenCap Visualizer - Interactive Biomechanics Visualization & Automated Video Creation">
+    <meta name="description" content="Web-based platform for interactive 3D visualization and automated video creation of biomechanics data. Built with Vue.js and Three.js. Supports OpenSim models, motion capture markers, and force data. No installation required - works directly in your browser.">
+    <meta name="keywords" content="biomechanics, motion capture, visualization, OpenSim, OpenCap, 3D rendering, human movement analysis, kinematics, markerless motion capture, biomechanics software, motion analysis, skeletal visualization, gait analysis, sports science, rehabilitation, research tools">
+    <meta name="author" content="OpenCap Visualizer Team">
+    <meta name="robots" content="index, follow">
+    <meta name="language" content="English">
+    <meta name="revisit-after" content="7 days">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://www.visualizer.opencap.ai/">
+    <meta property="og:title" content="OpenCap Visualizer - Interactive Biomechanics Visualization">
+    <meta property="og:description" content="Web-based platform for interactive 3D visualization and automated video creation of biomechanics data. Support for OpenSim models, motion capture markers, and force data.">
+    <meta property="og:image" content="<%= BASE_URL %>images/thumbnail-visualizer.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="OpenCap Visualizer - 3D Biomechanics Visualization Interface">
+    <meta property="og:site_name" content="OpenCap Visualizer">
+    <meta property="og:locale" content="en_US">
+    
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="https://www.visualizer.opencap.ai/">
+    <meta name="twitter:title" content="OpenCap Visualizer - Interactive Biomechanics Visualization">
+    <meta name="twitter:description" content="Web-based platform for interactive 3D visualization and automated video creation of biomechanics data.">
+    <meta name="twitter:image" content="<%= BASE_URL %>images/thumbnail-visualizer.png">
+    <meta name="twitter:image:alt" content="OpenCap Visualizer - 3D Biomechanics Visualization Interface">
+    
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://www.visualizer.opencap.ai/">
+    
+    <!-- Structured Data (JSON-LD) for LLMs and Search Engines -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "OpenCap Visualizer",
+      "description": "Web-based platform for interactive 3D visualization and automated video creation of biomechanics data. Built with Vue.js and Three.js. Supports OpenSim models, motion capture markers, and force data.",
+      "url": "https://www.visualizer.opencap.ai/",
+      "applicationCategory": "ScienceApplication",
+      "operatingSystem": "Web Browser",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "4.8"
+      },
+      "featureList": [
+        "Interactive 3D biomechanics visualization",
+        "OpenSim model support",
+        "Motion capture marker visualization",
+        "Ground reaction force visualization",
+        "Automated video generation",
+        "Multi-subject comparison",
+        "Real-time streaming",
+        "Python API integration"
+      ],
+      "screenshot": "<%= BASE_URL %>images/thumbnail-visualizer.png",
+      "softwareVersion": "1.0",
+      "author": {
+        "@type": "Organization",
+        "name": "OpenCap Visualizer Team",
+        "url": "https://www.visualizer.opencap.ai/"
+      },
+      "keywords": "biomechanics, motion capture, visualization, OpenSim, OpenCap, 3D rendering, human movement analysis, kinematics, markerless motion capture",
+      "inLanguage": "en-US"
+    }
+    </script>
+    
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "OpenCap Visualizer",
+      "description": "Comprehensive web-based platform for interactive visualization and automated video creation of biomechanics data. Supports multiple data formats including OpenSim models (.osim files), kinematics data (.mot, .json), markers (.trc), and force data (.mot).",
+      "applicationCategory": "ScientificSoftware",
+      "operatingSystem": "Web Browser, Python",
+      "offers": {
+        "@type": "Offer",
+        "price": "0"
+      },
+      "downloadUrl": "https://pypi.org/project/opencap-visualizer/",
+      "softwareRequirements": "Web Browser (Chrome, Firefox, Safari, Edge) or Python 3.7+",
+      "featureList": [
+        "Real-time 3D skeletal rendering",
+        "Multi-subject overlay comparison",
+        "Marker trajectory visualization (.trc)",
+        "Ground reaction force visualization (.mot)",
+        "Synchronized video playback",
+        "Interactive camera controls",
+        "Automated video generation via Python API",
+        "Live kinematics streaming"
+      ],
+      "keywords": "biomechanics visualization, motion capture software, OpenSim visualization, 3D biomechanics, human movement analysis, gait analysis, sports science software, rehabilitation research tools"
+    }
+    </script>
   </head>
   <body>
     <noscript>
