@@ -1,4 +1,5 @@
 // Session child components
+export { default as ForcesDialog } from './ForcesDialog.vue';
 export { default as GithubInfoDialog } from './GithubInfoDialog.vue';
 export { default as ImportDialog } from './ImportDialog.vue';
 export { default as SampleSelectionDialog } from './SampleSelectionDialog.vue';
