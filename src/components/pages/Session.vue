@@ -3427,6 +3427,16 @@
           }
       },
               computed: {
+        // Access video element through the VideoOverlay component
+        videoPreviewElement() {
+          const videoOverlay = this.$refs.videoOverlayComponent;
+          return videoOverlay ? videoOverlay.getVideoPreview() : null;
+        },
+        // Access video projection canvas through the VideoOverlay component
+        videoProjectionCanvasElement() {
+          const videoOverlay = this.$refs.videoOverlayComponent;
+          return videoOverlay ? videoOverlay.getVideoProjectionCanvas() : null;
+        },
         videoControlsDisabled() {
           return (!this.trial && this.markerSpheres.length === 0) || this.frames.length === 0
         },
@@ -3868,8 +3878,8 @@
       },
       playSpeed(newSpeed) {
         // Update video playback rate to match animation speed
-        if (this.$refs.videoPreview && this.videoFile) {
-          const videoElement = this.$refs.videoPreview;
+        if (this.videoPreviewElement && this.videoFile) {
+          const videoElement = this.videoPreviewElement;
           if (videoElement && typeof videoElement.playbackRate !== 'undefined') {
             videoElement.playbackRate = newSpeed;
             console.log(`Video playback rate updated to: ${newSpeed}x`);
@@ -4851,8 +4861,8 @@
   },
 
   ensureProjectionCanvas() {
-    const canvas = this.$refs.videoProjectionCanvas;
-    const video = this.$refs.videoPreview;
+    const canvas = this.videoProjectionCanvasElement;
+    const video = this.videoPreviewElement;
     if (!canvas || !video) {
       return null;
     }
@@ -4881,7 +4891,7 @@
     return canvas;
   },
   clearProjectionCanvas() {
-    const canvas = this.$refs.videoProjectionCanvas;
+    const canvas = this.videoProjectionCanvasElement;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (ctx) {
@@ -4903,7 +4913,7 @@
       return;
     }
 
-    const video = this.$refs.videoPreview;
+    const video = this.videoPreviewElement;
     const displayWidth = video ? (video.clientWidth || video.videoWidth || canvas.width) : canvas.width;
     const displayHeight = video ? (video.clientHeight || video.videoHeight || canvas.height) : canvas.height;
 
@@ -4935,8 +4945,8 @@
       return;
     }
 
-    const fallbackWidth = this.$refs.videoPreview?.videoWidth || displayWidth;
-    const fallbackHeight = this.$refs.videoPreview?.videoHeight || displayHeight;
+    const fallbackWidth = this.videoPreviewElement?.videoWidth || displayWidth;
+    const fallbackHeight = this.videoPreviewElement?.videoHeight || displayHeight;
     const imageSize = Array.isArray(sequence.projectedImageSize)
       ? this.normalizeImageSize(sequence.projectedImageSize)
       : (this.cameraImageSize || null);
@@ -7627,14 +7637,14 @@
                       nextFrame = nextFrame % this.frames.length;
   
                     // When looping, also reset video to beginning if present
-                    if (this.videoFile && this.$refs.videoPreview) {
+                    if (this.videoFile && this.videoPreviewElement) {
                       try {
                         console.log('[animate] Looping animation, resetting video to beginning');
-                        this.$refs.videoPreview.currentTime = 0;
+                        this.videoPreviewElement.currentTime = 0;
   
                         // Ensure video keeps playing if it was previously playing
-                        if (this.playing && this.$refs.videoPreview.paused) {
-                          const playPromise = this.$refs.videoPreview.play();
+                        if (this.playing && this.videoPreviewElement.paused) {
+                          const playPromise = this.videoPreviewElement.play();
                           if (playPromise !== undefined) {
                             playPromise.catch(error => {
                               console.log('Video playback error on loop:', error);
@@ -7876,15 +7886,15 @@
         // No specific 'else' action needed here for pause, the animate loop handles it.
   
         // Video sync logic
-        if (this.videoFile && this.$refs.videoPreview) {
+        if (this.videoFile && this.videoPreviewElement) {
           try {
             // Set video playback rate to match current playSpeed
-            if (typeof this.$refs.videoPreview.playbackRate !== 'undefined') {
-              this.$refs.videoPreview.playbackRate = this.playSpeed;
+            if (typeof this.videoPreviewElement.playbackRate !== 'undefined') {
+              this.videoPreviewElement.playbackRate = this.playSpeed;
             }
             
             if (this.playing) {
-              const playPromise = this.$refs.videoPreview.play();
+              const playPromise = this.videoPreviewElement.play();
               if (playPromise !== undefined) {
                 playPromise.catch(error => {
                   console.log('Video playback error:', error);
@@ -7892,7 +7902,7 @@
                 });
               }
             } else {
-              this.$refs.videoPreview.pause();
+              this.videoPreviewElement.pause();
             }
           } catch (error) {
             console.log('Video control error:', error);
@@ -7925,10 +7935,10 @@
         this.animateOneFrame();
 
         // Sync video playback position with proper error handling
-        if (this.videoFile && this.$refs.videoPreview) {
+        if (this.videoFile && this.videoPreviewElement) {
           try {
           // Temporarily remove the timeupdate listener to prevent feedback loops
-          const videoElement = this.$refs.videoPreview;
+          const videoElement = this.videoPreviewElement;
           const originalHandler = videoElement.ontimeupdate;
           videoElement.ontimeupdate = null;
   
@@ -7954,9 +7964,9 @@
       },
     syncVideoToFrame(frame, forceSync = false) {
       // Sync video playback position to match the given frame
-      if (this.videoFile && this.$refs.videoPreview) {
+      if (this.videoFile && this.videoPreviewElement) {
         try {
-          const videoElement = this.$refs.videoPreview;
+          const videoElement = this.videoPreviewElement;
           
           // Set the video time directly from the animation time when available
           if (this.frames[frame] !== undefined) {
@@ -12798,12 +12808,12 @@
     },
   
   handleVideoMetadata() {
-      if (this.$refs.videoPreview) {
-        this.videoDuration = this.$refs.videoPreview.duration;
-        if (this.$refs.videoPreview.videoWidth && this.$refs.videoPreview.videoHeight) {
+      if (this.videoPreviewElement) {
+        this.videoDuration = this.videoPreviewElement.duration;
+        if (this.videoPreviewElement.videoWidth && this.videoPreviewElement.videoHeight) {
           this.cameraImageSize = {
-            width: this.$refs.videoPreview.videoWidth,
-            height: this.$refs.videoPreview.videoHeight
+            width: this.videoPreviewElement.videoWidth,
+            height: this.videoPreviewElement.videoHeight
           };
         }
         console.log('Video duration:', this.videoDuration);
@@ -12839,12 +12849,12 @@
       if (this.frames.length > 0) {
         const totalFrames = this.frames.length - 1;
         const videoTimePosition = (this.frame / totalFrames) * this.videoDuration;
-        this.$refs.videoPreview.currentTime = videoTimePosition;
+        this.videoPreviewElement.currentTime = videoTimePosition;
       }
       
       // Set video playback rate to match current playSpeed
-      if (this.$refs.videoPreview && typeof this.$refs.videoPreview.playbackRate !== 'undefined') {
-        this.$refs.videoPreview.playbackRate = this.playSpeed;
+      if (this.videoPreviewElement && typeof this.videoPreviewElement.playbackRate !== 'undefined') {
+        this.videoPreviewElement.playbackRate = this.playSpeed;
         console.log(`Video playback rate set to: ${this.playSpeed}x on metadata load`);
       }
       
@@ -12856,9 +12866,9 @@
   
   handleVideoTimeUpdate() {
     // Only sync if playing and not during a scrubbing operation
-    if (this.playing && this.$refs.videoPreview && this.frames.length > 0 && this.videoDuration > 0) {
+    if (this.playing && this.videoPreviewElement && this.frames.length > 0 && this.videoDuration > 0) {
       // Get current video time
-      const videoTime = this.$refs.videoPreview.currentTime;
+      const videoTime = this.videoPreviewElement.currentTime;
   
       // Calculate what frame we should be on based on video time
       const frameProgress = videoTime / this.videoDuration;
@@ -13191,7 +13201,7 @@
       ? this.cameraIntrinsics
       : this.normalizeMatrix3x3(this.cameraIntrinsics);
 
-    const videoElement = this.$refs.videoPreview;
+    const videoElement = this.videoPreviewElement;
     const fallbackWidth = videoElement?.videoWidth || 0;
     const fallbackHeight = videoElement?.videoHeight || 0;
     const normalizedSize = this.normalizeImageSize(this.cameraImageSize);
@@ -13455,7 +13465,7 @@
       });
       return;
     }
-    const videoElement = this.$refs.videoPreview;
+    const videoElement = this.videoPreviewElement;
     if (!videoElement || videoElement.readyState < 2) {
       console.log('Video element not ready:', {
         videoElement: !!videoElement,
@@ -13632,7 +13642,7 @@
   },
 
   getVideoAspect() {
-    const videoElement = this.$refs.videoPreview;
+    const videoElement = this.videoPreviewElement;
     if (videoElement && videoElement.videoWidth && videoElement.videoHeight) {
       const aspect = videoElement.videoWidth / videoElement.videoHeight;
       if (Number.isFinite(aspect) && aspect > 0) {
@@ -15527,7 +15537,7 @@
       let computedDistance = distanceBehind;
       if (behindPlane && computedDistance === null && intrinsics) {
         // Get image dimensions
-        const videoElement = this.$refs.videoPreview;
+        const videoElement = this.videoPreviewElement;
         const normalizedSize = this.normalizeImageSize(this.cameraImageSize);
         const widthPx = normalizedSize?.width || videoElement?.videoWidth || 1920;
         const heightPx = normalizedSize?.height || videoElement?.videoHeight || 1080;
