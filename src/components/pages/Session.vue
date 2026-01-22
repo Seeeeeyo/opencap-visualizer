@@ -2121,219 +2121,23 @@
         <!-- Recording controls -->
         <div class="recording-controls mb-4">
           <!-- Video Recording Section -->
-        <div class="recording-section mb-6 pa-3" style="background: rgba(0, 0, 0, 0.3); border-radius: 8px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1);">
-            <div class="section-title mb-3" style="font-size: 0.9rem; color: rgba(255, 255, 255, 0.7);">Video Recording</div>
-          <!-- Record button row with settings button -->
-            <div class="d-flex align-center mb-3">
-              <v-btn v-if="!isRecording" color="#EF4444" dark @click="startRecording" :disabled="isRecording" class="custom-btn" style="flex: 1;">
-                <v-icon left>mdi-record</v-icon>
-                Record
-              </v-btn>
-            <v-btn v-else color="#E53E3E" dark @click="stopRecording" class="custom-btn pulse-recording" style="flex: 1;">
-                <v-icon left>mdi-stop</v-icon>
-              <span class="font-weight-bold">RECORDING</span>
-                <span v-if="loopCount !== Infinity" class="caption ml-1">({{ currentLoop }}/{{ loopCount }})</span>
-              </v-btn>
-  
-            <v-btn
-              small
-              outlined
-              color="white"
-              class="ml-2 settings-text-btn"
-              @click="openRecordingSettings($event)"
-              :disabled="isRecording"
-            >
-              Settings
-            </v-btn>
-            </div>
-  
-          <!-- Recording settings summary -->
-          <div class="d-flex align-center recording-summary">
-            <div class="text-caption text-center" style="flex: 1;">
-              <span class="font-weight-bold">Format:</span> {{ recordingFormat === 'webm' ? 'WebM' : 'MP4' }}
-            </div>
-            <div class="text-caption text-center" style="flex: 1;">
-              <span class="font-weight-bold">Bitrate:</span> {{ (videoBitrate / 1000000).toFixed(0) }} Mbps
-            </div>
-            <div class="text-caption text-center" style="flex: 1;">
-              <span class="font-weight-bold">Loops:</span> {{ loopCount === Infinity ? '∞' : loopCount }}
-            </div>
-          </div>
-  
-          <!-- Recording settings dialog -->
-          <v-dialog
-            v-model="showRecordingSettings"
-            max-width="500"
-          >
-            <v-card class="recording-settings-dialog">
-              <v-card-title>Recording Settings</v-card-title>
-              <v-card-text>
-                <v-row>
-                  <v-col cols="12">
-              <v-select
-                v-model="loopCount"
-                :items="[
-                  {text: 'Infinite ∞', value: Infinity},
-                  {text: '1 Loop', value: 1},
-                  {text: '2 Loops', value: 2},
-                  {text: '3 Loops', value: 3},
-                  {text: '4 Loops', value: 4},
-                  {text: '5 Loops', value: 5}
-                ]"
-                      label="Number of Loops"
-                      outlined
-                dense
-                dark
-                      hide-details="auto"
-                      class="mb-4"
-              ></v-select>
-                  </v-col>
-  
-                  <v-col cols="12">
-              <v-select
-                v-model="recordingFormat"
-                      :items="[
-                        {text: 'WebM (Recommended)', value: 'webm'},
-                        {text: 'MP4 (May be limited)', value: 'mp4'}
-                      ]"
-                      label="Video Format"
-                      outlined
-                dense
-                dark
-                      hide-details="auto"
-                      class="mb-4"
-              ></v-select>
-                  </v-col>
-  
-                  <v-col cols="12">
-              <v-select
-                v-model="videoBitrate"
-                :items="[
-                  {text: '2 Mbps', value: 2000000},
-                  {text: '5 Mbps', value: 5000000},
-                  {text: '8 Mbps', value: 8000000},
-                  {text: '12 Mbps', value: 12000000},
-                  {text: '15 Mbps', value: 15000000},
-                  {text: '20 Mbps', value: 20000000}
-                ]"
-                      label="Video Bitrate"
-                      outlined
-                dense
-                dark
-                      hide-details="auto"
-                      class="mb-4"
-              ></v-select>
-                  </v-col>
-  
-                  <v-col cols="12">
-                    <div class="info-box pa-3 mt-2">
-                      <div class="d-flex align-center mb-2">
-                        <v-icon small color="info" class="mr-2">mdi-information-outline</v-icon>
-                        <span class="subtitle-2">Recording Tips</span>
-                      </div>
-                      <ul class="pl-4 mb-0 text-caption">
-                        <li class="mb-1">Maximize your browser window for best quality</li>
-                        <li class="mb-1">Use WebM format for better compatibility</li>
-                        <li>Higher bitrates produce larger files but better quality</li>
-                  </ul>
-                </div>
-                  </v-col>
-                </v-row>
-              </v-card-text>
-              <v-card-actions>
-                <v-spacer></v-spacer>
-                <v-btn color="primary" text @click="showRecordingSettings = false">Close</v-btn>
-              </v-card-actions>
-            </v-card>
-          </v-dialog>
-          </div>
-  
+          <RecordingControls
+            :is-recording="isRecording"
+            :loop-count.sync="loopCount"
+            :current-loop="currentLoop"
+            :recording-format.sync="recordingFormat"
+            :video-bitrate.sync="videoBitrate"
+            @start-recording="startRecording"
+            @stop-recording="stopRecording"
+          />
+
           <!-- Image Capture Section -->
-        <div class="capture-section pa-3" style="background: rgba(0, 0, 0, 0.3); border-radius: 8px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1);">
-            <div class="section-title mb-3" style="font-size: 0.9rem; color: rgba(255, 255, 255, 0.7);">Image Capture</div>
-          <!-- Capture button row with settings button -->
-            <div class="d-flex align-center mb-3">
-              <v-btn
-                color="#6B7280"
-                dark
-                @click="captureScreenshot"
-                class="custom-btn"
-                style="flex: 1;"
-              >
-                <v-icon left>mdi-camera</v-icon>
-                Capture Image
-              </v-btn>
-  
-            <v-btn
-              small
-              outlined
-              color="white"
-              class="ml-2 settings-text-btn"
-              @click="openCaptureSettings($event)"
-            >
-              Settings
-            </v-btn>
-            </div>
-  
-          <!-- Capture settings summary -->
-          <div class="d-flex align-center recording-summary">
-            <div class="text-caption text-center" style="flex: 1;">
-              <span class="font-weight-bold">Background:</span>
-              {{ captureMode === 'both' ? 'Both Types' :
-                 captureMode === 'normal' ? 'Normal' : 'Transparent' }}
-            </div>
-          </div>
-  
-          <!-- Image capture settings dialog -->
-          <v-dialog
-            v-model="showCaptureSettings"
-            max-width="500"
-          >
-            <v-card class="recording-settings-dialog">
-              <v-card-title>Image Capture Settings</v-card-title>
-              <v-card-text>
-                <v-row>
-                  <v-col cols="12">
-              <v-select
-                v-model="captureMode"
-                :items="[
-                  {text: 'Both Types', value: 'both'},
-                  {text: 'Normal', value: 'normal'},
-                  {text: 'Transparent', value: 'transparent'}
-                ]"
-                      label="Background Type"
-                      outlined
-                dense
-                dark
-                      hide-details="auto"
-                      class="mb-4"
-              ></v-select>
-                  </v-col>
-  
-                  <v-col cols="12">
-                    <div class="info-box pa-3 mt-2">
-                      <div class="d-flex align-center mb-2">
-                        <v-icon small color="info" class="mr-2">mdi-information-outline</v-icon>
-                        <span class="subtitle-2">Capture Tips</span>
-            </div>
-                      <ul class="pl-4 mb-0 text-caption">
-                        <li class="mb-1"><b>Both Types:</b> Saves both normal and transparent versions</li>
-                        <li class="mb-1"><b>Normal:</b> Standard PNG with background</li>
-                        <li><b>Transparent:</b> PNG with transparent background (useful for overlays)</li>
-                      </ul>
-                    </div>
-                  </v-col>
-                </v-row>
-              </v-card-text>
-              <v-card-actions>
-                <v-spacer></v-spacer>
-                <v-btn color="primary" text @click="showCaptureSettings = false">Close</v-btn>
-              </v-card-actions>
-            </v-card>
-          </v-dialog>
-          </div>
+          <CaptureControls
+            :capture-mode.sync="captureMode"
+            @capture-screenshot="captureScreenshot"
+          />
         </div>
-  
+
         <!-- File controls -->
         <div class="file-controls mb-4 position-relative">
           <!-- Make controls slightly transparent when loading -->
@@ -2388,242 +2192,48 @@
         />
   
         <!-- Add Forces Dialog -->
-        <v-dialog v-model="showForcesDialog" max-width="500" content-class="forces-dialog">
-          <v-card class="forces-dialog-card">
-            <v-card-title class="headline">Import Ground Reaction Forces</v-card-title>
-            <v-card-text>
-              <div class="text-body-1 mb-4">
-                Select a .mot forces file to visualize ground reaction forces at the subject's feet.
-                Forces will be automatically positioned at the foot segments of the selected animation.
-                <br><br>
-                <strong>Supported formats:</strong>
-                <ul class="mt-2">
-                  <li>• Standard OpenSim format: <code>R_ground_force_vx</code>, <code>L_ground_force_vx</code></li>
-                  <li>• Alternative format: <code>ground_force_right_vx</code>, <code>ground_force_left_vx</code></li>
-                  <li>• Files with "force" in the filename are automatically detected</li>
-                </ul>
-              </div>
-  
-              <v-alert v-if="animations.length === 0 && smplSequences.length === 0" type="warning" text dense class="mb-4">
-                Please load an animation first before importing forces.
-              </v-alert>
-  
-              <v-alert v-if="forcesDatasets[selectedAnimationForForces]" type="warning" text dense class="mb-4">
-                This animation already has forces loaded. Loading new forces will replace the existing ones.
-              </v-alert>
-  
-              <v-alert v-if="Object.keys(forcesDatasets).length > 0" type="info" text dense class="mb-4">
-                Currently loaded forces for: {{ Object.keys(forcesDatasets).map(idx => animations[idx]?.trialName || `Subject ${parseInt(idx) + 1}`).join(', ') }}
-              </v-alert>
-  
-              <div v-if="animations.length > 0" class="mb-4">
-                <v-select
-                  v-model="selectedAnimationForForces"
-                  :items="animationOptions"
-                  item-text="text"
-                  item-value="value"
-                  label="Associate with Animation"
-                  outlined
-                  dense
-                ></v-select>
-              </div>
-  
-              <v-file-input
-                v-model="forcesFile"
-                label="Forces File (.mot)"
-                accept=".mot"
-                prepend-icon="mdi-vector-line"
-                outlined
-                show-size
-                clearable
-                :disabled="animations.length === 0"
-                @change="handleForcesFileSelect"
-              ></v-file-input>
-  
-              <div v-if="forcesFile" class="mt-4">
-                <div class="text-subtitle-2 mb-2">Force Visualization Settings</div>
-  
-                <v-row>
-                  <v-col cols="6">
-                    <v-text-field
-                      v-model.number="forceScale"
-                      label="Force Scale"
-                      type="number"
-                      step="0.001"
-                      min="0.001"
-                      max="0.01"
-                      dense
-                      outlined
-                    ></v-text-field>
-                  </v-col>
-                  <v-col cols="6">
-                    <div class="text-subtitle-2 mb-2">Arrow Color</div>
-                    <v-menu offset-y :close-on-content-click="false">
-                      <template v-slot:activator="{ on, attrs }">
-                        <v-btn v-bind="attrs" v-on="on" class="color-preview" :style="{ backgroundColor: getForceColor(selectedAnimationForForces || 0) }" block outlined>
-                          <v-icon left>mdi-palette</v-icon>
-                          Color
-                        </v-btn>
-                      </template>
-                      <v-card class="color-picker pa-2">
-                        <div class="d-flex align-center">
-                          <v-color-picker
-                            :value="getForceDisplayColor(selectedAnimationForForces || 0)"
-                            :modes="['hex', 'rgba']"
-                            show-swatches
-                            :swatches="Array.isArray(availableColors) ? availableColors : []"
-                            @input="(color) => updateForceColor(color, selectedAnimationForForces || 0)"
-                            class="flex-grow-1"
-                          ></v-color-picker>
-                          <v-btn icon small @click="openEyeDropper('force', selectedAnimationForForces || 0)" title="Pick color from screen" class="ml-2">
-                            <v-icon>mdi-eyedropper-variant</v-icon>
-                          </v-btn>
-                        </div>
-                      </v-card>
-                    </v-menu>
-                  </v-col>
-                </v-row>
-  
-                <v-switch
-                  v-model="showForces"
-                  label="Show Forces"
-                  color="success"
-                ></v-switch>
-              </div>
-            </v-card-text>
-  
-            <v-card-actions>
-              <v-spacer></v-spacer>
-              <v-btn color="grey darken-1" text @click="closeForcesDialog">
-                Cancel
-              </v-btn>
-              <v-btn
-                color="success"
-                text
-                @click="loadForcesFile"
-                :disabled="!forcesFile || loadingForces"
-                :loading="loadingForces"
-              >
-                Load Forces
-              </v-btn>
-            </v-card-actions>
-                      </v-card>
-        </v-dialog>
+        <ForcesDialog
+          v-model="showForcesDialog"
+          :animations="animations"
+          :smpl-sequences="smplSequences"
+          :forces-datasets="forcesDatasets"
+          :selected-animation-for-forces.sync="selectedAnimationForForces"
+          :animation-options="animationOptions"
+          :forces-file.sync="forcesFile"
+          :force-scale.sync="forceScale"
+          :show-forces.sync="showForces"
+          :loading-forces="loadingForces"
+          :available-colors="availableColors"
+          :force-color="getForceColor(selectedAnimationForForces || 0)"
+          :force-display-color="getForceDisplayColor(selectedAnimationForForces || 0)"
+          @handle-forces-file-select="handleForcesFileSelect"
+          @load-forces="loadForcesFile"
+          @close-dialog="closeForcesDialog"
+          @open-eyedropper="({ target, index }) => openEyeDropper(target, index)"
+          @update-force-color="({ color, index }) => updateForceColor(color, index)"
+        />
   
         <!-- Add Markers Dialog -->
-        <v-dialog v-model="showMarkersDialog" max-width="500" content-class="markers-dialog">
-          <v-card class="markers-dialog-card">
-            <v-card-title class="headline">Import Motion Capture Markers</v-card-title>
-            <v-card-text>
-              <div class="text-body-1 mb-4">
-                Select a .trc file to visualize motion capture markers as spheres in the 3D scene.
-                Markers will be positioned according to the data in the file.
-              </div>
-  
-              <v-alert v-if="animations.length === 0 && smplSequences.length === 0" type="info" text dense class="mb-4">
-                No animations loaded. A standalone marker visualization will be created.
-              </v-alert>
-  
-              <v-alert v-if="animations.length > 0 && markersDatasets[selectedAnimationForMarkers]" type="warning" text dense class="mb-4">
-                This animation already has markers loaded. Loading new markers will replace the existing ones.
-              </v-alert>
-  
-              <v-alert v-if="Object.keys(markersDatasets).length > 0 && animations.length > 0" type="info" text dense class="mb-4">
-                Currently loaded markers for: {{ Object.keys(markersDatasets).map(idx => animations[idx]?.trialName || `Subject ${parseInt(idx) + 1}`).join(', ') }}
-              </v-alert>
-  
-              <div v-if="animations.length > 0" class="mb-4">
-                <v-select
-                  v-model="selectedAnimationForMarkers"
-                  :items="animationOptions"
-                  item-text="text"
-                  item-value="value"
-                  label="Associate with Animation"
-                  outlined
-                  dense
-                ></v-select>
-              </div>
-  
-              <v-file-input
-                v-model="markersFile"
-                label="Markers File (.trc)"
-                accept=".trc"
-                prepend-icon="mdi-record-circle-outline"
-                outlined
-                show-size
-                clearable
-                @change="handleMarkersFileSelect"
-              ></v-file-input>
-  
-              <div v-if="markersFile" class="mt-4">
-                <div class="text-subtitle-2 mb-2">Marker Visualization Settings</div>
-  
-                <v-row>
-                  <v-col cols="6">
-                    <v-text-field
-                      v-model.number="markerSize"
-                      label="Marker Size"
-                      type="number"
-                      step="1"
-                      min="1"
-                      max="20"
-                      dense
-                      outlined
-                    ></v-text-field>
-                  </v-col>
-                  <v-col cols="6">
-                    <div class="text-subtitle-2 mb-2">Marker Color</div>
-                    <v-menu offset-y :close-on-content-click="false">
-                      <template v-slot:activator="{ on, attrs }">
-                        <v-btn v-bind="attrs" v-on="on" class="color-preview" :style="{ backgroundColor: getMarkerColor(selectedAnimationForMarkers || 0) }" block outlined>
-                          <v-icon left>mdi-palette</v-icon>
-                          Color
-                        </v-btn>
-                      </template>
-                      <v-card class="color-picker pa-2">
-                        <div class="d-flex align-center">
-                          <v-color-picker
-                            :value="getMarkerDisplayColor(selectedAnimationForMarkers || 0)"
-                            :modes="['hex', 'rgba']"
-                            show-swatches
-                            :swatches="Array.isArray(availableColors) ? availableColors : []"
-                            @input="(color) => updateMarkerColor(color, selectedAnimationForMarkers || 0)"
-                            class="flex-grow-1"
-                          ></v-color-picker>
-                          <v-btn icon small @click="openEyeDropper('marker', selectedAnimationForMarkers || 0)" title="Pick color from screen" class="ml-2">
-                            <v-icon>mdi-eyedropper-variant</v-icon>
-                          </v-btn>
-                        </div>
-                      </v-card>
-                    </v-menu>
-                  </v-col>
-                </v-row>
-  
-                <v-switch
-                  v-model="showMarkers"
-                  label="Show Markers"
-                  color="success"
-                ></v-switch>
-              </div>
-            </v-card-text>
-  
-            <v-card-actions>
-              <v-spacer></v-spacer>
-              <v-btn color="grey darken-1" text @click="closeMarkersDialog">
-                Cancel
-              </v-btn>
-              <v-btn
-                color="success"
-                text
-                @click="loadMarkersFile"
-                :disabled="!markersFile || loadingMarkers"
-                :loading="loadingMarkers"
-              >
-                Load Markers
-              </v-btn>
-            </v-card-actions>
-          </v-card>
-        </v-dialog>
+        <MarkersDialog
+          v-model="showMarkersDialog"
+          :animations="animations"
+          :smpl-sequences="smplSequences"
+          :markers-datasets="markersDatasets"
+          :selected-animation-for-markers.sync="selectedAnimationForMarkers"
+          :animation-options="animationOptions"
+          :markers-file.sync="markersFile"
+          :marker-size.sync="markerSize"
+          :show-markers.sync="showMarkers"
+          :loading-markers="loadingMarkers"
+          :available-colors="availableColors"
+          :marker-color="getMarkerColor(selectedAnimationForMarkers || 0)"
+          :marker-display-color="getMarkerDisplayColor(selectedAnimationForMarkers || 0)"
+          @handle-markers-file-select="handleMarkersFileSelect"
+          @load-markers="loadMarkersFile"
+          @close-dialog="closeMarkersDialog"
+          @open-eyedropper="({ target, index }) => openEyeDropper(target, index)"
+          @update-marker-color="({ color, index }) => updateMarkerColor(color, index)"
+        />
   
         <!-- Sample Selection Dialog -->
         <SampleSelectionDialog
@@ -2647,191 +2257,33 @@
         />
   
         <!-- Real-time Plotting Dialog -->
-        <v-dialog
+        <PlotDialog
           v-model="showPlottingDialog"
-          max-width="1200"
-          persistent
-          content-class="plotting-dialog"
-          :overlay="false"
-        >
-          <v-card
-            class="plotting-dialog-card"
-            :style="{
-              position: 'fixed',
-              top: plottingDialogPosition.y + 'px',
-              left: plottingDialogPosition.x + 'px',
-              width: plottingDialogSize.width + 'px',
-              height: plottingDialogSize.height + 'px',
-              maxWidth: 'none',
-              maxHeight: 'none',
-              zIndex: 1000,
-              resize: 'both',
-              overflow: 'hidden'
-            }"
-          >
-            <!-- Header with drag handle -->
-            <v-card-title
-              class="plotting-header d-flex align-center pa-3"
-              style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); cursor: move; user-select: none;"
-              @mousedown="startDragPlotDialog"
-              @touchstart="startDragPlotDialog"
-            >
-              <v-icon color="white" class="mr-3">mdi-chart-line</v-icon>
-              <span class="white--text font-weight-bold text-h6">Real-time Data Plots</span>
-              <v-spacer></v-spacer>
-  
-              <!-- Plot Controls -->
-              <v-btn icon small @click="togglePlotUpdates" class="mr-2">
-                <v-icon color="white">{{ plotUpdatesEnabled ? 'mdi-pause' : 'mdi-play' }}</v-icon>
-              </v-btn>
-  
-              <v-btn icon small @click="exportPlot" class="mr-2">
-                <v-icon color="white">mdi-download</v-icon>
-              </v-btn>
-  
-              <v-btn icon small @click="showPlottingDialog = false">
-                <v-icon color="white">mdi-close</v-icon>
-              </v-btn>
-            </v-card-title>
-  
-            <!-- Plot Content -->
-            <v-card-text class="pa-0" style="height: calc(100% - 64px); overflow: hidden;">
-              <div class="d-flex" style="height: 100%;">
-                <!-- Left Panel - Plot Controls -->
-                <div class="plot-controls-panel pa-3" style="width: 280px; background: rgba(0, 0, 0, 0.05); border-right: 1px solid rgba(0, 0, 0, 0.1); overflow-y: auto;">
-                  <div class="text-subtitle-2 mb-3 font-weight-bold">Plot Configuration</div>
-  
-                  <!-- Plot Type Selection -->
-                  <div class="mb-4">
-                    <div class="text-caption font-weight-bold mb-2">Plot Type:</div>
-                    <v-select
-                      v-model="selectedPlotType"
-                      :items="plotTypes"
-                      item-text="label"
-                      item-value="value"
-                      outlined
-                      dense
-                      @change="updatePlotType"
-                    ></v-select>
-                  </div>
-  
-                  <!-- Variable Selection -->
-                  <div class="mb-4" v-if="availableVariables.length > 0">
-                    <div class="text-caption font-weight-bold mb-2">Variables:</div>
-                    <v-select
-                      v-model="selectedVariables"
-                      :items="availableVariables"
-                      item-text="label"
-                      item-value="value"
-                      outlined
-                      dense
-                      multiple
-                      chips
-                      small-chips
-                      @change="updateSelectedVariables"
-                    ></v-select>
-                  </div>
-  
-                  <!-- Marker Selection for marker-related plots -->
-                  <div class="mb-4" v-if="selectedPlotType === 'marker_position' || selectedPlotType === 'marker_distance'">
-                    <div class="text-caption font-weight-bold mb-2">Markers:</div>
-                    <v-select
-                      v-model="selectedMarkers"
-                      :items="availableMarkers"
-                      item-text="label"
-                      item-value="value"
-                      outlined
-                      dense
-                      multiple
-                      chips
-                      small-chips
-                      @change="updateSelectedMarkers"
-                    ></v-select>
-                  </div>
-  
-                  <!-- Animation Selection -->
-                  <div class="mb-4" v-if="animations.length > 1">
-                    <div class="text-caption font-weight-bold mb-2">Animation:</div>
-                    <v-select
-                      v-model="selectedPlotAnimation"
-                      :items="animationOptions"
-                      item-text="text"
-                      item-value="value"
-                      outlined
-                      dense
-                      @change="updatePlotAnimation"
-                    ></v-select>
-                  </div>
-  
-                  <!-- Plot Appearance -->
-                  <div class="mb-4">
-                    <div class="text-caption font-weight-bold mb-2">Appearance:</div>
-                    <v-checkbox
-                      v-model="plotSettings.showGrid"
-                      label="Show Grid"
-                      dense
-                      hide-details
-                      class="mb-1"
-                    ></v-checkbox>
-                    <v-checkbox
-                      v-model="plotSettings.showLegend"
-                      label="Show Legend"
-                      dense
-                      hide-details
-                      class="mb-1"
-                    ></v-checkbox>
-                    <v-checkbox
-                      v-model="plotSettings.showCurrentTime"
-                      label="Show Current Time"
-                      dense
-                      hide-details
-                    ></v-checkbox>
-                  </div>
-  
-                  <!-- Time Range -->
-                  <div class="mb-4">
-                    <div class="text-caption font-weight-bold mb-2">Time Range (s):</div>
-                    <v-range-slider
-                      v-model="plotTimeRange"
-                      :min="0"
-                      :max="maxTime"
-                      :step="0.1"
-                      dense
-                      hide-details
-                      class="mb-2"
-                    ></v-range-slider>
-                    <div class="text-caption text-center">
-                      {{ plotTimeRange[0].toFixed(1) }}s - {{ plotTimeRange[1].toFixed(1) }}s
-                    </div>
-                  </div>
-                </div>
-  
-                <!-- Right Panel - Plot Display -->
-                <div class="plot-display-panel" style="flex: 1; position: relative;">
-                  <div v-if="!selectedPlotType || selectedVariables.length === 0" class="d-flex align-center justify-center" style="height: 100%;">
-                    <div class="text-center text--disabled">
-                      <v-icon size="64" color="grey">mdi-chart-line</v-icon>
-                      <div class="text-h6 mt-2">Select plot type and variables to begin</div>
-                    </div>
-                  </div>
-  
-                  <!-- Chart Container -->
-                  <div v-else style="width: 100%; height: 100%; position: relative;">
-                    <canvas id="plotChart" ref="plotChart" style="width: 100%; height: 100%;"></canvas>
-                  </div>
-                </div>
-              </div>
-            </v-card-text>
-  
-            <!-- Resize Handle -->
-            <div
-              class="resize-handle"
-              style="position: absolute; bottom: 0; right: 0; width: 20px; height: 20px; cursor: nw-resize; background: linear-gradient(135deg, transparent 50%, rgba(255,255,255,0.3) 50%);"
-              @mousedown="startResizePlotDialog"
-              @touchstart="startResizePlotDialog"
-            ></div>
-          </v-card>
-        </v-dialog>
+          ref="plotDialogComponent"
+          :plotting-dialog-position="plottingDialogPosition"
+          :plotting-dialog-size="plottingDialogSize"
+          :plot-updates-enabled="plotUpdatesEnabled"
+          :selected-plot-type.sync="selectedPlotType"
+          :plot-types="plotTypes"
+          :selected-variables.sync="selectedVariables"
+          :available-variables="availableVariables"
+          :selected-markers.sync="selectedMarkers"
+          :available-markers="availableMarkers"
+          :animations="animations"
+          :animation-options="animationOptions"
+          :selected-plot-animation.sync="selectedPlotAnimation"
+          :plot-settings.sync="plotSettings"
+          :plot-time-range.sync="plotTimeRange"
+          :max-time="maxTime"
+          @toggle-plot-updates="togglePlotUpdates"
+          @export-plot="exportPlot"
+          @start-drag="startDragPlotDialog"
+          @start-resize="startResizePlotDialog"
+          @update-plot-type="updatePlotType"
+          @update-selected-variables="updateSelectedVariables"
+          @update-selected-markers="updateSelectedMarkers"
+          @update-plot-animation="updatePlotAnimation"
+        />
   
         <!-- Scene Controls Card -->
         <SceneControls
@@ -3032,8 +2484,13 @@
   import CameraControls from '@/components/ui/CameraControls' // Added import
   // Session child components
   import {
+    CaptureControls,
+    ForcesDialog,
     GithubInfoDialog,
     ImportDialog,
+    MarkersDialog,
+    PlotDialog,
+    RecordingControls,
     SampleSelectionDialog,
     SceneControls,
     ShareDialog,
@@ -3107,8 +2564,13 @@
           VideoNavigation,
           SpeedControl,
           CameraControls, // Register component
+          CaptureControls,
+          ForcesDialog,
           GithubInfoDialog,
           ImportDialog,
+          MarkersDialog,
+          PlotDialog,
+          RecordingControls,
           SampleSelectionDialog,
           SceneControls,
           ShareDialog,
