@@ -2168,7 +2168,7 @@
             <v-icon>mdi-help-circle</v-icon>
           </v-btn>
         </template>
-        <span>View on GitHub</span>
+        <span>Any question/feedback? Click here</span>
       </v-tooltip>
 
       <!-- GitHub Info Dialog -->
