@@ -3221,6 +3221,22 @@
                     </div>
                     <div class="mt-3">
                       <div class="text-caption mb-2">
+                        Size: {{ groundSize }}m
+                      </div>
+                      <v-slider
+                        v-model="groundSize"
+                        @input="updateGroundSize"
+                        :min="2"
+                        :max="500"
+                        step="1"
+                        hide-details
+                        :disabled="!showGround"
+                        dense
+                        class="mt-0"
+                      ></v-slider>
+                    </div>
+                    <div class="mt-3">
+                      <div class="text-caption mb-2">
                         Height Position: {{ groundPositionY.toFixed(2) }}m
                       </div>
                       <v-slider
@@ -3256,11 +3272,11 @@
               </v-btn>
             </div>
 
-            <!-- Lights setting -->
+            <!-- Shadow setting -->
             <div class="d-flex align-center">
-              <div class="mr-2 text-caption" style="width: 80px; flex-shrink: 0;">Lights:</div>
-              <v-btn icon small @click="toggleLights" title="Toggle Lighting (disable for uniform color)">
-                <v-icon small :color="enableLights ? 'white' : 'grey'">{{ enableLights ? 'mdi-lightbulb-on' : 'mdi-lightbulb-off' }}</v-icon>
+              <div class="mr-2 text-caption" style="width: 80px; flex-shrink: 0;">Shadow:</div>
+              <v-btn icon small @click="toggleShadows" title="Toggle Shadow Lighting">
+                <v-icon small :color="enableShadows ? 'white' : 'grey'">{{ enableShadows ? 'mdi-lightbulb-on' : 'mdi-lightbulb-off' }}</v-icon>
               </v-btn>
             </div>
             </div>
@@ -3769,6 +3785,7 @@
               groundColor: '#cccccc',
               groundOpacity: 1.0,
               groundPositionY: 0,
+              groundSize: 200,
               useGroundTexture: true,
               groundMesh: null,
               groundTexture: null,
@@ -3777,7 +3794,7 @@
               showGround: true,
               alphaValues: [], // Array to store alpha values for each animation
               lights: { hemisphere: null, directionals: [] }, // Store light references
-              enableLights: true, // Toggle for lighting (disabled = uniform color for screenshots)
+              enableShadows: true, // Toggle for shadows (off = current lights, on = shadow-enabled lights)
               osimFile: null,
               motFile: null,
               converting: false,
@@ -9392,20 +9409,19 @@
         }
   
         // Create a much larger plane for "infinite" appearance
-        const planeSize = 200; // Make plane much larger for "infinite" appearance
         const loader = new THREE.TextureLoader();
         const texture = loader.load('https://threejsfundamentals.org/threejs/resources/images/checker.png');
         texture.wrapS = THREE.RepeatWrapping;
         texture.wrapT = THREE.RepeatWrapping;
         texture.magFilter = THREE.NearestFilter;
-        const repeats = 100; // More repeats for the larger plane
-        texture.repeat.set(repeats, repeats);
+        const checkerRepeats = Math.max(1, Math.round(this.groundSize * 0.5));
+        texture.repeat.set(checkerRepeats, checkerRepeats);
   
         // Store the texture reference
         this.groundTexture = texture;
   
         // Create a ground plane with fog for distance fading
-        const planeGeo = new THREE.PlaneGeometry(planeSize, planeSize);
+        const planeGeo = new THREE.PlaneGeometry(this.groundSize, this.groundSize);
         // Always use MeshPhongMaterial - lighting mode is controlled by light intensities
         const isTransparent = this.groundOpacity < 1.0;
         const planeMat = new THREE.MeshPhongMaterial({
@@ -9428,48 +9444,12 @@
         // Add fog to create the fading effect at the edges (DISABLED for marker visibility)
         // this.scene.fog = new THREE.FogExp2(this.backgroundColor, 0.025); // Increased density from 0.01 to 0.025
   
-        // Add lights with good default settings
-        const skyColor = 0xB1E1FF;
-        const groundColor = 0xB97A20;
-        const hemisphereIntensity = 0.8;
-        const hemisphereLight = new THREE.HemisphereLight(skyColor, groundColor, hemisphereIntensity);
-        this.scene.add(hemisphereLight);
-        this.lights.hemisphere = hemisphereLight;
-        this.lights.hemisphereOriginalIntensity = hemisphereIntensity;
-
-        // Main directional light with softer intensity
-        const lightIntensity = 0.5;
-        const lightColor = 0xFFFFFF;
-        const directionalLight = new THREE.DirectionalLight(lightColor, lightIntensity);
-        directionalLight.position.set(-10, 10, -10);
-        directionalLight.target.position.set(0, 0, 0);
-        this.scene.add(directionalLight);
-        this.scene.add(directionalLight.target);
-        this.lights.directionals = [directionalLight];
-        this.lights.directionalOriginalIntensity = lightIntensity;
-
-        // Add spotlight to create the gradient lighting effect around subjects
-        const spotLightIntensity = 1;
-        const spotLight = new THREE.SpotLight(0xffffff, spotLightIntensity);
-        spotLight.position.set(0, 15, 0);
-        spotLight.angle = Math.PI / 4;
-        spotLight.penumbra = 0.9; // Increased from 0.8 to 0.9 for softer edge
-        spotLight.decay = 2.0; // Increased from 1.5 to 2.0 for faster falloff
-        spotLight.distance = 30; // Reduced from 40 to 30 for tighter spotlight
-        spotLight.castShadow = true;
-        spotLight.shadow.mapSize.width = 1024;
-        spotLight.shadow.mapSize.height = 1024;
-        spotLight.shadow.bias = -0.0001;
-        this.scene.add(spotLight);
-        this.lights.spotlight = spotLight;
-        this.lights.spotlightOriginalIntensity = spotLightIntensity;
-
-        // Create an ambient light with higher intensity for better marker visibility
-        const ambientIntensity = 0.6;
-        const ambientLight = new THREE.AmbientLight(0x404040, ambientIntensity);
-        this.scene.add(ambientLight);
-        this.lights.ambient = ambientLight;
-        this.lights.ambientOriginalIntensity = ambientIntensity;
+        // Add lights based on shadow setting
+        if (this.enableShadows) {
+            this.setupShadowLights();
+        } else {
+            this.setupNonShadowLights();
+        }
   
         // Initial render
         try {
@@ -12271,6 +12251,20 @@
         }
         this.saveSettings();
     },
+    updateGroundSize() {
+        if (!this.groundMesh) return;
+        const oldGeo = this.groundMesh.geometry;
+        this.groundMesh.geometry = new THREE.PlaneGeometry(this.groundSize, this.groundSize);
+        if (oldGeo) oldGeo.dispose();
+        const checkerRepeats = Math.max(1, Math.round(this.groundSize * 0.5));
+        if (this.groundTexture) this.groundTexture.repeat.set(checkerRepeats, checkerRepeats);
+        const gridRep = Math.max(1, Math.round(this.groundSize / 20));
+        if (this.gridTexture) this.gridTexture.repeat.set(gridRep, gridRep);
+        if (this.renderer && this.scene && this.camera) {
+            this.renderer.render(this.scene, this.camera);
+        }
+        this.saveSettings();
+    },
     toggleGroundTexture() {
         this.useGroundTexture = !this.useGroundTexture;
 
@@ -12352,7 +12346,8 @@
                 this.gridTexture = new THREE.CanvasTexture(canvas);
                 this.gridTexture.wrapS = THREE.RepeatWrapping;
                 this.gridTexture.wrapT = THREE.RepeatWrapping;
-                this.gridTexture.repeat.set(10, 10); // Adjust repeat to match plane size
+                const gridRep = Math.max(1, Math.round(this.groundSize / 20));
+                this.gridTexture.repeat.set(gridRep, gridRep);
             }
   
             // Create new material with the appropriate texture
@@ -12386,37 +12381,121 @@
         // Watcher should handle saving now that this.showGround is updated
         this.saveSettings(); // Let watcher handle this one as example
     },
-    toggleLights() {
-        this.enableLights = !this.enableLights;
-        
-        // Update light intensities
-        // When disabled, turn off directional/hemisphere/spot lights but boost ambient for uniform lighting
+    removeAllLights() {
+        // Remove hemisphere light
         if (this.lights.hemisphere) {
-            this.lights.hemisphere.intensity = this.enableLights 
-                ? (this.lights.hemisphereOriginalIntensity || 0.8) 
-                : 0;
+            this.scene.remove(this.lights.hemisphere);
+            this.lights.hemisphere = null;
         }
+        // Remove directional lights
         if (this.lights.directionals && this.lights.directionals.length > 0) {
             this.lights.directionals.forEach(light => {
-                light.intensity = this.enableLights 
-                    ? (this.lights.directionalOriginalIntensity || 0.5) 
-                    : 0;
+                if (light.target) {
+                    this.scene.remove(light.target);
+                }
+                this.scene.remove(light);
             });
+            this.lights.directionals = [];
         }
+        // Remove spotlight
         if (this.lights.spotlight) {
-            this.lights.spotlight.intensity = this.enableLights 
-                ? (this.lights.spotlightOriginalIntensity || 1) 
-                : 0;
+            this.scene.remove(this.lights.spotlight);
+            this.lights.spotlight = null;
         }
-        // Boost ambient light when directional lights are disabled for uniform illumination
+        // Remove ambient light
         if (this.lights.ambient) {
-            this.lights.ambient.intensity = this.enableLights 
-                ? (this.lights.ambientOriginalIntensity || 0.6) 
-                : 2.0; // High ambient light for uniform color when directional lights are off
+            this.scene.remove(this.lights.ambient);
+            this.lights.ambient = null;
         }
+    },
+    setupNonShadowLights() {
+        // Current light setup (shadows OFF)
+        const skyColor = 0xB1E1FF;
+        const groundColor = 0xB97A20;
+        const hemisphereIntensity = 0.8;
+        const hemisphereLight = new THREE.HemisphereLight(skyColor, groundColor, hemisphereIntensity);
+        this.scene.add(hemisphereLight);
+        this.lights.hemisphere = hemisphereLight;
+        this.lights.hemisphereOriginalIntensity = hemisphereIntensity;
+
+        // Main directional light with softer intensity
+        const lightIntensity = 0.5;
+        const lightColor = 0xFFFFFF;
+        const directionalLight = new THREE.DirectionalLight(lightColor, lightIntensity);
+        directionalLight.position.set(-10, 10, -10);
+        directionalLight.target.position.set(0, 0, 0);
+        this.scene.add(directionalLight);
+        this.scene.add(directionalLight.target);
+        this.lights.directionals = [directionalLight];
+        this.lights.directionalOriginalIntensity = lightIntensity;
+
+        // Add spotlight to create the gradient lighting effect around subjects
+        const spotLightIntensity = 1;
+        const spotLight = new THREE.SpotLight(0xffffff, spotLightIntensity);
+        spotLight.position.set(0, 15, 0);
+        spotLight.angle = Math.PI / 4;
+        spotLight.penumbra = 0.9;
+        spotLight.decay = 2.0;
+        spotLight.distance = 30;
+        spotLight.castShadow = true;
+        spotLight.shadow.mapSize.width = 1024;
+        spotLight.shadow.mapSize.height = 1024;
+        spotLight.shadow.bias = -0.0001;
+        this.scene.add(spotLight);
+        this.lights.spotlight = spotLight;
+        this.lights.spotlightOriginalIntensity = spotLightIntensity;
+
+        // Create an ambient light with higher intensity for better marker visibility
+        const ambientIntensity = 0.6;
+        const ambientLight = new THREE.AmbientLight(0x404040, ambientIntensity);
+        this.scene.add(ambientLight);
+        this.lights.ambient = ambientLight;
+        this.lights.ambientOriginalIntensity = ambientIntensity;
+    },
+    setupShadowLights() {
+        // New shadow-enabled light setup (shadows ON)
+        // Add sun (HemisphereLight)
+        const skyColor = 0xB1E1FF;  // light blue
+        const groundColor = 0xB97A20;  // brownish orange
+        const intensity = 0.5;
+        const hemisphereLight = new THREE.HemisphereLight(skyColor, groundColor, intensity);
+        this.scene.add(hemisphereLight);
+        this.lights.hemisphere = hemisphereLight;
+        this.lights.hemisphereOriginalIntensity = intensity;
+
+        // Add directional light with shadow casting
+        const color = 0xFFFFFF;
+        const lightIntensity = 0.8;
+        const directionalLight = new THREE.DirectionalLight(color, lightIntensity);
+        directionalLight.position.set(2, 3, 1.5);
+        directionalLight.target.position.set(0, 0, 0);
+        directionalLight.castShadow = true;
+        directionalLight.shadow.camera.left = -50;
+        directionalLight.shadow.camera.right = 50;
+        directionalLight.shadow.camera.top = 50;
+        directionalLight.shadow.camera.bottom = -50;
+        directionalLight.shadow.camera.near = 0.1;
+        directionalLight.shadow.camera.far = 200;
+        directionalLight.shadow.camera.zoom = 16;
+        directionalLight.shadow.mapSize.width = 2048;
+        directionalLight.shadow.mapSize.height = 2048;
+        this.scene.add(directionalLight);
+        this.scene.add(directionalLight.target);
+        this.lights.directionals = [directionalLight];
+        this.lights.directionalOriginalIntensity = lightIntensity;
+    },
+    toggleShadows() {
+        this.enableShadows = !this.enableShadows;
         
-        // No material conversion needed - keep using MeshPhongMaterial
-        // The uniform ambient lighting will provide even illumination without shading
+        // Remove all existing lights
+        this.removeAllLights();
+        
+        // Setup lights based on shadow state
+        if (this.enableShadows) {
+            this.setupShadowLights();
+        } else {
+            this.setupNonShadowLights();
+        }
         
         if (this.renderer && this.scene && this.camera) {
             this.renderer.render(this.scene, this.camera);
@@ -14572,6 +14651,10 @@
           if (settings.groundColor) this.groundColor = settings.groundColor;
           if (settings.groundOpacity !== undefined) this.groundOpacity = settings.groundOpacity;
           if (settings.groundPositionY !== undefined) this.groundPositionY = settings.groundPositionY;
+          if (settings.groundSize !== undefined) {
+            const v = Number(settings.groundSize);
+            this.groundSize = Math.min(500, Math.max(2, isNaN(v) ? 200 : v));
+          }
           if (settings.showGround !== undefined) this.showGround = settings.showGround;
           if (settings.useGroundTexture !== undefined) this.useGroundTexture = settings.useGroundTexture;
           if (settings.useCheckerboard !== undefined) this.useCheckerboard = settings.useCheckerboard;
@@ -14604,7 +14687,11 @@
         if (settings.showTimelapseSettings !== undefined) this.showTimelapseSettings = settings.showTimelapseSettings;
           if (settings.recentSubjectColors) this.recentSubjectColors = settings.recentSubjectColors;
           if (settings.showCameraControls !== undefined) this.showCameraControls = settings.showCameraControls;
-          if (settings.enableLights !== undefined) this.enableLights = settings.enableLights;
+          if (settings.enableShadows !== undefined) this.enableShadows = settings.enableShadows;
+          // Legacy support: migrate old enableLights to enableShadows (inverted logic)
+          if (settings.enableLights !== undefined && settings.enableShadows === undefined) {
+            this.enableShadows = !settings.enableLights;
+          }
           if (settings.syncMode) this.syncMode = settings.syncMode;
           if (typeof settings.syncReferenceFrame === 'number') this.syncReferenceFrame = settings.syncReferenceFrame;
 
@@ -14620,11 +14707,12 @@
     // Method to save settings to localStorage
     saveSettings() {
       console.log('Saving settings to localStorage...');
-      const settings = {
+        const settings = {
         backgroundColor: this.backgroundColor,
         groundColor: this.groundColor,
         groundOpacity: this.groundOpacity,
         groundPositionY: this.groundPositionY,
+        groundSize: this.groundSize,
         showGround: this.showGround,
         useGroundTexture: this.useGroundTexture,
         useCheckerboard: this.useCheckerboard,
@@ -14648,7 +14736,7 @@
       showTimelapseSettings: this.showTimelapseSettings,
         recentSubjectColors: this.recentSubjectColors, // Save recent colors
         showCameraControls: this.showCameraControls, // Save camera controls visibility
-        enableLights: this.enableLights, // Save lighting state
+        enableShadows: this.enableShadows, // Save shadow state
         syncMode: this.syncMode,
         syncReferenceFrame: this.syncReferenceFrame,
       };
@@ -14705,34 +14793,18 @@
           if (oldMaterial && oldMaterial !== this.groundMesh.material) {
             oldMaterial.dispose();
           }
+          this.updateGroundSize(); // Apply ground size and texture repeat after material
                     } else {
           console.warn('[applyLoadedSceneSettings] Ground mesh not ready when applying settings.');
           console.warn('[applyLoadedSceneSettings] Ground mesh not ready.');
       }
       
-      // Apply lighting state
-      if (this.lights.hemisphere) {
-          this.lights.hemisphere.intensity = this.enableLights 
-              ? (this.lights.hemisphereOriginalIntensity || 0.8) 
-              : 0;
-      }
-      if (this.lights.directionals && this.lights.directionals.length > 0) {
-          this.lights.directionals.forEach(light => {
-              light.intensity = this.enableLights 
-                  ? (this.lights.directionalOriginalIntensity || 0.5) 
-                  : 0;
-          });
-      }
-      if (this.lights.spotlight) {
-          this.lights.spotlight.intensity = this.enableLights 
-              ? (this.lights.spotlightOriginalIntensity || 1) 
-              : 0;
-      }
-      // Boost ambient light when directional lights are disabled for uniform illumination
-      if (this.lights.ambient) {
-          this.lights.ambient.intensity = this.enableLights 
-              ? (this.lights.ambientOriginalIntensity || 0.6) 
-              : 2.0; // High ambient light for uniform color
+      // Apply lighting state - remove old lights and setup new ones based on shadow setting
+      this.removeAllLights();
+      if (this.enableShadows) {
+          this.setupShadowLights();
+      } else {
+          this.setupNonShadowLights();
       }
   
       // Marker settings that affect meshes
@@ -14784,7 +14856,8 @@
         this.gridTexture = new THREE.CanvasTexture(canvas);
         this.gridTexture.wrapS = THREE.RepeatWrapping;
         this.gridTexture.wrapT = THREE.RepeatWrapping;
-        this.gridTexture.repeat.set(10, 10); // Adjust repeat to match plane size
+        const gridRep = Math.max(1, Math.round(this.groundSize / 20));
+        this.gridTexture.repeat.set(gridRep, gridRep);
     },
     // Add this new method
     loadJsonData(jsonData) {
