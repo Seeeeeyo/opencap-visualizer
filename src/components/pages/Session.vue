@@ -148,6 +148,9 @@
                 <v-icon small left class="mr-2">mdi-video</v-icon>
                 <span class="subtitle-2 text-truncate">{{ videoFile.name }}</span>
                 <v-spacer></v-spacer>
+                <v-btn icon small color="error" @click.stop="closeVideo" class="mr-1">
+                  <v-icon small>mdi-delete</v-icon>
+                </v-btn>
                 <v-icon small>{{ showVideoDetails ? 'mdi-chevron-up' : 'mdi-chevron-down' }}</v-icon>
               </v-card-title>
               <v-expand-transition>
