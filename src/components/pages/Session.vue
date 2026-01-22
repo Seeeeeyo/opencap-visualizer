@@ -233,6 +233,9 @@
                 <v-icon small left class="mr-2">mdi-wifi</v-icon>
                 <span class="subtitle-2">Live IK Stream</span>
                 <v-spacer></v-spacer>
+                <v-btn icon x-small @click.stop="openLiveStreamInfoDialog" class="mr-1">
+                  <v-icon small>mdi-information-outline</v-icon>
+                </v-btn>
                 <v-icon small>{{ showLiveStreamDetails ? 'mdi-chevron-up' : 'mdi-chevron-down' }}</v-icon>
               </v-card-title>
               <v-expand-transition>
@@ -2220,6 +2223,55 @@
         </v-card>
       </v-dialog>
 
+      <!-- Live IK Stream Info Dialog -->
+      <v-dialog
+        v-model="showLiveStreamInfoDialog"
+        max-width="500"
+      >
+        <v-card>
+          <v-card-title class="text-subtitle-1">
+            Live IK Stream Setup
+            <v-spacer></v-spacer>
+            <v-btn icon small @click="showLiveStreamInfoDialog = false">
+              <v-icon small>mdi-close</v-icon>
+            </v-btn>
+          </v-card-title>
+          <v-divider></v-divider>
+          <v-card-text class="pa-4">
+            <div class="d-flex align-center justify-center mb-4">
+              <v-icon large color="info">mdi-information-outline</v-icon>
+            </div>
+            <p class="mb-4 text-center">
+              To use the Live IK Stream feature, you need to run a Python WebSocket server locally that streams kinematics data to the visualizer.
+            </p>
+            <p class="mb-4 text-caption grey--text">
+              The Python script connects to the visualizer via WebSocket and streams frames from a JSON file in real-time. You can run it on a sample file like this:
+            </p>
+            <div class="code-block pa-3 mb-4" style="background-color: rgba(255, 255, 255, 0.05); border-radius: 4px; font-family: monospace; font-size: 12px;">
+              python live_stream_from_json.py path/to/sample.json
+            </div>
+            <div class="d-flex flex-column">
+              <v-btn
+                color="blue darken-2"
+                dark
+                class="mb-3"
+                @click="openLiveStreamCodeLink"
+              >
+                <v-icon left>mdi-code-tags</v-icon>
+                View Sample Code on GitHub
+              </v-btn>
+              <v-btn
+                color="grey darken-2"
+                dark
+                @click="showLiveStreamInfoDialog = false"
+              >
+                Close
+              </v-btn>
+            </div>
+          </v-card-text>
+        </v-card>
+      </v-dialog>
+
       <!-- Right Panel: Controls, Legend, etc. -->
       <div class="right d-flex flex-column" :class="{ 'hidden': !showSidebar }" v-if="$route.query.embed !== 'true'">
         <!-- Recording controls -->
@@ -3923,6 +3975,9 @@
               
               // GitHub dialog
               showGitHubDialog: false,
+              
+              // Live IK Stream info dialog
+              showLiveStreamInfoDialog: false,
   
               // Plot configuration
               selectedPlotType: null,
@@ -4546,6 +4601,14 @@
     },
     openGitHubIssues() {
       window.open('https://github.com/Seeeeeyo/opencap-visualizer/issues', '_blank');
+    },
+
+    openLiveStreamInfoDialog() {
+      this.showLiveStreamInfoDialog = true;
+    },
+
+    openLiveStreamCodeLink() {
+      window.open('https://github.com/Seeeeeyo/opencap-visualizer/blob/main/live_stream_from_json.py', '_blank');
     },
 
     // Animation details toggle methods
