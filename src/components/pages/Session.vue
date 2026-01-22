@@ -1,90 +1,28 @@
 <template>
     <div class="viewer-container d-flex">
       <!-- Top-level video container - hide when video plane is visible (but keep in DOM with v-show so video element remains accessible) -->
-      <div id="video-overlay" v-if="videoFile" v-show="!videoPlaneSettings.visible" :style="{
-        position: 'fixed',
-        top: videoPosition.y + 'px',
-        left: videoPosition.x + 'px',
-        width: videoSize.width + 'px',
-        background: '#000',
-        border: '2px solid #fff',
-        borderRadius: '8px',
-        zIndex: 99999,
-        boxShadow: '0 4px 20px rgba(0,0,0,0.8)',
-        overflow: 'hidden',
-        cursor: isDragging ? 'grabbing' : 'default'
-      }">
-        <div
-          :style="{
-            display: 'flex',
-            justifyContent: 'space-between',
-            padding: '4px',
-            background: 'rgba(0, 0, 0, 0.8)',
-            cursor: 'grab'
-          }"
-          @mousedown="startDrag"
-          @touchstart="startDrag"
-        >
-          <div style="display: flex; align-items: center;">
-            <v-icon x-small dark class="mr-1">mdi-drag</v-icon>
-            <span class="caption white--text">Drag to move</span>
-          </div>
-          <div style="display: flex; align-items: center;">
-            <v-btn icon x-small dark class="mr-1" @click.stop="toggleVideoOverlay">
-              <v-icon :color="videoOverlayMode ? 'cyan lighten-2' : 'grey lighten-1'">
-                {{ videoOverlayMode ? 'mdi-vector-polyline' : 'mdi-vector-polyline-remove' }}
-              </v-icon>
-            </v-btn>
-            <v-btn icon x-small dark @click="toggleVideoPreview" class="mr-1">
-              <v-icon>{{ videoMinimized ? 'mdi-arrow-expand' : 'mdi-arrow-collapse' }}</v-icon>
-            </v-btn>
-            <v-btn icon x-small dark @click="closeVideo">
-              <v-icon>mdi-close</v-icon>
-            </v-btn>
-          </div>
-        </div>
-        <div :style="{ position: 'relative' }">
-          <video
-            ref="videoPreview"
-            :style="{ width: '100%', height: 'auto', minHeight: videoMinimized ? '120px' : '200px' }"
-            @loadedmetadata="handleVideoMetadata"
-            @timeupdate="handleVideoTimeUpdate"
-            :loop="isLooping"
-            controls
-          >
-            <source :src="videoUrl" :type="videoFile.type">
-            Your browser does not support the video tag.
-          </video>
-          <canvas
-            v-show="videoOverlayMode"
-            ref="videoProjectionCanvas"
-            :style="{
-              position: 'absolute',
-              top: '0',
-              left: '0',
-              width: '100%',
-              height: '100%',
-              pointerEvents: 'none',
-              opacity: videoOverlayOpacity
-            }"
-          ></canvas>
-        </div>
-
-        <!-- Resize handle -->
-        <div
-          :style="{
-            position: 'absolute',
-            bottom: '0',
-            right: '0',
-            width: '20px',
-            height: '20px',
-            cursor: 'nwse-resize',
-            background: 'linear-gradient(135deg, transparent 50%, rgba(255,255,255,0.5) 50%)'
-          }"
-          @mousedown="startResize"
-          @touchstart="startResize"
-        ></div>
-      </div>
+      <VideoOverlay
+        v-if="videoFile"
+        ref="videoOverlayComponent"
+        :video-file="videoFile"
+        :video-url="videoUrl"
+        :video-position="videoPosition"
+        :video-size="videoSize"
+        :video-plane-settings="videoPlaneSettings"
+        :is-dragging="isDragging"
+        :is-resizing="isResizing"
+        :video-minimized="videoMinimized"
+        :video-overlay-mode="videoOverlayMode"
+        :video-overlay-opacity="videoOverlayOpacity"
+        :is-looping="isLooping"
+        @start-drag="startDrag"
+        @start-resize="startResize"
+        @toggle-video-overlay="toggleVideoOverlay"
+        @toggle-video-preview="toggleVideoPreview"
+        @close-video="closeVideo"
+        @video-loadedmetadata="handleVideoMetadata"
+        @video-timeupdate="handleVideoTimeUpdate"
+      />
   
       <!-- Left Sidebar -->
       <div class="left d-flex flex-column" :class="{ 'hidden': !showLeftSidebar }" v-if="$route.query.embed !== 'true'">
@@ -2172,269 +2110,34 @@
       </v-tooltip>
 
       <!-- GitHub Info Dialog -->
-      <v-dialog
+      <GithubInfoDialog
         v-model="showGitHubDialog"
-        max-width="500"
-      >
-        <v-card>
-          <v-card-title class="text-subtitle-1">
-            Source Code & Support
-            <v-spacer></v-spacer>
-            <v-btn icon small @click="showGitHubDialog = false">
-              <v-icon small>mdi-close</v-icon>
-            </v-btn>
-          </v-card-title>
-          <v-divider></v-divider>
-          <v-card-text class="pa-4">
-            <div class="d-flex align-center justify-center mb-4">
-              <svg class="github-logo-popup" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-              </svg>
-            </div>
-            <p class="mb-4 text-center">
-              The source code for this project is available on GitHub. You can view the repository, contribute to the project, or ask questions through GitHub issues.
-            </p>
-            <div class="d-flex flex-column">
-              <v-btn
-                color="blue darken-2"
-                dark
-                class="mb-3"
-                @click="openGitHubRepository"
-              >
-                <v-icon left>mdi-github</v-icon>
-                View Source Code
-              </v-btn>
-              <v-btn
-                color="grey darken-2"
-                dark
-                @click="openGitHubIssues"
-              >
-                <v-icon left>mdi-message-question</v-icon>
-                Ask Questions
-              </v-btn>
-            </div>
-          </v-card-text>
-        </v-card>
-      </v-dialog>
+        @open-github-repo="openGitHubRepository"
+        @open-github-issues="openGitHubIssues"
+      />
 
       <!-- Right Panel: Controls, Legend, etc. -->
       <div class="right d-flex flex-column" :class="{ 'hidden': !showSidebar }" v-if="$route.query.embed !== 'true'">
         <!-- Recording controls -->
         <div class="recording-controls mb-4">
           <!-- Video Recording Section -->
-        <div class="recording-section mb-6 pa-3" style="background: rgba(0, 0, 0, 0.3); border-radius: 8px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1);">
-            <div class="section-title mb-3" style="font-size: 0.9rem; color: rgba(255, 255, 255, 0.7);">Video Recording</div>
-          <!-- Record button row with settings button -->
-            <div class="d-flex align-center mb-3">
-              <v-btn v-if="!isRecording" color="#EF4444" dark @click="startRecording" :disabled="isRecording" class="custom-btn" style="flex: 1;">
-                <v-icon left>mdi-record</v-icon>
-                Record
-              </v-btn>
-            <v-btn v-else color="#E53E3E" dark @click="stopRecording" class="custom-btn pulse-recording" style="flex: 1;">
-                <v-icon left>mdi-stop</v-icon>
-              <span class="font-weight-bold">RECORDING</span>
-                <span v-if="loopCount !== Infinity" class="caption ml-1">({{ currentLoop }}/{{ loopCount }})</span>
-              </v-btn>
-  
-            <v-btn
-              small
-              outlined
-              color="white"
-              class="ml-2 settings-text-btn"
-              @click="openRecordingSettings($event)"
-              :disabled="isRecording"
-            >
-              Settings
-            </v-btn>
-            </div>
-  
-          <!-- Recording settings summary -->
-          <div class="d-flex align-center recording-summary">
-            <div class="text-caption text-center" style="flex: 1;">
-              <span class="font-weight-bold">Format:</span> {{ recordingFormat === 'webm' ? 'WebM' : 'MP4' }}
-            </div>
-            <div class="text-caption text-center" style="flex: 1;">
-              <span class="font-weight-bold">Bitrate:</span> {{ (videoBitrate / 1000000).toFixed(0) }} Mbps
-            </div>
-            <div class="text-caption text-center" style="flex: 1;">
-              <span class="font-weight-bold">Loops:</span> {{ loopCount === Infinity ? '∞' : loopCount }}
-            </div>
-          </div>
-  
-          <!-- Recording settings dialog -->
-          <v-dialog
-            v-model="showRecordingSettings"
-            max-width="500"
-          >
-            <v-card class="recording-settings-dialog">
-              <v-card-title>Recording Settings</v-card-title>
-              <v-card-text>
-                <v-row>
-                  <v-col cols="12">
-              <v-select
-                v-model="loopCount"
-                :items="[
-                  {text: 'Infinite ∞', value: Infinity},
-                  {text: '1 Loop', value: 1},
-                  {text: '2 Loops', value: 2},
-                  {text: '3 Loops', value: 3},
-                  {text: '4 Loops', value: 4},
-                  {text: '5 Loops', value: 5}
-                ]"
-                      label="Number of Loops"
-                      outlined
-                dense
-                dark
-                      hide-details="auto"
-                      class="mb-4"
-              ></v-select>
-                  </v-col>
-  
-                  <v-col cols="12">
-              <v-select
-                v-model="recordingFormat"
-                      :items="[
-                        {text: 'WebM (Recommended)', value: 'webm'},
-                        {text: 'MP4 (May be limited)', value: 'mp4'}
-                      ]"
-                      label="Video Format"
-                      outlined
-                dense
-                dark
-                      hide-details="auto"
-                      class="mb-4"
-              ></v-select>
-                  </v-col>
-  
-                  <v-col cols="12">
-              <v-select
-                v-model="videoBitrate"
-                :items="[
-                  {text: '2 Mbps', value: 2000000},
-                  {text: '5 Mbps', value: 5000000},
-                  {text: '8 Mbps', value: 8000000},
-                  {text: '12 Mbps', value: 12000000},
-                  {text: '15 Mbps', value: 15000000},
-                  {text: '20 Mbps', value: 20000000}
-                ]"
-                      label="Video Bitrate"
-                      outlined
-                dense
-                dark
-                      hide-details="auto"
-                      class="mb-4"
-              ></v-select>
-                  </v-col>
-  
-                  <v-col cols="12">
-                    <div class="info-box pa-3 mt-2">
-                      <div class="d-flex align-center mb-2">
-                        <v-icon small color="info" class="mr-2">mdi-information-outline</v-icon>
-                        <span class="subtitle-2">Recording Tips</span>
-                      </div>
-                      <ul class="pl-4 mb-0 text-caption">
-                        <li class="mb-1">Maximize your browser window for best quality</li>
-                        <li class="mb-1">Use WebM format for better compatibility</li>
-                        <li>Higher bitrates produce larger files but better quality</li>
-                  </ul>
-                </div>
-                  </v-col>
-                </v-row>
-              </v-card-text>
-              <v-card-actions>
-                <v-spacer></v-spacer>
-                <v-btn color="primary" text @click="showRecordingSettings = false">Close</v-btn>
-              </v-card-actions>
-            </v-card>
-          </v-dialog>
-          </div>
-  
+          <RecordingControls
+            :is-recording="isRecording"
+            :loop-count.sync="loopCount"
+            :current-loop="currentLoop"
+            :recording-format.sync="recordingFormat"
+            :video-bitrate.sync="videoBitrate"
+            @start-recording="startRecording"
+            @stop-recording="stopRecording"
+          />
+
           <!-- Image Capture Section -->
-        <div class="capture-section pa-3" style="background: rgba(0, 0, 0, 0.3); border-radius: 8px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1);">
-            <div class="section-title mb-3" style="font-size: 0.9rem; color: rgba(255, 255, 255, 0.7);">Image Capture</div>
-          <!-- Capture button row with settings button -->
-            <div class="d-flex align-center mb-3">
-              <v-btn
-                color="#6B7280"
-                dark
-                @click="captureScreenshot"
-                class="custom-btn"
-                style="flex: 1;"
-              >
-                <v-icon left>mdi-camera</v-icon>
-                Capture Image
-              </v-btn>
-  
-            <v-btn
-              small
-              outlined
-              color="white"
-              class="ml-2 settings-text-btn"
-              @click="openCaptureSettings($event)"
-            >
-              Settings
-            </v-btn>
-            </div>
-  
-          <!-- Capture settings summary -->
-          <div class="d-flex align-center recording-summary">
-            <div class="text-caption text-center" style="flex: 1;">
-              <span class="font-weight-bold">Background:</span>
-              {{ captureMode === 'both' ? 'Both Types' :
-                 captureMode === 'normal' ? 'Normal' : 'Transparent' }}
-            </div>
-          </div>
-  
-          <!-- Image capture settings dialog -->
-          <v-dialog
-            v-model="showCaptureSettings"
-            max-width="500"
-          >
-            <v-card class="recording-settings-dialog">
-              <v-card-title>Image Capture Settings</v-card-title>
-              <v-card-text>
-                <v-row>
-                  <v-col cols="12">
-              <v-select
-                v-model="captureMode"
-                :items="[
-                  {text: 'Both Types', value: 'both'},
-                  {text: 'Normal', value: 'normal'},
-                  {text: 'Transparent', value: 'transparent'}
-                ]"
-                      label="Background Type"
-                      outlined
-                dense
-                dark
-                      hide-details="auto"
-                      class="mb-4"
-              ></v-select>
-                  </v-col>
-  
-                  <v-col cols="12">
-                    <div class="info-box pa-3 mt-2">
-                      <div class="d-flex align-center mb-2">
-                        <v-icon small color="info" class="mr-2">mdi-information-outline</v-icon>
-                        <span class="subtitle-2">Capture Tips</span>
-            </div>
-                      <ul class="pl-4 mb-0 text-caption">
-                        <li class="mb-1"><b>Both Types:</b> Saves both normal and transparent versions</li>
-                        <li class="mb-1"><b>Normal:</b> Standard PNG with background</li>
-                        <li><b>Transparent:</b> PNG with transparent background (useful for overlays)</li>
-                      </ul>
-                    </div>
-                  </v-col>
-                </v-row>
-              </v-card-text>
-              <v-card-actions>
-                <v-spacer></v-spacer>
-                <v-btn color="primary" text @click="showCaptureSettings = false">Close</v-btn>
-              </v-card-actions>
-            </v-card>
-          </v-dialog>
-          </div>
+          <CaptureControls
+            :capture-mode.sync="captureMode"
+            @capture-screenshot="captureScreenshot"
+          />
         </div>
-  
+
         <!-- File controls -->
         <div class="file-controls mb-4 position-relative">
           <!-- Make controls slightly transparent when loading -->
@@ -2481,972 +2184,149 @@
   
   
         <!-- Add Import Dialog -->
-        <v-dialog v-model="showImportDialog" max-width="600" content-class="import-dialog">
-          <v-card class="import-dialog-card">
-            <v-card-title class="headline">Import Files </v-card-title>
-            <v-card-text>
-              <div class="import-grid">
-                <!-- OpenSim -->
-                <div class="import-item" @click="selectFileType('osimMotFileInput')">
-                  <v-icon size="32">mdi-file-document-outline</v-icon>
-                  <div class="import-item-title">OpenSim</div>
-                  <div class="import-item-subtitle">.mot + .osim</div>
-                </div>
-  
-                <!-- Forces -->
-                <div class="import-item" @click="openForcesDialogFromImport">
-                  <v-icon size="32">mdi-vector-line</v-icon>
-                  <div class="import-item-title">Forces</div>
-                  <div class="import-item-subtitle">.mot format</div>
-                </div>
-  
-                <!-- Markers -->
-                <div class="import-item" @click="openMarkersDialogFromImport">
-                  <v-icon size="32">mdi-record-circle-outline</v-icon>
-                  <div class="import-item-title">Markers</div>
-                  <div class="import-item-subtitle">.trc format</div>
-                </div>
-  
-                <!-- JSON Files -->
-                <div class="import-item" @click="selectFileType('fileInput')">
-                  <v-icon size="32">mdi-file</v-icon>
-                  <div class="import-item-title">JSON Files</div>
-                  <div class="import-item-subtitle">OpenCap Format</div>
-                </div>
-  
-                <!-- Video -->
-                <div class="import-item" @click="selectFileType('videoFileInput')">
-                  <v-icon size="32">mdi-play-circle-outline</v-icon>
-                  <div class="import-item-title">Video</div>
-                  <div class="import-item-subtitle">MP4, WEBM</div>
-                </div>
-  
-                <!-- 3D Model -->
-                <div class="import-item" @click="selectFileType('objFileInput')">
-                  <v-icon size="32">mdi-cube-outline</v-icon>
-                  <div class="import-item-title">3D Model</div>
-                  <div class="import-item-subtitle">GLTF, STL, FBX, OBJ</div>
-                </div>
-              </div>
-  
-            </v-card-text>
-            <v-card-actions>
-              <v-spacer></v-spacer>
-              <v-btn text @click="showImportDialog = false">Cancel</v-btn>
-            </v-card-actions>
-          </v-card>
-        </v-dialog>
+        <ImportDialog
+          v-model="showImportDialog"
+          @select-file-type="selectFileType"
+          @open-forces-dialog="openForcesDialogFromImport"
+          @open-markers-dialog="openMarkersDialogFromImport"
+        />
   
         <!-- Add Forces Dialog -->
-        <v-dialog v-model="showForcesDialog" max-width="500" content-class="forces-dialog">
-          <v-card class="forces-dialog-card">
-            <v-card-title class="headline">Import Ground Reaction Forces</v-card-title>
-            <v-card-text>
-              <div class="text-body-1 mb-4">
-                Select a .mot forces file to visualize ground reaction forces at the subject's feet.
-                Forces will be automatically positioned at the foot segments of the selected animation.
-                <br><br>
-                <strong>Supported formats:</strong>
-                <ul class="mt-2">
-                  <li>• Standard OpenSim format: <code>R_ground_force_vx</code>, <code>L_ground_force_vx</code></li>
-                  <li>• Alternative format: <code>ground_force_right_vx</code>, <code>ground_force_left_vx</code></li>
-                  <li>• Files with "force" in the filename are automatically detected</li>
-                </ul>
-              </div>
-  
-              <v-alert v-if="animations.length === 0 && smplSequences.length === 0" type="warning" text dense class="mb-4">
-                Please load an animation first before importing forces.
-              </v-alert>
-  
-              <v-alert v-if="forcesDatasets[selectedAnimationForForces]" type="warning" text dense class="mb-4">
-                This animation already has forces loaded. Loading new forces will replace the existing ones.
-              </v-alert>
-  
-              <v-alert v-if="Object.keys(forcesDatasets).length > 0" type="info" text dense class="mb-4">
-                Currently loaded forces for: {{ Object.keys(forcesDatasets).map(idx => animations[idx]?.trialName || `Subject ${parseInt(idx) + 1}`).join(', ') }}
-              </v-alert>
-  
-              <div v-if="animations.length > 0" class="mb-4">
-                <v-select
-                  v-model="selectedAnimationForForces"
-                  :items="animationOptions"
-                  item-text="text"
-                  item-value="value"
-                  label="Associate with Animation"
-                  outlined
-                  dense
-                ></v-select>
-              </div>
-  
-              <v-file-input
-                v-model="forcesFile"
-                label="Forces File (.mot)"
-                accept=".mot"
-                prepend-icon="mdi-vector-line"
-                outlined
-                show-size
-                clearable
-                :disabled="animations.length === 0"
-                @change="handleForcesFileSelect"
-              ></v-file-input>
-  
-              <div v-if="forcesFile" class="mt-4">
-                <div class="text-subtitle-2 mb-2">Force Visualization Settings</div>
-  
-                <v-row>
-                  <v-col cols="6">
-                    <v-text-field
-                      v-model.number="forceScale"
-                      label="Force Scale"
-                      type="number"
-                      step="0.001"
-                      min="0.001"
-                      max="0.01"
-                      dense
-                      outlined
-                    ></v-text-field>
-                  </v-col>
-                  <v-col cols="6">
-                    <div class="text-subtitle-2 mb-2">Arrow Color</div>
-                    <v-menu offset-y :close-on-content-click="false">
-                      <template v-slot:activator="{ on, attrs }">
-                        <v-btn v-bind="attrs" v-on="on" class="color-preview" :style="{ backgroundColor: getForceColor(selectedAnimationForForces || 0) }" block outlined>
-                          <v-icon left>mdi-palette</v-icon>
-                          Color
-                        </v-btn>
-                      </template>
-                      <v-card class="color-picker pa-2">
-                        <div class="d-flex align-center">
-                          <v-color-picker
-                            :value="getForceDisplayColor(selectedAnimationForForces || 0)"
-                            :modes="['hex', 'rgba']"
-                            show-swatches
-                            :swatches="Array.isArray(availableColors) ? availableColors : []"
-                            @input="(color) => updateForceColor(color, selectedAnimationForForces || 0)"
-                            class="flex-grow-1"
-                          ></v-color-picker>
-                          <v-btn icon small @click="openEyeDropper('force', selectedAnimationForForces || 0)" title="Pick color from screen" class="ml-2">
-                            <v-icon>mdi-eyedropper-variant</v-icon>
-                          </v-btn>
-                        </div>
-                      </v-card>
-                    </v-menu>
-                  </v-col>
-                </v-row>
-  
-                <v-switch
-                  v-model="showForces"
-                  label="Show Forces"
-                  color="success"
-                ></v-switch>
-              </div>
-            </v-card-text>
-  
-            <v-card-actions>
-              <v-spacer></v-spacer>
-              <v-btn color="grey darken-1" text @click="closeForcesDialog">
-                Cancel
-              </v-btn>
-              <v-btn
-                color="success"
-                text
-                @click="loadForcesFile"
-                :disabled="!forcesFile || loadingForces"
-                :loading="loadingForces"
-              >
-                Load Forces
-              </v-btn>
-            </v-card-actions>
-                      </v-card>
-        </v-dialog>
+        <ForcesDialog
+          v-model="showForcesDialog"
+          :animations="animations"
+          :smpl-sequences="smplSequences"
+          :forces-datasets="forcesDatasets"
+          :selected-animation-for-forces.sync="selectedAnimationForForces"
+          :animation-options="animationOptions"
+          :forces-file.sync="forcesFile"
+          :force-scale.sync="forceScale"
+          :show-forces.sync="showForces"
+          :loading-forces="loadingForces"
+          :available-colors="availableColors"
+          :force-color="getForceColor(selectedAnimationForForces || 0)"
+          :force-display-color="getForceDisplayColor(selectedAnimationForForces || 0)"
+          @handle-forces-file-select="handleForcesFileSelect"
+          @load-forces="loadForcesFile"
+          @close-dialog="closeForcesDialog"
+          @open-eyedropper="({ target, index }) => openEyeDropper(target, index)"
+          @update-force-color="({ color, index }) => updateForceColor(color, index)"
+        />
   
         <!-- Add Markers Dialog -->
-        <v-dialog v-model="showMarkersDialog" max-width="500" content-class="markers-dialog">
-          <v-card class="markers-dialog-card">
-            <v-card-title class="headline">Import Motion Capture Markers</v-card-title>
-            <v-card-text>
-              <div class="text-body-1 mb-4">
-                Select a .trc file to visualize motion capture markers as spheres in the 3D scene.
-                Markers will be positioned according to the data in the file.
-              </div>
-  
-              <v-alert v-if="animations.length === 0 && smplSequences.length === 0" type="info" text dense class="mb-4">
-                No animations loaded. A standalone marker visualization will be created.
-              </v-alert>
-  
-              <v-alert v-if="animations.length > 0 && markersDatasets[selectedAnimationForMarkers]" type="warning" text dense class="mb-4">
-                This animation already has markers loaded. Loading new markers will replace the existing ones.
-              </v-alert>
-  
-              <v-alert v-if="Object.keys(markersDatasets).length > 0 && animations.length > 0" type="info" text dense class="mb-4">
-                Currently loaded markers for: {{ Object.keys(markersDatasets).map(idx => animations[idx]?.trialName || `Subject ${parseInt(idx) + 1}`).join(', ') }}
-              </v-alert>
-  
-              <div v-if="animations.length > 0" class="mb-4">
-                <v-select
-                  v-model="selectedAnimationForMarkers"
-                  :items="animationOptions"
-                  item-text="text"
-                  item-value="value"
-                  label="Associate with Animation"
-                  outlined
-                  dense
-                ></v-select>
-              </div>
-  
-              <v-file-input
-                v-model="markersFile"
-                label="Markers File (.trc)"
-                accept=".trc"
-                prepend-icon="mdi-record-circle-outline"
-                outlined
-                show-size
-                clearable
-                @change="handleMarkersFileSelect"
-              ></v-file-input>
-  
-              <div v-if="markersFile" class="mt-4">
-                <div class="text-subtitle-2 mb-2">Marker Visualization Settings</div>
-  
-                <v-row>
-                  <v-col cols="6">
-                    <v-text-field
-                      v-model.number="markerSize"
-                      label="Marker Size"
-                      type="number"
-                      step="1"
-                      min="1"
-                      max="20"
-                      dense
-                      outlined
-                    ></v-text-field>
-                  </v-col>
-                  <v-col cols="6">
-                    <div class="text-subtitle-2 mb-2">Marker Color</div>
-                    <v-menu offset-y :close-on-content-click="false">
-                      <template v-slot:activator="{ on, attrs }">
-                        <v-btn v-bind="attrs" v-on="on" class="color-preview" :style="{ backgroundColor: getMarkerColor(selectedAnimationForMarkers || 0) }" block outlined>
-                          <v-icon left>mdi-palette</v-icon>
-                          Color
-                        </v-btn>
-                      </template>
-                      <v-card class="color-picker pa-2">
-                        <div class="d-flex align-center">
-                          <v-color-picker
-                            :value="getMarkerDisplayColor(selectedAnimationForMarkers || 0)"
-                            :modes="['hex', 'rgba']"
-                            show-swatches
-                            :swatches="Array.isArray(availableColors) ? availableColors : []"
-                            @input="(color) => updateMarkerColor(color, selectedAnimationForMarkers || 0)"
-                            class="flex-grow-1"
-                          ></v-color-picker>
-                          <v-btn icon small @click="openEyeDropper('marker', selectedAnimationForMarkers || 0)" title="Pick color from screen" class="ml-2">
-                            <v-icon>mdi-eyedropper-variant</v-icon>
-                          </v-btn>
-                        </div>
-                      </v-card>
-                    </v-menu>
-                  </v-col>
-                </v-row>
-  
-                <v-switch
-                  v-model="showMarkers"
-                  label="Show Markers"
-                  color="success"
-                ></v-switch>
-              </div>
-            </v-card-text>
-  
-            <v-card-actions>
-              <v-spacer></v-spacer>
-              <v-btn color="grey darken-1" text @click="closeMarkersDialog">
-                Cancel
-              </v-btn>
-              <v-btn
-                color="success"
-                text
-                @click="loadMarkersFile"
-                :disabled="!markersFile || loadingMarkers"
-                :loading="loadingMarkers"
-              >
-                Load Markers
-              </v-btn>
-            </v-card-actions>
-          </v-card>
-        </v-dialog>
+        <MarkersDialog
+          v-model="showMarkersDialog"
+          :animations="animations"
+          :smpl-sequences="smplSequences"
+          :markers-datasets="markersDatasets"
+          :selected-animation-for-markers.sync="selectedAnimationForMarkers"
+          :animation-options="animationOptions"
+          :markers-file.sync="markersFile"
+          :marker-size.sync="markerSize"
+          :show-markers.sync="showMarkers"
+          :loading-markers="loadingMarkers"
+          :available-colors="availableColors"
+          :marker-color="getMarkerColor(selectedAnimationForMarkers || 0)"
+          :marker-display-color="getMarkerDisplayColor(selectedAnimationForMarkers || 0)"
+          @handle-markers-file-select="handleMarkersFileSelect"
+          @load-markers="loadMarkersFile"
+          @close-dialog="closeMarkersDialog"
+          @open-eyedropper="({ target, index }) => openEyeDropper(target, index)"
+          @update-marker-color="({ color, index }) => updateMarkerColor(color, index)"
+        />
   
         <!-- Sample Selection Dialog -->
-        <v-dialog v-model="showSampleSelectionDialog" max-width="600" content-class="sample-selection-dialog">
-          <v-card class="sample-selection-dialog-card">
-            <v-card-title class="headline white--text">
-              <v-icon left color="primary">mdi-play-circle</v-icon>
-              Choose Sample Motion Set
-            </v-card-title>
-            <v-card-text class="white--text pt-8">
-              <div class="text-body-2 mb-4">
-                Select a motion capture set to explore the visualizer's capabilities:
-              </div>
-  
-              <v-row>
-                <v-col
-                  v-for="sampleSet in availableSampleSets"
-                  :key="sampleSet.id"
-                  cols="12"
-                  md="6"
-                  class="sample-option-col"
-                >
-                  <v-card
-                    class="sample-option-card sample-option-hover"
-                    @click="selectSampleSet(sampleSet.id)"
-                    dark
-                    outlined
-                  >
-                    <v-card-text class="pa-4 text-center">
-                      <v-icon size="48" color="primary" class="mb-3">
-                        {{ getSampleIcon(sampleSet.id) }}
-                      </v-icon>
-                      <div class="text-h6 mb-2">{{ sampleSet.name }}</div>
-                      <div class="text-caption grey--text">{{ sampleSet.description }}</div>
-                    </v-card-text>
-                  </v-card>
-                </v-col>
-              </v-row>
-  
-              <div class="text-caption grey--text mt-4 text-center">
-                <v-icon small class="mr-1">mdi-information-outline</v-icon>
-                Each set contains multiple motion capture files with different analysis methods capture methods (Motion Capture, WHAM, and OpenCap Monocular)
-              </div>
-            </v-card-text>
-  
-            <v-card-actions>
-              <v-spacer></v-spacer>
-              <v-btn text @click="showSampleSelectionDialog = false">Cancel</v-btn>
-            </v-card-actions>
-          </v-card>
-        </v-dialog>
+        <SampleSelectionDialog
+          v-model="showSampleSelectionDialog"
+          :available-sample-sets="availableSampleSets"
+          @select-sample="selectSampleSet"
+        />
   
         <!-- Share Dialog -->
-        <v-dialog v-model="showShareDialog" max-width="600" content-class="share-dialog">
-          <v-card class="share-dialog-card">
-            <v-card-title class="headline white--text">Share Visualization</v-card-title>
-            <v-card-text class="white--text pt-8">
-              <div class="mb-4">
-                <p class="text-body-2 mb-3">Share your visualization with others using a direct link:</p>
-  
-                <!-- Share Options Tabs -->
-                <v-tabs v-model="shareMethod" background-color="transparent" color="primary" class="mb-4 mt-8">
-                  <v-tab key="url">Share URL</v-tab>
-                  <v-tab key="file">Share File</v-tab>
-                </v-tabs>
-  
-                <v-tabs-items v-model="shareMethod">
-                  <!-- URL Sharing -->
-                  <v-tab-item key="url">
-                    <v-text-field
-                      v-model="shareUrl"
-                      label="Share URL"
-                      readonly
-                      outlined
-                      dense
-                      class="mb-3 mt-6"
-                      append-icon="mdi-content-copy"
-                      @click:append="copyToClipboard(shareUrl)"
-                      hide-details
-                      :loading="loadingInitialShare"
-                      :placeholder="loadingInitialShare ? 'Generating share URL...' : ''"
-                      :append-icon-disabled="loadingInitialShare || !shareUrl"
-                    />
-  
-                    <div class="d-flex flex-wrap gap-2 mb-3">
-                      <v-btn small color="green" @click="openInNewTab(shareUrl)" :disabled="loadingInitialShare || !shareUrl">
-                        <v-icon left small>mdi-open-in-new</v-icon>
-                        Open in New Tab
-                      </v-btn>
-                    </div>
-  
-                  </v-tab-item>
-  
-                  <!-- File Sharing -->
-                  <v-tab-item key="file">
-                    <p class="text-body-2 mb-3">Download a share file that others can import:</p>
-  
-                    <v-text-field
-                      v-model="shareFileName"
-                      label="File name"
-                      outlined
-                      dense
-                      suffix=".json"
-                      class="mb-3"
-                      hide-details
-                    />
-  
-                    <div class="d-flex flex-wrap gap-2 mb-3">
-                      <v-btn small color="success" @click="downloadShareFile">
-                        <v-icon left small>mdi-download</v-icon>
-                        Download Share File
-                      </v-btn>
-                    </div>
-  
-                    <v-alert
-                      type="info"
-                      dense
-                      text
-                      class="mb-3"
-                    >
-                      <v-icon left small>mdi-information</v-icon>
-                      Recipients can import this file using the "Import" button.
-                    </v-alert>
-                  </v-tab-item>
-                </v-tabs-items>
-  
-                <!-- Share Settings -->
-                <v-expansion-panels flat>
-                  <v-expansion-panel>
-                    <v-expansion-panel-header class="text-body-2">
-                      <v-icon left small>mdi-cog</v-icon>
-                      Advanced Settings
-                    </v-expansion-panel-header>
-                    <v-expansion-panel-content>
-                      <v-checkbox
-                        v-model="shareSettings.includeCamera"
-                        label="Include camera position"
-                        dense
-                        hide-details
-                        class="mb-2"
-                      />
-                      <v-checkbox
-                        v-model="shareSettings.includeColors"
-                        label="Include custom colors"
-                        dense
-                        hide-details
-                        class="mb-2"
-                      />
-                      <v-checkbox
-                        v-model="shareSettings.includeCurrentFrame"
-                        label="Start at current frame"
-                        dense
-                        hide-details
-                        class="mb-3"
-                      />
-                      <v-btn small outlined @click="generateShareUrl" :loading="generatingShareUrl">
-                        <v-icon left small>mdi-refresh</v-icon>
-                        Update Share URL
-                      </v-btn>
-                    </v-expansion-panel-content>
-                  </v-expansion-panel>
-                </v-expansion-panels>
-              </div>
-            </v-card-text>
-            <v-card-actions>
-              <v-spacer></v-spacer>
-              <v-btn text @click="showShareDialog = false">Close</v-btn>
-            </v-card-actions>
-          </v-card>
-        </v-dialog>
+        <ShareDialog
+          v-model="showShareDialog"
+          :share-url="shareUrl"
+          :share-file-name.sync="shareFileName"
+          :share-settings.sync="shareSettings"
+          :loading-initial-share="loadingInitialShare"
+          :generating-share-url="generatingShareUrl"
+          @copy-to-clipboard="copyToClipboard"
+          @open-in-new-tab="openInNewTab"
+          @download-share-file="downloadShareFile"
+          @generate-share-url="generateShareUrl"
+        />
   
         <!-- Real-time Plotting Dialog -->
-        <v-dialog
+        <PlotDialog
           v-model="showPlottingDialog"
-          max-width="1200"
-          persistent
-          content-class="plotting-dialog"
-          :overlay="false"
-        >
-          <v-card
-            class="plotting-dialog-card"
-            :style="{
-              position: 'fixed',
-              top: plottingDialogPosition.y + 'px',
-              left: plottingDialogPosition.x + 'px',
-              width: plottingDialogSize.width + 'px',
-              height: plottingDialogSize.height + 'px',
-              maxWidth: 'none',
-              maxHeight: 'none',
-              zIndex: 1000,
-              resize: 'both',
-              overflow: 'hidden'
-            }"
-          >
-            <!-- Header with drag handle -->
-            <v-card-title
-              class="plotting-header d-flex align-center pa-3"
-              style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); cursor: move; user-select: none;"
-              @mousedown="startDragPlotDialog"
-              @touchstart="startDragPlotDialog"
-            >
-              <v-icon color="white" class="mr-3">mdi-chart-line</v-icon>
-              <span class="white--text font-weight-bold text-h6">Real-time Data Plots</span>
-              <v-spacer></v-spacer>
-  
-              <!-- Plot Controls -->
-              <v-btn icon small @click="togglePlotUpdates" class="mr-2">
-                <v-icon color="white">{{ plotUpdatesEnabled ? 'mdi-pause' : 'mdi-play' }}</v-icon>
-              </v-btn>
-  
-              <v-btn icon small @click="exportPlot" class="mr-2">
-                <v-icon color="white">mdi-download</v-icon>
-              </v-btn>
-  
-              <v-btn icon small @click="showPlottingDialog = false">
-                <v-icon color="white">mdi-close</v-icon>
-              </v-btn>
-            </v-card-title>
-  
-            <!-- Plot Content -->
-            <v-card-text class="pa-0" style="height: calc(100% - 64px); overflow: hidden;">
-              <div class="d-flex" style="height: 100%;">
-                <!-- Left Panel - Plot Controls -->
-                <div class="plot-controls-panel pa-3" style="width: 280px; background: rgba(0, 0, 0, 0.05); border-right: 1px solid rgba(0, 0, 0, 0.1); overflow-y: auto;">
-                  <div class="text-subtitle-2 mb-3 font-weight-bold">Plot Configuration</div>
-  
-                  <!-- Plot Type Selection -->
-                  <div class="mb-4">
-                    <div class="text-caption font-weight-bold mb-2">Plot Type:</div>
-                    <v-select
-                      v-model="selectedPlotType"
-                      :items="plotTypes"
-                      item-text="label"
-                      item-value="value"
-                      outlined
-                      dense
-                      @change="updatePlotType"
-                    ></v-select>
-                  </div>
-  
-                  <!-- Variable Selection -->
-                  <div class="mb-4" v-if="availableVariables.length > 0">
-                    <div class="text-caption font-weight-bold mb-2">Variables:</div>
-                    <v-select
-                      v-model="selectedVariables"
-                      :items="availableVariables"
-                      item-text="label"
-                      item-value="value"
-                      outlined
-                      dense
-                      multiple
-                      chips
-                      small-chips
-                      @change="updateSelectedVariables"
-                    ></v-select>
-                  </div>
-  
-                  <!-- Marker Selection for marker-related plots -->
-                  <div class="mb-4" v-if="selectedPlotType === 'marker_position' || selectedPlotType === 'marker_distance'">
-                    <div class="text-caption font-weight-bold mb-2">Markers:</div>
-                    <v-select
-                      v-model="selectedMarkers"
-                      :items="availableMarkers"
-                      item-text="label"
-                      item-value="value"
-                      outlined
-                      dense
-                      multiple
-                      chips
-                      small-chips
-                      @change="updateSelectedMarkers"
-                    ></v-select>
-                  </div>
-  
-                  <!-- Animation Selection -->
-                  <div class="mb-4" v-if="animations.length > 1">
-                    <div class="text-caption font-weight-bold mb-2">Animation:</div>
-                    <v-select
-                      v-model="selectedPlotAnimation"
-                      :items="animationOptions"
-                      item-text="text"
-                      item-value="value"
-                      outlined
-                      dense
-                      @change="updatePlotAnimation"
-                    ></v-select>
-                  </div>
-  
-                  <!-- Plot Appearance -->
-                  <div class="mb-4">
-                    <div class="text-caption font-weight-bold mb-2">Appearance:</div>
-                    <v-checkbox
-                      v-model="plotSettings.showGrid"
-                      label="Show Grid"
-                      dense
-                      hide-details
-                      class="mb-1"
-                    ></v-checkbox>
-                    <v-checkbox
-                      v-model="plotSettings.showLegend"
-                      label="Show Legend"
-                      dense
-                      hide-details
-                      class="mb-1"
-                    ></v-checkbox>
-                    <v-checkbox
-                      v-model="plotSettings.showCurrentTime"
-                      label="Show Current Time"
-                      dense
-                      hide-details
-                    ></v-checkbox>
-                  </div>
-  
-                  <!-- Time Range -->
-                  <div class="mb-4">
-                    <div class="text-caption font-weight-bold mb-2">Time Range (s):</div>
-                    <v-range-slider
-                      v-model="plotTimeRange"
-                      :min="0"
-                      :max="maxTime"
-                      :step="0.1"
-                      dense
-                      hide-details
-                      class="mb-2"
-                    ></v-range-slider>
-                    <div class="text-caption text-center">
-                      {{ plotTimeRange[0].toFixed(1) }}s - {{ plotTimeRange[1].toFixed(1) }}s
-                    </div>
-                  </div>
-                </div>
-  
-                <!-- Right Panel - Plot Display -->
-                <div class="plot-display-panel" style="flex: 1; position: relative;">
-                  <div v-if="!selectedPlotType || selectedVariables.length === 0" class="d-flex align-center justify-center" style="height: 100%;">
-                    <div class="text-center text--disabled">
-                      <v-icon size="64" color="grey">mdi-chart-line</v-icon>
-                      <div class="text-h6 mt-2">Select plot type and variables to begin</div>
-                    </div>
-                  </div>
-  
-                  <!-- Chart Container -->
-                  <div v-else style="width: 100%; height: 100%; position: relative;">
-                    <canvas id="plotChart" ref="plotChart" style="width: 100%; height: 100%;"></canvas>
-                  </div>
-                </div>
-              </div>
-            </v-card-text>
-  
-            <!-- Resize Handle -->
-            <div
-              class="resize-handle"
-              style="position: absolute; bottom: 0; right: 0; width: 20px; height: 20px; cursor: nw-resize; background: linear-gradient(135deg, transparent 50%, rgba(255,255,255,0.3) 50%);"
-              @mousedown="startResizePlotDialog"
-              @touchstart="startResizePlotDialog"
-            ></div>
-          </v-card>
-        </v-dialog>
+          ref="plotDialogComponent"
+          :plotting-dialog-position="plottingDialogPosition"
+          :plotting-dialog-size="plottingDialogSize"
+          :plot-updates-enabled="plotUpdatesEnabled"
+          :selected-plot-type.sync="selectedPlotType"
+          :plot-types="plotTypes"
+          :selected-variables.sync="selectedVariables"
+          :available-variables="availableVariables"
+          :selected-markers.sync="selectedMarkers"
+          :available-markers="availableMarkers"
+          :animations="animations"
+          :animation-options="animationOptions"
+          :selected-plot-animation.sync="selectedPlotAnimation"
+          :plot-settings.sync="plotSettings"
+          :plot-time-range.sync="plotTimeRange"
+          :max-time="maxTime"
+          @toggle-plot-updates="togglePlotUpdates"
+          @export-plot="exportPlot"
+          @start-drag="startDragPlotDialog"
+          @start-resize="startResizePlotDialog"
+          @update-plot-type="updatePlotType"
+          @update-selected-variables="updateSelectedVariables"
+          @update-selected-markers="updateSelectedMarkers"
+          @update-plot-animation="updatePlotAnimation"
+        />
   
         <!-- Scene Controls Card -->
-        <div class="scene-section mb-4 pa-3" style="background: rgba(0, 0, 0, 0.3); border-radius: 8px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1);">
-          <div class="section-title mb-3 d-flex align-center" style="font-size: 0.9rem; color: rgba(255, 255, 255, 0.7); cursor: pointer;" @click="showSceneSettingsDetails = !showSceneSettingsDetails">
-            <span>Scene Settings</span>
-            <v-spacer></v-spacer>
-            <v-icon small>{{ showSceneSettingsDetails ? 'mdi-chevron-up' : 'mdi-chevron-down' }}</v-icon>
-          </div>
-  
-          <!-- Scene settings row -->
-          <v-expand-transition>
-            <div v-show="showSceneSettingsDetails" class="scene-settings">
-            <!-- Background setting -->
-            <div class="d-flex align-center mb-3">
-              <div class="mr-2 text-caption" style="width: 80px; flex-shrink: 0;">Background:</div>
-              <v-menu offset-y :close-on-content-click="false">
-                <template v-slot:activator="{ on, attrs }">
-                  <v-btn small v-bind="attrs" v-on="on" class="color-preview" :style="{ backgroundColor: backgroundColor }"></v-btn>
-                </template>
-                <v-card class="color-picker pa-2">
-                  <div class="d-flex align-center">
-                    <v-color-picker
-                      v-model="backgroundColor"
-                      :modes="['hex', 'rgba']"
-                      show-swatches
-                      :swatches="Array.isArray(backgroundColors) ? backgroundColors : []"
-                      @input="updateBackgroundColor"
-                      class="flex-grow-1"
-                    ></v-color-picker>
-                    <v-btn icon small @click="openEyeDropper('backgroundColor')" title="Pick color from screen" class="ml-2">
-                      <v-icon>mdi-eyedropper-variant</v-icon>
-                    </v-btn>
-                  </div>
-                </v-card>
-              </v-menu>
-            </div>
-  
-            <!-- Ground setting -->
-            <div class="d-flex align-center mb-3">
-              <div class="mr-2 text-caption" style="width: 80px; flex-shrink: 0;">Ground:</div>
-              <v-menu offset-y :close-on-content-click="false">
-                <template v-slot:activator="{ on, attrs }">
-                  <v-btn small v-bind="attrs" v-on="on" class="color-preview" :style="{ backgroundColor: showGround ? groundColor : 'transparent', border: !showGround ? '1px dashed rgba(255,255,255,0.5)' : '1px solid rgba(255,255,255,0.3)' }"></v-btn>
-                </template>
-                <v-card class="color-picker pa-2">
-                  <div class="d-flex align-center">
-                    <v-color-picker
-                      v-model="groundColor"
-                      :modes="['hex', 'rgba']"
-                      show-swatches
-                      :swatches="Array.isArray(groundColors) ? groundColors : []"
-                      @input="updateGroundColor"
-                      :disabled="!showGround"
-                      class="flex-grow-1"
-                    ></v-color-picker>
-                    <v-btn icon small @click="openEyeDropper('groundColor')" title="Pick color from screen" class="ml-2" :disabled="!showGround">
-                      <v-icon>mdi-eyedropper-variant</v-icon>
-                    </v-btn>
-                  </div>
-                  <v-divider class="my-2"></v-divider>
-                  <div class="ground-controls pa-2">
-                    <v-btn small text block @click="toggleGroundVisibility" class="mb-2">
-                      <v-icon left small>{{ showGround ? 'mdi-eye-off' : 'mdi-eye' }}</v-icon>
-                      {{ showGround ? 'Hide Ground' : 'Show Ground' }}
-                    </v-btn>
-                    <v-btn small text block @click="toggleGroundTexture" :disabled="!showGround" class="mb-2">
-                      <v-icon left small>{{ useGroundTexture ? 'mdi-texture-box' : 'mdi-checkbox-blank-outline' }}</v-icon>
-                      {{ useGroundTexture ? 'Remove Texture' : 'Use Texture' }}
-                    </v-btn>
-                    <v-btn small text block @click="toggleCheckerboard" :disabled="!showGround || !useGroundTexture">
-                      <v-icon left small>{{ useCheckerboard ? 'mdi-grid' : 'mdi-view-grid' }}</v-icon>
-                      {{ useCheckerboard ? 'Use Grid' : 'Use Checkerboard' }}
-                    </v-btn>
-                    <div class="mt-3">
-                      <div class="text-caption mb-2">
-                        Transparency: {{ Math.round((1 - groundOpacity) * 100) }}%
-                      </div>
-                      <v-slider
-                        :value="(1 - groundOpacity) * 100"
-                        @input="value => updateGroundOpacity(1 - value / 100)"
-                        :min="0"
-                        :max="100"
-                        step="1"
-                        hide-details
-                        :disabled="!showGround"
-                        dense
-                        class="mt-0"
-                      ></v-slider>
-                    </div>
-                    <div class="mt-3">
-                      <div class="text-caption mb-2">
-                        Height Position: {{ groundPositionY.toFixed(2) }}m
-                      </div>
-                      <v-slider
-                        v-model="groundPositionY"
-                        @input="updateGroundPosition"
-                        :min="-5"
-                        :max="5"
-                        step="0.01"
-                        hide-details
-                        :disabled="!showGround"
-                        dense
-                        class="mt-0"
-                      ></v-slider>
-                    </div>
-                  </div>
-                </v-card>
-              </v-menu>
-            </div>
-  
-            <!-- Axes setting -->
-            <div class="d-flex align-center mb-3">
-              <div class="mr-2 text-caption" style="width: 80px; flex-shrink: 0;">Axes:</div>
-              <v-btn icon small @click="toggleAxes" title="Toggle Axes Visibility">
-                <v-icon small :color="showAxes ? 'white' : 'grey'">{{ showAxes ? 'mdi-axis-arrow' : 'mdi-axis-arrow-lock' }}</v-icon>
-              </v-btn>
-            </div>
-  
-            <!-- Camera setting -->
-            <div class="d-flex align-center mb-3">
-              <div class="mr-2 text-caption" style="width: 80px; flex-shrink: 0;">Camera:</div>
-              <v-btn icon small @click="toggleCameraControls" title="Toggle Camera Controls Visibility">
-                <v-icon small :color="showCameraControls ? 'white' : 'grey'">{{ 'mdi-cube-scan' }}</v-icon>
-              </v-btn>
-            </div>
-
-            <!-- Lights setting -->
-            <div class="d-flex align-center">
-              <div class="mr-2 text-caption" style="width: 80px; flex-shrink: 0;">Lights:</div>
-              <v-btn icon small @click="toggleLights" title="Toggle Lighting (disable for uniform color)">
-                <v-icon small :color="enableLights ? 'white' : 'grey'">{{ enableLights ? 'mdi-lightbulb-on' : 'mdi-lightbulb-off' }}</v-icon>
-              </v-btn>
-            </div>
-            </div>
-          </v-expand-transition>
-        </div>
+        <SceneControls
+          :background-color.sync="backgroundColor"
+          :background-colors="backgroundColors"
+          :ground-color.sync="groundColor"
+          :ground-colors="groundColors"
+          :show-ground="showGround"
+          :ground-opacity="groundOpacity"
+          :ground-position-y.sync="groundPositionY"
+          :use-ground-texture="useGroundTexture"
+          :use-checkerboard="useCheckerboard"
+          :show-axes="showAxes"
+          :show-camera-controls="showCameraControls"
+          :enable-lights="enableLights"
+          @toggle-ground-visibility="toggleGroundVisibility"
+          @toggle-ground-texture="toggleGroundTexture"
+          @toggle-checkerboard="toggleCheckerboard"
+          @update-ground-opacity="updateGroundOpacity"
+          @update-ground-position="updateGroundPosition"
+          @toggle-axes="toggleAxes"
+          @toggle-camera-controls="toggleCameraControls"
+          @toggle-lights="toggleLights"
+          @open-eyedropper="openEyeDropper"
+        />
   
       <div class="mt-6"></div> <!-- Added vertical spacing -->
   
         <!-- Timelapse Controls -->
-      <div class="timelapse-section mb-4 pa-3" style="background: rgba(0, 0, 0, 0.3); border-radius: 8px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1);">
-        <div class="section-title mb-3 d-flex align-center" style="font-size: 0.9rem; color: rgba(255, 255, 255, 0.7); cursor: pointer;" @click="showTimelapseDetails = !showTimelapseDetails">
-          <span>Timelapse Mode</span>
-          <v-spacer></v-spacer>
-          <v-icon small>{{ showTimelapseDetails ? 'mdi-chevron-up' : 'mdi-chevron-down' }}</v-icon>
-        </div>
-  
-        <v-expand-transition>
-          <div v-show="showTimelapseDetails">
-        <!-- Timelapse toggle with settings button -->
-        <div class="d-flex align-center mb-3">
-          <v-switch
-            v-model="timelapseMode"
-            color="indigo"
-            @change="toggleTimelapseMode"
-            class="mr-auto mb-0 mt-0 pt-0"
-            hide-details
-            style="flex: 1;"
-          ></v-switch>
-  
-          <v-btn
-            small
-            outlined
-            color="white"
-            class="ml-2 settings-text-btn"
-            @click="openTimelapseSettings($event)"
-            :disabled="!timelapseMode"
-          >
-            Settings
-          </v-btn>
-            </div>
-  
-        <!-- Timelapse settings summary -->
-        <div v-if="timelapseMode" class="d-flex align-center recording-summary">
-          <div class="text-caption text-center" style="flex: 1;">
-            <span class="font-weight-bold">Interval:</span> {{ timelapseInterval }} frames
-          </div>
-          <div class="text-caption text-center" style="flex: 1;">
-            <span class="font-weight-bold">Opacity:</span> {{ Math.round(timelapseOpacity * 100) }}%
-          </div>
-        </div>
-  
-        <!-- Quick action buttons when timelapse mode is enabled -->
-        <div v-if="timelapseMode" class="d-flex justify-space-between align-center mt-2">
-          <v-btn small text @click="clearTimelapse" class="mt-1">
-            Clear All
-          </v-btn>
-          <v-btn small text @click="showTimelapseManager = true" class="mt-1">
-            Manage Models
-          </v-btn>
-        </div>
-          </div>
-        </v-expand-transition>
-      </div>
-  
-      <!-- Timelapse Settings Dialog -->
-      <v-dialog
-        v-model="showTimelapseSettings"
-        max-width="500"
-      >
-        <v-card class="recording-settings-dialog">
-          <v-card-title>Timelapse Settings</v-card-title>
-          <v-card-text>
-            <v-row>
-              <v-col cols="12">
-                <div class="text-subtitle-2 mb-2">Frame Interval</div>
-            <v-slider
-              v-model="timelapseInterval"
-              min="1"
-              max="30"
-              step="1"
-              thumb-label
-              thumb-size="24"
-              @input="updateTimelapse"
-              hide-details
-              class="mb-4"
-            >
-              <template v-slot:thumb-label="{ value }">
-                {{ value }}
-              </template>
-              <template v-slot:prepend>
-                <div class="text-caption grey--text">1</div>
-              </template>
-              <template v-slot:append>
-                <div class="text-caption grey--text">30</div>
-              </template>
-            </v-slider>
-              </v-col>
-  
-              <v-col cols="12">
-                <div class="text-subtitle-2 mb-2">Model Transparency</div>
-            <v-slider
-              :value="timelapseOpacity * 100"
-              @input="value => timelapseOpacity = value / 100"
-              min="0"
-              max="100"
-              step="1"
-              thumb-label
-              thumb-size="24"
-              @change="updateTimelapseOpacity"
-              hide-details
-              class="mb-4"
-            >
-              <template v-slot:thumb-label="{ value }">
-                {{ Math.round(value) }}%
-              </template>
-              <template v-slot:prepend>
-                <div class="text-caption grey--text">0%</div>
-              </template>
-              <template v-slot:append>
-                <div class="text-caption grey--text">100%</div>
-              </template>
-            </v-slider>
-              </v-col>
-  
-              <v-col cols="12">
-                <div class="info-box pa-3 mt-2">
-                  <div class="d-flex align-center mb-2">
-                    <v-icon small color="info" class="mr-2">mdi-information-outline</v-icon>
-                    <span class="subtitle-2">Timelapse Tips</span>
-            </div>
-                  <ul class="pl-4 mb-0 text-caption">
-                    <li class="mb-1">Frame Interval determines how often timelapse captures are taken</li>
-                    <li class="mb-1">Lower opacity values help distinguish between different timelapse frames</li>
-                    <li>Use the Manage Models button to selectively delete timelapse frames</li>
-                  </ul>
-          </div>
-              </v-col>
-            </v-row>
-          </v-card-text>
-          <v-card-actions>
-            <v-spacer></v-spacer>
-            <v-btn color="primary" text @click="showTimelapseSettings = false">Close</v-btn>
-          </v-card-actions>
-        </v-card>
-      </v-dialog>
-  
-        <!-- Timelapse Manager Dialog -->
-        <v-dialog v-model="showTimelapseManager" max-width="500">
-          <v-card>
-            <v-card-title>Manage Timelapse Models</v-card-title>
-            <v-card-text>
-              <div v-for="(group, animIndex) in timelapseGroups" :key="animIndex" class="mb-4">
-                <div class="d-flex align-center justify-space-between mb-2">
-                  <div class="subtitle-1">{{ animations[animIndex]?.trialName || `Subject ${animIndex + 1}` }}</div>
-                  <v-btn small text color="error" @click="deleteTimelapseGroup(animIndex)">
-                    Delete All
-                  </v-btn>
-                </div>
-                <v-list dense>
-                  <v-list-item v-for="frame in group" :key="frame" class="mb-1">
-                    <v-list-item-content>
-                      <v-list-item-title>
-                        Frame {{ frame }}
-                        <span class="text-caption grey--text ml-2">
-                          (Mesh ID: {{ getMeshIdForFrame(animIndex, frame) }})
-                        </span>
-                      </v-list-item-title>
-                    </v-list-item-content>
-                    <v-list-item-action>
-                      <v-btn small icon color="error" @click="deleteTimelapseFrame(animIndex, frame)">
-                        <v-icon small>mdi-delete</v-icon>
-                      </v-btn>
-                    </v-list-item-action>
-                  </v-list-item>
-                </v-list>
-              </div>
-              <div v-if="Object.keys(timelapseGroups).length === 0" class="text-center grey--text">
-                No timelapse models created yet
-              </div>
-            </v-card-text>
-            <v-card-actions>
-              <v-spacer></v-spacer>
-              <v-btn text @click="showTimelapseManager = false">Close</v-btn>
-            </v-card-actions>
-          </v-card>
-        </v-dialog>
+        <TimelapseControls
+          :timelapse-mode.sync="timelapseMode"
+          :timelapse-interval.sync="timelapseInterval"
+          :timelapse-opacity.sync="timelapseOpacity"
+          :timelapse-groups="timelapseGroups"
+          :animations="animations"
+          :get-mesh-id-for-frame="getMeshIdForFrame"
+          @toggle-timelapse-mode="toggleTimelapseMode"
+          @update-timelapse="updateTimelapse"
+          @update-timelapse-opacity="updateTimelapseOpacity"
+          @clear-timelapse="clearTimelapse"
+          @delete-timelapse-group="deleteTimelapseGroup"
+          @delete-timelapse-frame="(animIndex, frame) => deleteTimelapseFrame(animIndex, frame)"
+        />
   
         <!-- Credits -->
         <div class="credits mt-auto pt-2 text-center">
@@ -3602,6 +2482,21 @@
   import VideoNavigation from '@/components/ui/VideoNavigation'
   import SpeedControl from '@/components/ui/SpeedControl'
   import CameraControls from '@/components/ui/CameraControls' // Added import
+  // Session child components
+  import {
+    CaptureControls,
+    ForcesDialog,
+    GithubInfoDialog,
+    ImportDialog,
+    MarkersDialog,
+    PlotDialog,
+    RecordingControls,
+    SampleSelectionDialog,
+    SceneControls,
+    ShareDialog,
+    TimelapseControls,
+    VideoOverlay
+  } from '@/components/pages/session'
   import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js'
   import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
   import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js'
@@ -3668,7 +2563,19 @@
       components: {
           VideoNavigation,
           SpeedControl,
-          CameraControls // Register component
+          CameraControls, // Register component
+          CaptureControls,
+          ForcesDialog,
+          GithubInfoDialog,
+          ImportDialog,
+          MarkersDialog,
+          PlotDialog,
+          RecordingControls,
+          SampleSelectionDialog,
+          SceneControls,
+          ShareDialog,
+          TimelapseControls,
+          VideoOverlay
       },
       data() {
           return {
@@ -3982,6 +2889,16 @@
           }
       },
               computed: {
+        // Access video element through the VideoOverlay component
+        videoPreviewElement() {
+          const videoOverlay = this.$refs.videoOverlayComponent;
+          return videoOverlay ? videoOverlay.getVideoPreview() : null;
+        },
+        // Access video projection canvas through the VideoOverlay component
+        videoProjectionCanvasElement() {
+          const videoOverlay = this.$refs.videoOverlayComponent;
+          return videoOverlay ? videoOverlay.getVideoProjectionCanvas() : null;
+        },
         videoControlsDisabled() {
           return (!this.trial && this.markerSpheres.length === 0) || this.frames.length === 0
         },
@@ -4423,8 +3340,8 @@
       },
       playSpeed(newSpeed) {
         // Update video playback rate to match animation speed
-        if (this.$refs.videoPreview && this.videoFile) {
-          const videoElement = this.$refs.videoPreview;
+        if (this.videoPreviewElement && this.videoFile) {
+          const videoElement = this.videoPreviewElement;
           if (videoElement && typeof videoElement.playbackRate !== 'undefined') {
             videoElement.playbackRate = newSpeed;
             console.log(`Video playback rate updated to: ${newSpeed}x`);
@@ -5406,8 +4323,8 @@
   },
 
   ensureProjectionCanvas() {
-    const canvas = this.$refs.videoProjectionCanvas;
-    const video = this.$refs.videoPreview;
+    const canvas = this.videoProjectionCanvasElement;
+    const video = this.videoPreviewElement;
     if (!canvas || !video) {
       return null;
     }
@@ -5436,7 +4353,7 @@
     return canvas;
   },
   clearProjectionCanvas() {
-    const canvas = this.$refs.videoProjectionCanvas;
+    const canvas = this.videoProjectionCanvasElement;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (ctx) {
@@ -5458,7 +4375,7 @@
       return;
     }
 
-    const video = this.$refs.videoPreview;
+    const video = this.videoPreviewElement;
     const displayWidth = video ? (video.clientWidth || video.videoWidth || canvas.width) : canvas.width;
     const displayHeight = video ? (video.clientHeight || video.videoHeight || canvas.height) : canvas.height;
 
@@ -5490,8 +4407,8 @@
       return;
     }
 
-    const fallbackWidth = this.$refs.videoPreview?.videoWidth || displayWidth;
-    const fallbackHeight = this.$refs.videoPreview?.videoHeight || displayHeight;
+    const fallbackWidth = this.videoPreviewElement?.videoWidth || displayWidth;
+    const fallbackHeight = this.videoPreviewElement?.videoHeight || displayHeight;
     const imageSize = Array.isArray(sequence.projectedImageSize)
       ? this.normalizeImageSize(sequence.projectedImageSize)
       : (this.cameraImageSize || null);
@@ -8182,14 +7099,14 @@
                       nextFrame = nextFrame % this.frames.length;
   
                     // When looping, also reset video to beginning if present
-                    if (this.videoFile && this.$refs.videoPreview) {
+                    if (this.videoFile && this.videoPreviewElement) {
                       try {
                         console.log('[animate] Looping animation, resetting video to beginning');
-                        this.$refs.videoPreview.currentTime = 0;
+                        this.videoPreviewElement.currentTime = 0;
   
                         // Ensure video keeps playing if it was previously playing
-                        if (this.playing && this.$refs.videoPreview.paused) {
-                          const playPromise = this.$refs.videoPreview.play();
+                        if (this.playing && this.videoPreviewElement.paused) {
+                          const playPromise = this.videoPreviewElement.play();
                           if (playPromise !== undefined) {
                             playPromise.catch(error => {
                               console.log('Video playback error on loop:', error);
@@ -8431,15 +7348,15 @@
         // No specific 'else' action needed here for pause, the animate loop handles it.
   
         // Video sync logic
-        if (this.videoFile && this.$refs.videoPreview) {
+        if (this.videoFile && this.videoPreviewElement) {
           try {
             // Set video playback rate to match current playSpeed
-            if (typeof this.$refs.videoPreview.playbackRate !== 'undefined') {
-              this.$refs.videoPreview.playbackRate = this.playSpeed;
+            if (typeof this.videoPreviewElement.playbackRate !== 'undefined') {
+              this.videoPreviewElement.playbackRate = this.playSpeed;
             }
             
             if (this.playing) {
-              const playPromise = this.$refs.videoPreview.play();
+              const playPromise = this.videoPreviewElement.play();
               if (playPromise !== undefined) {
                 playPromise.catch(error => {
                   console.log('Video playback error:', error);
@@ -8447,7 +7364,7 @@
                 });
               }
             } else {
-              this.$refs.videoPreview.pause();
+              this.videoPreviewElement.pause();
             }
           } catch (error) {
             console.log('Video control error:', error);
@@ -8480,10 +7397,10 @@
         this.animateOneFrame();
 
         // Sync video playback position with proper error handling
-        if (this.videoFile && this.$refs.videoPreview) {
+        if (this.videoFile && this.videoPreviewElement) {
           try {
           // Temporarily remove the timeupdate listener to prevent feedback loops
-          const videoElement = this.$refs.videoPreview;
+          const videoElement = this.videoPreviewElement;
           const originalHandler = videoElement.ontimeupdate;
           videoElement.ontimeupdate = null;
   
@@ -8509,9 +7426,9 @@
       },
     syncVideoToFrame(frame, forceSync = false) {
       // Sync video playback position to match the given frame
-      if (this.videoFile && this.$refs.videoPreview) {
+      if (this.videoFile && this.videoPreviewElement) {
         try {
-          const videoElement = this.$refs.videoPreview;
+          const videoElement = this.videoPreviewElement;
           
           // Set the video time directly from the animation time when available
           if (this.frames[frame] !== undefined) {
@@ -13353,12 +12270,12 @@
     },
   
   handleVideoMetadata() {
-      if (this.$refs.videoPreview) {
-        this.videoDuration = this.$refs.videoPreview.duration;
-        if (this.$refs.videoPreview.videoWidth && this.$refs.videoPreview.videoHeight) {
+      if (this.videoPreviewElement) {
+        this.videoDuration = this.videoPreviewElement.duration;
+        if (this.videoPreviewElement.videoWidth && this.videoPreviewElement.videoHeight) {
           this.cameraImageSize = {
-            width: this.$refs.videoPreview.videoWidth,
-            height: this.$refs.videoPreview.videoHeight
+            width: this.videoPreviewElement.videoWidth,
+            height: this.videoPreviewElement.videoHeight
           };
         }
         console.log('Video duration:', this.videoDuration);
@@ -13394,12 +12311,12 @@
       if (this.frames.length > 0) {
         const totalFrames = this.frames.length - 1;
         const videoTimePosition = (this.frame / totalFrames) * this.videoDuration;
-        this.$refs.videoPreview.currentTime = videoTimePosition;
+        this.videoPreviewElement.currentTime = videoTimePosition;
       }
       
       // Set video playback rate to match current playSpeed
-      if (this.$refs.videoPreview && typeof this.$refs.videoPreview.playbackRate !== 'undefined') {
-        this.$refs.videoPreview.playbackRate = this.playSpeed;
+      if (this.videoPreviewElement && typeof this.videoPreviewElement.playbackRate !== 'undefined') {
+        this.videoPreviewElement.playbackRate = this.playSpeed;
         console.log(`Video playback rate set to: ${this.playSpeed}x on metadata load`);
       }
       
@@ -13411,9 +12328,9 @@
   
   handleVideoTimeUpdate() {
     // Only sync if playing and not during a scrubbing operation
-    if (this.playing && this.$refs.videoPreview && this.frames.length > 0 && this.videoDuration > 0) {
+    if (this.playing && this.videoPreviewElement && this.frames.length > 0 && this.videoDuration > 0) {
       // Get current video time
-      const videoTime = this.$refs.videoPreview.currentTime;
+      const videoTime = this.videoPreviewElement.currentTime;
   
       // Calculate what frame we should be on based on video time
       const frameProgress = videoTime / this.videoDuration;
@@ -13746,7 +12663,7 @@
       ? this.cameraIntrinsics
       : this.normalizeMatrix3x3(this.cameraIntrinsics);
 
-    const videoElement = this.$refs.videoPreview;
+    const videoElement = this.videoPreviewElement;
     const fallbackWidth = videoElement?.videoWidth || 0;
     const fallbackHeight = videoElement?.videoHeight || 0;
     const normalizedSize = this.normalizeImageSize(this.cameraImageSize);
@@ -14010,7 +12927,7 @@
       });
       return;
     }
-    const videoElement = this.$refs.videoPreview;
+    const videoElement = this.videoPreviewElement;
     if (!videoElement || videoElement.readyState < 2) {
       console.log('Video element not ready:', {
         videoElement: !!videoElement,
@@ -14187,7 +13104,7 @@
   },
 
   getVideoAspect() {
-    const videoElement = this.$refs.videoPreview;
+    const videoElement = this.videoPreviewElement;
     if (videoElement && videoElement.videoWidth && videoElement.videoHeight) {
       const aspect = videoElement.videoWidth / videoElement.videoHeight;
       if (Number.isFinite(aspect) && aspect > 0) {
@@ -16082,7 +14999,7 @@
       let computedDistance = distanceBehind;
       if (behindPlane && computedDistance === null && intrinsics) {
         // Get image dimensions
-        const videoElement = this.$refs.videoPreview;
+        const videoElement = this.videoPreviewElement;
         const normalizedSize = this.normalizeImageSize(this.cameraImageSize);
         const widthPx = normalizedSize?.width || videoElement?.videoWidth || 1920;
         const heightPx = normalizedSize?.height || videoElement?.videoHeight || 1080;
