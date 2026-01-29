@@ -4002,6 +4002,7 @@
               liveSocket: null,
               liveStatus: 'disconnected', // 'connecting' | 'connected' | 'error'
               liveAnimationIndex: null,
+              liveBodyStyle: {}, // per-body visibility/color overrides from live init (bodyStyle)
               showLiveStreamDetails: false, // Toggle for Live IK Stream section
               showSyncDetails: false, // Toggle for Sync section
               showAnimationsDetails: true, // Toggle for Animations section (default true since it's the main content)
@@ -8414,7 +8415,11 @@
               });
             }
           });
-  
+
+          if (this.liveAnimationIndex !== null) {
+            this.applyLiveBodyStyle();
+          }
+
           // Update SMPL sequences
           this.smplSequences.forEach((sequence) => {
             if (!sequence.mesh) return;
@@ -13289,25 +13294,35 @@
         return Object.keys(this.meshes).filter(key => key.startsWith(`anim${index}_`));
       },
       getMeshName(meshKey) {
-        // Format of key is anim{index}_{body}{geom}
-        const parts = meshKey.split('_');
-        if (parts.length < 2) return meshKey;
-  
-        // Get the part after the first underscore (body+geom)
-        const bodyAndGeom = parts[1];
-  
-        // Extract the geom part which is the filename
-        // Typically these are named like 'lunate_lvs.vtp' or 'triquetrum_rvs.vtp'
-        // We want to display just the bone name like 'lunate' or 'triquetrum'
-  
-        // First look for _lvs or _rvs pattern to extract the bone name
+        // Format of key is anim{index}_{body}{geom} (no separator between body and geom)
+        const match = meshKey.match(/^anim(\d+)_(.*)$/);
+        if (!match) return meshKey;
+        const index = parseInt(match[1], 10);
+        const bodyAndGeom = match[2];
+
+        // Resolve display name from animation's body + geometry so we show actual bone/body names
+        const anim = this.animations[index];
+        if (anim && anim.data && anim.data.bodies) {
+          for (const bodyName of Object.keys(anim.data.bodies)) {
+            const geoms = anim.data.bodies[bodyName].attachedGeometries || [];
+            for (const geom of geoms) {
+              if (meshKey === `anim${index}_${bodyName}${geom}`) {
+                // If this body has multiple geometries, append geom for uniqueness
+                const showGeom = geoms.length > 1 ? ` (${geom})` : '';
+                return bodyName + showGeom;
+              }
+            }
+          }
+        }
+
+        // Fallback: try _lvs/_rvs pattern for hand bones
         if (bodyAndGeom.includes('_lvs') || bodyAndGeom.includes('_rvs')) {
           const boneName = bodyAndGeom.split('_')[0];
           return boneName;
         }
-  
-        // Fallback to the original bodyAndGeom
-        return bodyAndGeom;
+        // Fallback: strip common extension so "pelvispelvis.vtk" -> "pelvispelvis"
+        const withoutExt = bodyAndGeom.replace(/\.(vtk|vtp|obj)$/i, '');
+        return withoutExt || bodyAndGeom;
       },
       toggleMeshVisibility(meshKey) {
         const mesh = this.meshes[meshKey];
@@ -15005,10 +15020,20 @@
       this.liveStatus = 'disconnected';
       this.liveMode = false;
       this.liveAnimationIndex = null;
+      this.liveBodyStyle = {};
     },
 
     async handleLiveInit(msg) {
       console.log('[live] init', msg);
+
+      // Normalize init for single subject: frontend expects flat msg.bodies (and optional msg.bodyStyle)
+      if (msg.subjects && msg.subjects.length > 0 && !msg.bodies) {
+        msg.bodies = msg.subjects[0].bodies || {};
+        if (msg.bodyStyle === undefined) {
+          msg.bodyStyle = msg.subjects[0].bodyStyle || {};
+        }
+      }
+      this.liveBodyStyle = msg.bodyStyle && typeof msg.bodyStyle === 'object' ? { ...msg.bodyStyle } : {};
 
       const baseJson = {
         time: [0],
@@ -15049,9 +15074,19 @@
       this.frame = 0;
       this.playing = false;
       this.updateDisplayedTime();
+
+      this.applyLiveBodyStyle();
     },
 
     handleLiveFrame(msg) {
+      // Normalize frame for single subject: frontend expects msg.time and msg.bodies
+      if (msg.streams && typeof msg.streams === 'object' && Object.keys(msg.streams).length > 0) {
+        const firstKey = Object.keys(msg.streams)[0];
+        const first = msg.streams[firstKey];
+        msg.time = first.time;
+        msg.bodies = first.bodies || {};
+      }
+
       if (this.liveAnimationIndex === null) {
         console.warn('[live] Frame received before init; ignoring');
         return;
@@ -15086,7 +15121,42 @@
       this.updateDisplayedTime();
       this.animateOneFrame();
     },
-  
+
+    applyLiveBodyStyle() {
+      if (this.liveAnimationIndex === null || !this.liveBodyStyle || Object.keys(this.liveBodyStyle).length === 0) {
+        return;
+      }
+      const liveIndex = this.liveAnimationIndex;
+      const anim = this.animations[liveIndex];
+      if (!anim || !anim.data || !anim.data.bodies) return;
+      const bodies = anim.data.bodies;
+      Object.keys(bodies).forEach((bodyName) => {
+        const style = this.liveBodyStyle[bodyName];
+        if (!style) return;
+        const visible = style.visible !== false;
+        const colorHex = style.color;
+        (bodies[bodyName].attachedGeometries || []).forEach((geom) => {
+          const meshKey = `anim${liveIndex}_${bodyName}${geom}`;
+          const mesh = this.meshes[meshKey];
+          if (!mesh) return;
+          mesh.visible = visible;
+          if (colorHex && typeof colorHex === 'string') {
+            try {
+              const threeColor = new THREE.Color(colorHex);
+              mesh.traverse((child) => {
+                if (child instanceof THREE.Mesh && child.material) {
+                  child.material.color.copy(threeColor);
+                  if (child.material.needsUpdate !== undefined) child.material.needsUpdate = true;
+                }
+              });
+            } catch (e) {
+              console.warn('[live] Invalid bodyStyle color for', bodyName, colorHex, e);
+            }
+          }
+        });
+      });
+    },
+
     centerCameraOnSubject() {
       if (!this.scene || !this.camera || !this.controls) return;
   

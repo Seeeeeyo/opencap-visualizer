@@ -94,6 +94,17 @@ opencap-visualizer input.json output.mp4 --zoom 1.5 --width 1920 --height 1080
 - **Customizable output** (resolution, colors, loops, zoom)
 - **Headless operation** for server-side processing
 
+### Live IK Streaming
+Run a local WebSocket server to stream kinematics into the visualizer in real time (e.g. for monitoring IK or comparing live vs recorded motion). Use the `live_stream_from_json.py` script with a visualizer JSON file; connect from the app via **Live IK Stream** with URL `ws://localhost:8765`.
+
+Optional **`--body-style`** controls per-body visibility and color. Pass a JSON file path or inline JSON mapping body names (e.g. `torso`, `humerus_r`, `hand_r`) to `{"visible": true|false, "color": "#RRGGBB"}`. Bodies not listed stay at default visibility. Example: show only spine and right arm, color spine red and shoulder green:
+
+```bash
+python live_stream_from_json.py public/samples/STS/sample_mono.json --body-style '{"pelvis":{"visible":false},"femur_r":{"visible":false}, ... ,"torso":{"color":"#FF0000"},"humerus_r":{"color":"#00FF00"}}'
+```
+
+(Use `"visible":false` for every body you want hidden; omit or set `"visible":true` and add `"color"` for the segments you want to show and color.)
+
 ## 🎮 User Interface Guide
 
 ### Loading Data

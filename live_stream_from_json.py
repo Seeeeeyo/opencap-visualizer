@@ -33,10 +33,13 @@ def _estimate_fps(time_array):
     return fps
 
 
-async def stream_from_json(websocket, json_paths, speed: float = 1.0):
+async def stream_from_json(websocket, json_paths, speed: float = 1.0, body_style: dict | None = None):
     """
     Stream one or two visualizer JSON files over WebSocket in (optionally downsampled)
     real time.
+
+    body_style: optional dict mapping body name -> { "visible": bool, "color": "#RRGGBB" }
+    for per-body visibility and color overrides in the visualizer.
 
     Protocol:
       init:
@@ -46,7 +49,9 @@ async def stream_from_json(websocket, json_paths, speed: float = 1.0):
           "subjects": [
             { "id": "subj1", "label": "Subject 1", "bodies": { ... } },
             { "id": "subj2", "label": "Subject 2", "bodies": { ... } }
-          ]
+          ],
+          "bodies": { ... },   // flat, first subject only (single-subject frontend compat)
+          "bodyStyle": { ... } // optional per-body visibility/color
         }
 
       frame:
@@ -154,6 +159,11 @@ async def stream_from_json(websocket, json_paths, speed: float = 1.0):
         "frameRate": effective_base_fps * speed,
         "subjects": subjects_meta,
     }
+    # Single-subject frontend compatibility: send flat bodies (and bodyStyle) at top level
+    if len(subjects_meta) == 1:
+        init_msg["bodies"] = subjects_meta[0]["bodies"]
+    if body_style:
+        init_msg["bodyStyle"] = body_style
     await websocket.send(json.dumps(init_msg))
 
     # Give the client a brief moment to load meshes
@@ -202,12 +212,47 @@ async def stream_from_json(websocket, json_paths, speed: float = 1.0):
             await websocket.send(json.dumps(frame_msg))
 
 
+def _parse_body_style(arg: str) -> dict | None:
+    """Parse --body-style: either a path to a JSON file or inline JSON string."""
+    if not arg or not arg.strip():
+        return None
+    arg = arg.strip()
+    # Inline JSON: try parse first to avoid path.is_file() on long strings (OS "file name too long")
+    if arg.startswith("{"):
+        try:
+            return json.loads(arg)
+        except json.JSONDecodeError:
+            print(f"Invalid body-style JSON: {arg[:60]}...")
+            return None
+    path = Path(arg)
+    if path.is_file():
+        with path.open("r", encoding="utf-8") as f:
+            return json.load(f)
+    try:
+        return json.loads(arg)
+    except json.JSONDecodeError:
+        print(f"Invalid body-style (not a file or JSON): {arg[:60]}...")
+        return None
+
+
 async def main():
     if len(sys.argv) < 2:
-        print("Usage: python live_stream_from_json.py path/to/sample1.json [path/to/sample2.json] [speed]")
+        print(
+            "Usage: python live_stream_from_json.py path/to/sample1.json [path/to/sample2.json] [speed] [--body-style PATH|JSON]"
+        )
         sys.exit(1)
 
     args = sys.argv[1:]
+    # Extract --body-style if present
+    body_style = None
+    if "--body-style" in args:
+        idx = args.index("--body-style")
+        if idx + 1 < len(args):
+            body_style = _parse_body_style(args[idx + 1])
+            args = args[:idx] + args[idx + 2 :]
+        else:
+            args = args[:idx] + args[idx + 1 :]
+
     json_args = [a for a in args if a.lower().endswith(".json")]
     other_args = [a for a in args if not a.lower().endswith(".json")]
 
@@ -234,7 +279,7 @@ async def main():
     async def handler(websocket):
         print(f"Client connected from {websocket.remote_address}")
         try:
-            await stream_from_json(websocket, json_paths, speed)
+            await stream_from_json(websocket, json_paths, speed, body_style=body_style)
         except Exception as e:
             print(f"Error during streaming: {e}")
         finally:
