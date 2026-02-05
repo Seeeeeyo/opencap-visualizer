@@ -1646,7 +1646,7 @@
                   </div>
   
                   <!-- Current Marker Values Display for standalone -->
-                  <div v-if="showMarkers && selectedMarker" class="marker-values mt-2 pa-2" style="background: rgba(255, 0, 0, 0.1); border-radius: 4px; border-left: 3px solid #ff0000;">
+                  <div v-if="showMarkers && selectedMarker && selectedMarker.animationIndex == animationIndex" class="marker-values mt-2 pa-2" style="background: rgba(255, 0, 0, 0.1); border-radius: 4px; border-left: 3px solid #ff0000;">
                     <div class="text-caption font-weight-bold mb-1" style="color: #ff0000;">Selected Marker</div>
                     <div class="text-caption font-weight-medium" style="color: #cccccc;">{{ selectedMarker.name }}</div>
                     <div class="d-flex justify-space-between text-caption" style="font-family: monospace;">
@@ -1667,14 +1667,16 @@
                       <br><span class="grey--text">Hold Cmd/Shift + Click another marker</span>
                     </div>
                     <div v-else-if="measurementMarkers.length === 2" class="text-caption" style="color: #cccccc;">
-                      <div class="font-weight-medium">{{ measurementMarkers[0].name }} ↔ {{ measurementMarkers[1].name }}</div>
+                      <div class="font-weight-medium">
+                        {{ measurementMarkers[0].name }}{{ measurementMarkers[0].animationIndex !== measurementMarkers[1].animationIndex ? ' (' + getMarkerSetLabel(measurementMarkers[0].animationIndex) + ')' : '' }} ↔ {{ measurementMarkers[1].name }}{{ measurementMarkers[0].animationIndex !== measurementMarkers[1].animationIndex ? ' (' + getMarkerSetLabel(measurementMarkers[1].animationIndex) + ')' : '' }}
+                      </div>
                       <div class="text-h6 mt-1" style="color: #00ff00; font-family: monospace;">{{ currentDistance.toFixed(3) }} m</div>
                       <div class="grey--text">Distance (meters)</div>
                     </div>
                   </div>
                 </div>
               </div>
-  
+
               <div class="mt-3 d-flex align-center ml-8">
                 <v-btn icon small class="mr-2" @click="toggleMarkerVisibility(animationIndex)">
                   <v-icon small :color="getMarkerVisibility(animationIndex) ? 'white' : 'grey'">
@@ -1820,14 +1822,16 @@
                       <br><span class="grey--text">Hold Cmd/Shift + Click another marker</span>
                     </div>
                     <div v-else-if="measurementMarkers.length === 2" class="text-caption" style="color: #cccccc;">
-                      <div class="font-weight-medium">{{ measurementMarkers[0].name }} ↔ {{ measurementMarkers[1].name }}</div>
+                      <div class="font-weight-medium">
+                        {{ measurementMarkers[0].name }}{{ measurementMarkers[0].animationIndex !== measurementMarkers[1].animationIndex ? ' (' + getMarkerSetLabel(measurementMarkers[0].animationIndex) + ')' : '' }} ↔ {{ measurementMarkers[1].name }}{{ measurementMarkers[0].animationIndex !== measurementMarkers[1].animationIndex ? ' (' + getMarkerSetLabel(measurementMarkers[1].animationIndex) + ')' : '' }}
+                      </div>
                       <div class="text-h6 mt-1" style="color: #00ff00; font-family: monospace;">{{ currentDistance.toFixed(3) }} m</div>
                       <div class="grey--text">Distance (meters)</div>
                     </div>
                   </div>
                 </div>
               </div>
-  
+
               <div class="mt-3 d-flex align-center ml-8">
                 <v-btn icon small class="mr-2" @click="showMarkers = !showMarkers">
                   <v-icon small :color="showMarkers ? 'white' : 'grey'">
@@ -6369,7 +6373,12 @@
        }
        return this.markerDisplayColors[animationIndex];
      },
-  
+
+     getMarkerSetLabel(animationIndex) {
+       const data = this.markersDatasets[animationIndex];
+       return data?.fileName || 'Set ' + (parseInt(animationIndex) + 1);
+     },
+
      getForceColor(animationIndex) {
        // Return color for specific force dataset
        if (this.forceColors[animationIndex] === undefined) {
@@ -6759,9 +6768,11 @@
      },
   
      addMeasurementMarker(markerName, position, animationIndex) {
-       // Check if this marker is already selected
-       const existingIndex = this.measurementMarkers.findIndex(m => m.name === markerName);
-  
+       // Check if this exact marker (same name and set) is already selected
+       const existingIndex = this.measurementMarkers.findIndex(m =>
+         m.name === markerName && m.animationIndex === animationIndex
+       );
+
        if (existingIndex !== -1) {
          // If marker is already selected, remove it
          this.measurementMarkers.splice(existingIndex, 1);
