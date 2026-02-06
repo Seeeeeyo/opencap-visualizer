@@ -2504,11 +2504,6 @@
               Share Visualization
             </v-btn>
   
-            <v-btn color="#4B5563" class="mb-4 white--text custom-btn" block @click="showPlottingDialog = true" :disabled="!trial && animations.length === 0 && smplSequences.length === 0">
-              <v-icon left>mdi-chart-line</v-icon>
-              Real-time Plots
-            </v-btn>
-  
             <!-- Keep all the file inputs but hide them -->
             <input type="file" ref="fileInput" accept=".json" style="display: none" @change="handleFileUpload" multiple />
   
