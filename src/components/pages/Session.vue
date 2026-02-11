@@ -14948,21 +14948,26 @@
     },
     // Add this new method
     loadJsonData(jsonData) {
+        // Clear existing scene so we replace rather than append
+        if (this.scene) {
+            this.clearScene();
+        }
+
         // Create a "virtual" File object with the JSON data
         const jsonBlob = new Blob([JSON.stringify(jsonData)], { type: 'application/json' });
         const jsonFile = new File([jsonBlob], 'data.json', { type: 'application/json' });
-  
+
         // Use our existing file handler with a fake event
         const dataTransfer = new DataTransfer();
         dataTransfer.items.add(jsonFile);
-  
+
         const fakeEvent = {
             target: {
                 files: dataTransfer.files,
                 value: ''
             }
         };
-  
+
         // Process the JSON using our existing handler
         return this.handleFileUpload(fakeEvent);
     },

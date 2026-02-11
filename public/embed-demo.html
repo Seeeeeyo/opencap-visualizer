@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpenCap Visualizer - Embed Demo</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #1a1a2e;
+      color: #eee;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      padding: 1rem 1.5rem;
+      background: #16213e;
+      border-bottom: 1px solid #0f3460;
+    }
+    header h1 { margin: 0 0 0.5rem 0; font-size: 1.25rem; }
+    header p { margin: 0; color: #94a3b8; font-size: 0.875rem; }
+    .controls {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .controls label {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      cursor: pointer;
+    }
+    .controls input[type="text"] {
+      flex: 1;
+      min-width: 200px;
+      padding: 0.5rem 0.75rem;
+      border: 1px solid #0f3460;
+      border-radius: 6px;
+      background: #1a1a2e;
+      color: #eee;
+    }
+    .controls button {
+      padding: 0.5rem 1rem;
+      border: none;
+      border-radius: 6px;
+      background: #4f46e5;
+      color: white;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    .controls button:hover { background: #6366f1; }
+    .controls button:disabled {
+      background: #64748b;
+      cursor: not-allowed;
+    }
+    .viewer-wrapper {
+      flex: 1;
+      min-height: 500px;
+      position: relative;
+    }
+    #viz-frame {
+      width: 100%;
+      height: 100%;
+      min-height: 500px;
+      border: none;
+      display: block;
+    }
+    .status {
+      position: absolute;
+      bottom: 1rem;
+      left: 1rem;
+      padding: 0.5rem 0.75rem;
+      background: rgba(0,0,0,0.7);
+      border-radius: 6px;
+      font-size: 0.875rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>OpenCap Visualizer – Embed Demo</h1>
+    <p>Load JSON and send it to the embedded visualizer via postMessage.</p>
+    <div class="controls">
+      <label>
+        JSON URL:
+        <input type="text" id="jsonUrl" value="/samples/walk/sample_mono.json" placeholder="e.g. /samples/walk/sample_mono.json">
+      </label>
+      <button id="loadBtn">Load & send to visualizer</button>
+    </div>
+  </header>
+
+  <div class="viewer-wrapper">
+    <iframe
+      id="viz-frame"
+      src="/?embed=true"
+      title="OpenCap Visualizer"
+    ></iframe>
+    <div class="status" id="status">Waiting for visualizer...</div>
+  </div>
+
+  <script>
+    const iframe = document.getElementById('viz-frame');
+    const jsonUrlInput = document.getElementById('jsonUrl');
+    const loadBtn = document.getElementById('loadBtn');
+    const statusEl = document.getElementById('status');
+
+    function setStatus(msg, isError = false) {
+      statusEl.textContent = msg;
+      statusEl.style.color = isError ? '#f87171' : '#94a3b8';
+    }
+
+    async function loadAndSend() {
+      const url = jsonUrlInput.value.trim();
+      if (!url) {
+        setStatus('Please enter a JSON URL', true);
+        return;
+      }
+
+      loadBtn.disabled = true;
+      setStatus('Loading JSON...');
+
+      try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const jsonData = await res.json();
+
+        setStatus('Sending to visualizer...');
+        iframe.contentWindow.postMessage({
+          type: 'loadJson',
+          jsonData: jsonData
+        }, '*');
+
+        setStatus('Sent! Visualization should update.');
+      } catch (err) {
+        setStatus('Error: ' + err.message, true);
+        console.error(err);
+      } finally {
+        loadBtn.disabled = false;
+      }
+    }
+
+    loadBtn.addEventListener('click', loadAndSend);
+
+    // Auto-load when iframe is ready (after a short delay for Vue to mount)
+    iframe.addEventListener('load', () => {
+      setStatus('Visualizer ready. Click "Load & send" or wait 2s for auto-load.');
+      setTimeout(() => loadAndSend(), 2000);
+    });
+  </script>
+</body>
+</html>
