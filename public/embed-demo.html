@@ -87,16 +87,18 @@
     <div class="controls">
       <label>
         JSON URL:
-        <input type="text" id="jsonUrl" value="/samples/walk/sample_mono.json" placeholder="e.g. /samples/walk/sample_mono.json">
+        <input type="text" id="jsonUrl" value="https://visualizer.opencap.ai/samples/walk/sample_mono.json" placeholder="e.g. https://visualizer.opencap.ai/samples/walk/sample_mono.json">
       </label>
-      <button id="loadBtn">Load & send to visualizer</button>
+      <button id="loadBtn">Load from URL</button>
+      <input type="file" id="fileInput" accept=".json" style="display: none">
+      <button id="fileBtn">Load from computer</button>
     </div>
   </header>
 
   <div class="viewer-wrapper">
     <iframe
       id="viz-frame"
-      src="/?embed=true"
+      src="https://visualizer.opencap.ai/?embed=true"
       title="OpenCap Visualizer"
     ></iframe>
     <div class="status" id="status">Waiting for visualizer...</div>
@@ -106,11 +108,20 @@
     const iframe = document.getElementById('viz-frame');
     const jsonUrlInput = document.getElementById('jsonUrl');
     const loadBtn = document.getElementById('loadBtn');
+    const fileInput = document.getElementById('fileInput');
+    const fileBtn = document.getElementById('fileBtn');
     const statusEl = document.getElementById('status');
 
     function setStatus(msg, isError = false) {
       statusEl.textContent = msg;
       statusEl.style.color = isError ? '#f87171' : '#94a3b8';
+    }
+
+    function sendJsonToVisualizer(jsonData) {
+      iframe.contentWindow.postMessage({
+        type: 'loadJson',
+        jsonData: jsonData
+      }, '*');
     }
 
     async function loadAndSend() {
@@ -129,11 +140,7 @@
         const jsonData = await res.json();
 
         setStatus('Sending to visualizer...');
-        iframe.contentWindow.postMessage({
-          type: 'loadJson',
-          jsonData: jsonData
-        }, '*');
-
+        sendJsonToVisualizer(jsonData);
         setStatus('Sent! Visualization should update.');
       } catch (err) {
         setStatus('Error: ' + err.message, true);
@@ -144,6 +151,28 @@
     }
 
     loadBtn.addEventListener('click', loadAndSend);
+
+    fileBtn.addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      setStatus('Reading file...');
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const jsonData = JSON.parse(ev.target.result);
+          setStatus('Sending to visualizer...');
+          sendJsonToVisualizer(jsonData);
+          setStatus(`Sent! ${file.name} loaded.`);
+        } catch (err) {
+          setStatus('Error: Invalid JSON', true);
+          console.error(err);
+        }
+        fileInput.value = ''; // allow re-selecting same file
+      };
+      reader.readAsText(file);
+    });
 
     // Auto-load when iframe is ready (after a short delay for Vue to mount)
     iframe.addEventListener('load', () => {
