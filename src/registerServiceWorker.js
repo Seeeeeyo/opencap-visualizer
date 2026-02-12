@@ -2,7 +2,11 @@
 
 import { register } from 'register-service-worker'
 
-if (process.env.NODE_ENV === 'production') {
+const isHeadlessRun =
+  typeof window !== 'undefined' &&
+  new URLSearchParams(window.location.search).get('headless') === 'true'
+
+if (process.env.NODE_ENV === 'production' && !isHeadlessRun) {
   register(`${process.env.BASE_URL}service-worker.js`, {
     ready () {
       console.log(

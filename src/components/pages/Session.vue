@@ -3872,6 +3872,8 @@
               videoBitrate: 5000000, // Video recording bitrate in bits per second (5 Mbps default)
               conversionError: null, // Add this line to store API error message
               sceneInitializing: false, // Flag to track scene initialization
+              isHeadlessMode: false,
+              isHeadlessFastMode: false,
               syncMode: 'none',
               syncReferenceFrame: 0,
 
@@ -4181,9 +4183,21 @@
         console.log('Session component mounted');
         console.log('Current route:', this.$route.path);
         console.log('Query params:', this.$route.query);
+
+        this.isHeadlessMode = this.$route.query.headless === 'true';
+        // Enable by default for CLI automation; opt out with ?headless_fast=false
+        this.isHeadlessFastMode = this.isHeadlessMode && this.$route.query.headless_fast !== 'false';
   
         // Load settings from localStorage first
-        this.loadSettings();
+        if (!this.isHeadlessMode) {
+          this.loadSettings();
+        } else {
+          console.log('[Headless] Skipping localStorage settings load');
+        }
+
+        if (this.isHeadlessFastMode) {
+          this.applyHeadlessPerformanceDefaults();
+        }
   
         // Initialize displayColors from THREE.Color objects
         this.initializeDisplayColors();
@@ -4616,6 +4630,17 @@
       }
     },
     methods: {
+    applyHeadlessPerformanceDefaults() {
+      this.enableShadows = false;
+      this.useGroundTexture = false;
+      this.useCheckerboard = false;
+      this.videoOverlayMode = false;
+      this.showPlottingDialog = false;
+      this.plotUpdatesEnabled = false;
+      this.showAxes = false;
+      this.showCameraControls = false;
+    },
+
     openGitHubRepo() {
       this.showGitHubDialog = true;
     },
@@ -8195,6 +8220,7 @@
       onResize() {
         const container = this.$refs.mocap
         if (container && this.renderer) {
+          this.renderer.setPixelRatio(this.isHeadlessFastMode ? 1 : (window.devicePixelRatio || 1))
           this.renderer.setSize(container.clientWidth, container.clientHeight)
         }
   
@@ -8357,6 +8383,7 @@
         }
       },
       animateOneFrame() {
+        const isHeadlessFast = this.isHeadlessFastMode;
         let cframe = this.frame;
   
         if (cframe < this.frames.length) {
@@ -8469,7 +8496,7 @@
           });
   
           // Render the scene (moved before marker update)
-          if (this.renderer && this.scene && this.camera) {
+          if (!isHeadlessFast && this.renderer && this.scene && this.camera) {
             this.updateVideoPlaneTransform();
             this.renderer.render(this.scene, this.camera);
           }
@@ -8499,10 +8526,12 @@
         }
   
         // Update real-time plot if enabled
-        if (this.showPlottingDialog && this.plotUpdatesEnabled) {
+        if (!isHeadlessFast && this.showPlottingDialog && this.plotUpdatesEnabled) {
           this.updatePlotInRealTime();
         }
-        this.drawProjectedSkeleton();
+        if (!isHeadlessFast) {
+          this.drawProjectedSkeleton();
+        }
       },
   
   
@@ -9478,9 +9507,13 @@
         this.scene.background = new THREE.Color(this.backgroundColor);
   
         // Configure renderer with current background color and better shadows
-        this.renderer = new THREE.WebGLRenderer({antialias: true});
+        this.renderer = new THREE.WebGLRenderer({
+          antialias: !this.isHeadlessFastMode,
+          powerPreference: 'high-performance'
+        });
+        this.renderer.setPixelRatio(this.isHeadlessFastMode ? 1 : (window.devicePixelRatio || 1));
         this.renderer.setClearColor(this.backgroundColor);
-        this.renderer.shadowMap.enabled = true;
+        this.renderer.shadowMap.enabled = !this.isHeadlessFastMode;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         this.renderer.outputEncoding = THREE.sRGBEncoding;
 
@@ -9509,13 +9542,16 @@
         }
   
         // Create a much larger plane for "infinite" appearance
-        const loader = new THREE.TextureLoader();
-        const texture = loader.load('https://threejsfundamentals.org/threejs/resources/images/checker.png');
-        texture.wrapS = THREE.RepeatWrapping;
-        texture.wrapT = THREE.RepeatWrapping;
-        texture.magFilter = THREE.NearestFilter;
-        const checkerRepeats = Math.max(1, Math.round(this.groundSize * 0.5));
-        texture.repeat.set(checkerRepeats, checkerRepeats);
+        let texture = null;
+        if (!this.isHeadlessFastMode) {
+          const loader = new THREE.TextureLoader();
+          texture = loader.load('https://threejsfundamentals.org/threejs/resources/images/checker.png');
+          texture.wrapS = THREE.RepeatWrapping;
+          texture.wrapT = THREE.RepeatWrapping;
+          texture.magFilter = THREE.NearestFilter;
+          const checkerRepeats = Math.max(1, Math.round(this.groundSize * 0.5));
+          texture.repeat.set(checkerRepeats, checkerRepeats);
+        }
   
         // Store the texture reference
         this.groundTexture = texture;
@@ -9545,7 +9581,7 @@
         // this.scene.fog = new THREE.FogExp2(this.backgroundColor, 0.025); // Increased density from 0.01 to 0.025
   
         // Add lights based on shadow setting
-        if (this.enableShadows) {
+        if (this.enableShadows && !this.isHeadlessFastMode) {
             this.setupShadowLights();
         } else {
             this.setupNonShadowLights();
@@ -14816,6 +14852,9 @@
   
     // Method to save settings to localStorage
     saveSettings() {
+      if (this.isHeadlessMode) {
+        return;
+      }
       console.log('Saving settings to localStorage...');
         const settings = {
         backgroundColor: this.backgroundColor,
