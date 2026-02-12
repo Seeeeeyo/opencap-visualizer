@@ -4221,6 +4221,13 @@
             this.backgroundColor = '#000000';
             // Leave this.showGround as loaded from settings or default
         }
+        // Handle ground visibility and color for embed
+        if (this.$route.query.noground === 'true') {
+            this.showGround = false;
+        } else if (this.$route.query.ground === 'black') {
+            this.showGround = true;
+            this.groundColor = '#000000';
+        }
   
         // Add keyboard event listeners
         window.addEventListener('keydown', this.handleKeyDown);
@@ -4541,7 +4548,23 @@
                 this.renderer.render(this.scene, this.camera);
             }
         }
-  
+        // Handle ground visibility and color for embed
+        if (to.query.noground === 'true') {
+            this.showGround = false;
+            if (this.scene && this.groundMesh) {
+                this.groundMesh.visible = false;
+                this.renderer.render(this.scene, this.camera);
+            }
+        } else if (to.query.ground === 'black') {
+            this.showGround = true;
+            this.groundColor = '#000000';
+            if (this.scene && this.groundMesh) {
+                this.groundMesh.visible = true;
+                this.updateGroundColor('#000000');
+                this.renderer.render(this.scene, this.camera);
+            }
+        }
+
         if (to.path === '/samples' || to.path === '/samples/') {
           console.log('Loading sample files from route watcher');
           // Get subjects filter from URL if provided
