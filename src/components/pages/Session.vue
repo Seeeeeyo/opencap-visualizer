@@ -2590,6 +2590,34 @@
             </v-card-actions>
           </v-card>
         </v-dialog>
+
+        <v-dialog v-model="showModelSelectionDialog" max-width="800" persistent>
+          <v-card class="import-dialog-card">
+            <v-card-title class="headline">Select Model</v-card-title>
+            <v-card-text>
+              <div class="text-body-2 mb-6">
+                Choose which geometry model folder to use for this import.
+              </div>
+              <div class="import-grid">
+                <div
+                  class="import-item"
+                  :class="{ disabled: model.enabled === false }"
+                  v-for="model in modelChoices"
+                  :key="model.folder_name"
+                  @click="model.enabled === false ? null : confirmModelSelection(model)"
+                >
+                  <v-icon size="32">{{ model.icon || 'mdi-cube-outline' }}</v-icon>
+                  <div class="import-item-title">{{ model.name }}</div>
+                  <div class="import-item-subtitle">{{ model.folder_name }}</div>
+                </div>
+              </div>
+            </v-card-text>
+            <v-card-actions>
+              <v-spacer></v-spacer>
+              <v-btn text @click="cancelModelSelection">Cancel</v-btn>
+            </v-card-actions>
+          </v-card>
+        </v-dialog>
   
         <!-- Add Forces Dialog -->
         <v-dialog v-model="showForcesDialog" max-width="500" content-class="forces-dialog">
@@ -2856,9 +2884,6 @@
                     outlined
                   >
                     <v-card-text class="pa-4 text-center">
-                      <v-icon size="48" color="primary" class="mb-3">
-                        {{ getSampleIcon(sampleSet.id) }}
-                      </v-icon>
                       <div class="text-h6 mb-2">{{ sampleSet.name }}</div>
                       <div class="text-caption grey--text">{{ sampleSet.description }}</div>
                     </v-card-text>
@@ -3935,6 +3960,17 @@
               showCustomObjectsManager: false, // Dialog to manage custom objects
             showLeftSidebar: false, // Add this line to control left sidebar visibility
               showImportDialog: false, // Add this line to control the import dialog
+              showModelSelectionDialog: false,
+              selectedModelForImport: null,
+              pendingModelSelectionResolve: null,
+              modelChoices: [
+                { name: 'Lai Arnold', folder_name: 'LaiArnold', icon: 'mdi-cube-outline', enabled: true },
+                { name: 'Placeholder Model 2', folder_name: 'placeholder_model_2', icon: 'mdi-cube-scan', enabled: false },
+                { name: 'Placeholder Model 3', folder_name: 'placeholder_model_3', icon: 'mdi-human-male', enabled: false },
+                { name: 'Placeholder Model 4', folder_name: 'placeholder_model_4', icon: 'mdi-run', enabled: false },
+                { name: 'Placeholder Model 5', folder_name: 'placeholder_model_5', icon: 'mdi-bone', enabled: false },
+                { name: 'Placeholder Model 6', folder_name: 'placeholder_model_6', icon: 'mdi-axis-arrow', enabled: false }
+              ],
   
               showAxes: false, // Add this line to control axes visibility
               axesGroup: null, // Add this line to store the axes group
@@ -7857,8 +7893,7 @@
           for (let body in animation.data.bodies) {
             let bd = animation.data.bodies[body];
             bd.attachedGeometries.forEach((geom) => {
-              let path = 'https://mc-opencap-public.s3.us-west-2.amazonaws.com/geometries/' + geom.substr(0, geom.length - 4) + ".obj";
-              objLoader.load(path, (root) => {
+              this.loadGeometryWithFallback(geom, animation.modelFolderName, (root) => {
                 root.castShadow = false;
                 root.receiveShadow = false;
   
@@ -7881,6 +7916,9 @@
                 this.scene.add(root);
   
                 // Check if all models are loaded
+                checkAllModelsLoaded();
+              }, (error) => {
+                console.error('Error loading geometry with fallback:', error);
                 checkAllModelsLoaded();
               });
             });
@@ -8127,8 +8165,7 @@
                       for (let body in animation.data.bodies) {
                           let bd = animation.data.bodies[body]
                     bd.attachedGeometries.forEach((geom) => {
-                      let path = 'https://mc-opencap-public.s3.us-west-2.amazonaws.com/geometries/' + geom.substr(0, geom.length - 4) + ".obj";
-                      objLoader.load(path, (root) => {
+                      this.loadGeometryWithFallback(geom, animation.modelFolderName, (root) => {
                         root.castShadow = false;
                         root.receiveShadow = false;
   
@@ -8153,6 +8190,8 @@
                                   root.position.add(animation.offset);
   
                         this.scene.add(root);
+                              }, (error) => {
+                                console.error('Error loading geometry with fallback:', error);
                               });
                           });
                   }
@@ -9085,11 +9124,21 @@
         return Math.min(Math.max(calculatedFps, 24), 120);
     },
   
-    async handleFileUpload(event) {
+    async handleFileUpload(event, options = {}) {
         const files = event.target.files;
         if (!files.length) return;
   
         try {
+            let selectedModel = this.selectedModelForImport;
+            if (!options.skipModelSelection) {
+                selectedModel = await this.requestModelSelection();
+                if (!selectedModel) {
+                    this.$toasted.info('Import canceled.');
+                    return;
+                }
+            }
+            const selectedModelFolder = selectedModel?.folder_name || '';
+
             if (!this.scene && !this.sceneInitializing) {
                 this.sceneInitializing = true;
                 await this.$nextTick();
@@ -9162,7 +9211,8 @@
                     visible: true,
                     playable: true,
                     calculatedFps: fileFps,
-                    speedMultiplier: 1.0
+                    speedMultiplier: 1.0,
+                    modelFolderName: selectedModelFolder
                 });
   
                 if (this.animations.length === 1) {
@@ -9294,9 +9344,7 @@
                     for (let body in data.bodies) {
                         let bd = data.bodies[body];
                         bd.attachedGeometries.forEach((geom) => {
-                            let path = 'https://mc-opencap-public.s3.us-west-2.amazonaws.com/geometries/' +
-                                     geom.substr(0, geom.length - 4) + ".obj";
-                            objLoader.load(path, (root) => {
+                            this.loadGeometryWithFallback(geom, this.animations[animIndex]?.modelFolderName, (root) => {
                                 if (!this.scene) return;
   
                                 root.castShadow = false;
@@ -9326,6 +9374,12 @@
                                 }
                                 this.scene.add(root);
   
+                                geometriesLoaded++;
+                                if (geometriesLoaded === totalGeometries) {
+                                    finalizeLoads();
+                                }
+                            }, (error) => {
+                                console.error('Error loading geometry with fallback:', error);
                                 geometriesLoaded++;
                                 if (geometriesLoaded === totalGeometries) {
                                     finalizeLoads();
@@ -12255,9 +12309,7 @@
             for (let body in animation.data.bodies) {
                 let bd = animation.data.bodies[body];
                 bd.attachedGeometries.forEach((geom) => {
-                    let path = 'https://mc-opencap-public.s3.us-west-2.amazonaws.com/geometries/' +
-                             geom.substr(0, geom.length - 4) + ".obj";
-                    objLoader.load(path, (root) => {
+                    this.loadGeometryWithFallback(geom, animation.modelFolderName, (root) => {
                         if (!this.scene) return;
   
                         root.castShadow = true;
@@ -12291,10 +12343,8 @@
                         if (geometriesLoaded === totalGeometries) {
                             this.finishSampleLoading();
                         }
-                    },
-                    undefined,
-                    (error) => {
-                        console.error('Error loading geometry:', error);
+                    }, (error) => {
+                        console.error('Error loading geometry with fallback:', error);
                         geometriesLoaded++;
                         if (geometriesLoaded === totalGeometries) {
                             this.finishSampleLoading();
@@ -12925,7 +12975,7 @@
             
             // Process the converted JSON
             // console.log('Processing converted JSON file...');
-            this.handleFileUpload(fakeEvent);
+            await this.handleFileUpload(fakeEvent);
             
             // Clear the selected files after successful conversion
             this.osimFile = null;
@@ -15044,7 +15094,7 @@
         };
 
         // Process the JSON using our existing handler
-        return this.handleFileUpload(fakeEvent);
+        return this.handleFileUpload(fakeEvent, { skipModelSelection: true });
     },
 
     connectLiveStream() {
@@ -16232,6 +16282,62 @@
   
     openImportDialog() {
       this.showImportDialog = true;
+    },
+    requestModelSelection() {
+      return new Promise((resolve) => {
+        this.pendingModelSelectionResolve = resolve;
+        this.showModelSelectionDialog = true;
+      });
+    },
+    confirmModelSelection(model) {
+      this.selectedModelForImport = model;
+      this.showModelSelectionDialog = false;
+      if (this.pendingModelSelectionResolve) {
+        this.pendingModelSelectionResolve(model);
+        this.pendingModelSelectionResolve = null;
+      }
+    },
+    cancelModelSelection() {
+      this.showModelSelectionDialog = false;
+      if (this.pendingModelSelectionResolve) {
+        this.pendingModelSelectionResolve(null);
+        this.pendingModelSelectionResolve = null;
+      }
+    },
+    buildGeometryPath(geom, folderName = '') {
+      const baseName = geom.substr(0, geom.length - 4);
+      const folderPart = folderName ? `${folderName}/` : '';
+      return `https://mc-opencap-public.s3.us-west-2.amazonaws.com/geometries/${folderPart}${baseName}.obj`;
+    },
+    buildGeometryPaths(geom, folderName = '') {
+      const primary = this.buildGeometryPath(geom, folderName);
+      const fallback = this.buildGeometryPath(geom, '');
+      return primary === fallback ? [primary] : [primary, fallback];
+    },
+    loadGeometryWithFallback(geom, folderName, onLoad, onError) {
+      const paths = this.buildGeometryPaths(geom, folderName);
+      let i = 0;
+      let lastError = null;
+      const tryNext = () => {
+        if (i >= paths.length) {
+          if (onError) onError(lastError);
+          return;
+        }
+        const path = paths[i++];
+        objLoader.load(
+          path,
+          (root) => onLoad(root, path),
+          undefined,
+          (error) => {
+            lastError = error;
+            if (i < paths.length) {
+              console.warn(`[geometry] Failed ${path}; trying fallback path.`);
+            }
+            tryNext();
+          }
+        );
+      };
+      tryNext();
     },
     selectFileType(inputRef) {
       this.$refs[inputRef].click();
@@ -18136,15 +18242,6 @@
   box-shadow: 0 8px 25px rgba(33, 150, 243, 0.3) !important;
   border-color: rgba(33, 150, 243, 0.5) !important;
   background: rgba(33, 150, 243, 0.1) !important;
-  }
-  
-  .sample-option-card .v-icon {
-  transition: all 0.3s ease;
-  }
-  
-  .sample-option-card:hover .v-icon {
-  transform: scale(1.1);
-  color: #2196F3 !important;
   }
   
   .sample-option-card .text-h6 {

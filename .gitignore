@@ -26,6 +26,10 @@ pnpm-debug.log*
 # folder backup
 backup/
 venv/
+*.obj
+*.vtp
+*.stl
+*.zip
 
 
 *.egg-info
