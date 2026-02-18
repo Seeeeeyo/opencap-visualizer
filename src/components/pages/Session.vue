@@ -2606,7 +2606,6 @@
                   :key="model.folder_name"
                   @click="model.enabled === false ? null : confirmModelSelection(model)"
                 >
-                  <v-icon size="32">{{ model.icon || 'mdi-cube-outline' }}</v-icon>
                   <div class="import-item-title">{{ model.name }}</div>
                   <div class="import-item-subtitle">{{ model.folder_name }}</div>
                 </div>
@@ -3963,6 +3962,7 @@
               showModelSelectionDialog: false,
               selectedModelForImport: null,
               pendingModelSelectionResolve: null,
+              geometryFallbackNotified: false,
               modelChoices: [
                 { name: 'Lai Arnold', folder_name: 'LaiArnold', icon: 'mdi-cube-outline', enabled: true },
                 { name: 'Placeholder Model 2', folder_name: 'placeholder_model_2', icon: 'mdi-cube-scan', enabled: false },
@@ -9129,6 +9129,7 @@
         if (!files.length) return;
   
         try {
+            this.geometryFallbackNotified = false;
             let selectedModel = this.selectedModelForImport;
             if (!options.skipModelSelection) {
                 selectedModel = await this.requestModelSelection();
@@ -16332,6 +16333,15 @@
             lastError = error;
             if (i < paths.length) {
               console.warn(`[geometry] Failed ${path}; trying fallback path.`);
+              if (!this.geometryFallbackNotified && folderName) {
+                this.geometryFallbackNotified = true;
+                if (this.$toasted) {
+                  this.$toasted.info(
+                    `Some geometries are unavailable in "${folderName}". Loaded them from generic S3 instead.`,
+                    { duration: 5000 }
+                  );
+                }
+              }
             }
             tryNext();
           }
