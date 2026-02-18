@@ -8231,13 +8231,21 @@
         }
     },
     animate() {
+        const keepLoopAlive = !this.isHeadlessFastMode || this.playing || this.isRecording || this.liveMode;
+        if (!keepLoopAlive) {
+          this.animateLoopStarted = false;
+          return;
+        }
+
         if (!this.animateLoopStarted) {
           this.animateLoopStarted = true;
         }
         // Always schedule the next frame first
         requestAnimationFrame(this.animate);
 
-        this.updateVideoPlaneTransform();
+        if (!this.isHeadlessFastMode) {
+          this.updateVideoPlaneTransform();
+        }
 
         // In live streaming mode, don't advance frames based on our own clock.
         // Just render the current state; frames are driven by incoming WebSocket data.
@@ -8553,6 +8561,9 @@
         console.log(`[togglePlay] Actual playing state set to: ${this.playing}`);
 
         if (this.playing) {
+          if (!this.animateLoopStarted) {
+            this.animate();
+          }
           if (this.liveMode) {
             // In live mode, jump to the latest streamed frame when resuming
             if (this.liveAnimationIndex !== null) {
@@ -9526,19 +9537,21 @@
           console.error('[initScene] Error appending renderer to container:', error);
         }
         
-        try {
-          this.controls = new THREE_OC.OrbitControls(this.camera, this.renderer.domElement);
-          // Keep the target centered at head-height but otherwise use default control behavior
-          this.controls.target.set(0, 1, 0);
-          this.controls.screenSpacePanning = true; // default: pan in screen space for intuitive drag
-          this.controls.enableDamping = false; // default behavior (no smoothing) to match previous feel
-          this.controls.minDistance = 0; // restore default zoom range
-          this.controls.maxDistance = Infinity;
-          this.controls.maxPolarAngle = Math.PI; // allow full vertical rotation (default)
-          this.controls.update();
-          // console.log('[initScene] Orbit controls created successfully');
-        } catch (error) {
-          console.error('[initScene] Error creating orbit controls:', error);
+        if (!this.isHeadlessFastMode) {
+          try {
+            this.controls = new THREE_OC.OrbitControls(this.camera, this.renderer.domElement);
+            // Keep the target centered at head-height but otherwise use default control behavior
+            this.controls.target.set(0, 1, 0);
+            this.controls.screenSpacePanning = true; // default: pan in screen space for intuitive drag
+            this.controls.enableDamping = false; // default behavior (no smoothing) to match previous feel
+            this.controls.minDistance = 0; // restore default zoom range
+            this.controls.maxDistance = Infinity;
+            this.controls.maxPolarAngle = Math.PI; // allow full vertical rotation (default)
+            this.controls.update();
+            // console.log('[initScene] Orbit controls created successfully');
+          } catch (error) {
+            console.error('[initScene] Error creating orbit controls:', error);
+          }
         }
   
         // Create a much larger plane for "infinite" appearance
@@ -9571,7 +9584,7 @@
         const groundMesh = new THREE.Mesh(planeGeo, planeMat);
         groundMesh.rotation.x = Math.PI * -.5;
         groundMesh.position.y = this.groundPositionY;
-        groundMesh.receiveShadow = true;
+        groundMesh.receiveShadow = !this.isHeadlessFastMode;
         this.scene.add(groundMesh);
   
         // Store the mesh reference
