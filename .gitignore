@@ -30,7 +30,8 @@ venv/
 *.vtp
 *.stl
 *.zip
-
+*.mot
+*.osim
 
 *.egg-info
 __pycache__/
