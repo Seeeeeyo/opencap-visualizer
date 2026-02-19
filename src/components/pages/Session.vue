@@ -2591,28 +2591,28 @@
           </v-card>
         </v-dialog>
 
-        <v-dialog v-model="showModelSelectionDialog" max-width="800" persistent>
+        <v-dialog v-model="showModelSelectionDialog" max-width="500" persistent>
           <v-card class="import-dialog-card">
             <v-card-title class="headline">Select Model</v-card-title>
             <v-card-text>
-              <div class="text-body-2 mb-6">
+              <div class="text-body-2 mb-4">
                 Choose which geometry model folder to use for this import.
               </div>
-              <div class="import-grid">
-                <div
-                  class="import-item"
-                  :class="{ disabled: model.enabled === false }"
-                  v-for="model in modelChoices"
-                  :key="model.folder_name"
-                  @click="model.enabled === false ? null : confirmModelSelection(model)"
-                >
-                  <div class="import-item-title">{{ model.name }}</div>
-                </div>
-              </div>
+              <v-select
+                v-model="selectedModelFolder"
+                :items="modelChoices.filter(m => m.enabled)"
+                item-text="name"
+                item-value="folder_name"
+                label="Model"
+                outlined
+                dense
+                hide-details
+              />
             </v-card-text>
             <v-card-actions>
               <v-spacer></v-spacer>
               <v-btn text @click="cancelModelSelection">Cancel</v-btn>
+              <v-btn color="primary" text @click="confirmModelSelection(modelChoices.find(m => m.folder_name === selectedModelFolder))">Confirm</v-btn>
             </v-card-actions>
           </v-card>
         </v-dialog>
@@ -3960,6 +3960,7 @@
               showImportDialog: false, // Add this line to control the import dialog
               showModelSelectionDialog: false,
               selectedModelForImport: null,
+              selectedModelFolder: 'LaiArnold',
               pendingModelSelectionResolve: null,
               geometryFallbackNotified: false,
               modelChoices: [
@@ -16286,6 +16287,7 @@
     requestModelSelection() {
       return new Promise((resolve) => {
         this.pendingModelSelectionResolve = resolve;
+        this.selectedModelFolder = 'LaiArnold';
         this.showModelSelectionDialog = true;
       });
     },
