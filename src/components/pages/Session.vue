@@ -2607,7 +2607,6 @@
                   @click="model.enabled === false ? null : confirmModelSelection(model)"
                 >
                   <div class="import-item-title">{{ model.name }}</div>
-                  <div class="import-item-subtitle">{{ model.folder_name }}</div>
                 </div>
               </div>
             </v-card-text>
@@ -3964,12 +3963,12 @@
               pendingModelSelectionResolve: null,
               geometryFallbackNotified: false,
               modelChoices: [
-                { name: 'Lai Arnold', folder_name: 'LaiArnold', icon: 'mdi-cube-outline', enabled: true },
-                { name: 'Placeholder Model 2', folder_name: 'placeholder_model_2', icon: 'mdi-cube-scan', enabled: false },
-                { name: 'Placeholder Model 3', folder_name: 'placeholder_model_3', icon: 'mdi-human-male', enabled: false },
-                { name: 'Placeholder Model 4', folder_name: 'placeholder_model_4', icon: 'mdi-run', enabled: false },
-                { name: 'Placeholder Model 5', folder_name: 'placeholder_model_5', icon: 'mdi-bone', enabled: false },
-                { name: 'Placeholder Model 6', folder_name: 'placeholder_model_6', icon: 'mdi-axis-arrow', enabled: false }
+                { name: 'Lai Arnold', folder_name: 'LaiArnold', enabled: true },
+                { name: 'Hu Shoulder', folder_name: 'Hu_ISB_shoulder', enabled: true },
+                { name: 'Placeholder Model 3', folder_name: 'placeholder_model_3', enabled: false },
+                // { name: 'Placeholder Model 4', folder_name: 'placeholder_model_4', enabled: false },
+                // { name: 'Placeholder Model 5', folder_name: 'placeholder_model_5', enabled: false },
+                // { name: 'Placeholder Model 6', folder_name: 'placeholder_model_6', enabled: false }
               ],
   
               showAxes: false, // Add this line to control axes visibility
