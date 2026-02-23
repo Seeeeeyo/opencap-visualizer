@@ -1970,6 +1970,14 @@
               </div>
             </div>
           </div>
+          <div
+            v-if="showFirefoxWarning && $route.query.embed !== 'true'"
+            id="firefox-warning"
+            class="firefox-warning"
+            role="alert"
+          >
+            Firefox may show degraded syncing between the video and 3D visualizer. For the smoothest experience, use Chrome/Safari/Brave.
+          </div>
           <div class="controls-container" style="display: flex; align-items: center; padding: 0 10px;" v-if="$route.query.embed !== 'true'">
             <!-- Video controls on the left -->
             <VideoNavigation
@@ -4213,6 +4221,11 @@
             return Math.max(...animation.data.time);
           }
           return 10;
+        },
+        showFirefoxWarning() {
+          if (typeof navigator === 'undefined') return false;
+          const ua = navigator.userAgent || '';
+          return /firefox|fxios/i.test(ua);
         }
       },
     async   mounted() {
@@ -8905,7 +8918,12 @@
       this.onNavigate(0);
   
       const canvas = this.renderer.domElement;
-      const stream = canvas.captureStream(this.frameRate);
+      const captureStreamFn = canvas.captureStream || canvas.mozCaptureStream;
+      if (!captureStreamFn) {
+        alert('Recording is not supported in this browser');
+        return;
+      }
+      const stream = captureStreamFn.call(canvas, this.frameRate);
   
       // Set the appropriate MIME type and file extension based on the selected format
       let mimeType, fileExtension;
@@ -8962,16 +8980,28 @@
       // Update the file name based on the selected format
     this.recordingFileName = `opencap-recording${fileExtension}`;
   
+    const createRecorderWithFallbacks = (targetStream, preferredMimeType) => {
+      const optionSets = [
+        { mimeType: preferredMimeType, videoBitsPerSecond: this.videoBitrate },
+        { mimeType: preferredMimeType },
+        {}
+      ];
+      for (const options of optionSets) {
+        try {
+          return new MediaRecorder(targetStream, options);
+        } catch (createError) {
+          console.warn('MediaRecorder creation failed with options', options, createError);
+        }
+      }
+      return null;
+    };
+
     // Try to create MediaRecorder with selected format
-      try {
-        this.mediaRecorder = new MediaRecorder(stream, {
-          mimeType: mimeType,
-          videoBitsPerSecond: this.videoBitrate
-        });
-  
+      this.mediaRecorder = createRecorderWithFallbacks(stream, mimeType);
+      if (this.mediaRecorder) {
       console.log(`MediaRecorder created with: ${mimeType}, bitrate: ${this.videoBitrate}`);
-      } catch (error) {
-    console.warn(`Failed to create MediaRecorder with ${mimeType}, trying WebM fallback`, error);
+      } else {
+    console.warn(`Failed to create MediaRecorder with ${mimeType}, trying WebM fallback`);
   
     // Fallback to WebM if MP4 fails
     if (this.recordingFormat === 'mp4') {
@@ -8979,19 +9009,16 @@
       this.recordingFormat = 'webm';
       const webmMimeType = checkMimeType('video/webm;codecs=vp8') ? 'video/webm;codecs=vp8' : 'video/webm';
       
-      try {
-        this.mediaRecorder = new MediaRecorder(stream, {
-          mimeType: webmMimeType,
-          videoBitsPerSecond: this.videoBitrate
-        });
+      this.mediaRecorder = createRecorderWithFallbacks(stream, webmMimeType);
+      if (this.mediaRecorder) {
         console.log(`MediaRecorder created with WebM fallback: ${webmMimeType}`);
-      } catch (webmError) {
-        console.error('WebM fallback also failed', webmError);
+      } else {
+        console.error('WebM fallback also failed');
         alert('Recording is not supported in your browser');
         return;
       }
     } else {
-      console.error('Failed to create MediaRecorder', error);
+      console.error('Failed to create MediaRecorder');
         alert('Recording is not supported in your browser');
         return;
       }
@@ -9062,7 +9089,7 @@
   
     // Start recording with timeslices based on frame rate for smooth capture
     // This ensures data is captured at the right intervals for smooth video
-    const timeslice = Math.round(1000 / this.frameRate); // e.g., ~33ms for 30fps
+    const timeslice = Math.max(100, Math.round(1000 / this.frameRate)); // keep chunks coarse enough for Firefox stability
     this.mediaRecorder.start(timeslice); // Capture at frame rate intervals
       this.isRecording = true;
   
@@ -17511,6 +17538,21 @@
   display: flex;
   align-items: center;
   z-index: 5; /* Ensure controls are above viewer content */
+  }
+
+  .firefox-warning {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 64px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(255, 152, 0, 0.2);
+  border: 1px solid rgba(255, 152, 0, 0.65);
+  color: #fff3e0;
+  font-size: 12px;
+  line-height: 1.3;
+  z-index: 6;
   }
   
   .left,
