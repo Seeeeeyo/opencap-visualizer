@@ -2538,6 +2538,16 @@
               style="display: none"
               @change="handleMarkersFileSelectFromImport"
             />
+            <input
+              type="file"
+              ref="geometryFolderInput"
+              accept=".obj"
+              style="display: none"
+              webkitdirectory
+              directory
+              multiple
+              @change="handleGeometryFolderSelect"
+            />
           </div>
         </div>
   
@@ -2616,6 +2626,18 @@
                 dense
                 hide-details
               />
+              <div v-if="selectedModelFolder === customGeometryModelKey" class="mt-4">
+                <v-btn outlined color="primary" @click="selectGeometryFolder">
+                  <v-icon left small>mdi-folder-upload-outline</v-icon>
+                  Upload Geometry Folder
+                </v-btn>
+                <div class="text-caption mt-2 grey--text text--lighten-1">
+                  Folder: {{ customGeometryFolderName || 'None selected' }}
+                </div>
+                <div class="text-caption grey--text text--lighten-1">
+                  OBJ files found: {{ customGeometryFileCount }}
+                </div>
+              </div>
             </v-card-text>
             <v-card-actions>
               <v-spacer></v-spacer>
@@ -3971,9 +3993,15 @@
               selectedModelFolder: 'LaiArnold',
               pendingModelSelectionResolve: null,
               geometryFallbackNotified: false,
+              customGeometryFallbackNotified: false,
+              customGeometryModelKey: '__uploaded_geometry__',
+              customGeometryFilesByBaseName: {},
+              customGeometryFolderName: '',
+              customGeometryFileCount: 0,
               modelChoices: [
                 { name: 'Lai Arnold', folder_name: 'LaiArnold', enabled: true },
                 { name: 'Hu Shoulder', folder_name: 'Hu_ISB_shoulder', enabled: true },
+                { name: 'Upload Geometry Folder', folder_name: '__uploaded_geometry__', enabled: true },
                 { name: 'Placeholder Model 3', folder_name: 'placeholder_model_3', enabled: false },
                 // { name: 'Placeholder Model 4', folder_name: 'placeholder_model_4', enabled: false },
                 // { name: 'Placeholder Model 5', folder_name: 'placeholder_model_5', enabled: false },
@@ -9157,6 +9185,7 @@
   
         try {
             this.geometryFallbackNotified = false;
+            this.customGeometryFallbackNotified = false;
             let selectedModel = this.selectedModelForImport;
             if (!options.skipModelSelection) {
                 selectedModel = await this.requestModelSelection();
@@ -9165,7 +9194,11 @@
                     return;
                 }
             }
-            const selectedModelFolder = selectedModel?.folder_name || '';
+            const defaultModelChoice = this.modelChoices.find((choice) =>
+                choice.enabled && choice.folder_name !== this.customGeometryModelKey
+            );
+            const fallbackModelFolder = defaultModelChoice?.folder_name || 'LaiArnold';
+            const selectedModelFolder = selectedModel?.folder_name || this.selectedModelFolder || fallbackModelFolder;
 
             if (!this.scene && !this.sceneInitializing) {
                 this.sceneInitializing = true;
@@ -14769,7 +14802,7 @@
         } else if (event.data.type === 'loadJson') {
           // Handle JSON data loading
           if (event.data.jsonData) {
-            this.loadJsonData(event.data.jsonData);
+            this.loadJsonData(event.data.jsonData, event.data.modelFolderName);
           }
         } else if (event.data.type === 'setPlaySpeed') {
           // Handle playback speed setting
@@ -15100,10 +15133,28 @@
         this.gridTexture.repeat.set(gridRep, gridRep);
     },
     // Add this new method
-    loadJsonData(jsonData) {
+    loadJsonData(jsonData, modelFolderName = null) {
         // Clear existing scene so we replace rather than append
         if (this.scene) {
             this.clearScene();
+        }
+
+        const validModel = this.modelChoices.find((choice) =>
+          choice.enabled && choice.folder_name === modelFolderName
+        );
+        if (validModel) {
+          this.selectedModelForImport = validModel;
+          this.selectedModelFolder = validModel.folder_name;
+        } else if (!this.selectedModelForImport) {
+          const defaultModel = this.modelChoices.find((choice) =>
+            choice.enabled && choice.folder_name !== this.customGeometryModelKey
+          );
+          if (defaultModel) {
+            this.selectedModelForImport = defaultModel;
+            this.selectedModelFolder = defaultModel.folder_name;
+          } else {
+            this.selectedModelFolder = this.selectedModelFolder || 'LaiArnold';
+          }
         }
 
         // Create a "virtual" File object with the JSON data
@@ -16318,7 +16369,44 @@
         this.showModelSelectionDialog = true;
       });
     },
+    selectGeometryFolder() {
+      if (this.$refs.geometryFolderInput) {
+        this.$refs.geometryFolderInput.click();
+      }
+    },
+    handleGeometryFolderSelect(event) {
+      const files = Array.from(event.target.files || []);
+      const objFiles = files.filter(file => file.name.toLowerCase().endsWith('.obj'));
+      if (objFiles.length === 0) {
+        this.customGeometryFilesByBaseName = {};
+        this.customGeometryFolderName = '';
+        this.customGeometryFileCount = 0;
+        if (this.$toasted) this.$toasted.error('No .obj files found in selected folder.');
+        return;
+      }
+
+      const map = {};
+      objFiles.forEach((file) => {
+        const baseName = file.name.replace(/\.[^/.]+$/, '').toLowerCase();
+        if (!map[baseName]) map[baseName] = file;
+      });
+
+      this.customGeometryFilesByBaseName = map;
+      this.customGeometryFileCount = Object.keys(map).length;
+      this.customGeometryFolderName = files[0]?.webkitRelativePath?.split('/')[0] || 'Selected folder';
+      this.customGeometryFallbackNotified = false;
+
+      if (this.$toasted) {
+        this.$toasted.success(`Loaded geometry folder with ${this.customGeometryFileCount} OBJ files.`);
+      }
+      event.target.value = '';
+    },
     confirmModelSelection(model) {
+      if (!model) return;
+      if (model.folder_name === this.customGeometryModelKey && this.customGeometryFileCount === 0) {
+        if (this.$toasted) this.$toasted.error('Upload a geometry folder before confirming this option.');
+        return;
+      }
       this.selectedModelForImport = model;
       this.showModelSelectionDialog = false;
       if (this.pendingModelSelectionResolve) {
@@ -16335,15 +16423,51 @@
     },
     buildGeometryPath(geom, folderName = '') {
       const baseName = geom.substr(0, geom.length - 4);
-      const folderPart = folderName ? `${folderName}/` : '';
+      const folderPart = (folderName && folderName !== this.customGeometryModelKey) ? `${folderName}/` : '';
       return `https://mc-opencap-public.s3.us-west-2.amazonaws.com/geometries/${folderPart}${baseName}.obj`;
     },
     buildGeometryPaths(geom, folderName = '') {
+      if (folderName === this.customGeometryModelKey) {
+        return [this.buildGeometryPath(geom, '')];
+      }
       const primary = this.buildGeometryPath(geom, folderName);
       const fallback = this.buildGeometryPath(geom, '');
       return primary === fallback ? [primary] : [primary, fallback];
     },
+    getCustomGeometryFile(geom) {
+      const baseName = geom.substr(0, geom.length - 4).toLowerCase();
+      return this.customGeometryFilesByBaseName[baseName] || null;
+    },
+    loadCustomGeometryFile(file, onLoad, onError) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const root = objLoader.parse(event.target.result);
+          onLoad(root, `local:${file.name}`);
+        } catch (error) {
+          if (onError) onError(error);
+        }
+      };
+      reader.onerror = () => {
+        if (onError) onError(new Error(`Failed to read local geometry file: ${file.name}`));
+      };
+      reader.readAsText(file);
+    },
     loadGeometryWithFallback(geom, folderName, onLoad, onError) {
+      if (folderName === this.customGeometryModelKey) {
+        const localFile = this.getCustomGeometryFile(geom);
+        if (localFile) {
+          this.loadCustomGeometryFile(localFile, onLoad, onError);
+          return;
+        }
+        if (!this.customGeometryFallbackNotified) {
+          this.customGeometryFallbackNotified = true;
+          if (this.$toasted) {
+            this.$toasted.info('Some uploaded geometries are missing. Falling back to generic S3 geometries.', { duration: 5000 });
+          }
+        }
+      }
+
       const paths = this.buildGeometryPaths(geom, folderName);
       let i = 0;
       let lastError = null;
