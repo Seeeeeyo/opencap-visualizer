@@ -13034,7 +13034,12 @@
                 }
             };
             
-            // Process the converted JSON
+            // At this point the OpenSim → JSON conversion is complete.
+            // Hide the conversion overlay before prompting for model selection
+            // so the dialog is fully visible and interactive.
+            this.converting = false;
+            
+            // Process the converted JSON (this may show the model selection dialog)
             // console.log('Processing converted JSON file...');
             await this.handleFileUpload(fakeEvent);
             
@@ -13081,6 +13086,8 @@
             this.osimFile = null;
             this.motFile = null;
         } finally {
+            // Ensure the converting flag is cleared even if an unexpected error occurs
+            // after the API call but before or during file handling.
             this.converting = false;
         }
     },
