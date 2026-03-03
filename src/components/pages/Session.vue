@@ -4074,7 +4074,7 @@
               liveUrl: 'ws://localhost:8765',
               liveSocket: null,
               liveStatus: 'disconnected', // 'connecting' | 'connected' | 'error'
-              liveAnimationIndex: null,
+              liveAnimationIndices: {}, // map from subject ID -> animation index (supports multiple subjects)
               liveBodyStyle: {}, // per-body visibility/color overrides from live init (bodyStyle)
               showLiveStreamDetails: false, // Toggle for Live IK Stream section
               showSyncDetails: false, // Toggle for Sync section
@@ -8560,7 +8560,7 @@
             }
           });
 
-          if (this.liveAnimationIndex !== null) {
+          if (Object.keys(this.liveAnimationIndices).length > 0) {
             this.applyLiveBodyStyle();
           }
 
@@ -8645,9 +8645,10 @@
             this.animate();
           }
           if (this.liveMode) {
-            // In live mode, jump to the latest streamed frame when resuming
-            if (this.liveAnimationIndex !== null) {
-              const anim = this.animations[this.liveAnimationIndex];
+            // In live mode, jump to the latest streamed frame when resuming (use first subject as master)
+            const firstLiveIdx = Object.values(this.liveAnimationIndices)[0];
+            if (firstLiveIdx !== undefined) {
+              const anim = this.animations[firstLiveIdx];
               if (anim && Array.isArray(anim.data.time) && anim.data.time.length > 0) {
                 this.frames = anim.data.time;
                 this.frame = this.frames.length - 1;
@@ -9377,7 +9378,7 @@
   
                 if (this.syncMode !== 'none') {
                     this.applySyncMode();
-                } else if (this.animations.length > 1) {
+                } else if (this.animations.length > 1 && !this.liveMode) {
                     this.syncAllAnimations();
                 }
   
@@ -15140,9 +15141,10 @@
         this.gridTexture.repeat.set(gridRep, gridRep);
     },
     // Add this new method
-    loadJsonData(jsonData, modelFolderName = null) {
-        // Clear existing scene so we replace rather than append
-        if (this.scene) {
+    loadJsonData(jsonData, modelFolderName = null, skipClear = false) {
+        // Clear existing scene so we replace rather than append.
+        // Pass skipClear=true when appending additional subjects (e.g. multi-subject live stream).
+        if (!skipClear && this.scene) {
             this.clearScene();
         }
 
@@ -15208,7 +15210,7 @@
           this.liveStatus = 'disconnected';
           this.liveMode = false;
           this.liveSocket = null;
-          this.liveAnimationIndex = null;
+          this.liveAnimationIndices = {};
         };
 
         socket.onerror = (err) => {
@@ -15241,58 +15243,65 @@
       this.liveSocket = null;
       this.liveStatus = 'disconnected';
       this.liveMode = false;
-      this.liveAnimationIndex = null;
+      this.liveAnimationIndices = {};
       this.liveBodyStyle = {};
     },
 
     async handleLiveInit(msg) {
       console.log('[live] init', msg);
 
-      // Normalize init for single subject: frontend expects flat msg.bodies (and optional msg.bodyStyle)
-      if (msg.subjects && msg.subjects.length > 0 && !msg.bodies) {
-        msg.bodies = msg.subjects[0].bodies || {};
-        if (msg.bodyStyle === undefined) {
-          msg.bodyStyle = msg.subjects[0].bodyStyle || {};
-        }
-      }
       this.liveBodyStyle = msg.bodyStyle && typeof msg.bodyStyle === 'object' ? { ...msg.bodyStyle } : {};
+      this.liveAnimationIndices = {};
 
-      const baseJson = {
-        time: [0],
-        bodies: {}
-      };
+      // Support multi-subject (subjects array) or single-subject (flat bodies)
+      const subjects = msg.subjects && msg.subjects.length > 0
+        ? msg.subjects
+        : [{ id: '__default__', bodies: msg.bodies || {} }];
 
-      Object.entries(msg.bodies || {}).forEach(([name, bd]) => {
-        baseJson.bodies[name] = {
-          attachedGeometries: bd.attachedGeometries || [],
-          scaleFactors: bd.scaleFactors || [1.0, 1.0, 1.0],
-          rotation: [[0, 0, 0]],
-          translation: [[0, 0, 0]]
+      for (let si = 0; si < subjects.length; si++) {
+        const subject = subjects[si];
+        const baseJson = {
+          time: [0],
+          bodies: {}
         };
-      });
 
-      await this.loadJsonData(baseJson);
+        Object.entries(subject.bodies || {}).forEach(([name, bd]) => {
+          baseJson.bodies[name] = {
+            attachedGeometries: bd.attachedGeometries || [],
+            scaleFactors: bd.scaleFactors || [1.0, 1.0, 1.0],
+            rotation: [[0, 0, 0]],
+            translation: [[0, 0, 0]]
+          };
+        });
 
-      const liveIndex = this.animations.length - 1;
-      if (liveIndex < 0) {
-        console.error('[live] No animation created from init');
-        return;
+        // Only clear the scene on the first subject; subsequent subjects append their meshes
+        await this.loadJsonData(baseJson, null, si > 0);
+
+        const liveIndex = this.animations.length - 1;
+        if (liveIndex < 0) {
+          console.error('[live] No animation created for subject', subject.id);
+          continue;
+        }
+
+        this.liveAnimationIndices[subject.id] = liveIndex;
+        const anim = this.animations[liveIndex];
+
+        anim.data.time = [];
+        Object.values(anim.data.bodies).forEach((bd) => {
+          bd.rotation = [];
+          bd.translation = [];
+        });
       }
-
-      this.liveAnimationIndex = liveIndex;
-      const anim = this.animations[liveIndex];
-
-      anim.data.time = [];
-      Object.values(anim.data.bodies).forEach((bd) => {
-        bd.rotation = [];
-        bd.translation = [];
-      });
 
       if (typeof msg.frameRate === 'number' && msg.frameRate > 0) {
         this.frameRate = msg.frameRate;
       }
 
-      this.frames = anim.data.time;
+      // Use the first subject's time array as the master frames reference
+      const firstIdx = Object.values(this.liveAnimationIndices)[0];
+      if (firstIdx !== undefined) {
+        this.frames = this.animations[firstIdx].data.time;
+      }
       this.frame = 0;
       this.playing = false;
       this.updateDisplayedTime();
@@ -15301,80 +15310,106 @@
     },
 
     handleLiveFrame(msg) {
-      // Normalize frame for single subject: frontend expects msg.time and msg.bodies
-      if (msg.streams && typeof msg.streams === 'object' && Object.keys(msg.streams).length > 0) {
-        const firstKey = Object.keys(msg.streams)[0];
-        const first = msg.streams[firstKey];
-        msg.time = first.time;
-        msg.bodies = first.bodies || {};
-      }
-
-      if (this.liveAnimationIndex === null) {
+      if (Object.keys(this.liveAnimationIndices).length === 0) {
         console.warn('[live] Frame received before init; ignoring');
         return;
       }
 
-      const anim = this.animations[this.liveAnimationIndex];
-      const data = anim.data;
+      const streams = msg.streams && typeof msg.streams === 'object' ? msg.streams : {};
 
-      const t = typeof msg.time === 'number'
-        ? msg.time
-        : (data.time.length > 0 ? data.time[data.time.length - 1] : 0);
-      data.time.push(t);
-
-      Object.entries(msg.bodies || {}).forEach(([name, bodyMsg]) => {
-        if (!data.bodies[name]) {
-          return;
+      // Backward-compat: flat msg.time/msg.bodies with no streams dict (single-subject servers)
+      if (Object.keys(streams).length === 0 && (msg.time !== undefined || msg.bodies !== undefined)) {
+        const fallbackId = Object.keys(this.liveAnimationIndices)[0];
+        if (fallbackId) {
+          streams[fallbackId] = { time: msg.time, bodies: msg.bodies || {} };
         }
-        const bd = data.bodies[name];
-        const rot = Array.isArray(bodyMsg.rotation) ? bodyMsg.rotation : [0, 0, 0];
-        const trn = Array.isArray(bodyMsg.translation) ? bodyMsg.translation : [0, 0, 0];
-        bd.rotation.push(rot);
-        bd.translation.push(trn);
+      }
+
+      // Update each subject's animation data
+      let masterData = null;
+      Object.entries(streams).forEach(([subjectId, streamData]) => {
+        const animIdx = this.liveAnimationIndices[subjectId];
+        if (animIdx === undefined) return;
+
+        const anim = this.animations[animIdx];
+        if (!anim) return;
+
+        const data = anim.data;
+        const t = typeof streamData.time === 'number'
+          ? streamData.time
+          : (data.time.length > 0 ? data.time[data.time.length - 1] : 0);
+        data.time.push(t);
+
+        Object.entries(streamData.bodies || {}).forEach(([name, bodyMsg]) => {
+          if (!data.bodies[name]) return;
+          const bd = data.bodies[name];
+          const rot = Array.isArray(bodyMsg.rotation) ? bodyMsg.rotation : [0, 0, 0];
+          const trn = Array.isArray(bodyMsg.translation) ? bodyMsg.translation : [0, 0, 0];
+          bd.rotation.push(rot);
+          bd.translation.push(trn);
+        });
+
+        // If any body was absent from this frame message, repeat its last known pose so all
+        // body arrays stay the same length as the time array (avoids "Missing translation" errors).
+        const expectedLen = data.time.length;
+        Object.values(data.bodies).forEach((bd) => {
+          if (bd.rotation.length < expectedLen) {
+            bd.rotation.push(bd.rotation.length > 0 ? bd.rotation[bd.rotation.length - 1] : [0, 0, 0]);
+          }
+          if (bd.translation.length < expectedLen) {
+            bd.translation.push(bd.translation.length > 0 ? bd.translation[bd.translation.length - 1] : [0, 0, 0]);
+          }
+        });
+
+        // First subject acts as the master for frame index / time reference
+        if (masterData === null) {
+          masterData = data;
+        }
       });
 
       // If playback is paused, buffer frames but don't update the visible pose yet.
-      if (!this.playing) {
+      if (!this.playing || !masterData) {
         return;
       }
 
-      this.frames = data.time;
+      this.frames = masterData.time;
       this.frame = this.frames.length - 1;
       this.updateDisplayedTime();
       this.animateOneFrame();
     },
 
     applyLiveBodyStyle() {
-      if (this.liveAnimationIndex === null || !this.liveBodyStyle || Object.keys(this.liveBodyStyle).length === 0) {
+      if (Object.keys(this.liveAnimationIndices).length === 0 || !this.liveBodyStyle || Object.keys(this.liveBodyStyle).length === 0) {
         return;
       }
-      const liveIndex = this.liveAnimationIndex;
-      const anim = this.animations[liveIndex];
-      if (!anim || !anim.data || !anim.data.bodies) return;
-      const bodies = anim.data.bodies;
-      Object.keys(bodies).forEach((bodyName) => {
-        const style = this.liveBodyStyle[bodyName];
-        if (!style) return;
-        const visible = style.visible !== false;
-        const colorHex = style.color;
-        (bodies[bodyName].attachedGeometries || []).forEach((geom) => {
-          const meshKey = `anim${liveIndex}_${bodyName}${geom}`;
-          const mesh = this.meshes[meshKey];
-          if (!mesh) return;
-          mesh.visible = visible;
-          if (colorHex && typeof colorHex === 'string') {
-            try {
-              const threeColor = new THREE.Color(colorHex);
-              mesh.traverse((child) => {
-                if (child instanceof THREE.Mesh && child.material) {
-                  child.material.color.copy(threeColor);
-                  if (child.material.needsUpdate !== undefined) child.material.needsUpdate = true;
-                }
-              });
-            } catch (e) {
-              console.warn('[live] Invalid bodyStyle color for', bodyName, colorHex, e);
+      Object.values(this.liveAnimationIndices).forEach((liveIndex) => {
+        const anim = this.animations[liveIndex];
+        if (!anim || !anim.data || !anim.data.bodies) return;
+        const bodies = anim.data.bodies;
+        Object.keys(bodies).forEach((bodyName) => {
+          const style = this.liveBodyStyle[bodyName];
+          if (!style) return;
+          const visible = style.visible !== false;
+          const colorHex = style.color;
+          (bodies[bodyName].attachedGeometries || []).forEach((geom) => {
+            const meshKey = `anim${liveIndex}_${bodyName}${geom}`;
+            const mesh = this.meshes[meshKey];
+            if (!mesh) return;
+            mesh.visible = visible;
+            if (colorHex && typeof colorHex === 'string') {
+              try {
+                const threeColor = new THREE.Color(colorHex);
+                mesh.traverse((child) => {
+                  if (child instanceof THREE.Mesh && child.material) {
+                    child.material.color.copy(threeColor);
+                    if (child.material.needsUpdate !== undefined) child.material.needsUpdate = true;
+                  }
+                });
+              } catch (e) {
+                console.warn('[live] Invalid bodyStyle color for', bodyName, colorHex, e);
+              }
             }
-          }
+          });
         });
       });
     },
