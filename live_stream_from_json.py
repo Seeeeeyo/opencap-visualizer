@@ -1,5 +1,6 @@
 import asyncio
 import json
+import socket
 import sys
 import time
 from pathlib import Path
@@ -15,9 +16,55 @@ Playback is paced using the actual timestamps in the JSON so that, on
 average, wall-clock time matches recorded time (optionally scaled by a
 speed factor).
 
-Usage:
-    python live_stream_from_json.py public/samples/STS/sample_mono.json [speed]
-    # then in the browser, connect to ws://localhost:8765 from the visualizer
+Usage (single subject):
+    python live_stream_from_json.py subject.json [speed]
+
+Usage (two subjects):
+    python live_stream_from_json.py subject1.json subject2.json [speed]
+
+Coloring options:
+    # Uniform color per subject
+    --subject-colors "#d3d3d3,#4995e0"
+
+    # Same per-bone style applied to both subjects
+    --body-style '{"pelvis": {"color": "#ff0000"}, "femur_r": {"color": "#00ff00"}}'
+
+    # Different per-bone styles for each subject (JSON array, one dict per subject)
+    --body-style '[{"pelvis": {"color": "#ff0000"}}, {"pelvis": {"color": "#0000ff"}}]'
+
+Camera options:
+    # Anatomical presets (recommended for OpenCap data):
+    #   anterior       – facing the subject's front
+    #   posterior      – behind the subject
+    #   sagittal_right – subject's right side
+    #   sagittal_left  – subject's left side
+    #   superior       – looking down from above
+    #   inferior       – looking up from below
+    --camera anterior
+
+    # Generic axis presets: front | back | left | right | top | bottom | isometric | default
+    #   corner views:   frontTopRight | frontTopLeft | backTopRight | backTopLeft | ...
+    --camera front
+
+    # Exact position + look-at target (meters)
+    --camera '{"position": [3, 2, -4], "target": [0, 1, 0]}'
+
+Model options:
+    # Single model for all subjects (folder_name from the visualizer model list)
+    --model LaiArnold
+    --model Hu_ISB_shoulder
+
+    # Different model per subject (comma-separated, one per subject)
+    --model "LaiArnold,Hu_ISB_shoulder"
+
+Then in the browser connect to ws://localhost:8765 from the visualizer.
+
+Same WiFi (stream on one computer, view on another):
+  The server binds to all interfaces (0.0.0.0). On the streaming machine, run this script;
+  on the viewing machine open the visualizer and set WebSocket URL to ws://<streaming-IP>:8765
+  (e.g. ws://192.168.1.50:8765). If you use https://visualizer.opencap.ai, browsers block
+  ws:// (mixed content); run the visualizer locally (npm run serve) on the viewing machine
+  and use the ws:// URL there, or use a tunnel (e.g. ngrok) for wss://.
 """
 
 DEFAULT_JSON_PATH = Path(__file__).parent / "mono.json"
@@ -40,14 +87,18 @@ async def stream_from_json(
     speed: float = 1.0,
     body_style: dict | None = None,
     subject_colors: list[str] | None = None,
+    camera: "dict | str | None" = None,
+    models: "list[str] | None" = None,
 ):
     """
     Stream one or two visualizer JSON files over WebSocket in (optionally downsampled)
     real time.
 
-    body_style: optional global dict mapping body name -> { "visible": bool, "color": "#RRGGBB" }
-    subject_colors: optional list of hex color strings, one per subject (e.g. ["#d3d3d3", "#4995e0"]).
-                    Each color is applied to all bodies of that subject and overrides body_style.
+    body_style: flat dict  { bodyName: { "visible": bool, "color": "#RRGGBB" } } applied to every
+                subject, OR a JSON array [ {subject1 styles}, {subject2 styles} ] for per-subject
+                per-bone control.
+    subject_colors: list of hex color strings, one per subject (e.g. ["#d3d3d3", "#4995e0"]).
+                    Colors every bone of that subject uniformly. Takes priority over body_style.
 
     Protocol:
       init:
@@ -153,18 +204,31 @@ async def stream_from_json(
             suffix += 1
         subject_ids.append(subject_id)
 
+        # Resolve model for this subject:
+        # models list is indexed by subject position (0-based); a single entry applies to all.
+        model: str | None = None
+        if models:
+            model = models[idx - 1] if idx - 1 < len(models) else models[0]
+
         subject_entry: dict = {
             "id": subject_id,
             "label": path.stem,
             "bodies": bodies_meta,
         }
+        if model:
+            subject_entry["model"] = model
 
-        # Per-subject color: build a bodyStyle that colors every body with the given hex color
+        # Per-subject bodyStyle resolution (highest to lowest priority):
+        #   1. --subject-colors entry for this subject (single hex color → all bodies)
+        #   2. --body-style entry for this subject when body_style is a list
+        #   3. --body-style as a flat dict (applied to every subject)
         color = subject_colors[idx - 1] if subject_colors and idx - 1 < len(subject_colors) else None
         if color:
             subject_entry["bodyStyle"] = {name: {"color": color} for name in bodies_meta}
+        elif isinstance(body_style, list):
+            if idx - 1 < len(body_style) and isinstance(body_style[idx - 1], dict):
+                subject_entry["bodyStyle"] = body_style[idx - 1]
         elif body_style:
-            # Fall back to the global body_style for single-subject or when no per-subject color set
             subject_entry["bodyStyle"] = body_style
 
         subjects_meta.append(subject_entry)
@@ -178,8 +242,10 @@ async def stream_from_json(
     # Single-subject frontend compatibility: send flat bodies (and bodyStyle) at top level
     if len(subjects_meta) == 1:
         init_msg["bodies"] = subjects_meta[0]["bodies"]
-    if body_style:
+    if body_style and not isinstance(body_style, list):
         init_msg["bodyStyle"] = body_style
+    if camera is not None:
+        init_msg["camera"] = camera if isinstance(camera, dict) else {"view": camera}
     await websocket.send(json.dumps(init_msg))
 
     # Give the client a brief moment to load meshes
@@ -228,13 +294,61 @@ async def stream_from_json(
             await websocket.send(json.dumps(frame_msg))
 
 
-def _parse_body_style(arg: str) -> dict | None:
-    """Parse --body-style: either a path to a JSON file or inline JSON string."""
+_CAMERA_PRESETS = {
+    # Generic axis-aligned presets (visualizer coordinate names)
+    "front", "back", "left", "right", "top", "bottom",
+    "isometric", "default",
+    "frontTopRight", "frontTopLeft", "frontBottomRight", "frontBottomLeft",
+    "backTopRight", "backTopLeft", "backBottomRight", "backBottomLeft",
+    # OpenCap anatomical aliases (map to the correct axis for a standing subject)
+    "anterior",      # frontal plane, facing subject  (+X in OpenCap) = same as 'right'
+    "posterior",     # behind subject                 (-X in OpenCap) = same as 'left'
+    "sagittal_right", # subject's right side          (+Z in OpenCap) = same as 'front'
+    "sagittal_left",  # subject's left side           (-Z in OpenCap) = same as 'back'
+    "superior",      # looking down                   (+Y)            = same as 'top'
+    "inferior",      # looking up                     (-Y)            = same as 'bottom'
+}
+
+
+def _parse_camera(arg: str) -> "dict | str | None":
+    """Parse --camera: a named preset string or inline JSON with position/target.
+
+    Named presets: front | back | left | right | top | bottom | isometric | default
+                   frontTopRight | frontTopLeft | backTopRight | backTopLeft | ...
+
+    JSON format:  {"position": [x, y, z], "target": [x, y, z]}
+                  (target defaults to [0, 1, 0] if omitted)
+    """
+    if not arg or not arg.strip():
+        return None
+    arg = arg.strip()
+    if arg in _CAMERA_PRESETS:
+        return arg  # plain preset name
+    # Try JSON
+    try:
+        data = json.loads(arg)
+        if isinstance(data, dict) and "position" in data:
+            return data
+        print(f"--camera JSON must contain a 'position' key; got: {arg[:60]}")
+        return None
+    except json.JSONDecodeError:
+        print(f"Unknown --camera value '{arg}'. Valid presets: {sorted(_CAMERA_PRESETS)}")
+        return None
+
+
+def _parse_body_style(arg: str) -> "dict | list | None":
+    """Parse --body-style: either a path to a JSON file or inline JSON string.
+
+    Accepts:
+      - A flat dict:  {"pelvis": {"color": "#ff0000"}, ...}   → same style for every subject
+      - A JSON array: [{"pelvis": {"color": "#ff0000"}}, {"pelvis": {"color": "#0000ff"}}]
+                       → per-subject styles indexed by position
+    """
     if not arg or not arg.strip():
         return None
     arg = arg.strip()
     # Inline JSON: try parse first to avoid path.is_file() on long strings (OS "file name too long")
-    if arg.startswith("{"):
+    if arg.startswith("{") or arg.startswith("["):
         try:
             return json.loads(arg)
         except json.JSONDecodeError:
@@ -275,6 +389,28 @@ async def main():
         else:
             args = args[:idx] + args[idx + 1 :]
 
+    # Extract --camera if present
+    # Accepts a named preset (e.g. "front") or inline JSON {"position":[x,y,z],"target":[x,y,z]}
+    camera: "dict | str | None" = None
+    if "--camera" in args:
+        idx = args.index("--camera")
+        if idx + 1 < len(args):
+            camera = _parse_camera(args[idx + 1])
+            args = args[:idx] + args[idx + 2 :]
+        else:
+            args = args[:idx] + args[idx + 1 :]
+
+    # Extract --model if present
+    # Single value ("LaiArnold") or comma-separated per-subject ("LaiArnold,Hu_ISB_shoulder")
+    models: "list[str] | None" = None
+    if "--model" in args:
+        idx = args.index("--model")
+        if idx + 1 < len(args):
+            models = [m.strip() for m in args[idx + 1].split(",")]
+            args = args[:idx] + args[idx + 2 :]
+        else:
+            args = args[:idx] + args[idx + 1 :]
+
     json_args = [a for a in args if a.lower().endswith(".json")]
     other_args = [a for a in args if not a.lower().endswith(".json")]
 
@@ -309,6 +445,8 @@ async def main():
                 websocket, json_paths, speed,
                 body_style=body_style,
                 subject_colors=subject_colors,
+                camera=camera,
+                models=models,
             )
         except Exception as e:
             print(f"Error during streaming: {e}")
@@ -316,8 +454,18 @@ async def main():
             print("Client disconnected")
 
     print(f"Streaming from {[str(p) for p in json_paths]}")
-    print("WebSocket server listening on ws://localhost:8765")
-    async with websockets.serve(handler, "localhost", 8765):
+    port = 8765
+    host = "0.0.0.0"
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("8.8.8.8", 80))
+            lan_ip = s.getsockname()[0]
+    except Exception:
+        lan_ip = "127.0.0.1"
+    print(f"WebSocket server listening on ws://localhost:{port} (this machine)")
+    if lan_ip != "127.0.0.1":
+        print(f"  On same WiFi, use ws://{lan_ip}:{port} from another computer")
+    async with websockets.serve(handler, host, port):
         await asyncio.Future()  # run forever
 
 
