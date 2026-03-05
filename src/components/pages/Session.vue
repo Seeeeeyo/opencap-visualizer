@@ -272,6 +272,7 @@
                       Status: {{ liveStatus }}
                     </span>
                   </div>
+
                 </v-card-text>
               </v-expand-transition>
             </v-card>
@@ -3715,6 +3716,33 @@
             </v-card>
         </v-dialog>
       </div>
+
+      <!-- Live stream notification overlay -->
+      <v-snackbar
+        v-model="liveNotification.show"
+        :timeout="liveNotification.timeout"
+        :color="liveNotification.level === 'error' ? 'red darken-2'
+              : liveNotification.level === 'warning' ? 'orange darken-2'
+              : liveNotification.level === 'success' ? 'green darken-2'
+              : 'indigo darken-2'"
+        top
+        centered
+        multi-line
+        style="z-index: 9999;"
+      >
+        <div class="d-flex align-center">
+          <v-icon class="mr-3" large>
+            {{ liveNotification.level === 'error' ? 'mdi-alert-circle'
+             : liveNotification.level === 'warning' ? 'mdi-alert'
+             : liveNotification.level === 'success' ? 'mdi-check-circle'
+             : 'mdi-information' }}
+          </v-icon>
+          <span class="subtitle-1 font-weight-medium">{{ liveNotification.message }}</span>
+        </div>
+        <template v-slot:action="{ attrs }">
+          <v-btn text v-bind="attrs" @click="liveNotification.show = false">Dismiss</v-btn>
+        </template>
+      </v-snackbar>
     </div>
   </template>
   
@@ -4076,7 +4104,10 @@
               liveStatus: 'disconnected', // 'connecting' | 'connected' | 'error'
               liveAnimationIndices: {}, // map from subject ID -> animation index (supports multiple subjects)
               liveBodyStyle: {}, // map from subject ID -> { bodyName: { visible, color } }
+              liveSubjectVisibility: {}, // map from subject ID -> boolean (true = visible)
+              liveSubjectIds: [], // ordered list of connected subject IDs (for UI)
               liveCameraCentered: false, // true once the camera has been centered on the subject's real position
+              liveNotification: { show: false, message: '', level: 'info', timeout: 5000 },
               showLiveStreamDetails: false, // Toggle for Live IK Stream section
               showSyncDetails: false, // Toggle for Sync section
               showAnimationsDetails: true, // Toggle for Animations section (default true since it's the main content)
@@ -15226,6 +15257,10 @@
               this.handleLiveInit(msg);
             } else if (msg.type === 'frame') {
               this.handleLiveFrame(msg);
+            } else if (msg.type === 'subjectVisibility') {
+              this.setLiveSubjectVisibility(msg.subjectId, msg.visible !== false);
+            } else if (msg.type === 'notification') {
+              this.showLiveNotification(msg.message || '', msg.level || 'info', msg.duration ?? 5000);
             }
           } catch (e) {
             console.error('[live] Failed to parse message', e);
@@ -15246,7 +15281,28 @@
       this.liveMode = false;
       this.liveAnimationIndices = {};
       this.liveBodyStyle = {};
+      this.liveSubjectVisibility = {};
+      this.liveSubjectIds = [];
       this.liveCameraCentered = false;
+    },
+
+    setLiveSubjectVisibility(subjectId, visible) {
+      this.$set(this.liveSubjectVisibility, subjectId, visible);
+      const animIdx = this.liveAnimationIndices[subjectId];
+      if (animIdx === undefined) return;
+      const prefix = `anim${animIdx}_`;
+      Object.entries(this.meshes).forEach(([key, mesh]) => {
+        if (key.startsWith(prefix)) {
+          mesh.visible = visible;
+        }
+      });
+      if (this.renderer && this.scene && this.camera) {
+        this.renderer.render(this.scene, this.camera);
+      }
+    },
+
+    showLiveNotification(message, level = 'info', duration = 5000) {
+      this.liveNotification = { show: true, message, level, timeout: duration };
     },
 
     async handleLiveInit(msg) {
@@ -15254,6 +15310,8 @@
 
       this.liveBodyStyle = {};
       this.liveAnimationIndices = {};
+      this.liveSubjectVisibility = {};
+      this.liveSubjectIds = [];
       this.liveCameraCentered = false;
 
       // Global body style fallback (single-subject legacy or applied to all subjects)
@@ -15299,6 +15357,8 @@
         }
 
         this.liveAnimationIndices[subject.id] = liveIndex;
+        this.liveSubjectIds.push(subject.id);
+        this.$set(this.liveSubjectVisibility, subject.id, true);
         const anim = this.animations[liveIndex];
 
         anim.data.time = [];

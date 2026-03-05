@@ -57,6 +57,13 @@ Model options:
     # Different model per subject (comma-separated, one per subject)
     --model "LaiArnold,Hu_ISB_shoulder"
 
+Interactive commands (type while the server is running):
+    notify Good job!                  → info banner on the visualizer
+    notify success Great technique!   → colored banner (info/success/warning/error)
+    hide subject_0                    → hide a subject
+    show subject_0                    → show a subject
+    help                              → list all commands
+
 Then in the browser connect to ws://localhost:8765 from the visualizer.
 
 Same WiFi (stream on one computer, view on another):
@@ -68,6 +75,45 @@ Same WiFi (stream on one computer, view on another):
 """
 
 DEFAULT_JSON_PATH = Path(__file__).parent / "mono.json"
+
+# ---------------------------------------------------------------------------
+# Connected clients registry – lets helper functions reach all open sockets
+# ---------------------------------------------------------------------------
+_CONNECTED_CLIENTS: set = set()
+
+
+async def send_notification(message: str, level: str = "info", duration: int = 5000):
+    """
+    Show a notification banner on every connected visualizer client.
+
+    level    : "info" | "success" | "warning" | "error"
+    duration : how long (ms) the banner stays visible (0 = until dismissed)
+
+    Can also be called programmatically when embedding this script:
+        asyncio.run(send_notification("Great job!", level="success"))
+    """
+    msg = json.dumps({"type": "notification", "message": message, "level": level, "duration": duration})
+    for ws in list(_CONNECTED_CLIENTS):
+        try:
+            await ws.send(msg)
+        except Exception:
+            pass
+
+
+async def send_subject_visibility(subject_id: str, visible: bool):
+    """
+    Hide or show a subject on every connected visualizer client.
+
+    subject_id : the subject ID used in the init message (e.g. "subject_0")
+    visible    : True to show, False to hide
+    """
+    msg = json.dumps({"type": "subjectVisibility", "subjectId": subject_id, "visible": visible})
+    for ws in list(_CONNECTED_CLIENTS):
+        try:
+            await ws.send(msg)
+        except Exception:
+            pass
+
 
 def _estimate_fps(time_array):
     if not isinstance(time_array, list) or len(time_array) < 2:
@@ -194,8 +240,8 @@ async def stream_from_json(
                 "attachedGeometries": bd.get("attachedGeometries", []),
                 "scaleFactors": bd.get("scaleFactors", [1.0, 1.0, 1.0]),
             }
-        # Construct a unique and stable subject id
-        base_id = f"{path.parent.name}_{path.stem}" if path.parent.name else path.stem
+        # Construct a unique and stable subject id from the file stem
+        base_id = path.stem
         subject_id = base_id
         # Ensure uniqueness in case of duplicate filenames
         suffix = 2
@@ -247,6 +293,7 @@ async def stream_from_json(
     if camera is not None:
         init_msg["camera"] = camera if isinstance(camera, dict) else {"view": camera}
     await websocket.send(json.dumps(init_msg))
+    print(f"  Subject IDs: {subject_ids}  (use these with hide/show commands)")
 
     # Give the client a brief moment to load meshes
     await asyncio.sleep(1.0)
@@ -439,6 +486,7 @@ async def main():
             speed = 1.0
 
     async def handler(websocket):
+        _CONNECTED_CLIENTS.add(websocket)
         print(f"Client connected from {websocket.remote_address}")
         try:
             await stream_from_json(
@@ -451,7 +499,68 @@ async def main():
         except Exception as e:
             print(f"Error during streaming: {e}")
         finally:
+            _CONNECTED_CLIENTS.discard(websocket)
             print("Client disconnected")
+
+    async def stdin_command_loop():
+        """
+        Read commands from stdin while the server is running.
+
+        Commands
+        --------
+        notify <message>                    – info banner
+        notify <level> <message>            – banner with level (info/success/warning/error)
+        hide <subject_id>                   – hide a subject
+        show <subject_id>                   – show a subject
+        help                                – print this list
+        """
+        loop = asyncio.get_event_loop()
+        reader = asyncio.StreamReader()
+        protocol = asyncio.StreamReaderProtocol(reader)
+        try:
+            await loop.connect_read_pipe(lambda: protocol, sys.stdin)
+        except Exception:
+            return  # stdin not a pipe (e.g. IDE terminal) — skip gracefully
+
+        print("Interactive commands ready (type 'help' for usage).")
+        while True:
+            try:
+                line = await reader.readline()
+                if not line:
+                    break
+                cmd = line.decode().strip()
+                if not cmd:
+                    continue
+                parts = cmd.split(" ", 2)
+                verb = parts[0].lower()
+                if verb == "help":
+                    print(
+                        "Commands:\n"
+                        "  notify <message>              – info notification\n"
+                        "  notify <level> <message>      – notification with level (info/success/warning/error)\n"
+                        "  hide <subject_id>             – hide subject\n"
+                        "  show <subject_id>             – show subject\n"
+                    )
+                elif verb == "notify":
+                    if len(parts) >= 3 and parts[1] in ("info", "success", "warning", "error"):
+                        await send_notification(parts[2], level=parts[1])
+                        print(f"[notify:{parts[1]}] {parts[2]}")
+                    elif len(parts) >= 2:
+                        msg_text = " ".join(parts[1:])
+                        await send_notification(msg_text)
+                        print(f"[notify:info] {msg_text}")
+                    else:
+                        print("Usage: notify [level] <message>")
+                elif verb == "hide" and len(parts) >= 2:
+                    await send_subject_visibility(parts[1], False)
+                    print(f"[hide] {parts[1]}")
+                elif verb == "show" and len(parts) >= 2:
+                    await send_subject_visibility(parts[1], True)
+                    print(f"[show] {parts[1]}")
+                else:
+                    print(f"Unknown command '{cmd}'. Type 'help' for usage.")
+            except Exception as e:
+                print(f"[stdin] Error: {e}")
 
     print(f"Streaming from {[str(p) for p in json_paths]}")
     port = 8765
@@ -466,7 +575,10 @@ async def main():
     if lan_ip != "127.0.0.1":
         print(f"  On same WiFi, use ws://{lan_ip}:{port} from another computer")
     async with websockets.serve(handler, host, port):
-        await asyncio.Future()  # run forever
+        await asyncio.gather(
+            asyncio.Future(),   # keep server alive forever
+            stdin_command_loop(),
+        )
 
 
 if __name__ == "__main__":

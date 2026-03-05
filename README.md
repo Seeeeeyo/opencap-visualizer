@@ -235,6 +235,51 @@ python live_stream_from_json.py s1.json s2.json --model "LaiArnold,Hu_ISB_should
 
 ---
 
+#### Hide / show subjects
+
+Each connected subject has a visibility toggle in the **Live IK Stream** panel in the sidebar. Click the switch next to a subject ID to instantly hide or show it in the 3D view.
+
+You can also control visibility remotely **from the streaming script** while it is running. The script reads commands from stdin:
+
+```
+hide subject_0          → hide subject 0 on all connected viewers
+show subject_0          → show it again
+```
+
+Subject IDs follow the pattern `subject_0`, `subject_1`, … (order matches the JSON files given on the command line).
+
+---
+
+#### Notifications / patient feedback
+
+While streaming you can send a message that appears as a large banner on the visualizer — useful for real-time feedback to a patient:
+
+```
+notify Good job, keep your back straight!
+notify success Perfect technique!
+notify warning Slow down a little
+notify error Stop the movement
+```
+
+Available levels: `info` (blue, default) · `success` (green) · `warning` (orange) · `error` (red).
+
+The banner auto-dismisses after 5 seconds and has a **Dismiss** button. These commands can be typed in the terminal while the server is running.
+
+To send them **programmatically** from another Python script:
+
+```python
+import asyncio
+from live_stream_from_json import send_notification, send_subject_visibility
+
+async def my_feedback():
+    await send_notification("Great rep!", level="success")
+    await send_subject_visibility("subject_1", False)
+
+asyncio.run(my_feedback())
+```
+
+---
+
 #### Full example
 
 ```bash
@@ -244,6 +289,11 @@ python live_stream_from_json.py subject1.json subject2.json \
   --camera anterior \
   --model "LaiArnold,Hu_ISB_shoulder" \
   2.0
+
+# While running, type commands in the terminal:
+# notify success Keep it up!
+# hide subject_1
+# show subject_1
 ```
 
 ## 🎮 User Interface Guide
