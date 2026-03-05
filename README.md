@@ -119,13 +119,31 @@ The server starts at `ws://localhost:8765`. Open the visualizer, expand the **Li
 
 **Same WiFi (stream on one computer, view on another):** Run the script on the streaming machine; it listens on all interfaces. On the viewing machine, set WebSocket URL to `ws://<streaming-computer-IP>:8765` (e.g. `ws://192.168.1.50:8765`). If you use the visualizer at [visualizer.opencap.ai](https://www.visualizer.opencap.ai/) (HTTPS), browsers block `ws://` to a LAN IP (mixed content). Either run the visualizer locally on the viewing machine (`npm run serve` → `http://localhost:3001`) and use that URL, or use a tunnel (e.g. ngrok) for `wss://` as below.
 
-> **Connecting from [visualizer.opencap.ai](https://www.visualizer.opencap.ai/):** Browsers block `ws://` connections from HTTPS pages. Use a local tunnel to get a `wss://` URL:
+> **Connecting from [visualizer.opencap.ai](https://www.visualizer.opencap.ai/):** Browsers block plain `ws://` connections from HTTPS pages (mixed content policy). Use **ngrok HTTP tunnel** to get a `wss://` URL:
+>
 > ```bash
-> brew install ngrok/ngrok/ngrok   # one-time install
-> ngrok config add-authtoken <your-token>
-> ngrok http 8765                  # gives you wss://xxx.ngrok-free.app
+> brew install ngrok/ngrok/ngrok        # one-time install (macOS)
+> ngrok config add-authtoken <your-token>  # one-time setup (free account at ngrok.com)
+>
+> # Start the tunnel — must use "http", NOT "tcp"
+> ngrok http 8765
 > ```
-> Then paste the `wss://` URL into the Live IK Stream field. For local development, `http://localhost:8080` (via `npm run serve`) connects to `ws://` without any tunnel.
+>
+> ngrok prints a forwarding line like:
+>
+> ```
+> Forwarding   https://xxxx.ngrok-free.app -> localhost:8765
+> ```
+>
+> Convert that to a WebSocket URL by replacing `https://` with `wss://`:
+>
+> ```
+> wss://xxxx.ngrok-free.app
+> ```
+>
+> Paste it into the Live IK Stream URL field on `visualizer.opencap.ai` and click **Connect**.
+>
+> > **Important:** `ngrok tcp` does **not** work — it creates a raw TCP tunnel without TLS, which browsers reject from HTTPS pages. Always use `ngrok http`.
 
 ---
 
