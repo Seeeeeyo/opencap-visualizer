@@ -4075,7 +4075,8 @@
               liveSocket: null,
               liveStatus: 'disconnected', // 'connecting' | 'connected' | 'error'
               liveAnimationIndices: {}, // map from subject ID -> animation index (supports multiple subjects)
-              liveBodyStyle: {}, // per-body visibility/color overrides from live init (bodyStyle)
+              liveBodyStyle: {}, // map from subject ID -> { bodyName: { visible, color } }
+              liveCameraCentered: false, // true once the camera has been centered on the subject's real position
               showLiveStreamDetails: false, // Toggle for Live IK Stream section
               showSyncDetails: false, // Toggle for Sync section
               showAnimationsDetails: true, // Toggle for Animations section (default true since it's the main content)
@@ -15245,13 +15246,18 @@
       this.liveMode = false;
       this.liveAnimationIndices = {};
       this.liveBodyStyle = {};
+      this.liveCameraCentered = false;
     },
 
     async handleLiveInit(msg) {
       console.log('[live] init', msg);
 
-      this.liveBodyStyle = msg.bodyStyle && typeof msg.bodyStyle === 'object' ? { ...msg.bodyStyle } : {};
+      this.liveBodyStyle = {};
       this.liveAnimationIndices = {};
+      this.liveCameraCentered = false;
+
+      // Global body style fallback (single-subject legacy or applied to all subjects)
+      const globalBodyStyle = msg.bodyStyle && typeof msg.bodyStyle === 'object' ? msg.bodyStyle : null;
 
       // Support multi-subject (subjects array) or single-subject (flat bodies)
       const subjects = msg.subjects && msg.subjects.length > 0
@@ -15260,6 +15266,14 @@
 
       for (let si = 0; si < subjects.length; si++) {
         const subject = subjects[si];
+
+        // Per-subject bodyStyle takes priority; fall back to global bodyStyle
+        const subjectStyle = subject.bodyStyle && typeof subject.bodyStyle === 'object'
+          ? subject.bodyStyle
+          : globalBodyStyle;
+        if (subjectStyle && Object.keys(subjectStyle).length > 0) {
+          this.liveBodyStyle[subject.id] = subjectStyle;
+        }
         const baseJson = {
           time: [0],
           bodies: {}
@@ -15274,8 +15288,9 @@
           };
         });
 
-        // Only clear the scene on the first subject; subsequent subjects append their meshes
-        await this.loadJsonData(baseJson, null, si > 0);
+        // Only clear the scene on the first subject; subsequent subjects append their meshes.
+        // Pass subject.model (folder_name) so the correct geometry set is loaded.
+        await this.loadJsonData(baseJson, subject.model || null, si > 0);
 
         const liveIndex = this.animations.length - 1;
         if (liveIndex < 0) {
@@ -15307,6 +15322,37 @@
       this.updateDisplayedTime();
 
       this.applyLiveBodyStyle();
+      this.applyLiveCamera(msg.camera);
+    },
+
+    applyLiveCamera(camera) {
+      if (!this.camera || !this.controls) return;
+
+      // For live streaming always start from a closer default (~2.6 m) so that both
+      // the no-camera fallback AND named presets use a tighter framing.
+      // Exact JSON positions are used as-is since the caller chose them explicitly.
+      this.controls.target.set(0, 1, 0);
+      this.camera.position.set(1.8, 2.4, -1.3);
+      this.controls.update();
+
+      if (!camera) {
+        // No camera specified: the close default set above is the final position.
+      } else if (typeof camera === 'object' && camera.position) {
+        // Exact position + optional target — override the default entirely.
+        const [px, py, pz] = camera.position;
+        const [tx, ty, tz] = camera.target || [0, 1, 0];
+        this.controls.target.set(tx, ty, tz);
+        this.camera.position.set(px, py, pz);
+        this.controls.update();
+      } else if (camera.view) {
+        // Named preset — setCameraView reads the current distance, so calling it
+        // after setting the close default above means it uses that shorter distance.
+        this.setCameraView(camera.view);
+      }
+
+      if (this.renderer && this.scene) {
+        this.renderer.render(this.scene, this.camera);
+      }
     },
 
     handleLiveFrame(msg) {
@@ -15376,18 +15422,26 @@
       this.frame = this.frames.length - 1;
       this.updateDisplayedTime();
       this.animateOneFrame();
+
+      // On the very first rendered frame, re-center the camera on the subject's actual
+      // position. The camera angle and distance set by applyLiveCamera are preserved;
+      // only the look-at target shifts to where the subject really is.
+      if (!this.liveCameraCentered) {
+        this.liveCameraCentered = true;
+        this.centerCameraOnLiveSubject();
+      }
     },
 
     applyLiveBodyStyle() {
-      if (Object.keys(this.liveAnimationIndices).length === 0 || !this.liveBodyStyle || Object.keys(this.liveBodyStyle).length === 0) {
-        return;
-      }
-      Object.values(this.liveAnimationIndices).forEach((liveIndex) => {
+      if (Object.keys(this.liveAnimationIndices).length === 0) return;
+      Object.entries(this.liveAnimationIndices).forEach(([subjectId, liveIndex]) => {
+        const bodyStyle = this.liveBodyStyle[subjectId];
+        if (!bodyStyle || Object.keys(bodyStyle).length === 0) return;
         const anim = this.animations[liveIndex];
         if (!anim || !anim.data || !anim.data.bodies) return;
         const bodies = anim.data.bodies;
         Object.keys(bodies).forEach((bodyName) => {
-          const style = this.liveBodyStyle[bodyName];
+          const style = bodyStyle[bodyName];
           if (!style) return;
           const visible = style.visible !== false;
           const colorHex = style.color;
@@ -15412,6 +15466,48 @@
           });
         });
       });
+    },
+
+    centerCameraOnLiveSubject() {
+      if (!this.scene || !this.camera || !this.controls) return;
+
+      const firstIdx = Object.values(this.liveAnimationIndices)[0];
+      if (firstIdx === undefined) { this.centerCameraOnSubject(); return; }
+
+      const anim = this.animations[firstIdx];
+      if (!anim || !anim.data) { this.centerCameraOnSubject(); return; }
+
+      const bodies = anim.data.bodies;
+      const f = this.frame;
+
+      const anchorNames = ['pelvis', 'femur_r', 'femur_l', 'torso', 'thorax', 'humerus_r', 'humerus_l'];
+      let anchorPos = null;
+      for (const name of anchorNames) {
+        const bd = bodies[name];
+        if (bd && Array.isArray(bd.translation) && bd.translation[f]) {
+          anchorPos = new THREE.Vector3(
+            bd.translation[f][0] + anim.offset.x,
+            bd.translation[f][1] + anim.offset.y,
+            bd.translation[f][2] + anim.offset.z,
+          );
+          break;
+        }
+      }
+
+      if (!anchorPos) { this.centerCameraOnSubject(); return; }
+
+      // Offset 40 cm above the pelvis/anchor to center view on the torso
+      const targetPosition = anchorPos.clone().add(new THREE.Vector3(0, 0.4, 0));
+
+      // Preserve the camera angle and distance set by applyLiveCamera
+      const offset = new THREE.Vector3().copy(this.camera.position).sub(this.controls.target);
+      if (offset.length() < 1.0) offset.normalize().multiplyScalar(1.0);
+
+      this.controls.target.copy(targetPosition);
+      this.camera.position.copy(targetPosition.clone().add(offset));
+      this.controls.update();
+
+      if (this.renderer) this.renderer.render(this.scene, this.camera);
     },
 
     centerCameraOnSubject() {
@@ -16569,21 +16665,27 @@
   
       switch(viewType) {
         case 'top':
+        case 'superior':
           newPosition.set(currentTarget.x, currentTarget.y + offset, currentTarget.z);
           break;
         case 'bottom':
+        case 'inferior':
           newPosition.set(currentTarget.x, currentTarget.y - offset, currentTarget.z);
           break;
         case 'front':
+        case 'sagittal_right':   // OpenCap: +Z = subject's right side
           newPosition.set(currentTarget.x, currentTarget.y, currentTarget.z + offset);
           break;
         case 'back':
+        case 'sagittal_left':    // OpenCap: -Z = subject's left side
           newPosition.set(currentTarget.x, currentTarget.y, currentTarget.z - offset);
           break;
         case 'left':
+        case 'posterior':        // OpenCap: -X = behind the subject
           newPosition.set(currentTarget.x - offset, currentTarget.y, currentTarget.z);
           break;
         case 'right':
+        case 'anterior':         // OpenCap: +X = facing the subject's front
           newPosition.set(currentTarget.x + offset, currentTarget.y, currentTarget.z);
           break;
   
