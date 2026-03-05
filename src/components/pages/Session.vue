@@ -4075,7 +4075,7 @@
               liveSocket: null,
               liveStatus: 'disconnected', // 'connecting' | 'connected' | 'error'
               liveAnimationIndices: {}, // map from subject ID -> animation index (supports multiple subjects)
-              liveBodyStyle: {}, // per-body visibility/color overrides from live init (bodyStyle)
+              liveBodyStyle: {}, // map from subject ID -> { bodyName: { visible, color } }
               showLiveStreamDetails: false, // Toggle for Live IK Stream section
               showSyncDetails: false, // Toggle for Sync section
               showAnimationsDetails: true, // Toggle for Animations section (default true since it's the main content)
@@ -15250,8 +15250,11 @@
     async handleLiveInit(msg) {
       console.log('[live] init', msg);
 
-      this.liveBodyStyle = msg.bodyStyle && typeof msg.bodyStyle === 'object' ? { ...msg.bodyStyle } : {};
+      this.liveBodyStyle = {};
       this.liveAnimationIndices = {};
+
+      // Global body style fallback (single-subject legacy or applied to all subjects)
+      const globalBodyStyle = msg.bodyStyle && typeof msg.bodyStyle === 'object' ? msg.bodyStyle : null;
 
       // Support multi-subject (subjects array) or single-subject (flat bodies)
       const subjects = msg.subjects && msg.subjects.length > 0
@@ -15260,6 +15263,14 @@
 
       for (let si = 0; si < subjects.length; si++) {
         const subject = subjects[si];
+
+        // Per-subject bodyStyle takes priority; fall back to global bodyStyle
+        const subjectStyle = subject.bodyStyle && typeof subject.bodyStyle === 'object'
+          ? subject.bodyStyle
+          : globalBodyStyle;
+        if (subjectStyle && Object.keys(subjectStyle).length > 0) {
+          this.liveBodyStyle[subject.id] = subjectStyle;
+        }
         const baseJson = {
           time: [0],
           bodies: {}
@@ -15379,15 +15390,15 @@
     },
 
     applyLiveBodyStyle() {
-      if (Object.keys(this.liveAnimationIndices).length === 0 || !this.liveBodyStyle || Object.keys(this.liveBodyStyle).length === 0) {
-        return;
-      }
-      Object.values(this.liveAnimationIndices).forEach((liveIndex) => {
+      if (Object.keys(this.liveAnimationIndices).length === 0) return;
+      Object.entries(this.liveAnimationIndices).forEach(([subjectId, liveIndex]) => {
+        const bodyStyle = this.liveBodyStyle[subjectId];
+        if (!bodyStyle || Object.keys(bodyStyle).length === 0) return;
         const anim = this.animations[liveIndex];
         if (!anim || !anim.data || !anim.data.bodies) return;
         const bodies = anim.data.bodies;
         Object.keys(bodies).forEach((bodyName) => {
-          const style = this.liveBodyStyle[bodyName];
+          const style = bodyStyle[bodyName];
           if (!style) return;
           const visible = style.visible !== false;
           const colorHex = style.color;

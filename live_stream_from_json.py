@@ -20,6 +20,7 @@ Usage:
     # then in the browser, connect to ws://localhost:8765 from the visualizer
 """
 
+DEFAULT_JSON_PATH = Path(__file__).parent / "mono.json"
 
 def _estimate_fps(time_array):
     if not isinstance(time_array, list) or len(time_array) < 2:
@@ -33,13 +34,20 @@ def _estimate_fps(time_array):
     return fps
 
 
-async def stream_from_json(websocket, json_paths, speed: float = 1.0, body_style: dict | None = None):
+async def stream_from_json(
+    websocket,
+    json_paths,
+    speed: float = 1.0,
+    body_style: dict | None = None,
+    subject_colors: list[str] | None = None,
+):
     """
     Stream one or two visualizer JSON files over WebSocket in (optionally downsampled)
     real time.
 
-    body_style: optional dict mapping body name -> { "visible": bool, "color": "#RRGGBB" }
-    for per-body visibility and color overrides in the visualizer.
+    body_style: optional global dict mapping body name -> { "visible": bool, "color": "#RRGGBB" }
+    subject_colors: optional list of hex color strings, one per subject (e.g. ["#d3d3d3", "#4995e0"]).
+                    Each color is applied to all bodies of that subject and overrides body_style.
 
     Protocol:
       init:
@@ -47,11 +55,11 @@ async def stream_from_json(websocket, json_paths, speed: float = 1.0, body_style
           "type": "init",
           "frameRate": <fps_after_downsample_and_speed>,
           "subjects": [
-            { "id": "subj1", "label": "Subject 1", "bodies": { ... } },
-            { "id": "subj2", "label": "Subject 2", "bodies": { ... } }
+            { "id": "subj1", "label": "Subject 1", "bodies": { ... }, "bodyStyle": { ... } },
+            { "id": "subj2", "label": "Subject 2", "bodies": { ... }, "bodyStyle": { ... } }
           ],
           "bodies": { ... },   // flat, first subject only (single-subject frontend compat)
-          "bodyStyle": { ... } // optional per-body visibility/color
+          "bodyStyle": { ... } // optional global per-body visibility/color
         }
 
       frame:
@@ -145,13 +153,21 @@ async def stream_from_json(websocket, json_paths, speed: float = 1.0, body_style
             suffix += 1
         subject_ids.append(subject_id)
 
-        subjects_meta.append(
-            {
-                "id": subject_id,
-                "label": path.stem,
-                "bodies": bodies_meta,
-            }
-        )
+        subject_entry: dict = {
+            "id": subject_id,
+            "label": path.stem,
+            "bodies": bodies_meta,
+        }
+
+        # Per-subject color: build a bodyStyle that colors every body with the given hex color
+        color = subject_colors[idx - 1] if subject_colors and idx - 1 < len(subject_colors) else None
+        if color:
+            subject_entry["bodyStyle"] = {name: {"color": color} for name in bodies_meta}
+        elif body_style:
+            # Fall back to the global body_style for single-subject or when no per-subject color set
+            subject_entry["bodyStyle"] = body_style
+
+        subjects_meta.append(subject_entry)
 
     init_msg = {
         "type": "init",
@@ -236,13 +252,8 @@ def _parse_body_style(arg: str) -> dict | None:
 
 
 async def main():
-    if len(sys.argv) < 2:
-        print(
-            "Usage: python live_stream_from_json.py path/to/sample1.json [path/to/sample2.json] [speed] [--body-style PATH|JSON]"
-        )
-        sys.exit(1)
-
     args = sys.argv[1:]
+
     # Extract --body-style if present
     body_style = None
     if "--body-style" in args:
@@ -253,15 +264,30 @@ async def main():
         else:
             args = args[:idx] + args[idx + 1 :]
 
+    # Extract --subject-colors if present (comma-separated hex colors, one per subject)
+    # e.g. --subject-colors "#d3d3d3,#4995e0"
+    subject_colors: list[str] | None = None
+    if "--subject-colors" in args:
+        idx = args.index("--subject-colors")
+        if idx + 1 < len(args):
+            subject_colors = [c.strip() for c in args[idx + 1].split(",")]
+            args = args[:idx] + args[idx + 2 :]
+        else:
+            args = args[:idx] + args[idx + 1 :]
+
     json_args = [a for a in args if a.lower().endswith(".json")]
     other_args = [a for a in args if not a.lower().endswith(".json")]
 
     if not json_args:
-        print("Error: at least one JSON file path is required")
-        sys.exit(1)
-
-    # Support up to two subjects
-    json_paths = [Path(p).resolve() for p in json_args[:2]]
+        if DEFAULT_JSON_PATH.is_file():
+            json_paths = [DEFAULT_JSON_PATH.resolve()]
+            print(f"No JSON file arguments provided; using default mono.json at {json_paths[0]}")
+        else:
+            print("Error: at least one JSON file path is required (mono.json not found)")
+            sys.exit(1)
+    else:
+        # Support up to two subjects
+        json_paths = [Path(p).resolve() for p in json_args[:2]]
     for p in json_paths:
         if not p.is_file():
             print(f"JSON file not found: {p}")
@@ -279,7 +305,11 @@ async def main():
     async def handler(websocket):
         print(f"Client connected from {websocket.remote_address}")
         try:
-            await stream_from_json(websocket, json_paths, speed, body_style=body_style)
+            await stream_from_json(
+                websocket, json_paths, speed,
+                body_style=body_style,
+                subject_colors=subject_colors,
+            )
         except Exception as e:
             print(f"Error during streaming: {e}")
         finally:
