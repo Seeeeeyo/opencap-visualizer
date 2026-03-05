@@ -95,15 +95,138 @@ opencap-visualizer input.json output.mp4 --zoom 1.5 --width 1920 --height 1080
 - **Headless operation** for server-side processing
 
 ### Live IK Streaming
-Run a local WebSocket server to stream kinematics into the visualizer in real time (e.g. for monitoring IK or comparing live vs recorded motion). Use the `live_stream_from_json.py` script with a visualizer JSON file; connect from the app via **Live IK Stream** with URL `ws://localhost:8765`.
 
-Optional **`--body-style`** controls per-body visibility and color. Pass a JSON file path or inline JSON mapping body names (e.g. `torso`, `humerus_r`, `hand_r`) to `{"visible": true|false, "color": "#RRGGBB"}`. Bodies not listed stay at default visibility. Example: show only spine and right arm, color spine red and shoulder green:
+`live_stream_from_json.py` runs a local WebSocket server that replays a visualizer JSON file as if it were a live IK stream. It's useful for monitoring real-time IK results, comparing two subjects side-by-side, or testing visualization pipelines.
+
+**Requirements:** `pip install websockets`
+
+---
+
+#### Basic usage
 
 ```bash
-python live_stream_from_json.py public/samples/STS/sample_mono.json --body-style '{"pelvis":{"visible":false},"femur_r":{"visible":false}, ... ,"torso":{"color":"#FF0000"},"humerus_r":{"color":"#00FF00"}}'
+# Single subject
+python live_stream_from_json.py subject.json
+
+# Two subjects simultaneously
+python live_stream_from_json.py subject1.json subject2.json
+
+# Faster than real-time playback (2× speed)
+python live_stream_from_json.py subject.json 2.0
 ```
 
-(Use `"visible":false` for every body you want hidden; omit or set `"visible":true` and add `"color"` for the segments you want to show and color.)
+The server starts at `ws://localhost:8765`. Open the visualizer, expand the **Live IK Stream** panel in the sidebar, enter the WebSocket URL, and click **Connect**.
+
+**Same WiFi (stream on one computer, view on another):** Run the script on the streaming machine; it listens on all interfaces. On the viewing machine, set WebSocket URL to `ws://<streaming-computer-IP>:8765` (e.g. `ws://192.168.1.50:8765`). If you use the visualizer at [visualizer.opencap.ai](https://www.visualizer.opencap.ai/) (HTTPS), browsers block `ws://` to a LAN IP (mixed content). Either run the visualizer locally on the viewing machine (`npm run serve` → `http://localhost:3001`) and use that URL, or use a tunnel (e.g. ngrok) for `wss://` as below.
+
+> **Connecting from [visualizer.opencap.ai](https://www.visualizer.opencap.ai/):** Browsers block `ws://` connections from HTTPS pages. Use a local tunnel to get a `wss://` URL:
+> ```bash
+> brew install ngrok/ngrok/ngrok   # one-time install
+> ngrok config add-authtoken <your-token>
+> ngrok http 8765                  # gives you wss://xxx.ngrok-free.app
+> ```
+> Then paste the `wss://` URL into the Live IK Stream field. For local development, `http://localhost:8080` (via `npm run serve`) connects to `ws://` without any tunnel.
+
+---
+
+#### Subject colors (`--subject-colors`)
+
+Apply a single color to all bones of each subject. Pass comma-separated hex values, one per subject:
+
+```bash
+python live_stream_from_json.py s1.json s2.json --subject-colors "#d3d3d3,#4995e0"
+```
+
+---
+
+#### Per-bone color and visibility (`--body-style`)
+
+For finer control, map individual bone names to `color` and/or `visible` settings.
+
+**Same style for all subjects** (flat dict):
+```bash
+python live_stream_from_json.py s1.json s2.json \
+  --body-style '{"hand_l": {"visible": false}, "hand_r": {"visible": false}}'
+```
+
+**Different style per subject** (JSON array — one dict per subject, in order):
+```bash
+python live_stream_from_json.py s1.json s2.json \
+  --body-style '[{"pelvis": {"color": "#ff0000"}, "hand_l": {"visible": false}}, {"pelvis": {"color": "#0000ff"}}]'
+```
+
+Use `{}` as a placeholder for a subject you want to leave at default:
+```bash
+# Only style subject 2; leave subject 1 at default
+python live_stream_from_json.py s1.json s2.json \
+  --body-style '[{}, {"hand_l": {"visible": false}, "femur_r": {"color": "#ff8800"}}]'
+```
+
+`--subject-colors` and `--body-style` can be combined. `--subject-colors` takes priority over `--body-style` for the same subject.
+
+---
+
+#### Camera angle (`--camera`)
+
+Set the initial camera view when the client connects.
+
+**Anatomical presets** (recommended for OpenCap data):
+
+| Preset | View |
+|---|---|
+| `anterior` | Facing the subject's front |
+| `posterior` | Behind the subject |
+| `sagittal_right` | Subject's right side |
+| `sagittal_left` | Subject's left side |
+| `superior` | Looking down from above |
+| `inferior` | Looking up from below |
+
+**Generic axis presets:** `front`, `back`, `left`, `right`, `top`, `bottom`, `isometric`, `default`
+
+**Corner/isometric presets:** `frontTopRight`, `frontTopLeft`, `frontBottomRight`, `frontBottomLeft`, `backTopRight`, `backTopLeft`, `backBottomRight`, `backBottomLeft`
+
+```bash
+python live_stream_from_json.py s1.json s2.json --camera anterior
+python live_stream_from_json.py s1.json s2.json --camera sagittal_right
+```
+
+**Exact position and target** (coordinates in meters):
+```bash
+python live_stream_from_json.py s1.json s2.json \
+  --camera '{"position": [3, 2, -4], "target": [0, 1, 0]}'
+```
+
+---
+
+#### Skeleton model (`--model`)
+
+Select which geometry model to render. Matches the model names in the visualizer's import dialog.
+
+| `--model` value | Visualizer name |
+|---|---|
+| `LaiArnold` | Lai Arnold *(default)* |
+| `Hu_ISB_shoulder` | Hu Shoulder |
+
+```bash
+# Same model for both subjects
+python live_stream_from_json.py s1.json s2.json --model LaiArnold
+
+# Different model per subject (comma-separated)
+python live_stream_from_json.py s1.json s2.json --model "LaiArnold,Hu_ISB_shoulder"
+```
+
+---
+
+#### Full example
+
+```bash
+python live_stream_from_json.py subject1.json subject2.json \
+  --subject-colors "#d3d3d3,#4995e0" \
+  --body-style '[{"hand_l": {"visible": false}}, {"hand_l": {"visible": false}}]' \
+  --camera anterior \
+  --model "LaiArnold,Hu_ISB_shoulder" \
+  2.0
+```
 
 ## 🎮 User Interface Guide
 
