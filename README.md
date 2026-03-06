@@ -77,7 +77,7 @@ opencap-visualizer input.json output.mp4 --zoom 1.5 --width 1920 --height 1080
 
 ### Interactive Web-Based Visualization
 - **Real-time 3D rendering** of skeletal models with anatomically accurate geometry
-- **Multi-subject comparison** with independent color coding and transparency controls
+- **Multi-subject comparison** with independent color coding, subject-level and per-bone transparency controls
 - **Marker visualization** supporting standard motion capture marker sets (.trc files)
 - **Ground reaction forces visualization** using .mot files
 - **Video synchronization** with skeleton for simultaneous viewing
@@ -119,13 +119,31 @@ The server starts at `ws://localhost:8765`. Open the visualizer, expand the **Li
 
 **Same WiFi (stream on one computer, view on another):** Run the script on the streaming machine; it listens on all interfaces. On the viewing machine, set WebSocket URL to `ws://<streaming-computer-IP>:8765` (e.g. `ws://192.168.1.50:8765`). If you use the visualizer at [visualizer.opencap.ai](https://www.visualizer.opencap.ai/) (HTTPS), browsers block `ws://` to a LAN IP (mixed content). Either run the visualizer locally on the viewing machine (`npm run serve` → `http://localhost:3001`) and use that URL, or use a tunnel (e.g. ngrok) for `wss://` as below.
 
-> **Connecting from [visualizer.opencap.ai](https://www.visualizer.opencap.ai/):** Browsers block `ws://` connections from HTTPS pages. Use a local tunnel to get a `wss://` URL:
+> **Connecting from [visualizer.opencap.ai](https://www.visualizer.opencap.ai/):** Browsers block plain `ws://` connections from HTTPS pages (mixed content policy). Use **ngrok HTTP tunnel** to get a `wss://` URL:
+>
 > ```bash
-> brew install ngrok/ngrok/ngrok   # one-time install
-> ngrok config add-authtoken <your-token>
-> ngrok http 8765                  # gives you wss://xxx.ngrok-free.app
+> brew install ngrok/ngrok/ngrok        # one-time install (macOS)
+> ngrok config add-authtoken <your-token>  # one-time setup (free account at ngrok.com)
+>
+> # Start the tunnel — must use "http", NOT "tcp"
+> ngrok http 8765
 > ```
-> Then paste the `wss://` URL into the Live IK Stream field. For local development, `http://localhost:8080` (via `npm run serve`) connects to `ws://` without any tunnel.
+>
+> ngrok prints a forwarding line like:
+>
+> ```
+> Forwarding   https://xxxx.ngrok-free.app -> localhost:8765
+> ```
+>
+> Convert that to a WebSocket URL by replacing `https://` with `wss://`:
+>
+> ```
+> wss://xxxx.ngrok-free.app
+> ```
+>
+> Paste it into the Live IK Stream URL field on `visualizer.opencap.ai` and click **Connect**.
+>
+> > **Important:** `ngrok tcp` does **not** work — it creates a raw TCP tunnel without TLS, which browsers reject from HTTPS pages. Always use `ngrok http`.
 
 ---
 
@@ -139,9 +157,16 @@ python live_stream_from_json.py s1.json s2.json --subject-colors "#d3d3d3,#4995e
 
 ---
 
-#### Per-bone color and visibility (`--body-style`)
+#### Per-bone color, visibility, and transparency (`--body-style`)
 
-For finer control, map individual bone names to `color` and/or `visible` settings.
+For finer control, map individual bone names to `color`, `visible`, and/or `opacity` settings.
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `color` | hex string | Bone color, e.g. `"#ff0000"` |
+| `visible` | boolean | Show or hide the bone |
+| `opacity` | float 0–1 | `1.0` = fully opaque, `0.0` = invisible |
+| `geometries` | object | Per-geometry overrides (see below) |
 
 **Same style for all subjects** (flat dict):
 ```bash
@@ -149,20 +174,51 @@ python live_stream_from_json.py s1.json s2.json \
   --body-style '{"hand_l": {"visible": false}, "hand_r": {"visible": false}}'
 ```
 
+**With per-bone transparency:**
+```bash
+# Make the pelvis 50% transparent and color it red
+python live_stream_from_json.py s1.json \
+  --body-style '{"pelvis": {"color": "#ff0000", "opacity": 0.5}}'
+```
+
 **Different style per subject** (JSON array — one dict per subject, in order):
 ```bash
 python live_stream_from_json.py s1.json s2.json \
-  --body-style '[{"pelvis": {"color": "#ff0000"}, "hand_l": {"visible": false}}, {"pelvis": {"color": "#0000ff"}}]'
+  --body-style '[{"pelvis": {"color": "#ff0000"}, "hand_l": {"visible": false}}, {"pelvis": {"color": "#0000ff", "opacity": 0.4}}]'
 ```
 
 Use `{}` as a placeholder for a subject you want to leave at default:
 ```bash
 # Only style subject 2; leave subject 1 at default
 python live_stream_from_json.py s1.json s2.json \
-  --body-style '[{}, {"hand_l": {"visible": false}, "femur_r": {"color": "#ff8800"}}]'
+  --body-style '[{}, {"hand_l": {"visible": false}, "femur_r": {"color": "#ff8800", "opacity": 0.6}}]'
 ```
 
 `--subject-colors` and `--body-style` can be combined. `--subject-colors` takes priority over `--body-style` for the same subject.
+
+---
+
+#### Per-geometry visibility within a body (`geometries`)
+
+Some bodies share a single entry in `bodyStyle` but are made up of multiple geometry files. For example, `thorax` contains both the thoracic vertebrae (`thoracic1_s.vtp` … `thoracic12_s.vtp`) and the ribcage (`ribcage_s.vtp`). Setting `"thorax": {"visible": false}` hides all of them.
+
+To control individual geometry files within a body, add a `geometries` sub-object whose keys match the filenames listed in `attachedGeometries`:
+
+```bash
+# Hide only the ribcage; keep the vertebrae visible
+python live_stream_from_json.py s3.json \
+  --body-style '{"thorax": {"geometries": {"ribcage_s.vtp": {"visible": false}}}}'
+```
+
+Geometry-level keys support the same fields as body-level keys (`visible`, `color`). A geometry-level setting takes precedence over the body-level setting for that specific mesh:
+
+```bash
+# Color all of thorax grey, but hide just the ribcage
+python live_stream_from_json.py s3.json \
+  --body-style '{"thorax": {"color": "#aaaaaa", "geometries": {"ribcage_s.vtp": {"visible": false}}}}'
+```
+
+The geometry key must exactly match the filename as it appears in the JSON's `attachedGeometries` array (no leading slash). You can inspect those names by looking at the `bodies.<bodyName>.attachedGeometries` field in your JSON file.
 
 ---
 
@@ -217,15 +273,72 @@ python live_stream_from_json.py s1.json s2.json --model "LaiArnold,Hu_ISB_should
 
 ---
 
+#### Hide / show subjects
+
+Each connected subject has a visibility toggle in the **Live IK Stream** panel in the sidebar. Click the switch next to a subject ID to instantly hide or show it in the 3D view.
+
+You can also control visibility remotely **from the streaming script** while it is running. The script reads commands from stdin:
+
+```
+hide subject_0          → hide subject 0 on all connected viewers
+show subject_0          → show it again
+```
+
+Subject IDs follow the pattern `subject_0`, `subject_1`, … (order matches the JSON files given on the command line).
+
+---
+
+#### Notifications / patient feedback
+
+While streaming you can send a message that appears as a large banner on the visualizer — useful for real-time feedback to a patient:
+
+```
+notify Good job, keep your back straight!
+notify success Perfect technique!
+notify warning Slow down a little
+notify error Stop the movement
+```
+
+Available levels: `info` (blue, default) · `success` (green) · `warning` (orange) · `error` (red).
+
+The banner auto-dismisses after 5 seconds and has a **Dismiss** button. These commands can be typed in the terminal while the server is running.
+
+To send them **programmatically** from another Python script:
+
+```python
+import asyncio
+from live_stream_from_json import send_notification, send_subject_visibility
+
+async def my_feedback():
+    await send_notification("Great rep!", level="success")
+    await send_subject_visibility("subject_1", False)
+
+asyncio.run(my_feedback())
+```
+
+---
+
 #### Full example
 
 ```bash
 python live_stream_from_json.py subject1.json subject2.json \
   --subject-colors "#d3d3d3,#4995e0" \
-  --body-style '[{"hand_l": {"visible": false}}, {"hand_l": {"visible": false}}]' \
+  --body-style '[{"hand_l": {"visible": false}, "pelvis": {"opacity": 0.5}}, {"hand_l": {"visible": false}}]' \
   --camera anterior \
   --model "LaiArnold,Hu_ISB_shoulder" \
   2.0
+
+# While running, type commands in the terminal:
+# notify success Keep it up!
+# hide subject_1
+# show subject_1
+```
+
+**Hide the ribcage but keep the rest of thorax:**
+```bash
+python live_stream_from_json.py s3.json \
+  --body-style '{"thorax": {"geometries": {"ribcage_s.vtp": {"visible": false}}}}' \
+  --camera anterior
 ```
 
 ## 🎮 User Interface Guide
@@ -297,10 +410,11 @@ You can also click and drag anywhere in the 3D view to orbit, scroll to zoom, an
 - **Shadow Quality**: Adjust shadow resolution
 
 #### Subject Controls
-- **Color**: Assign unique colors to each subject
-- **Transparency**: Adjust individual subject opacity
+- **Color**: Assign unique colors to each subject (palette icon per subject in the Animations list)
+- **Transparency**: Adjust individual subject opacity with a 0–100% slider (opacity icon per subject)
+- **Per-bone transparency**: Open the **Mesh Objects** dialog (cube icon) to control opacity per individual bone or per bone group (Hands / Arms / Other) — the opacity icon turns blue when a bone has non-default transparency
 - **Offset**: Position subjects with X/Y/Z offsets
-- **Visibility**: Show/hide individual subjects
+- **Visibility**: Show/hide individual subjects or specific bones
 
 ### Recording & Export
 
@@ -493,3 +607,4 @@ We acknowledge the contributions of the OpenCap development team and the broader
 - **GitHub Issues**: [Report bugs and request features](https://github.com/Seeeeeyo/opencap-visualizer/issues)
 - **Web App**: [https://www.visualizer.opencap.ai/](https://www.visualizer.opencap.ai)
 - **Documentation**: Check the individual repository READMEs for detailed usage instructions
+

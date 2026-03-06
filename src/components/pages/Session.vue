@@ -272,6 +272,7 @@
                       Status: {{ liveStatus }}
                     </span>
                   </div>
+
                 </v-card-text>
               </v-expand-transition>
             </v-card>
@@ -745,7 +746,29 @@
                             <v-btn icon x-small class="mr-2" @click="toggleGroupVisibility(index, groupName, items)">
                               <v-icon x-small>{{ isGroupVisible(items) ? 'mdi-eye' : 'mdi-eye-off' }}</v-icon>
                             </v-btn>
-                            <strong>{{ groupName }}</strong>
+                            <strong class="flex-grow-1">{{ groupName }}</strong>
+                            <v-menu offset-y :close-on-content-click="false">
+                              <template v-slot:activator="{ on, attrs }">
+                                <v-btn icon x-small v-bind="attrs" v-on="on" class="ml-1" title="Group transparency">
+                                  <v-icon x-small>mdi-opacity</v-icon>
+                                </v-btn>
+                              </template>
+                              <v-card class="pa-3" width="220">
+                                <div class="text-caption mb-2">{{ groupName }} Transparency</div>
+                                <v-slider
+                                  :value="getGroupOpacityDisplay(items)"
+                                  @input="value => setGroupOpacity(items, 1 - value / 100)"
+                                  :min="0"
+                                  :max="100"
+                                  step="1"
+                                  hide-details
+                                  thumb-label
+                                  thumb-size="20"
+                                >
+                                  <template v-slot:thumb-label="{ value }">{{ Math.round(value) }}%</template>
+                                </v-slider>
+                              </v-card>
+                            </v-menu>
                           </div>
                           <div v-for="item in items" :key="item.key" class="mesh-item d-flex align-center pa-2 pl-6">
                             <v-btn icon x-small @click="toggleMeshVisibility(item.key)">
@@ -753,7 +776,31 @@
                                 {{ meshes[item.key] && meshes[item.key].visible !== false ? 'mdi-eye' : 'mdi-eye-off' }}
                               </v-icon>
                             </v-btn>
-                            <span class="ml-2">{{ item.name }}</span>
+                            <v-menu offset-y :close-on-content-click="false">
+                              <template v-slot:activator="{ on, attrs }">
+                                <v-btn icon x-small v-bind="attrs" v-on="on" class="ml-1" title="Bone transparency">
+                                  <v-icon x-small :color="getMeshItemOpacity(item.key) < 1.0 ? 'primary' : ''">mdi-opacity</v-icon>
+                                </v-btn>
+                              </template>
+                              <v-card class="pa-3" width="220">
+                                <div class="text-caption mb-2">
+                                  {{ item.name }} — {{ Math.round((1 - getMeshItemOpacity(item.key)) * 100) }}% transparent
+                                </div>
+                                <v-slider
+                                  :value="(1 - getMeshItemOpacity(item.key)) * 100"
+                                  @input="value => updateMeshItemOpacity(item.key, 1 - value / 100)"
+                                  :min="0"
+                                  :max="100"
+                                  step="1"
+                                  hide-details
+                                  thumb-label
+                                  thumb-size="20"
+                                >
+                                  <template v-slot:thumb-label="{ value }">{{ Math.round(value) }}%</template>
+                                </v-slider>
+                              </v-card>
+                            </v-menu>
+                            <span class="ml-2 text-caption">{{ item.name }}</span>
                           </div>
                         </div>
                       </div>
@@ -3715,6 +3762,33 @@
             </v-card>
         </v-dialog>
       </div>
+
+      <!-- Live stream notification overlay -->
+      <v-snackbar
+        v-model="liveNotification.show"
+        :timeout="liveNotification.timeout"
+        :color="liveNotification.level === 'error' ? 'red darken-2'
+              : liveNotification.level === 'warning' ? 'orange darken-2'
+              : liveNotification.level === 'success' ? 'green darken-2'
+              : 'indigo darken-2'"
+        top
+        centered
+        multi-line
+        style="z-index: 9999;"
+      >
+        <div class="d-flex align-center">
+          <v-icon class="mr-3" large>
+            {{ liveNotification.level === 'error' ? 'mdi-alert-circle'
+             : liveNotification.level === 'warning' ? 'mdi-alert'
+             : liveNotification.level === 'success' ? 'mdi-check-circle'
+             : 'mdi-information' }}
+          </v-icon>
+          <span class="subtitle-1 font-weight-medium">{{ liveNotification.message }}</span>
+        </div>
+        <template v-slot:action="{ attrs }">
+          <v-btn text v-bind="attrs" @click="liveNotification.show = false">Dismiss</v-btn>
+        </template>
+      </v-snackbar>
     </div>
   </template>
   
@@ -3947,6 +4021,7 @@
               resizeStartSize: { width: 0, height: 0 },
               showSidebar: false, // Add this line to control sidebar visibility
               meshDialogs: {}, // Add this line to store mesh dialog states
+              meshOpacities: {}, // per-mesh opacity: { [meshKey]: number 0-1 }
               recentSubjectColors: [], // Store recent colors used for subjects
               maxRecentColors: 8, // Maximum number of recent colors to store
               activeSubject: null,
@@ -4076,7 +4151,10 @@
               liveStatus: 'disconnected', // 'connecting' | 'connected' | 'error'
               liveAnimationIndices: {}, // map from subject ID -> animation index (supports multiple subjects)
               liveBodyStyle: {}, // map from subject ID -> { bodyName: { visible, color } }
+              liveSubjectVisibility: {}, // map from subject ID -> boolean (true = visible)
+              liveSubjectIds: [], // ordered list of connected subject IDs (for UI)
               liveCameraCentered: false, // true once the camera has been centered on the subject's real position
+              liveNotification: { show: false, message: '', level: 'info', timeout: 5000 },
               showLiveStreamDetails: false, // Toggle for Live IK Stream section
               showSyncDetails: false, // Toggle for Sync section
               showAnimationsDetails: true, // Toggle for Animations section (default true since it's the main content)
@@ -13529,6 +13607,35 @@
           this.renderer.render(this.scene, this.camera);
         }
       },
+      getMeshItemOpacity(meshKey) {
+        return this.meshOpacities[meshKey] !== undefined ? this.meshOpacities[meshKey] : 1.0;
+      },
+      updateMeshItemOpacity(meshKey, value) {
+        const opacity = Math.max(0, Math.min(1, value));
+        this.$set(this.meshOpacities, meshKey, opacity);
+        const mesh = this.meshes[meshKey];
+        if (!mesh) return;
+        mesh.traverse((child) => {
+          if (child instanceof THREE.Mesh) {
+            child.material.opacity = opacity;
+            child.material.transparent = opacity < 1.0;
+            child.material.needsUpdate = true;
+          }
+        });
+        if (this.renderer) {
+          this.renderer.render(this.scene, this.camera);
+        }
+      },
+      setGroupOpacity(items, opacityValue) {
+        items.forEach(item => {
+          this.updateMeshItemOpacity(item.key, opacityValue);
+        });
+      },
+      getGroupOpacityDisplay(items) {
+        if (!items || items.length === 0) return 0;
+        const avg = items.reduce((sum, item) => sum + this.getMeshItemOpacity(item.key), 0) / items.length;
+        return Math.round((1 - avg) * 100);
+      },
       getGroupedMeshes(index) {
         // Get all mesh keys for this animation
         const meshKeys = this.getMeshKeysForAnimation(index);
@@ -15226,6 +15333,10 @@
               this.handleLiveInit(msg);
             } else if (msg.type === 'frame') {
               this.handleLiveFrame(msg);
+            } else if (msg.type === 'subjectVisibility') {
+              this.setLiveSubjectVisibility(msg.subjectId, msg.visible !== false);
+            } else if (msg.type === 'notification') {
+              this.showLiveNotification(msg.message || '', msg.level || 'info', msg.duration ?? 5000);
             }
           } catch (e) {
             console.error('[live] Failed to parse message', e);
@@ -15246,7 +15357,28 @@
       this.liveMode = false;
       this.liveAnimationIndices = {};
       this.liveBodyStyle = {};
+      this.liveSubjectVisibility = {};
+      this.liveSubjectIds = [];
       this.liveCameraCentered = false;
+    },
+
+    setLiveSubjectVisibility(subjectId, visible) {
+      this.$set(this.liveSubjectVisibility, subjectId, visible);
+      const animIdx = this.liveAnimationIndices[subjectId];
+      if (animIdx === undefined) return;
+      const prefix = `anim${animIdx}_`;
+      Object.entries(this.meshes).forEach(([key, mesh]) => {
+        if (key.startsWith(prefix)) {
+          mesh.visible = visible;
+        }
+      });
+      if (this.renderer && this.scene && this.camera) {
+        this.renderer.render(this.scene, this.camera);
+      }
+    },
+
+    showLiveNotification(message, level = 'info', duration = 5000) {
+      this.liveNotification = { show: true, message, level, timeout: duration };
     },
 
     async handleLiveInit(msg) {
@@ -15254,6 +15386,8 @@
 
       this.liveBodyStyle = {};
       this.liveAnimationIndices = {};
+      this.liveSubjectVisibility = {};
+      this.liveSubjectIds = [];
       this.liveCameraCentered = false;
 
       // Global body style fallback (single-subject legacy or applied to all subjects)
@@ -15299,6 +15433,8 @@
         }
 
         this.liveAnimationIndices[subject.id] = liveIndex;
+        this.liveSubjectIds.push(subject.id);
+        this.$set(this.liveSubjectVisibility, subject.id, true);
         const anim = this.animations[liveIndex];
 
         anim.data.time = [];
@@ -15443,12 +15579,22 @@
         Object.keys(bodies).forEach((bodyName) => {
           const style = bodyStyle[bodyName];
           if (!style) return;
-          const visible = style.visible !== false;
-          const colorHex = style.color;
+          const bodyVisible = style.visible !== false;
+          const bodyColorHex = style.color;
+          // Per-geometry overrides: bodyStyle.thorax.geometries.ribcage_s.vtp = { visible, color }
+          const geomOverrides = style.geometries && typeof style.geometries === 'object'
+            ? style.geometries
+            : null;
           (bodies[bodyName].attachedGeometries || []).forEach((geom) => {
             const meshKey = `anim${liveIndex}_${bodyName}${geom}`;
             const mesh = this.meshes[meshKey];
             if (!mesh) return;
+            // Geometry-level override takes precedence over body-level style
+            const geomStyle = geomOverrides && geomOverrides[geom] ? geomOverrides[geom] : null;
+            const visible = geomStyle ? geomStyle.visible !== false : bodyVisible;
+            const colorHex = geomStyle && geomStyle.color ? geomStyle.color : bodyColorHex;
+            const bodyOpacity = style.opacity !== undefined ? style.opacity : null;
+            const opacityVal = geomStyle && geomStyle.opacity !== undefined ? geomStyle.opacity : bodyOpacity;
             mesh.visible = visible;
             if (colorHex && typeof colorHex === 'string') {
               try {
@@ -15460,8 +15606,11 @@
                   }
                 });
               } catch (e) {
-                console.warn('[live] Invalid bodyStyle color for', bodyName, colorHex, e);
+                console.warn('[live] Invalid bodyStyle color for', bodyName, geom, colorHex, e);
               }
+            }
+            if (opacityVal !== null && typeof opacityVal === 'number') {
+              this.updateMeshItemOpacity(meshKey, opacityVal);
             }
           });
         });
