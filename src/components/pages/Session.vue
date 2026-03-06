@@ -13600,10 +13600,52 @@
         const withoutExt = bodyAndGeom.replace(/\.(vtk|vtp|obj)$/i, '');
         return withoutExt || bodyAndGeom;
       },
+      _updateLiveBodyStyleForMesh(meshKey, visible) {
+        if (!this.liveMode || Object.keys(this.liveAnimationIndices).length === 0) return;
+
+        const animMatch = meshKey.match(/^anim(\d+)_(.+)$/);
+        if (!animMatch) return;
+        const animIdx = parseInt(animMatch[1]);
+        const bodyAndGeom = animMatch[2];
+
+        const subjectId = Object.keys(this.liveAnimationIndices).find(
+          id => this.liveAnimationIndices[id] === animIdx
+        );
+        if (!subjectId) return;
+
+        const anim = this.animations[animIdx];
+        if (!anim || !anim.data || !anim.data.bodies) return;
+
+        let foundBody = null, foundGeom = null;
+        outer: for (const [bodyName, bd] of Object.entries(anim.data.bodies)) {
+          for (const geom of (bd.attachedGeometries || [])) {
+            if (bodyName + geom === bodyAndGeom) {
+              foundBody = bodyName;
+              foundGeom = geom;
+              break outer;
+            }
+          }
+        }
+        if (!foundBody || !foundGeom) return;
+
+        if (!this.liveBodyStyle[subjectId]) {
+          this.$set(this.liveBodyStyle, subjectId, {});
+        }
+        if (!this.liveBodyStyle[subjectId][foundBody]) {
+          this.$set(this.liveBodyStyle[subjectId], foundBody, {});
+        }
+        if (!this.liveBodyStyle[subjectId][foundBody].geometries) {
+          this.$set(this.liveBodyStyle[subjectId][foundBody], 'geometries', {});
+        }
+        this.$set(this.liveBodyStyle[subjectId][foundBody].geometries, foundGeom, { visible });
+      },
+
       toggleMeshVisibility(meshKey) {
         const mesh = this.meshes[meshKey];
         if (mesh) {
-          mesh.visible = !mesh.visible;
+          const newVisible = !mesh.visible;
+          mesh.visible = newVisible;
+          this._updateLiveBodyStyleForMesh(meshKey, newVisible);
           this.renderer.render(this.scene, this.camera);
         }
       },
@@ -13637,73 +13679,52 @@
         return Math.round((1 - avg) * 100);
       },
       getGroupedMeshes(index) {
-        // Get all mesh keys for this animation
         const meshKeys = this.getMeshKeysForAnimation(index);
-  
-        // Group object to organize meshes
-        const groups = {
-          'Hands': [],
-          'Arms': [],
-          'Other': []
-        };
-  
-        // Categorize each mesh
+        const groups = {};
+        const anim = this.animations[index];
+
         meshKeys.forEach(key => {
-          const name = this.getMeshName(key);
-  
-          // Check if it's a hand-related mesh
-          if (name.includes('hand') ||
-              name.includes('lunate') ||
-              name.includes('pisiform') ||
-              name.includes('triquetrum') ||
-              name.includes('thumb') ||
-              name.includes('index') ||
-              name.includes('middle') ||
-              name.includes('ring') ||
-              name.includes('little')) {
-            groups['Hands'].push({key, name});
+          let groupName = 'other';
+          let displayName = key;
+
+          if (anim && anim.data && anim.data.bodies) {
+            outer: for (const bodyName of Object.keys(anim.data.bodies)) {
+              const geoms = anim.data.bodies[bodyName].attachedGeometries || [];
+              for (const geom of geoms) {
+                if (key === `anim${index}_${bodyName}${geom}`) {
+                  groupName = bodyName;
+                  // Show geometry filename (no extension) when body has multiple geometries
+                  displayName = geoms.length > 1
+                    ? geom.replace(/\.(vtk|vtp|obj)$/i, '')
+                    : bodyName;
+                  break outer;
+                }
+              }
+            }
+          } else {
+            // Fallback for meshes without animation data
+            displayName = this.getMeshName(key);
           }
-          // Check if it's an arm-related mesh
-          else if (name.includes('humerus') ||
-                  name.includes('ulna') ||
-                  name.includes('radius')) {
-            groups['Arms'].push({key, name});
-          }
-          // Everything else
-          else {
-            groups['Other'].push({key, name});
-          }
+
+          if (!groups[groupName]) groups[groupName] = [];
+          groups[groupName].push({ key, name: displayName });
         });
-  
-        // Remove empty groups
-        Object.keys(groups).forEach(key => {
-          if (groups[key].length === 0) {
-            delete groups[key];
-          }
-        });
-  
+
         return groups;
       },
       toggleGroupVisibility(animIndex, groupName, items) {
-        // Check the current visibility state of meshes in this group
-        // If all are visible, hide all. If some or all are hidden, show all.
-  
-        // Check if at least one mesh is visible
         const hasVisibleMesh = items.some(item =>
           this.meshes[item.key] && this.meshes[item.key].visible !== false
         );
-  
-        // Set all to the opposite state
         const newVisibility = !hasVisibleMesh;
-  
-        // Update all meshes in this group
+
         items.forEach(item => {
           if (this.meshes[item.key]) {
             this.meshes[item.key].visible = newVisibility;
+            this._updateLiveBodyStyleForMesh(item.key, newVisibility);
           }
         });
-  
-        // Re-render the scene
+
         if (this.renderer) {
           this.renderer.render(this.scene, this.camera);
         }
