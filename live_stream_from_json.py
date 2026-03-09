@@ -60,6 +60,8 @@ Model options:
 Interactive commands (type while the server is running):
     notify Good job!                  → info banner on the visualizer
     notify success Great technique!   → colored banner (info/success/warning/error)
+    scores 85 72 90 68 88 [label1 ...] → show trial scores (optional 5 labels after the 5 numbers)
+    hidescores                        → hide the trial scores plot
     hide subject_0                    → hide a subject
     show subject_0                    → show a subject
     help                              → list all commands
@@ -108,6 +110,33 @@ async def send_subject_visibility(subject_id: str, visible: bool):
     visible    : True to show, False to hide
     """
     msg = json.dumps({"type": "subjectVisibility", "subjectId": subject_id, "visible": visible})
+    for ws in list(_CONNECTED_CLIENTS):
+        try:
+            await ws.send(msg)
+        except Exception:
+            pass
+
+
+async def send_trial_scores(scores: list, labels: list | None = None):
+    """
+    Show the trial scores plot on every connected visualizer client.
+
+    scores : list of 5 numbers (0–100, percentages)
+    labels : optional list of 5 strings for bar labels
+    """
+    msg = {"type": "trialScores", "scores": scores[:5]}
+    if labels:
+        msg["labels"] = labels[:5]
+    for ws in list(_CONNECTED_CLIENTS):
+        try:
+            await ws.send(json.dumps(msg))
+        except Exception:
+            pass
+
+
+async def send_hide_scores():
+    """Hide the trial scores plot on every connected visualizer client."""
+    msg = json.dumps({"type": "hideScores"})
     for ws in list(_CONNECTED_CLIENTS):
         try:
             await ws.send(msg)
@@ -510,6 +539,8 @@ async def main():
         --------
         notify <message>                    – info banner
         notify <level> <message>            – banner with level (info/success/warning/error)
+        scores <n1> <n2> <n3> <n4> <n5> [label1 ... label5]  – show trial scores (optional labels)
+        hidescores                          – hide the trial scores plot
         hide <subject_id>                   – hide a subject
         show <subject_id>                   – show a subject
         help                                – print this list
@@ -538,6 +569,8 @@ async def main():
                         "Commands:\n"
                         "  notify <message>              – info notification\n"
                         "  notify <level> <message>      – notification with level (info/success/warning/error)\n"
+                        "  scores <n1> <n2> <n3> <n4> <n5> [label1 ... label5]  – show trial scores (optional labels)\n"
+                        "  hidescores                   – hide trial scores plot\n"
                         "  hide <subject_id>             – hide subject\n"
                         "  show <subject_id>             – show subject\n"
                     )
@@ -551,6 +584,21 @@ async def main():
                         print(f"[notify:info] {msg_text}")
                     else:
                         print("Usage: notify [level] <message>")
+                elif verb == "scores" and len(parts) >= 2:
+                    tokens = " ".join(parts[1:]).split()
+                    if len(tokens) >= 5:
+                        try:
+                            scores = [float(x) for x in tokens[:5]]
+                            labels = tokens[5:10] if len(tokens) >= 10 else None
+                            await send_trial_scores(scores, labels=labels)
+                            print(f"[scores] {scores}" + (f" labels={labels}" if labels else ""))
+                        except ValueError as e:
+                            print(f"Usage: scores <n1> <n2> <n3> <n4> <n5> [label1 ... label5]. Error: {e}")
+                    else:
+                        print("Usage: scores <n1> <n2> <n3> <n4> <n5>  [label1 label2 label3 label4 label5]")
+                elif verb == "hidescores":
+                    await send_hide_scores()
+                    print("[hidescores]")
                 elif verb == "hide" and len(parts) >= 2:
                     await send_subject_visibility(parts[1], False)
                     print(f"[hide] {parts[1]}")

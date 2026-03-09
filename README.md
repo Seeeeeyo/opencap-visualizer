@@ -318,6 +318,43 @@ asyncio.run(my_feedback())
 
 ---
 
+#### Trial scores plot
+
+At the end of a trial you can show the patient a bar chart of five movement scores (percentages). The plot appears as a full-screen overlay in the visualizer for **15 seconds** or until you send a hide command.
+
+**From the terminal** (while the streaming script is running):
+
+```
+scores 85 72 90 68 88
+scores 43 32 90 34 25 arms ankles trunk shoulder overall
+hidescores
+```
+
+- **`scores <n1> <n2> <n3> <n4> <n5>`** — Show trial scores (five numbers 0–100). The visualizer displays a centered bar chart titled "Movement scores".
+- **`scores <n1> <n2> <n3> <n4> <n5> <label1> <label2> <label3> <label4> <label5>`** — Same, with custom labels on the x-axis (e.g. `arms ankles trunk shoulder overall`).
+- **`hidescores`** — Dismiss the scores overlay immediately.
+
+Type **`help`** in the terminal for a short list of all interactive commands.
+
+**Programmatically:**
+
+```python
+import asyncio
+from live_stream_from_json import send_trial_scores, send_hide_scores
+
+async def show_scores():
+    await send_trial_scores([85, 72, 90, 68, 88])
+    # With labels:
+    await send_trial_scores([43, 32, 90, 34, 25], labels=["arms", "ankles", "trunk", "shoulder", "overall"])
+
+async def hide_scores():
+    await send_hide_scores()
+
+asyncio.run(show_scores())
+```
+
+---
+
 #### Full example
 
 ```bash
@@ -330,6 +367,8 @@ python live_stream_from_json.py subject1.json subject2.json \
 
 # While running, type commands in the terminal:
 # notify success Keep it up!
+# scores 85 72 90 68 88 arms ankles trunk shoulder overall
+# hidescores
 # hide subject_1
 # show subject_1
 ```
