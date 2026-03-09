@@ -3789,6 +3789,17 @@
           <v-btn text v-bind="attrs" @click="liveNotification.show = false">Dismiss</v-btn>
         </template>
       </v-snackbar>
+
+      <!-- Live stream trial scores overlay (full-screen, centered) -->
+      <div
+        v-if="liveTrialScores.show && liveMode"
+        class="live-trial-scores-overlay"
+      >
+        <TrialScoresPlot
+          :scores="liveTrialScores.scores"
+          :labels="liveTrialScores.labels"
+        />
+      </div>
     </div>
   </template>
   
@@ -3799,6 +3810,7 @@
   import VideoNavigation from '@/components/ui/VideoNavigation'
   import SpeedControl from '@/components/ui/SpeedControl'
   import CameraControls from '@/components/ui/CameraControls' // Added import
+  import TrialScoresPlot from '@/components/ui/TrialScoresPlot'
   import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js'
   import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
   import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js'
@@ -3865,7 +3877,8 @@
       components: {
           VideoNavigation,
           SpeedControl,
-          CameraControls // Register component
+          CameraControls, // Register component
+          TrialScoresPlot
       },
       data() {
           return {
@@ -4157,6 +4170,8 @@
               liveSubjectIds: [], // ordered list of connected subject IDs (for UI)
               liveCameraCentered: false, // true once the camera has been centered on the subject's real position
               liveNotification: { show: false, message: '', level: 'info', timeout: 5000 },
+              liveTrialScores: { show: false, scores: [], labels: [] },
+              liveTrialScoresTimer: null,
               showLiveStreamDetails: false, // Toggle for Live IK Stream section
               showSyncDetails: false, // Toggle for Sync section
               showAnimationsDetails: true, // Toggle for Animations section (default true since it's the main content)
@@ -4488,6 +4503,11 @@
       Object.values(this.offsetUpdateTimers).forEach(timer => clearTimeout(timer));
               // Marker timer cleanup removed
       Object.values(this.objectUpdateTimers).forEach(timer => clearTimeout(timer));
+
+      if (this.liveTrialScoresTimer) {
+        clearTimeout(this.liveTrialScoresTimer);
+        this.liveTrialScoresTimer = null;
+      }
   
       // Clean up sprites
       Object.values(this.textSprites).forEach(sprite => {
@@ -12860,8 +12880,9 @@
         if (!this.renderer) return;
   
         // Store original states
-        const originalWidth = this.renderer.domElement.width;
-        const originalHeight = this.renderer.domElement.height;
+        const canvas = this.renderer.domElement;
+        const baseWidth = canvas.clientWidth || this.$refs.mocap?.clientWidth || canvas.width;
+        const baseHeight = canvas.clientHeight || this.$refs.mocap?.clientHeight || canvas.height;
         const originalBackground = this.scene.background;
         const originalGroundVisibility = this.groundMesh ? this.groundMesh.visible : false;
         const originalClearColor = this.renderer.getClearColor();
@@ -12869,8 +12890,8 @@
   
         // Set to high resolution for screenshot (4x)
         const scale = 4;
-        const width = originalWidth * scale;
-        const height = originalHeight * scale;
+        const width = Math.max(1, Math.round(baseWidth * scale));
+        const height = Math.max(1, Math.round(baseHeight * scale));
   
         // Helper to create an offscreen renderer
         const createOffscreenRenderer = (transparent = false) => {
@@ -12903,13 +12924,20 @@
             });
         }
   
-        // Save camera state
-        const originalAspect = this.camera.aspect;
-        const originalProjectionMatrix = this.camera.projectionMatrix.clone();
-  
-        // Force camera aspect ratio update for screenshot
-        this.camera.aspect = width / height;
-        this.camera.updateProjectionMatrix();
+        // Render with a cloned camera so the live viewport/camera state remains untouched.
+        const screenshotCamera = this.camera.clone();
+        screenshotCamera.aspect = width / height;
+        screenshotCamera.position.copy(this.camera.position);
+        screenshotCamera.quaternion.copy(this.camera.quaternion);
+        screenshotCamera.scale.copy(this.camera.scale);
+        screenshotCamera.zoom = this.camera.zoom;
+        screenshotCamera.near = this.camera.near;
+        screenshotCamera.far = this.camera.far;
+        screenshotCamera.fov = this.camera.fov;
+        screenshotCamera.updateProjectionMatrix();
+        screenshotCamera.updateMatrixWorld(true);
+
+        this.scene.updateMatrixWorld(true);
   
         // Create download links for the selected version(s)
         captures.forEach(capture => {
@@ -12921,7 +12949,7 @@
             }
             // Use offscreen renderer for all captures
             const offscreenRenderer = createOffscreenRenderer(capture.transparent);
-            offscreenRenderer.render(this.scene, this.camera);
+            offscreenRenderer.render(this.scene, screenshotCamera);
             try {
                 const dataURL = offscreenRenderer.domElement.toDataURL('image/png');
                 // Create and trigger download
@@ -12942,8 +12970,6 @@
         if (this.groundMesh) {
             this.groundMesh.visible = originalGroundVisibility;
         }
-        this.camera.aspect = originalAspect;
-        this.camera.projectionMatrix.copy(originalProjectionMatrix);
         this.renderer.setClearColor(originalClearColor, originalClearAlpha);
         this.renderer.render(this.scene, this.camera);
   
@@ -15371,6 +15397,10 @@
               this.setLiveSubjectVisibility(msg.subjectId, msg.visible !== false);
             } else if (msg.type === 'notification') {
               this.showLiveNotification(msg.message || '', msg.level || 'info', msg.duration ?? 5000);
+            } else if (msg.type === 'trialScores') {
+              this.showLiveTrialScores(msg);
+            } else if (msg.type === 'hideScores') {
+              this.hideLiveTrialScores();
             }
           } catch (e) {
             console.error('[live] Failed to parse message', e);
@@ -15394,6 +15424,11 @@
       this.liveSubjectVisibility = {};
       this.liveSubjectIds = [];
       this.liveCameraCentered = false;
+      if (this.liveTrialScoresTimer) {
+        clearTimeout(this.liveTrialScoresTimer);
+        this.liveTrialScoresTimer = null;
+      }
+      this.liveTrialScores = { show: false, scores: [], labels: [] };
     },
 
     setLiveSubjectVisibility(subjectId, visible) {
@@ -15413,6 +15448,30 @@
 
     showLiveNotification(message, level = 'info', duration = 5000) {
       this.liveNotification = { show: true, message, level, timeout: duration };
+    },
+
+    showLiveTrialScores(msg) {
+      const raw = Array.isArray(msg.scores) ? msg.scores : [];
+      const scores = raw.slice(0, 5).map(v => Math.min(100, Math.max(0, Number(v) || 0)));
+      while (scores.length < 5) scores.push(0);
+      const labels = Array.isArray(msg.labels) ? msg.labels.slice(0, 5) : [];
+      this.liveTrialScores = { show: true, scores, labels };
+      if (this.liveTrialScoresTimer) {
+        clearTimeout(this.liveTrialScoresTimer);
+        this.liveTrialScoresTimer = null;
+      }
+      this.liveTrialScoresTimer = setTimeout(() => {
+        this.liveTrialScores = { show: false, scores: [], labels: [] };
+        this.liveTrialScoresTimer = null;
+      }, 15000);
+    },
+
+    hideLiveTrialScores() {
+      if (this.liveTrialScoresTimer) {
+        clearTimeout(this.liveTrialScoresTimer);
+        this.liveTrialScoresTimer = null;
+      }
+      this.liveTrialScores = { show: false, scores: [], labels: [] };
     },
 
     async handleLiveInit(msg) {
@@ -17980,6 +18039,17 @@
   height: 100%;
   position: relative;
   overflow: visible;
+  }
+
+  /* Full-screen trial scores overlay – covers scene, centered panel only */
+  .live-trial-scores-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9998;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
   
   /* Ensure camera controls are positioned correctly */
