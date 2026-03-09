@@ -4786,9 +4786,20 @@
           }
         }
       }
-    },
-    methods: {
-    applyHeadlessPerformanceDefaults() {
+  },
+  methods: {
+  showToast(type, message, options) {
+    // Suppress notifications when embedded (e.g., in an iframe)
+    if (this.$route && this.$route.query && this.$route.query.embed === 'true') {
+      return;
+    }
+    if (!this.$toasted || typeof this.$toasted[type] !== 'function') {
+      return;
+    }
+    this.$toasted[type](message, options);
+  },
+
+  applyHeadlessPerformanceDefaults() {
       this.enableShadows = false;
       this.useGroundTexture = false;
       this.useCheckerboard = false;
@@ -4970,7 +4981,7 @@
         reader.onload = (e) => {
           this.parseForcesData(e.target.result);
           this.showForcesDialog = false;
-          this.$toasted.success('Forces file loaded successfully!');
+          this.showToast('success', 'Forces file loaded successfully!');
         };
         reader.readAsText(this.forcesFile);
       } catch (error) {
@@ -5086,7 +5097,7 @@
           const reader = new FileReader();
           reader.onload = (e) => {
             this.parseForcesData(e.target.result);
-            this.$toasted.success(`Standalone forces loaded`);
+            this.showToast('success', `Standalone forces loaded`);
             this.$nextTick(() => {
               if (this.renderer && this.scene && this.camera) {
                 this.renderer.render(this.scene, this.camera);
@@ -5155,7 +5166,7 @@
         const reader = new FileReader();
         reader.onload = (e) => {
           this.parseForcesData(e.target.result);
-          this.$toasted.success(`Forces loaded for ${this.animations[targetAnimationIndex].trialName || 'Animation ' + (targetAnimationIndex + 1)}`);
+          this.showToast('success', `Forces loaded for ${this.animations[targetAnimationIndex].trialName || 'Animation ' + (targetAnimationIndex + 1)}`);
   
           // Ensure scene is rendered after force creation
           this.$nextTick(() => {
@@ -6181,15 +6192,15 @@
        try {
          const reader = new FileReader();
          reader.onload = (e) => {
-           try {
-           const wasEmpty = this.animations.length === 0;
-           this.parseTrcFile(e.target.result, this.markersFile.name);
-           this.showMarkersDialog = false;
-           const message = wasEmpty ?
-             'Markers file loaded as standalone visualization!' :
-             'Markers file loaded successfully!';
-           this.$toasted.success(message);
-           } catch (parseError) {
+          try {
+          const wasEmpty = this.animations.length === 0;
+          this.parseTrcFile(e.target.result, this.markersFile.name);
+          this.showMarkersDialog = false;
+          const message = wasEmpty ?
+            'Markers file loaded as standalone visualization!' :
+            'Markers file loaded successfully!';
+          this.showToast('success', message);
+          } catch (parseError) {
              console.error('Error parsing markers file:', parseError);
              this.$toasted.error('Error parsing markers file');
            } finally {
@@ -6913,7 +6924,7 @@
          this.renderer.render(this.scene, this.camera);
        }
   
-       this.$toasted.success('Markers cleared for animation');
+      this.showToast('success', 'Markers cleared for animation');
      },
   
      clearAllMarkers() {
@@ -6932,7 +6943,7 @@
        // Clear measurement data
        this.clearMeasurement();
   
-       this.$toasted.success('All markers cleared');
+      this.showToast('success', 'All markers cleared');
      },
   
      // Distance measurement methods
@@ -6940,9 +6951,9 @@
        this.measurementMode = !this.measurementMode;
   
        if (this.measurementMode) {
-         this.$toasted.info('Measurement mode enabled. Hold Cmd/Shift + Click on markers to measure distance.');
+        this.showToast('info', 'Measurement mode enabled. Hold Cmd/Shift + Click on markers to measure distance.');
        } else {
-         this.$toasted.info('Measurement mode disabled.');
+        this.showToast('info', 'Measurement mode disabled.');
          this.clearMeasurement();
        }
      },
@@ -6977,7 +6988,7 @@
        if (existingIndex !== -1) {
          // If marker is already selected, remove it
          this.measurementMarkers.splice(existingIndex, 1);
-         this.$toasted.info(`Removed ${markerName} from measurement`);
+        this.showToast('info', `Removed ${markerName} from measurement`);
        } else {
          // Add new marker
          if (this.measurementMarkers.length >= 2) {
@@ -6991,7 +7002,7 @@
            animationIndex: animationIndex
          });
   
-         this.$toasted.info(`Added ${markerName} to measurement`);
+        this.showToast('info', `Added ${markerName} to measurement`);
        }
   
        // Update measurement line and distance
@@ -8095,7 +8106,7 @@
     copyToClipboard(text) {
       if (navigator.clipboard) {
         navigator.clipboard.writeText(text).then(() => {
-          this.$toasted.success('Share URL copied to clipboard!');
+          this.showToast('success', 'Share URL copied to clipboard!');
         }).catch(() => {
           this.fallbackCopyToClipboard(text);
         });
@@ -8112,10 +8123,10 @@
       textArea.select();
       try {
         document.execCommand('copy');
-        this.$toasted.success('Share URL copied to clipboard!');
+        this.showToast('success', 'Share URL copied to clipboard!');
       } catch (err) {
         console.error('Fallback: Oops, unable to copy', err);
-        this.$toasted.error('Failed to copy URL to clipboard');
+        this.showToast('error', 'Failed to copy URL to clipboard');
       }
       document.body.removeChild(textArea);
     },
@@ -8139,7 +8150,7 @@
       });
   
       console.log(`Cleaned up ${keysToRemove.length} old share entries`);
-      this.$toasted.success(`Cleaned up ${keysToRemove.length} old share entries`);
+      this.showToast('success', `Cleaned up ${keysToRemove.length} old share entries`);
     },
   
     downloadShareFile() {
@@ -8160,11 +8171,11 @@
   
         // Clean up the URL
         URL.revokeObjectURL(url);
-  
-        this.$toasted.success('Share file downloaded successfully!');
+
+        this.showToast('success', 'Share file downloaded successfully!');
       } catch (error) {
         console.error('Error downloading share file:', error);
-        this.$toasted.error('Failed to download share file');
+        this.showToast('error', 'Failed to download share file');
       }
     },
     downloadConvertedJson(animationIndex) {
@@ -8198,8 +8209,8 @@
   
         // Clean up the URL
         URL.revokeObjectURL(url);
-  
-        this.$toasted.success('Converted JSON file downloaded successfully!');
+
+        this.showToast('success', 'Converted JSON file downloaded successfully!');
       } catch (error) {
         console.error('Error downloading converted JSON file:', error);
         this.$toasted.error('Failed to download converted JSON file');
