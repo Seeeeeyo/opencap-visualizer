@@ -3885,10 +3885,12 @@
               animations: [], // Array to store multiple animations
               smplSequences: [], // SMPL sequence animations
               nextSmplSequenceId: 1,
-            frameRate: 60,
-            lastFrameTime: 0,
-            frameAccumulator: 0,
+              frameRate: 60,
+              lastFrameTime: 0,
+              frameAccumulator: 0,
               playSpeed: 1, // Playback speed multiplier
+              // Maximum number of frames to keep in live streaming mode to prevent unbounded growth.
+              maxLiveFrames: 5,
           showRecordingSettings: false, // Controls recording settings dialog
           showCaptureSettings: false, // Controls image capture settings dialog
               animateLoopStarted: false,
@@ -15563,6 +15565,20 @@
             bd.translation.push(bd.translation.length > 0 ? bd.translation[bd.translation.length - 1] : [0, 0, 0]);
           }
         });
+
+        // Trim old frames in live mode to keep only the last `maxLiveFrames`.
+        if (this.maxLiveFrames && data.time.length > this.maxLiveFrames) {
+          const excess = data.time.length - this.maxLiveFrames;
+          data.time.splice(0, excess);
+          Object.values(data.bodies).forEach((bd) => {
+            if (Array.isArray(bd.rotation) && bd.rotation.length > excess) {
+              bd.rotation.splice(0, excess);
+            }
+            if (Array.isArray(bd.translation) && bd.translation.length > excess) {
+              bd.translation.splice(0, excess);
+            }
+          });
+        }
 
         // First subject acts as the master for frame index / time reference
         if (masterData === null) {
