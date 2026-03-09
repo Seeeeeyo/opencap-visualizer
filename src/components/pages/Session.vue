@@ -12880,8 +12880,9 @@
         if (!this.renderer) return;
   
         // Store original states
-        const originalWidth = this.renderer.domElement.width;
-        const originalHeight = this.renderer.domElement.height;
+        const canvas = this.renderer.domElement;
+        const baseWidth = canvas.clientWidth || this.$refs.mocap?.clientWidth || canvas.width;
+        const baseHeight = canvas.clientHeight || this.$refs.mocap?.clientHeight || canvas.height;
         const originalBackground = this.scene.background;
         const originalGroundVisibility = this.groundMesh ? this.groundMesh.visible : false;
         const originalClearColor = this.renderer.getClearColor();
@@ -12889,8 +12890,8 @@
   
         // Set to high resolution for screenshot (4x)
         const scale = 4;
-        const width = originalWidth * scale;
-        const height = originalHeight * scale;
+        const width = Math.max(1, Math.round(baseWidth * scale));
+        const height = Math.max(1, Math.round(baseHeight * scale));
   
         // Helper to create an offscreen renderer
         const createOffscreenRenderer = (transparent = false) => {
@@ -12923,13 +12924,20 @@
             });
         }
   
-        // Save camera state
-        const originalAspect = this.camera.aspect;
-        const originalProjectionMatrix = this.camera.projectionMatrix.clone();
-  
-        // Force camera aspect ratio update for screenshot
-        this.camera.aspect = width / height;
-        this.camera.updateProjectionMatrix();
+        // Render with a cloned camera so the live viewport/camera state remains untouched.
+        const screenshotCamera = this.camera.clone();
+        screenshotCamera.aspect = width / height;
+        screenshotCamera.position.copy(this.camera.position);
+        screenshotCamera.quaternion.copy(this.camera.quaternion);
+        screenshotCamera.scale.copy(this.camera.scale);
+        screenshotCamera.zoom = this.camera.zoom;
+        screenshotCamera.near = this.camera.near;
+        screenshotCamera.far = this.camera.far;
+        screenshotCamera.fov = this.camera.fov;
+        screenshotCamera.updateProjectionMatrix();
+        screenshotCamera.updateMatrixWorld(true);
+
+        this.scene.updateMatrixWorld(true);
   
         // Create download links for the selected version(s)
         captures.forEach(capture => {
@@ -12941,7 +12949,7 @@
             }
             // Use offscreen renderer for all captures
             const offscreenRenderer = createOffscreenRenderer(capture.transparent);
-            offscreenRenderer.render(this.scene, this.camera);
+            offscreenRenderer.render(this.scene, screenshotCamera);
             try {
                 const dataURL = offscreenRenderer.domElement.toDataURL('image/png');
                 // Create and trigger download
@@ -12962,8 +12970,6 @@
         if (this.groundMesh) {
             this.groundMesh.visible = originalGroundVisibility;
         }
-        this.camera.aspect = originalAspect;
-        this.camera.projectionMatrix.copy(originalProjectionMatrix);
         this.renderer.setClearColor(originalClearColor, originalClearAlpha);
         this.renderer.render(this.scene, this.camera);
   
