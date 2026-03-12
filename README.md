@@ -155,6 +155,25 @@ Apply a single color to all bones of each subject. Pass comma-separated hex valu
 python live_stream_from_json.py s1.json s2.json --subject-colors "#d3d3d3,#4995e0"
 ```
 
+For live streams, subject colors are applied when the stream initializes and remain fixed for the duration of that stream.
+
+---
+
+#### Whole-model transparency (`--subject-opacity`)
+
+Apply a uniform transparency to the entire model of each subject. Pass comma-separated values 0–1 (0 = invisible, 1 = fully opaque), one per subject:
+
+```bash
+# Subject 1 at 50% opacity, subject 2 at 80%
+python live_stream_from_json.py s1.json s2.json --subject-opacity 0.5,0.8
+
+# Single subject at 60% opacity
+python live_stream_from_json.py s1.json --subject-opacity 0.6
+```
+
+Can be combined with `--subject-colors` and `--body-style`.
+For live streams, subject opacity is applied when the stream initializes and does not update dynamically after the subjects have loaded.
+
 ---
 
 #### Per-bone color, visibility, and transparency (`--body-style`)
@@ -360,6 +379,7 @@ asyncio.run(show_scores())
 ```bash
 python live_stream_from_json.py subject1.json subject2.json \
   --subject-colors "#d3d3d3,#4995e0" \
+  --subject-opacity 0.1,0.3 \
   --body-style '[{"hand_l": {"visible": false}, "pelvis": {"opacity": 0.5}}, {"hand_l": {"visible": false}}]' \
   --camera anterior \
   --model "LaiArnold,Hu_ISB_shoulder" \
@@ -646,4 +666,3 @@ We acknowledge the contributions of the OpenCap development team and the broader
 - **GitHub Issues**: [Report bugs and request features](https://github.com/Seeeeeyo/opencap-visualizer/issues)
 - **Web App**: [https://www.visualizer.opencap.ai/](https://www.visualizer.opencap.ai)
 - **Documentation**: Check the individual repository READMEs for detailed usage instructions
-
