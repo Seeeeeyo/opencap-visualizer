@@ -4166,6 +4166,7 @@
               liveStatus: 'disconnected', // 'connecting' | 'connected' | 'error'
               liveAnimationIndices: {}, // map from subject ID -> animation index (supports multiple subjects)
               liveBodyStyle: {}, // map from subject ID -> { bodyName: { visible, color } }
+              liveBodyStyleDirty: false, // avoid reapplying live mesh style every render tick
               liveSubjectVisibility: {}, // map from subject ID -> boolean (true = visible)
               liveSubjectIds: [], // ordered list of connected subject IDs (for UI)
               liveCameraCentered: false, // true once the camera has been centered on the subject's real position
@@ -8672,7 +8673,7 @@
             }
           });
 
-          if (Object.keys(this.liveAnimationIndices).length > 0) {
+          if (this.liveBodyStyleDirty) {
             this.applyLiveBodyStyle();
           }
 
@@ -12992,15 +12993,19 @@
         console.log(`[updateAlpha] Updating alpha for index ${animationIndex} to ${value}`);
         this.$set(this.alphaValues, animationIndex, value); // Use $set for reactivity
   
+        const isTransparent = value < 1.0;
         // Update all meshes for this animation
         Object.keys(this.meshes).forEach(key => {
             if (key.startsWith(`anim${animationIndex}_`)) {
                 const mesh = this.meshes[key];
                 mesh.traverse((child) => {
-                    if (child instanceof THREE.Mesh) {
-                        child.material.opacity = value; // Set the new alpha value
-                        child.material.transparent = true; // Ensure transparency is enabled
-                        child.material.needsUpdate = true; // Update the material
+                    if (child instanceof THREE.Mesh && child.material) {
+                        const mat = child.material;
+                        const wasTransparent = mat.transparent;
+                        mat.opacity = value;
+                        mat.transparent = isTransparent;
+                        mat.depthWrite = !isTransparent; // Disable depth write for transparent meshes (major perf win)
+                        if (wasTransparent !== isTransparent) mat.needsUpdate = true;
                     }
                 });
             }
@@ -13679,6 +13684,39 @@
         this.$set(this.liveBodyStyle[subjectId][foundBody].geometries, foundGeom, { visible });
       },
 
+      forEachMeshMaterial(object3d, callback) {
+        if (!object3d) return;
+        object3d.traverse((child) => {
+          if (!(child instanceof THREE.Mesh) || !child.material) return;
+          const materials = Array.isArray(child.material) ? child.material : [child.material];
+          materials.forEach((material) => {
+            if (material) callback(material, child);
+          });
+        });
+      },
+
+      applyOpacityToMesh(mesh, opacity) {
+        if (!mesh) return false;
+        const clampedOpacity = Math.max(0, Math.min(1, opacity));
+        const isTransparent = clampedOpacity < 1.0;
+        let changed = false;
+
+        this.forEachMeshMaterial(mesh, (material) => {
+          const transparencyChanged = material.transparent !== isTransparent;
+          const opacityChanged = material.opacity !== clampedOpacity;
+          const depthWriteChanged = material.depthWrite !== !isTransparent;
+          if (!transparencyChanged && !opacityChanged && !depthWriteChanged) return;
+
+          material.opacity = clampedOpacity;
+          material.transparent = isTransparent;
+          material.depthWrite = !isTransparent;
+          if (transparencyChanged) material.needsUpdate = true;
+          changed = true;
+        });
+
+        return changed;
+      },
+
       toggleMeshVisibility(meshKey) {
         const mesh = this.meshes[meshKey];
         if (mesh) {
@@ -13691,19 +13729,16 @@
       getMeshItemOpacity(meshKey) {
         return this.meshOpacities[meshKey] !== undefined ? this.meshOpacities[meshKey] : 1.0;
       },
-      updateMeshItemOpacity(meshKey, value) {
+      updateMeshItemOpacity(meshKey, value, options = {}) {
         const opacity = Math.max(0, Math.min(1, value));
-        this.$set(this.meshOpacities, meshKey, opacity);
+        const shouldRender = options.render !== false;
+        if (this.meshOpacities[meshKey] !== opacity) {
+          this.$set(this.meshOpacities, meshKey, opacity);
+        }
         const mesh = this.meshes[meshKey];
         if (!mesh) return;
-        mesh.traverse((child) => {
-          if (child instanceof THREE.Mesh) {
-            child.material.opacity = opacity;
-            child.material.transparent = opacity < 1.0;
-            child.material.needsUpdate = true;
-          }
-        });
-        if (this.renderer) {
+        const changed = this.applyOpacityToMesh(mesh, opacity);
+        if (changed && shouldRender && this.renderer) {
           this.renderer.render(this.scene, this.camera);
         }
       },
@@ -15421,6 +15456,7 @@
       this.liveMode = false;
       this.liveAnimationIndices = {};
       this.liveBodyStyle = {};
+      this.liveBodyStyleDirty = false;
       this.liveSubjectVisibility = {};
       this.liveSubjectIds = [];
       this.liveCameraCentered = false;
@@ -15478,6 +15514,7 @@
       console.log('[live] init', msg);
 
       this.liveBodyStyle = {};
+      this.liveBodyStyleDirty = false;
       this.liveAnimationIndices = {};
       this.liveSubjectVisibility = {};
       this.liveSubjectIds = [];
@@ -15500,6 +15537,7 @@
           : globalBodyStyle;
         if (subjectStyle && Object.keys(subjectStyle).length > 0) {
           this.liveBodyStyle[subject.id] = subjectStyle;
+          this.liveBodyStyleDirty = true;
         }
         const baseJson = {
           time: [0],
@@ -15550,7 +15588,7 @@
       this.playing = false;
       this.updateDisplayedTime();
 
-      this.applyLiveBodyStyle();
+      this.applyLiveBodyStyle({ render: false });
       this.applyLiveCamera(msg.camera);
     },
 
@@ -15675,8 +15713,11 @@
       }
     },
 
-    applyLiveBodyStyle() {
+    applyLiveBodyStyle(options = {}) {
       if (Object.keys(this.liveAnimationIndices).length === 0) return;
+      const shouldRender = options.render !== false;
+      let changed = false;
+      let pendingMeshes = false;
       Object.entries(this.liveAnimationIndices).forEach(([subjectId, liveIndex]) => {
         const bodyStyle = this.liveBodyStyle[subjectId];
         if (!bodyStyle || Object.keys(bodyStyle).length === 0) return;
@@ -15695,33 +15736,48 @@
           (bodies[bodyName].attachedGeometries || []).forEach((geom) => {
             const meshKey = `anim${liveIndex}_${bodyName}${geom}`;
             const mesh = this.meshes[meshKey];
-            if (!mesh) return;
+            if (!mesh) {
+              pendingMeshes = true;
+              return;
+            }
             // Geometry-level override takes precedence over body-level style
             const geomStyle = geomOverrides && geomOverrides[geom] ? geomOverrides[geom] : null;
             const visible = geomStyle ? geomStyle.visible !== false : bodyVisible;
             const colorHex = geomStyle && geomStyle.color ? geomStyle.color : bodyColorHex;
             const bodyOpacity = style.opacity !== undefined ? style.opacity : null;
             const opacityVal = geomStyle && geomStyle.opacity !== undefined ? geomStyle.opacity : bodyOpacity;
-            mesh.visible = visible;
+            if (mesh.visible !== visible) {
+              mesh.visible = visible;
+              changed = true;
+            }
             if (colorHex && typeof colorHex === 'string') {
               try {
-                const threeColor = new THREE.Color(colorHex);
-                mesh.traverse((child) => {
-                  if (child instanceof THREE.Mesh && child.material) {
-                    child.material.color.copy(threeColor);
-                    if (child.material.needsUpdate !== undefined) child.material.needsUpdate = true;
-                  }
-                });
+                if (mesh.userData.appliedColorHex !== colorHex) {
+                  const threeColor = new THREE.Color(colorHex);
+                  this.forEachMeshMaterial(mesh, (material) => {
+                    material.color.copy(threeColor);
+                    if (material.needsUpdate !== undefined) material.needsUpdate = true;
+                  });
+                  mesh.userData.appliedColorHex = colorHex;
+                  changed = true;
+                }
               } catch (e) {
                 console.warn('[live] Invalid bodyStyle color for', bodyName, geom, colorHex, e);
               }
             }
             if (opacityVal !== null && typeof opacityVal === 'number') {
-              this.updateMeshItemOpacity(meshKey, opacityVal);
+              changed = this.applyOpacityToMesh(mesh, opacityVal) || changed;
+              if (this.meshOpacities[meshKey] !== opacityVal) {
+                this.$set(this.meshOpacities, meshKey, opacityVal);
+              }
             }
           });
         });
       });
+      this.liveBodyStyleDirty = pendingMeshes;
+      if (changed && shouldRender && this.renderer && this.scene && this.camera) {
+        this.renderer.render(this.scene, this.camera);
+      }
     },
 
     centerCameraOnLiveSubject() {
