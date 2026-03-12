@@ -1,4 +1,5 @@
 import asyncio
+import copy
 import json
 import socket
 import sys
@@ -25,6 +26,9 @@ Usage (two subjects):
 Coloring options:
     # Uniform color per subject
     --subject-colors "#d3d3d3,#4995e0"
+
+    # Whole-model transparency per subject (0=invisible, 1=opaque)
+    --subject-opacity 0.5,0.8
 
     # Same per-bone style applied to both subjects
     --body-style '{"pelvis": {"color": "#ff0000"}, "femur_r": {"color": "#00ff00"}}'
@@ -162,6 +166,7 @@ async def stream_from_json(
     speed: float = 1.0,
     body_style: dict | None = None,
     subject_colors: list[str] | None = None,
+    subject_opacity: list[float] | None = None,
     camera: "dict | str | None" = None,
     models: "list[str] | None" = None,
 ):
@@ -174,6 +179,7 @@ async def stream_from_json(
                 per-bone control.
     subject_colors: list of hex color strings, one per subject (e.g. ["#d3d3d3", "#4995e0"]).
                     Colors every bone of that subject uniformly. Takes priority over body_style.
+    subject_opacity: list of floats 0-1, one per subject (e.g. [0.5, 0.8]). Whole-model transparency.
 
     Protocol:
       init:
@@ -305,6 +311,17 @@ async def stream_from_json(
                 subject_entry["bodyStyle"] = body_style[idx - 1]
         elif body_style:
             subject_entry["bodyStyle"] = body_style
+
+        # Whole-model transparency (--subject-opacity): apply to all bodies
+        if subject_opacity and idx - 1 < len(subject_opacity):
+            opacity_val = subject_opacity[idx - 1]
+            opacity_val = max(0.0, min(1.0, float(opacity_val)))
+            if subject_entry.get("bodyStyle") is not None:
+                subject_entry["bodyStyle"] = copy.deepcopy(subject_entry["bodyStyle"])
+            else:
+                subject_entry["bodyStyle"] = {}
+            for name in bodies_meta:
+                subject_entry["bodyStyle"].setdefault(name, {})["opacity"] = opacity_val
 
         subjects_meta.append(subject_entry)
 
@@ -465,6 +482,24 @@ async def main():
         else:
             args = args[:idx] + args[idx + 1 :]
 
+    # Extract --subject-opacity if present (comma-separated floats 0-1, one per subject)
+    # e.g. --subject-opacity 0.5,0.8
+    subject_opacity: list[float] | None = None
+    if "--subject-opacity" in args:
+        idx = args.index("--subject-opacity")
+        if idx + 1 < len(args):
+            raw = [x.strip() for x in args[idx + 1].split(",")]
+            subject_opacity = []
+            for v in raw:
+                try:
+                    f = float(v)
+                    subject_opacity.append(max(0.0, min(1.0, f)))
+                except ValueError:
+                    print(f"Invalid opacity '{v}' in --subject-opacity, skipping")
+            args = args[:idx] + args[idx + 2 :]
+        else:
+            args = args[:idx] + args[idx + 1 :]
+
     # Extract --camera if present
     # Accepts a named preset (e.g. "front") or inline JSON {"position":[x,y,z],"target":[x,y,z]}
     camera: "dict | str | None" = None
@@ -522,6 +557,7 @@ async def main():
                 websocket, json_paths, speed,
                 body_style=body_style,
                 subject_colors=subject_colors,
+                subject_opacity=subject_opacity,
                 camera=camera,
                 models=models,
             )
