@@ -110,7 +110,8 @@ async def send_subject_visibility(subject_id: str, visible: bool):
     """
     Hide or show a subject on every connected visualizer client.
 
-    subject_id : the subject ID used in the init message (e.g. "subject_0")
+    subject_id : the subject ID used in the init message, typically the JSON file
+                 stem (e.g. "s1" for s1.json)
     visible    : True to show, False to hide
     """
     msg = json.dumps({"type": "subjectVisibility", "subjectId": subject_id, "visible": visible})
@@ -119,6 +120,16 @@ async def send_subject_visibility(subject_id: str, visible: bool):
             await ws.send(msg)
         except Exception:
             pass
+
+
+async def hide_subject(subject_id: str):
+    """Hide a subject on every connected visualizer client."""
+    await send_subject_visibility(subject_id, False)
+
+
+async def show_subject(subject_id: str):
+    """Show a subject on every connected visualizer client."""
+    await send_subject_visibility(subject_id, True)
 
 
 async def send_trial_scores(scores: list, labels: list | None = None):
