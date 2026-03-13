@@ -1,6 +1,6 @@
 <template>
   <div class="trial-scores-plot">
-    <h3 class="trial-scores-title">Movement scores</h3>
+    <h3 class="trial-scores-title">{{ displayTitle }}</h3>
     <div class="trial-scores-chart-wrapper">
       <canvas ref="chartCanvas"></canvas>
     </div>
@@ -18,6 +18,14 @@ export default {
     labels: {
       type: Array,
       default: () => []
+    },
+    title: {
+      type: String,
+      default: ''
+    },
+    colors: {
+      type: Array,
+      default: () => []
     }
   },
   data() {
@@ -26,6 +34,9 @@ export default {
     };
   },
   computed: {
+    displayTitle() {
+      return (this.title && this.title.trim()) ? this.title.trim() : 'Movement scores';
+    },
     chartLabels() {
       if (this.labels && this.labels.length >= this.normalizedScores.length) {
         return this.labels.slice(0, this.normalizedScores.length);
@@ -37,6 +48,22 @@ export default {
       const padded = this.scores.slice(0, 5);
       while (padded.length < 5) padded.push(0);
       return padded.map(v => Math.min(100, Math.max(0, Number(v) || 0)));
+    },
+    barColors() {
+      const map = { g: 'rgba(76, 175, 80, 0.7)', o: 'rgba(255, 152, 0, 0.7)', r: 'rgba(244, 67, 54, 0.7)' };
+      const borderMap = { g: 'rgba(76, 175, 80, 1)', o: 'rgba(255, 152, 0, 1)', r: 'rgba(244, 67, 54, 1)' };
+      const defaultBg = 'rgba(76, 175, 80, 0.7)';
+      const defaultBorder = 'rgba(76, 175, 80, 1)';
+      if (!Array.isArray(this.colors) || this.colors.length === 0) return null;
+      const bg = this.normalizedScores.map((_, i) => {
+        const c = (this.colors[i] || 'g').toString().toLowerCase()[0];
+        return map[c] || defaultBg;
+      });
+      const border = this.normalizedScores.map((_, i) => {
+        const c = (this.colors[i] || 'g').toString().toLowerCase()[0];
+        return borderMap[c] || defaultBorder;
+      });
+      return { backgroundColor: bg, borderColor: border };
     }
   },
   watch: {
@@ -47,6 +74,12 @@ export default {
       deep: true
     },
     labels: {
+      handler() {
+        this.updateChart();
+      },
+      deep: true
+    },
+    colors: {
       handler() {
         this.updateChart();
       },
@@ -71,8 +104,8 @@ export default {
           datasets: [{
             label: 'Score (%)',
             data: this.normalizedScores,
-            backgroundColor: 'rgba(76, 175, 80, 0.7)',
-            borderColor: 'rgba(76, 175, 80, 1)',
+            backgroundColor: this.barColors ? this.barColors.backgroundColor : 'rgba(76, 175, 80, 0.7)',
+            borderColor: this.barColors ? this.barColors.borderColor : 'rgba(76, 175, 80, 1)',
             borderWidth: 1
           }]
         },
@@ -119,6 +152,13 @@ export default {
       if (!this.chart) return;
       this.chart.data.labels = this.chartLabels;
       this.chart.data.datasets[0].data = this.normalizedScores;
+      if (this.barColors) {
+        this.chart.data.datasets[0].backgroundColor = this.barColors.backgroundColor;
+        this.chart.data.datasets[0].borderColor = this.barColors.borderColor;
+      } else {
+        this.chart.data.datasets[0].backgroundColor = 'rgba(76, 175, 80, 0.7)';
+        this.chart.data.datasets[0].borderColor = 'rgba(76, 175, 80, 1)';
+      }
       this.chart.update('none');
     },
     destroyChart() {

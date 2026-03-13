@@ -3798,6 +3798,8 @@
         <TrialScoresPlot
           :scores="liveTrialScores.scores"
           :labels="liveTrialScores.labels"
+          :title="liveTrialScores.title"
+          :colors="liveTrialScores.colors"
         />
       </div>
     </div>
@@ -4171,7 +4173,7 @@
               liveSubjectIds: [], // ordered list of connected subject IDs (for UI)
               liveCameraCentered: false, // true once the camera has been centered on the subject's real position
               liveNotification: { show: false, message: '', level: 'info', timeout: 5000 },
-              liveTrialScores: { show: false, scores: [], labels: [] },
+              liveTrialScores: { show: false, scores: [], labels: [], title: '', colors: [] },
               liveTrialScoresTimer: null,
               showLiveStreamDetails: false, // Toggle for Live IK Stream section
               showSyncDetails: false, // Toggle for Sync section
@@ -15464,7 +15466,7 @@
         clearTimeout(this.liveTrialScoresTimer);
         this.liveTrialScoresTimer = null;
       }
-      this.liveTrialScores = { show: false, scores: [], labels: [] };
+      this.liveTrialScores = { show: false, scores: [], labels: [], title: '', colors: [] };
     },
 
     setLiveSubjectVisibility(subjectId, visible) {
@@ -15491,15 +15493,9 @@
       const scores = raw.slice(0, 5).map(v => Math.min(100, Math.max(0, Number(v) || 0)));
       while (scores.length < 5) scores.push(0);
       const labels = Array.isArray(msg.labels) ? msg.labels.slice(0, 5) : [];
-      this.liveTrialScores = { show: true, scores, labels };
-      if (this.liveTrialScoresTimer) {
-        clearTimeout(this.liveTrialScoresTimer);
-        this.liveTrialScoresTimer = null;
-      }
-      this.liveTrialScoresTimer = setTimeout(() => {
-        this.liveTrialScores = { show: false, scores: [], labels: [] };
-        this.liveTrialScoresTimer = null;
-      }, 15000);
+      const title = typeof msg.title === 'string' && msg.title.trim() ? msg.title.trim() : '';
+      const colors = Array.isArray(msg.colors) ? msg.colors.slice(0, 5) : [];
+      this.liveTrialScores = { show: true, scores, labels, title, colors };
     },
 
     hideLiveTrialScores() {
@@ -15507,7 +15503,7 @@
         clearTimeout(this.liveTrialScoresTimer);
         this.liveTrialScoresTimer = null;
       }
-      this.liveTrialScores = { show: false, scores: [], labels: [] };
+      this.liveTrialScores = { show: false, scores: [], labels: [], title: '', colors: [] };
     },
 
     async handleLiveInit(msg) {

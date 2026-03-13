@@ -64,7 +64,7 @@ Model options:
 Interactive commands (type while the server is running):
     notify Good job!                  → info banner on the visualizer
     notify success Great technique!   → colored banner (info/success/warning/error)
-    scores 85 72 90 68 88 [label1 ...] → show trial scores (optional 5 labels after the 5 numbers)
+    scores 85 72 90 68 88 [label1 ...] [colors: g o r g o] [title: text] → trial scores (g/r/o = green/red/orange)
     hidescores                        → hide the trial scores plot
     hide subject_0                    → hide a subject
     show subject_0                    → show a subject
@@ -132,16 +132,36 @@ async def show_subject(subject_id: str):
     await send_subject_visibility(subject_id, True)
 
 
-async def send_trial_scores(scores: list, labels: list | None = None):
+_COLOR_MAP = {"g": "green", "o": "orange", "r": "red"}
+
+
+async def send_trial_scores(
+    scores: list,
+    labels: list | None = None,
+    title: str | None = None,
+    colors: list[str] | None = None,
+):
     """
     Show the trial scores plot on every connected visualizer client.
 
     scores : list of 5 numbers (0–100, percentages)
     labels : optional list of 5 strings for bar labels
+    title : optional string for the plot title
+    colors : optional list of 5 chars: g=green, o=orange, r=red
     """
     msg = {"type": "trialScores", "scores": scores[:5]}
     if labels:
         msg["labels"] = labels[:5]
+    if title:
+        msg["title"] = str(title).strip()
+    if colors:
+        validated = [
+            c if c.lower() in _COLOR_MAP else "g"
+            for c in [str(x).lower()[0] for x in colors[:5]]
+        ]
+        while len(validated) < 5:
+            validated.append("g")
+        msg["colors"] = validated[:5]
     for ws in list(_CONNECTED_CLIENTS):
         try:
             await ws.send(json.dumps(msg))
@@ -586,7 +606,7 @@ async def main():
         --------
         notify <message>                    – info banner
         notify <level> <message>            – banner with level (info/success/warning/error)
-        scores <n1> <n2> <n3> <n4> <n5> [label1 ... label5]  – show trial scores (optional labels)
+        scores <n1> <n2> <n3> <n4> <n5> [label1 ... label5] [colors: g o r g o] [title: text]  – trial scores (g/r/o=green/red/orange)
         hidescores                          – hide the trial scores plot
         hide <subject_id>                   – hide a subject
         show <subject_id>                   – show a subject
@@ -616,7 +636,7 @@ async def main():
                         "Commands:\n"
                         "  notify <message>              – info notification\n"
                         "  notify <level> <message>      – notification with level (info/success/warning/error)\n"
-                        "  scores <n1> <n2> <n3> <n4> <n5> [label1 ... label5]  – show trial scores (optional labels)\n"
+                        "  scores <n1> <n2> <n3> <n4> <n5> [label1 ... label5] [colors: g o r g o] [title: text]  – trial scores (g/r/o=green/red/orange)\n"
                         "  hidescores                   – hide trial scores plot\n"
                         "  hide <subject_id>             – hide subject\n"
                         "  show <subject_id>             – show subject\n"
@@ -632,17 +652,39 @@ async def main():
                     else:
                         print("Usage: notify [level] <message>")
                 elif verb == "scores" and len(parts) >= 2:
-                    tokens = " ".join(parts[1:]).split()
+                    remainder = " ".join(parts[1:])
+                    title = None
+                    colors = None
+                    if "title:" in remainder:
+                        idx = remainder.index("title:")
+                        title = remainder[idx + 6:].strip()
+                        remainder = remainder[:idx].strip()
+                    if "colors:" in remainder:
+                        idx = remainder.index("colors:")
+                        raw = remainder[idx + 7:].strip()
+                        remainder = remainder[:idx].strip()
+                        if " " in raw:
+                            colors = raw.split()[:5]
+                        else:
+                            colors = list(raw)[:5]
+                    tokens = remainder.split()
                     if len(tokens) >= 5:
                         try:
-                            scores = [float(x) for x in tokens[:5]]
+                            scores_list = [float(x) for x in tokens[:5]]
                             labels = tokens[5:10] if len(tokens) >= 10 else None
-                            await send_trial_scores(scores, labels=labels)
-                            print(f"[scores] {scores}" + (f" labels={labels}" if labels else ""))
+                            await send_trial_scores(scores_list, labels=labels, title=title, colors=colors)
+                            out = f"[scores] {scores_list}"
+                            if labels:
+                                out += f" labels={labels}"
+                            if colors:
+                                out += f" colors={colors}"
+                            if title:
+                                out += f" title={title!r}"
+                            print(out)
                         except ValueError as e:
-                            print(f"Usage: scores <n1> <n2> <n3> <n4> <n5> [label1 ... label5]. Error: {e}")
+                            print(f"Usage: scores <n1> <n2> <n3> <n4> <n5> [label1 ... label5] [colors: g o r g o] [title: <text>]. Error: {e}")
                     else:
-                        print("Usage: scores <n1> <n2> <n3> <n4> <n5>  [label1 label2 label3 label4 label5]")
+                        print("Usage: scores <n1> <n2> <n3> <n4> <n5>  [label1 label2 label3 label4 label5]  [colors: g o r g o]  [title: optional title]")
                 elif verb == "hidescores":
                     await send_hide_scores()
                     print("[hidescores]")
