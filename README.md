@@ -339,18 +339,20 @@ asyncio.run(my_feedback())
 
 #### Trial scores plot
 
-At the end of a trial you can show the patient a bar chart of five movement scores (percentages). The plot appears as a full-screen overlay in the visualizer for **15 seconds** or until you send a hide command.
+At the end of a trial you can show the patient a bar chart of five movement scores (percentages). The plot appears as a full-screen overlay and stays visible until you send a hide command.
 
 **From the terminal** (while the streaming script is running):
 
 ```
 scores 85 72 90 68 88
 scores 43 32 90 34 25 arms ankles trunk shoulder overall
+scores 85 72 90 68 88 colors:g o r g o title:Trial 1 Results
 hidescores
 ```
 
 - **`scores <n1> <n2> <n3> <n4> <n5>`** — Show trial scores (five numbers 0–100). The visualizer displays a centered bar chart titled "Movement scores".
-- **`scores <n1> <n2> <n3> <n4> <n5> <label1> <label2> <label3> <label4> <label5>`** — Same, with custom labels on the x-axis (e.g. `arms ankles trunk shoulder overall`).
+- **`scores <n1> <n2> <n3> <n4> <n5> [label1 ... label5]`** — Same, with custom labels on the x-axis (e.g. `arms ankles trunk shoulder overall`).
+- **`scores ... [colors: g o r g o] [title: <text>]`** — Optional per-bar colors and custom title. Colors: **g** = green, **o** = orange, **r** = red (five letters, space-separated or concatenated, e.g. `colors:grgro`). Title replaces the default "Movement scores".
 - **`hidescores`** — Dismiss the scores overlay immediately.
 
 Type **`help`** in the terminal for a short list of all interactive commands.
@@ -365,6 +367,13 @@ async def show_scores():
     await send_trial_scores([85, 72, 90, 68, 88])
     # With labels:
     await send_trial_scores([43, 32, 90, 34, 25], labels=["arms", "ankles", "trunk", "shoulder", "overall"])
+    # With optional title and per-bar colors (g=green, o=orange, r=red):
+    await send_trial_scores(
+        [85, 72, 90, 68, 88],
+        labels=["S1", "S2", "S3", "S4", "S5"],
+        title="Trial 1 Results",
+        colors=["g", "o", "r", "g", "o"]
+    )
 
 async def hide_scores():
     await send_hide_scores()
@@ -388,6 +397,7 @@ python live_stream_from_json.py subject1.json subject2.json \
 # While running, type commands in the terminal:
 # notify success Keep it up!
 # scores 85 72 90 68 88 arms ankles trunk shoulder overall
+# scores 85 72 90 68 88 colors:g o r g o title:Trial 1 Results
 # hidescores
 # hide subject_1
 # show subject_1

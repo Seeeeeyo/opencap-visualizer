@@ -3794,6 +3794,7 @@
       <div
         v-if="liveTrialScores.show && liveMode"
         class="live-trial-scores-overlay"
+        @click.self="hideLiveTrialScores"
       >
         <TrialScoresPlot
           :scores="liveTrialScores.scores"
@@ -18102,6 +18103,10 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    cursor: pointer;
+  }
+  .live-trial-scores-overlay :deep(.trial-scores-plot) {
+    cursor: default;
   }
   
   /* Ensure camera controls are positioned correctly */
