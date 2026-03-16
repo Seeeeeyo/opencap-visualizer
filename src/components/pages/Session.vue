@@ -2025,7 +2025,7 @@
           >
             Firefox may show degraded syncing between the video and 3D visualizer. For the smoothest experience, use Chrome/Safari/Brave.
           </div>
-          <div class="controls-container" style="display: flex; align-items: center; padding: 0 10px;" v-if="$route.query.embed !== 'true'">
+          <div class="controls-container" style="display: flex; align-items: center; padding: 0 10px;" v-if="$route.query.embed !== 'true' && !isLivestreamModeEnabled">
             <!-- Video controls on the left -->
             <VideoNavigation
               :playing="playing"
@@ -4164,6 +4164,7 @@
               },
               // Live IK streaming over WebSocket
               liveMode: false,
+              isLivestreamModeEnabled: false, // persists through socket drops; only reset on explicit disconnect
               liveUrl: 'ws://localhost:8765',
               liveSocket: null,
               liveStatus: 'disconnected', // 'connecting' | 'connected' | 'error'
@@ -15398,6 +15399,7 @@
 
       // Expand the section when connecting
       this.showLiveStreamDetails = true;
+      this.isLivestreamModeEnabled = true;
 
       try {
         this.liveStatus = 'connecting';
@@ -15457,6 +15459,7 @@
       this.liveSocket = null;
       this.liveStatus = 'disconnected';
       this.liveMode = false;
+      this.isLivestreamModeEnabled = false;
       this.liveAnimationIndices = {};
       this.liveBodyStyle = {};
       this.liveBodyStyleDirty = false;
