@@ -15399,7 +15399,6 @@
 
       // Expand the section when connecting
       this.showLiveStreamDetails = true;
-      this.isLivestreamModeEnabled = true;
 
       try {
         this.liveStatus = 'connecting';
@@ -15409,6 +15408,7 @@
         socket.onopen = () => {
           this.liveStatus = 'connected';
           this.liveMode = true;
+          this.isLivestreamModeEnabled = true;
           this.showLiveStreamDetails = true; // Keep expanded when connected
           console.log('[live] Connected to', this.liveUrl);
         };
@@ -15459,7 +15459,6 @@
       this.liveSocket = null;
       this.liveStatus = 'disconnected';
       this.liveMode = false;
-      this.isLivestreamModeEnabled = false;
       this.liveAnimationIndices = {};
       this.liveBodyStyle = {};
       this.liveBodyStyleDirty = false;
