@@ -95,7 +95,10 @@ OpenCap Visualizer supports high-throughput biomechanics workflows where manual,
 
 # Figures
 
-Figure \ref{fig:multisubject} illustrates multi-subject comparison, including overlay of OpenCap monocular and marker-based motion capture. Figure \ref{fig:markersforces} shows visualization of marker trajectories and ground reaction forces. Figure \ref{fig:timelapse} presents the timelapse rendering used to summarize dynamic movement patterns in static figures.
+Figure \ref{fig:multisubject} illustrates multi-subject comparison, including overlay of OpenCap monocular and marker-based motion capture. Figure \ref{fig:markersforces} shows a visualization of marker trajectories and ground reaction forces. Figure \ref{fig:livestream} shows OpenSim kinematics streamed in real time to the browser via the visualizer's WebSocket interface.
+
+
+Figure \ref{fig:timelapse} presents the timelapse rendering used to summarize dynamic movement patterns in static figures.
 
 \begin{figure}
 \centering
