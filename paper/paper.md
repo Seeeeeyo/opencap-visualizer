@@ -59,7 +59,7 @@ In addition to offline playback, the visualizer supports real-time streaming of 
 
 ## 3. Python API for Automated Video Creation
 
-The opencap-visualizer Python package (https://pypi.org/project/opencap-visualizer) enables fully programmatic video generation for integration into automated pipelines and headless servers. Users can batch-render videos with configurable camera views, subject overlays, colors, and looping behavior from standard OpenCap and OpenSim inputs, eliminating the need for manual GUI interaction.
+The opencap-visualizer Python package ([https://pypi.org/project/opencap-visualizer](https://pypi.org/project/opencap-visualizer)) enables fully programmatic video generation for integration into automated pipelines and headless servers. Users can batch-render videos with configurable camera views, subject overlays, colors, and looping behavior from standard OpenCap and OpenSim inputs, eliminating the need for manual GUI interaction.
 
 ```python
 import opencap_visualizer as ocv
