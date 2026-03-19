@@ -66,7 +66,10 @@ import opencap_visualizer as ocv
 
 ocv.create_video("subj.json", "output.mp4", camera="anterior")
 ocv.create_video(["subj1.json", "subj2.json"], "compare.mp4", colors=["red","blue"])
-ocv.create_video(["model.osim","motion.mot","markers.trc","forces.mot"], "expmtl_visualization.mp4")
+ocv.create_video(
+    ["model.osim", "motion.mot", "markers.trc", "forces.mot"],
+    "expmtl_visualization.mp4",
+)
 ```
 
 
