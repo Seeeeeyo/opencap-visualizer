@@ -16,62 +16,65 @@ authors:
     affiliation: 1
   - name: Scott Uhlrich
     orcid: 0000-0002-3113-367X
-    affiliation: 1
+    affiliation: 1,2
 affiliations:
   - name: Department of Mechanical Engineering, University of Utah, Salt Lake City, UT, USA
     index: 1
+  - name: Department of Orthopaedic Surgery, University of Utah, Salt Lake City, UT, USA
 date: 2 January 2026
 bibliography: paper.bib
 ---
 
 # Summary
 
-Biomechanics research relies on visualizing 3D movement data to interpret and validate results, but traditional desktop-based graphical user interfaces (GUIs) have become a bottleneck for efficiency and reproducibility, requiring extensive manual interaction to load models, motions, configure scenes, and export media. To resolve these challenges, OpenCap Visualizer is a web-based platform and Python package that enables both interactive 3D visualization and fully programmatic video generation.
+Biomechanics research relies on visualizing 3D movement data to interpret and validate results, but traditional desktop-based graphical user interfaces (GUIs) have become a bottleneck for efficiency and reproducibility. They require extensive manual interaction to load models, motions, configure scenes, and export media. To resolve these challenges, OpenCap Visualizer is a web-based platform and Python package that enables both interactive 3D visualization and fully programmatic video generation.
 
-The software provides two primary interfaces: a browser-based viewer for real-time, shareable visualization, and a Python API for automated rendering. Built with Vue.js and Three.js, it supports standard biomechanics formats—including OpenSim models (.osim), kinematics (.mot, .json), markers (.trc), and force data (.mot)—allowing researchers to process, analyze, render, and share biomechanics videos with minimal human intervention.
+The software provides three primary interfaces: a browser-based viewer for shareable visualization and real-time data streaming, and a Python API for automated rendering. Built with Vue.js and Three.js, it supports standard biomechanics formats—including OpenSim models (.osim), kinematics (.mot, .json), markers (.trc), and force data (.mot)—allowing researchers to process, analyze, render, and share biomechanics videos with minimal human intervention.
+
 
 The platform is available at https://www.visualizer.opencap.ai
 
 # Statement of need
 
-Biomechanics datasets are rapidly growing due to markerless motion capture and large-scale studies, while data processing is increasingly performed on cloud-based servers such as OpenCap [@opencap] or AddBiomechanics [@AddBiomechanics]. Existing visualization tools, such as the OpenSim GUI, are optimized for interactive, single-trial analysis on local machines and do not scale well to modern, automated workflows.
-
-As a result, quality control and qualitative comparison across large datasets are time-consuming, error-prone, and difficult to reproduce, as generating consistent visual outputs (e.g., predicted–reference motion overlays) requires extensive manual GUI interaction.
+Biomechanics datasets are growing by orders of magnitude due to recent advances in mobile sensing, including wearables and markerless motion capture  [@boswell, @AddBiomechanics, @Duane ], and data processing is increasingly performed on cloud-based servers such as OpenCap [@opencap] or AddBiomechanics [@AddBiomechanics]. Existing visualization tools, such as the OpenSim GUI, are optimized for interactive, single-trial analysis on local machines and do not scale well to automated workflows required for analyzing large datasets. For example, we recently conducted a study using OpenCap with 129 individuals performing 10 activities; manually loading 1,290 trials for quality control in a GUI is infeasible. Similarly, comparing the effects of different algorithms on a motion is common in biomechanics research and currently requires extensive GUI interaction. 
 
 OpenCap Visualizer addresses these challenges by providing a scriptable, platform-agnostic visualization system that supports both interactive web-based viewing and fully automated, server-side rendering. Through its Python API, researchers can batch-generate reproducible videos and figures with programmatically defined camera settings, overlays, and styling, enabling scalable quality control and consistent qualitative comparison without manual intervention. Interactive browser-based visualization further allows collaborators to inspect 3D data directly via lightweight URLs.
 
 The platform builds on the OpenCap ecosystem [@opencap] while remaining compatible with OpenSim models and standard biomechanics data formats [@opensim], making it applicable to both traditional marker-based workflows and emerging markerless approaches using cameras [@opencap] or IMUs [@opensense; @opensenseRT].
 
+
 # Key Features
 
-OpenCap Visualizer supports three complementary modes of interaction: browser-based visualization, live streaming, and automated rendering via Python. It supports common biomechanics data formats, including OpenSim models (.osim), motion and force files (.mot), marker trajectories (.trc), JSON-based kinematics (e.g., OpenCap), and SMPL motion sequences (.pkl).
+OpenCap Visualizer supports three complementary modes of interaction: browser-based visualization, live streaming, and automated rendering via Python. It supports common biomechanics data formats, including OpenSim models (.osim), motion and force files (.sto, .mot), marker trajectories (.trc), JSON-based kinematics (e.g., OpenCap), and SMPL motion sequences (.pkl).
+
 
 ## 1. Interactive Web-Based Visualization
 
-OpenCap Visualizer provides installation-free 3D visualization directly in the browser using Three.js (https://www.visualizer.opencap.ai). It supports anatomically accurate skeletal rendering, multi-subject overlays, markers (.trc), ground reaction forces (.mot), and synchronized video playback. Users can interactively control playback, camera views, colors, and transparency, and export high-resolution images, videos, or timelapse composites for figures and presentations.
+OpenCap Visualizer provides installation-free 3D visualization directly in the browser using Three.js (TODO). It supports anatomically accurate skeletal rendering, multi-subject overlays, markers (.trc), ground reaction forces (.mot), and synchronized video playback. Users can interactively control playback, camera views, colors, and transparency, and export high-resolution images, videos, or timelapse composites for figures and presentations.
 
 ## 2. Live Streaming of Kinematics
 
-In addition to offline playback, the visualizer supports real-time streaming of OpenSim-based kinematics via a lightweight Python WebSocket server. Incoming frames are incrementally rendered in the browser, with automatic downsampling for smooth visualization. Multiple concurrent streams (e.g., predicted vs. reference motion) can be displayed simultaneously with standard playback controls. This enables real-time monitoring of inverse kinematics, model validation during data collection, and comparison against live reference pipelines such as OpenSenseRT [@opensenseRT].
+In addition to offline playback, the visualizer supports real-time streaming of OpenSim-based kinematics via a lightweight Python WebSocket server. Incoming frames are incrementally rendered in the browser. Multiple concurrent streams (e.g., predicted vs. reference motion) can be displayed simultaneously. This enables real-time monitoring of inverse kinematics, model validation during data collection, and flexible visualization of real-time pipelines such as OpenSenseRT [@opensenseRT].
 
 ## 3. Python API for Automated Video Creation
 
 The opencap-visualizer Python package (https://pypi.org/project/opencap-visualizer) enables fully programmatic video generation for integration into automated pipelines and headless servers. Users can batch-render videos with configurable camera views, subject overlays, colors, and looping behavior from standard OpenCap and OpenSim inputs, eliminating the need for manual GUI interaction.
 
-Example usage:
 ```python
 import opencap_visualizer as ocv
 
-ocv.create_video("subject.json", "output.mp4", camera="anterior")
+ocv.create_video("subj.json", "output.mp4", camera="anterior")
 ocv.create_video(["subj1.json", "subj2.json"], "compare.mp4", colors=["red","blue"])
-ocv.create_video(["model.osim","motion.mot","markers.trc","forces.mot"], "opensim.mp4")
+ocv.create_video(["model.osim","motion.mot","markers.trc","forces.mot"], "expmtl_visualization.mp4")
 ```
+
 
 # Implementation
 
 OpenCap Visualizer consists of a web-based frontend and a complementary Python package. The frontend is built with Vue.js and Three.js for interactive 3D visualization, with Vuetify providing UI components. The deployed web application includes cloud-based services for URL-based sharing and server-side conversion of OpenSim models and motion files into a browser-compatible JSON format.
 
 For local and automated workflows, a lightweight Python package enables headless video generation for batch rendering, while a separate local Python script supports real-time kinematics streaming via WebSockets.
+
 
 
 # Applications
@@ -106,10 +109,18 @@ Figure \ref{fig:multisubject} illustrates multi-subject comparison, including ov
 
 \begin{figure}[h!]
 \centering
+\includegraphics[width=\textwidth]{TODO.png}
+\caption{Example visualization of OpenSim kinematics in livestream}
+\label{fig:livestream}
+\end{figure}
+
+\begin{figure}[h!]
+\centering
 \includegraphics[width=0.8\textwidth]{sample.png}
 \caption{Example timelapse screenshot generated on the visualizer.}
 \label{fig:timelapse}
 \end{figure}
+
 
 
 # References 
