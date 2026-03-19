@@ -21,6 +21,7 @@ affiliations:
   - name: Department of Mechanical Engineering, University of Utah, Salt Lake City, UT, USA
     index: 1
   - name: Department of Orthopaedic Surgery, University of Utah, Salt Lake City, UT, USA
+    index: 2
 date: 2 January 2026
 bibliography: paper.bib
 ---
