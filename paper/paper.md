@@ -116,8 +116,8 @@ Figure \ref{fig:timelapse} presents the timelapse rendering used to summarize dy
 
 \begin{figure}[h!]
 \centering
-\includegraphics[width=\textwidth]{TODO.png}
-\caption{Example visualization of OpenSim kinematics in livestream}
+\includegraphics[width=\textwidth]{livestream.jpg}
+\caption{Example visualization of OpenSim kinematics in livestreamn(real-time)}
 \label{fig:livestream}
 \end{figure}
 
