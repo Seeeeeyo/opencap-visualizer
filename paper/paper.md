@@ -116,7 +116,7 @@ Figure \ref{fig:timelapse} presents the timelapse rendering used to summarize dy
 
 \begin{figure}[h!]
 \centering
-\includegraphics[width=0.8\textwidth]{livestream.jpg}
+\includegraphics[width=0.7\textwidth]{livestream.jpg}
 \caption{Example visualization of OpenSim kinematics in livestream (real-time)}
 \label{fig:livestream}
 \end{figure}
