@@ -22,7 +22,7 @@ affiliations:
     index: 1
   - name: Department of Orthopaedic Surgery, University of Utah, Salt Lake City, UT, USA
     index: 2
-date: 2 January 2026
+date: 30 March 2026
 bibliography: paper.bib
 ---
 
@@ -35,9 +35,9 @@ The software provides three primary interfaces: a browser-based viewer for share
 
 The platform is available at [https://www.visualizer.opencap.ai](https://www.visualizer.opencap.ai).
 
-# Statement of need
+# Statement of Need
 
-Biomechanics datasets are growing by orders of magnitude due to recent advances in mobile sensing, including wearables and markerless motion capture  [@boswell; @AddBiomechanics; @Duane], and data processing is increasingly performed on cloud-based servers such as OpenCap [@opencap] or AddBiomechanics [@AddBiomechanics]. Existing visualization tools, such as the OpenSim GUI, are optimized for interactive, single-trial analysis on local machines and do not scale well to automated workflows required for analyzing large datasets. For example, we recently conducted a study using OpenCap with 129 individuals performing 10 activities; manually loading 1,290 trials for quality control in a GUI is infeasible. Similarly, comparing the effects of different algorithms on a motion is common in biomechanics research and currently requires extensive GUI interaction. 
+Biomechanics datasets are growing by orders of magnitude due to recent advances in mobile sensing, including wearables and markerless motion capture  [@Boswell; @AddBiomechanics; @Duane], and data processing is increasingly performed on cloud-based servers such as OpenCap [@opencap] or AddBiomechanics [@AddBiomechanics]. Existing visualization tools, such as the OpenSim GUI, are optimized for interactive, single-trial analysis on local machines and do not scale well to automated workflows required for analyzing large datasets. For example, we recently conducted a study using OpenCap with 129 individuals performing 10 activities; manually loading 1,290 trials for quality control in a GUI is infeasible. Similarly, comparing the effects of different algorithms on a motion is common in biomechanics research and currently requires extensive GUI interaction. 
 
 OpenCap Visualizer addresses these challenges by providing a scriptable, platform-agnostic visualization system that supports both interactive web-based viewing and fully automated, server-side rendering. Through its Python API, researchers can batch-generate reproducible videos and figures with programmatically defined camera settings, overlays, and styling, enabling scalable quality control and consistent qualitative comparison without manual intervention. Interactive browser-based visualization further allows collaborators to inspect 3D data directly via lightweight URLs.
 
@@ -95,21 +95,18 @@ OpenCap Visualizer supports high-throughput biomechanics workflows where manual,
 
 # Figures
 
-Figure \ref{fig:multisubject} illustrates multi-subject comparison, including overlay of OpenCap monocular and marker-based motion capture. Figure \ref{fig:markersforces} shows a visualization of marker trajectories and ground reaction forces. Figure \ref{fig:livestream} shows OpenSim kinematics streamed in real time to the browser via the visualizer's WebSocket interface.
-
-
-Figure \ref{fig:timelapse} presents the timelapse rendering used to summarize dynamic movement patterns in static figures.
+Figure \ref{fig:multisubject} illustrates multi-subject comparison, including overlay of OpenCap monocular and marker-based motion capture. Figure \ref{fig:markersforces} shows a visualization of marker trajectories and ground reaction forces. Figure \ref{fig:livestream} shows OpenSim kinematics streamed in real-time to the browser via the visualizer's WebSocket interface. Figure \ref{fig:timelapse} presents the timelapse rendering used to summarize dynamic movement patterns in static figures.
 
 \begin{figure}
 \centering
-\includegraphics[width=\textwidth]{demo.png}
+\includegraphics[width=0.9\textwidth]{demo.png}
 \caption{Example visualization of the web interface with multiple subjects.}
 \label{fig:multisubject}
 \end{figure}
 
 \begin{figure}[h!]
 \centering
-\includegraphics[width=\textwidth]{demo2.png}
+\includegraphics[width=0.9\textwidth]{demo2.png}
 \caption{Example visualization of the web interface with markers and forces.}
 \label{fig:markersforces}
 \end{figure}
@@ -123,8 +120,8 @@ Figure \ref{fig:timelapse} presents the timelapse rendering used to summarize dy
 
 \begin{figure}[h!]
 \centering
-\includegraphics[width=0.8\textwidth]{sample.png}
-\caption{Example timelapse screenshot generated on the visualizer.}
+\includegraphics[width=\textwidth]{gait.png}
+\caption{Example timelapse visualization generated on the visualizer.}
 \label{fig:timelapse}
 \end{figure}
 
