@@ -15430,7 +15430,13 @@
           try {
             const msg = JSON.parse(event.data);
             if (msg.type === 'init') {
-              this.handleLiveInit(msg);
+              if (this.isCameraOnlyLiveInit(msg)) {
+                this.handleLiveCameraUpdate(msg.camera);
+              } else {
+                this.handleLiveInit(msg);
+              }
+            } else if (msg.type === 'camera') {
+              this.handleLiveCameraUpdate(msg.camera);
             } else if (msg.type === 'frame') {
               this.handleLiveFrame(msg);
             } else if (msg.type === 'subjectVisibility') {
@@ -15507,6 +15513,31 @@
         this.liveTrialScoresTimer = null;
       }
       this.liveTrialScores = { show: false, scores: [], labels: [], title: '', colors: [] };
+    },
+
+    isCameraOnlyLiveInit(msg) {
+      if (!msg || typeof msg !== 'object' || !msg.camera) {
+        return false;
+      }
+
+      const hasSubjects = Array.isArray(msg.subjects) && msg.subjects.length > 0;
+      const hasBodies = msg.bodies && typeof msg.bodies === 'object' && Object.keys(msg.bodies).length > 0;
+      return !hasSubjects && !hasBodies;
+    },
+
+    handleLiveCameraUpdate(camera) {
+      if (!camera) return;
+
+      this.applyLiveCamera(camera);
+
+      const hasLiveSubjects = Object.keys(this.liveAnimationIndices).length > 0;
+      const hasExplicitTarget = typeof camera === 'object'
+        && Array.isArray(camera.target)
+        && camera.target.length === 3;
+
+      if (this.liveMode && hasLiveSubjects && this.liveCameraCentered && !hasExplicitTarget) {
+        this.centerCameraOnLiveSubject();
+      }
     },
 
     async handleLiveInit(msg) {

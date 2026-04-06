@@ -271,6 +271,13 @@ python live_stream_from_json.py s1.json s2.json \
   --camera '{"position": [3, 2, -4], "target": [0, 1, 0]}'
 ```
 
+While a stream is already running, you can also change the viewer camera live without reloading the model:
+
+```text
+camera anterior
+camera {"position": [3, 2, -4], "target": [0, 1, 0]}
+```
+
 ---
 
 #### Skeleton model (`--model`)
@@ -301,6 +308,7 @@ You can also control visibility remotely **from the streaming script** while it 
 ```
 hide subject_0          → hide subject 0 on all connected viewers
 show subject_0          → show it again
+camera anterior         → update the camera without reloading subjects
 ```
 
 Subject IDs follow the pattern `subject_0`, `subject_1`, … (order matches the JSON files given on the command line).
@@ -326,11 +334,12 @@ To send them **programmatically** from another Python script:
 
 ```python
 import asyncio
-from live_stream_from_json import send_notification, send_subject_visibility
+from live_stream_from_json import send_camera, send_notification, send_subject_visibility
 
 async def my_feedback():
     await send_notification("Great rep!", level="success")
     await send_subject_visibility("subject_1", False)
+    await send_camera("anterior")
 
 asyncio.run(my_feedback())
 ```
