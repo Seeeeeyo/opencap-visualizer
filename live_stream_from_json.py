@@ -64,6 +64,8 @@ Model options:
 Interactive commands (type while the server is running):
     notify Good job!                  → info banner on the visualizer
     notify success Great technique!   → colored banner (info/success/warning/error)
+    camera anterior                   → update the viewer camera without reloading subjects
+    camera {"position":[3,2,-4]}      → exact camera position (optional target)
     scores 85 72 90 68 88 [label1 ...] [colors: g o r g o] [title: text] → trial scores (g/r/o = green/red/orange)
     hidescores                        → hide the trial scores plot
     hide subject_0                    → hide a subject
@@ -172,6 +174,24 @@ async def send_trial_scores(
 async def send_hide_scores():
     """Hide the trial scores plot on every connected visualizer client."""
     msg = json.dumps({"type": "hideScores"})
+    for ws in list(_CONNECTED_CLIENTS):
+        try:
+            await ws.send(msg)
+        except Exception:
+            pass
+
+
+async def send_camera(camera: "dict | str | None"):
+    """
+    Update the camera on every connected visualizer client without reinitializing.
+
+    camera : preset string (e.g. "anterior") or dict with
+             {"position": [x, y, z], "target": [x, y, z]}
+    """
+    if camera is None:
+        return
+    payload = camera if isinstance(camera, dict) else {"view": camera}
+    msg = json.dumps({"type": "camera", "camera": payload})
     for ws in list(_CONNECTED_CLIENTS):
         try:
             await ws.send(msg)
@@ -629,30 +649,40 @@ async def main():
                 cmd = line.decode().strip()
                 if not cmd:
                     continue
-                parts = cmd.split(" ", 2)
+                parts = cmd.split(" ", 1)
                 verb = parts[0].lower()
+                rest = parts[1].strip() if len(parts) > 1 else ""
                 if verb == "help":
                     print(
                         "Commands:\n"
                         "  notify <message>              – info notification\n"
                         "  notify <level> <message>      – notification with level (info/success/warning/error)\n"
+                        "  camera <preset|json>          – update camera without reloading subjects\n"
                         "  scores <n1> <n2> <n3> <n4> <n5> [label1 ... label5] [colors: g o r g o] [title: text]  – trial scores (g/r/o=green/red/orange)\n"
                         "  hidescores                   – hide trial scores plot\n"
                         "  hide <subject_id>             – hide subject\n"
                         "  show <subject_id>             – show subject\n"
                     )
                 elif verb == "notify":
-                    if len(parts) >= 3 and parts[1] in ("info", "success", "warning", "error"):
-                        await send_notification(parts[2], level=parts[1])
-                        print(f"[notify:{parts[1]}] {parts[2]}")
-                    elif len(parts) >= 2:
-                        msg_text = " ".join(parts[1:])
+                    notify_parts = rest.split(" ", 1) if rest else []
+                    if len(notify_parts) == 2 and notify_parts[0] in ("info", "success", "warning", "error"):
+                        await send_notification(notify_parts[1], level=notify_parts[0])
+                        print(f"[notify:{notify_parts[0]}] {notify_parts[1]}")
+                    elif rest:
+                        msg_text = rest
                         await send_notification(msg_text)
                         print(f"[notify:info] {msg_text}")
                     else:
                         print("Usage: notify [level] <message>")
-                elif verb == "scores" and len(parts) >= 2:
-                    remainder = " ".join(parts[1:])
+                elif verb == "camera":
+                    parsed_camera = _parse_camera(rest)
+                    if parsed_camera is None:
+                        print("Usage: camera <preset|json>")
+                    else:
+                        await send_camera(parsed_camera)
+                        print(f"[camera] {parsed_camera}")
+                elif verb == "scores" and rest:
+                    remainder = rest
                     title = None
                     colors = None
                     if "title:" in remainder:
@@ -688,12 +718,12 @@ async def main():
                 elif verb == "hidescores":
                     await send_hide_scores()
                     print("[hidescores]")
-                elif verb == "hide" and len(parts) >= 2:
-                    await send_subject_visibility(parts[1], False)
-                    print(f"[hide] {parts[1]}")
-                elif verb == "show" and len(parts) >= 2:
-                    await send_subject_visibility(parts[1], True)
-                    print(f"[show] {parts[1]}")
+                elif verb == "hide" and rest:
+                    await send_subject_visibility(rest, False)
+                    print(f"[hide] {rest}")
+                elif verb == "show" and rest:
+                    await send_subject_visibility(rest, True)
+                    print(f"[show] {rest}")
                 else:
                     print(f"Unknown command '{cmd}'. Type 'help' for usage.")
             except Exception as e:
