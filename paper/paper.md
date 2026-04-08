@@ -28,9 +28,9 @@ bibliography: paper.bib
 
 # Summary
 
-Biomechanics research relies on visualizing 3D movement data to interpret and validate results, but traditional desktop-based graphical user interfaces (GUIs) have become a bottleneck as the scale of biomechanics datasets grows and processing increaseingly moves to cloud-based servers. Current GUIs require extensive manual interaction to load models, motions, configure scenes, and export media. To resolve these challenges, we crated OpenCap Visualizer, a web-based platform and Python package that enables both interactive 3D visualization, real-time streaming, and programmatic video generation.
+Biomechanics research relies on visualizing 3D movement data to interpret and validate results, but traditional desktop-based graphical user interfaces (GUIs) have become a bottleneck as the scale of biomechanics datasets grows and processing increasingly moves to cloud-based servers. Current GUIs require extensive manual interaction to load models, motions, configure scenes, and export media. To resolve these challenges, we created OpenCap Visualizer, a web-based platform and Python package that enables both interactive 3D visualization, real-time streaming, and programmatic video generation.
 
-The software provides three primary interfaces: a browser-based viewer for shareable visualization, a websocket interface for real-time streaming, and a Python API for automated rendering. Built with Vue.js and Three.js, it supports standard biomechanics formats—including OpenSim models (.osim), kinematics (.mot, .json), markers (.trc), and force data (.mot)—allowing researchers to process, analyze, render, and share biomechanics videos with minimal human intervention.
+The software provides three primary interfaces: a browser-based viewer for shareable visualization, a WebSocket interface for real-time streaming, and a Python API for automated rendering. Built with Vue.js and Three.js, it supports standard biomechanics formats—including OpenSim models (.osim), kinematics (.mot, .json), markers (.trc), and force data (.mot)—allowing researchers to process, analyze, render, and share biomechanics videos with minimal human intervention.
 
 
 The platform is available at [https://www.visualizer.opencap.ai](https://www.visualizer.opencap.ai).
@@ -97,6 +97,63 @@ In addition to offline playback, the visualizer supports real-time streaming of 
 \label{fig:livestream}
 \end{figure}
 
+Example WebSocket server:
+
+```python
+import asyncio
+import websockets
+from opencap_visualizer import (
+    build_live_init_dict,
+    send_live_init,
+    send_live_frame,
+    skeleton_bodies_from_visualizer_json,
+)
+
+TEMPLATE = "subject1.json"  # or any visualizer JSON with bodies
+
+async def handler(websocket):
+    meta = skeleton_bodies_from_visualizer_json(TEMPLATE)
+    init = build_live_init_dict(
+        [{"id": "ik", "label": "Test", "bodies": meta, "model": "LaiArnold"}],
+        frame_rate=30.0,
+        camera="anterior",
+    )
+    await send_live_init(websocket, init, mesh_load_delay=0.5)
+
+    frame_rate_hz = 30.0
+    frame_dt = 1.0 / frame_rate_hz
+
+    # Continuous real-time stream. Finite demo: break after N frames or set streaming = False.
+    streaming = True
+    t = 0.0
+    while streaming:
+        # Body pose (example): rotation in rad, translation in model units.
+        # Sample rotation: [0.0, 0.0, 0.0]; sample translation: [0.0, 1.0, 0.0]
+        rot_x = 0.0
+        rot_y = 0.0
+        rot_z = 0.0
+        trans_x = 0.0
+        trans_y = 1.0
+        trans_z = 0.0
+
+        bodies = {}
+        for body_name in meta:
+            bodies[body_name] = {
+                "rotation": [rot_x, rot_y, rot_z],
+                "translation": [trans_x, trans_y, trans_z],
+            }
+
+        await send_live_frame(websocket, {"ik": {"time": t, "bodies": bodies}})
+        t += frame_dt
+        await asyncio.sleep(frame_dt)
+
+async def main():
+    async with websockets.serve(handler, "0.0.0.0", 876):
+        await asyncio.Future()
+
+asyncio.run(main())
+```
+
 ## 3. Python API for Automated Video Creation
 
 The opencap-visualizer Python package ([https://pypi.org/project/opencap-visualizer](https://pypi.org/project/opencap-visualizer)) enables fully programmatic video generation for integration into automated pipelines and headless servers. Users can batch-render videos with configurable camera views, subject overlays, colors, and looping behavior from standard OpenCap and OpenSim inputs, eliminating the need for manual GUI interaction. Example commands for video rendering include:
@@ -109,10 +166,8 @@ ocv.create_video("subj.json", "output.mp4", camera="anterior")
 # Multi-subject comparison from OpenCap jsons
 ocv.create_video(["subj1.json", "subj2.json"], "compare.mp4", colors=["red","blue"])
 # Multiple synchronized data modalities
-ocv.create_video(
-    ["model.osim", "motion.mot", "markers.trc", "forces.mot"],
-    "expmtl_visualization.mp4",
-)
+paths = ["model.osim", "motion.mot", "markers.trc", "forces.mot"]
+ocv.create_video(paths, "experimental_visualization.mp4")
 ```
 
 
@@ -128,7 +183,7 @@ For local and automated workflows, a lightweight Python package enables headless
 
 OpenCap Visualizer supports high-throughput biomechanics workflows where manual, GUI-based visualization is impractical.
 
-- **Algorithm development**: The ability to programatically create videos with multiple models and data modalities allows researchers to quickly visualize comparisons when developing new algorithms or performing validation studies. This was previously a laborious task requiring extensive GUI interaction.
+- **Algorithm development**: The ability to programmatically create videos with multiple models and data modalities allows researchers to quickly visualize comparisons when developing new algorithms or performing validation studies. This was previously a laborious task requiring extensive GUI interaction.
 
 - **Quality control for large datasets**: A single video can be compiled of every motion trial in a dataset enabling rapid quality control after large data collections. This is an essential step for both lab-based and out-of-lab biomechanics experiments and is cumbersome with manual GUI interaction.
 
