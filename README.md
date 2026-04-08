@@ -98,15 +98,20 @@ opencap-visualizer input.json output.mp4 --zoom 1.5 --width 1920 --height 1080
 
 `live_stream_from_json.py` runs a local WebSocket server that replays a visualizer JSON file as if it were a live IK stream. It's useful for monitoring real-time IK results, comparing two subjects side-by-side, or testing visualization pipelines.
 
-**Requirements:** `pip install websockets`
+**From PyPI (same behavior as the script):** `pip install opencap-visualizer[live]`, then `opencap-visualizer-stream subject.json` (or `python -m opencap_visualizer.live_stream …`). See the [opencap-visualizer-pip](https://github.com/Seeeeeyo/opencap-visualizer-pip) README.
+
+**Requirements (repo script only):** `pip install websockets`
 
 ---
 
 #### Basic usage
 
 ```bash
-# Single subject
+# Single subject (repo checkout)
 python live_stream_from_json.py subject.json
+
+# Same via installed package
+opencap-visualizer-stream subject.json
 
 # Two subjects simultaneously
 python live_stream_from_json.py subject1.json subject2.json

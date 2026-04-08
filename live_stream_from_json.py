@@ -61,6 +61,10 @@ Model options:
     # Different model per subject (comma-separated, one per subject)
     --model "LaiArnold,Hu_ISB_shoulder"
 
+Server:
+    # If default port 8765 is already in use, pick another:
+    --port 8766
+
 Interactive commands (type while the server is running):
     notify Good job!                  → info banner on the visualizer
     notify success Great technique!   → colored banner (info/success/warning/error)
@@ -573,6 +577,22 @@ async def main():
         else:
             args = args[:idx] + args[idx + 1 :]
 
+    port = 8765
+    if "--port" in args:
+        idx = args.index("--port")
+        if idx + 1 < len(args):
+            try:
+                port = int(args[idx + 1])
+                if not (1 <= port <= 65535):
+                    raise ValueError("out of range")
+            except ValueError:
+                print("Error: --port must be an integer 1–65535", file=sys.stderr)
+                sys.exit(1)
+            args = args[:idx] + args[idx + 2 :]
+        else:
+            print("Error: --port requires a value (e.g. --port 8766)", file=sys.stderr)
+            sys.exit(1)
+
     json_args = [a for a in args if a.lower().endswith(".json")]
     other_args = [a for a in args if not a.lower().endswith(".json")]
 
@@ -730,7 +750,6 @@ async def main():
                 print(f"[stdin] Error: {e}")
 
     print(f"Streaming from {[str(p) for p in json_paths]}")
-    port = 8765
     host = "0.0.0.0"
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
@@ -741,11 +760,28 @@ async def main():
     print(f"WebSocket server listening on ws://localhost:{port} (this machine)")
     if lan_ip != "127.0.0.1":
         print(f"  On same WiFi, use ws://{lan_ip}:{port} from another computer")
-    async with websockets.serve(handler, host, port):
-        await asyncio.gather(
-            asyncio.Future(),   # keep server alive forever
-            stdin_command_loop(),
-        )
+    try:
+        async with websockets.serve(handler, host, port):
+            await asyncio.gather(
+                asyncio.Future(),  # keep server alive forever
+                stdin_command_loop(),
+            )
+    except OSError as e:
+        errno = getattr(e, "errno", None)
+        winerr = getattr(e, "winerror", None)
+        if (
+            errno in (48, 98)
+            or winerr == 10048
+            or "Address already in use" in str(e)
+        ):
+            print(
+                f"\nPort {port} is already in use (another live stream or app is bound there).\n"
+                f"  • Stop the other process, e.g. macOS/Linux: lsof -i :{port}\n"
+                f"  • Or use a different port, e.g. --port 8766\n",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        raise
 
 
 if __name__ == "__main__":
