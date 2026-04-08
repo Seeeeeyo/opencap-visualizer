@@ -53,9 +53,36 @@ OpenCap Visualizer supports three complementary modes of interaction: browser-ba
 
 OpenCap Visualizer provides installation-free 3D visualization directly in the browser using Three.js. It supports anatomically accurate skeletal rendering, multi-subject overlays, markers (.trc), ground reaction forces (.mot), and synchronized video playback. Users can interactively control playback, camera views, colors, and transparency, and export high-resolution images, videos, or timelapse composites for figures and presentations.
 
+Figure \ref{fig:multisubject} illustrates multi-subject comparison, including overlay of OpenCap monocular and marker-based motion capture.
+
+\begin{figure}
+\centering
+\includegraphics[width=0.9\textwidth]{demo.png}
+\caption{Example visualization of the web interface with multiple subjects.}
+\label{fig:multisubject}
+\end{figure}
+
+Figure \ref{fig:markersforces} shows a visualization of marker trajectories and ground reaction forces.
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=0.9\textwidth]{demo2.png}
+\caption{Example visualization of the web interface with markers and forces.}
+\label{fig:markersforces}
+\end{figure}
+
 ## 2. Live Streaming of Kinematics
 
 In addition to offline playback, the visualizer supports real-time streaming of OpenSim-based kinematics via a lightweight Python WebSocket server. Incoming frames are incrementally rendered in the browser. Multiple concurrent streams (e.g., predicted vs. reference motion) can be displayed simultaneously. This enables real-time monitoring of inverse kinematics, model validation during data collection, and flexible visualization of real-time pipelines such as OpenSenseRT [@opensenseRT].
+
+Figure \ref{fig:livestream} shows OpenSim kinematics streamed in real-time to the browser via the visualizer's WebSocket interface.
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=0.7\textwidth]{livestream.jpg}
+\caption{Example visualization of OpenSim kinematics in livestream (real-time)}
+\label{fig:livestream}
+\end{figure}
 
 ## 3. Python API for Automated Video Creation
 
@@ -89,34 +116,9 @@ OpenCap Visualizer supports high-throughput biomechanics workflows where manual,
 
 - **Reproducible figures for publications**: Timelapse rendering allows dynamic motion to be represented in static, publication-quality figures, facilitating clear qualitative comparisons in print.
 
-
 - **Education and clinical documentation**: Browser-based visualization removes installation barriers, enabling interactive teaching materials and standardized video generation for documenting patient movement and intervention outcomes.
 
-
-# Figures
-
-Figure \ref{fig:multisubject} illustrates multi-subject comparison, including overlay of OpenCap monocular and marker-based motion capture. Figure \ref{fig:markersforces} shows a visualization of marker trajectories and ground reaction forces. Figure \ref{fig:livestream} shows OpenSim kinematics streamed in real-time to the browser via the visualizer's WebSocket interface. Figure \ref{fig:timelapse} presents the timelapse rendering used to summarize dynamic movement patterns in static figures.
-
-\begin{figure}
-\centering
-\includegraphics[width=0.9\textwidth]{demo.png}
-\caption{Example visualization of the web interface with multiple subjects.}
-\label{fig:multisubject}
-\end{figure}
-
-\begin{figure}[h!]
-\centering
-\includegraphics[width=0.9\textwidth]{demo2.png}
-\caption{Example visualization of the web interface with markers and forces.}
-\label{fig:markersforces}
-\end{figure}
-
-\begin{figure}[h!]
-\centering
-\includegraphics[width=0.7\textwidth]{livestream.jpg}
-\caption{Example visualization of OpenSim kinematics in livestream (real-time)}
-\label{fig:livestream}
-\end{figure}
+Figure \ref{fig:timelapse} presents the timelapse rendering used to summarize dynamic movement patterns in static figures.
 
 \begin{figure}[h!]
 \centering
@@ -124,7 +126,5 @@ Figure \ref{fig:multisubject} illustrates multi-subject comparison, including ov
 \caption{Example timelapse visualization generated on the visualizer.}
 \label{fig:timelapse}
 \end{figure}
-
-
 
 # References 
