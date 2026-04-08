@@ -51,9 +51,9 @@ OpenCap Visualizer supports three complementary modes of interaction: browser-ba
 
 ## 1. Interactive Web-Based Visualization
 
-OpenCap Visualizer provides installation-free 3D visualization directly in the browser using Three.js. It supports anatomically accurate skeletal rendering, multi-subject overlays, markers (.trc), ground reaction forces (.mot), and synchronized video playback (Figure~\ref{fig:multisubject}). Users can interactively control playback, camera views, colors, and transparency, and export high-resolution images, videos, or timelapse composites for figures and presentations (Figure~\ref{fig:timelapse}).
+OpenCap Visualizer provides installation-free 3D visualization directly in the browser using Three.js. It supports anatomically accurate skeletal rendering, multi-subject overlays, markers (.trc), ground reaction forces (.mot), and synchronized video playback (\autoref{fig:multisubject}). Users can interactively control playback, camera views, colors, and transparency, and export high-resolution images, videos, or timelapse composites for figures and presentations (\autoref{fig:timelapse}).
 
-Figure \ref{fig:multisubject} illustrates multi-subject comparison, including overlay of OpenCap monocular and marker-based motion capture.
+\autoref{fig:multisubject} illustrates multi-subject comparison, including overlay of OpenCap monocular and marker-based motion capture.
 
 \begin{figure}
 \centering
@@ -62,7 +62,7 @@ Figure \ref{fig:multisubject} illustrates multi-subject comparison, including ov
 \label{fig:multisubject}
 \end{figure}
 
-Figure \ref{fig:markersforces} shows a visualization of marker trajectories and ground reaction forces.
+\autoref{fig:markersforces} shows a visualization of marker trajectories and ground reaction forces.
 
 \begin{figure}[h!]
 \centering
@@ -71,7 +71,9 @@ Figure \ref{fig:markersforces} shows a visualization of marker trajectories and 
 \label{fig:markersforces}
 \end{figure}
 
-Figure \ref{fig:timelapse} presents the timelapse rendering used to summarize dynamic movement patterns in static figures.
+\autoref{fig:timelapse} presents the timelapse rendering used to summarize dynamic movement patterns in static figures.
+
+<!-- Selim TODO change figure to white background -->
 
 \begin{figure}[h!]
 \centering
@@ -82,11 +84,11 @@ Figure \ref{fig:timelapse} presents the timelapse rendering used to summarize dy
 
 ## 2. Live Streaming of Kinematics
 
-In addition to offline playback, the visualizer supports real-time streaming of OpenSim-based kinematics via a lightweight Python WebSocket server. Incoming frames are incrementally rendered in the browser (Figure~\ref{fig:livestream}). Multiple concurrent streams (e.g., predicted vs. reference motion; Figure~\ref{fig:multisubject}) can be displayed simultaneously. This enables real-time monitoring of inverse kinematics, model validation during data collection, and flexible visualization of results from real-time inverse kinematics pipelines such as OpenSenseRT [@opensenseRT]. Example commands for real-time streaming include:
+In addition to offline playback, the visualizer supports real-time streaming of OpenSim-based kinematics via a lightweight Python WebSocket server. Incoming frames are incrementally rendered in the browser (\autoref{fig:livestream}). Multiple concurrent streams (e.g., predicted vs. reference motion; \autoref{fig:multisubject}) can be displayed simultaneously. This enables real-time monitoring of inverse kinematics, model validation during data collection, and flexible visualization of results from real-time inverse kinematics pipelines such as OpenSenseRT [@opensenseRT]. Example commands for real-time streaming include:
 
 <!-- Selim TODO add RT commands -->
 
-Figure \ref{fig:livestream} shows OpenSim kinematics streamed in real-time to the browser via the visualizer's WebSocket interface.
+\autoref{fig:livestream} shows OpenSim kinematics streamed in real-time to the browser via the visualizer's WebSocket interface.
 
 \begin{figure}[h!]
 \centering
