@@ -97,6 +97,63 @@ In addition to offline playback, the visualizer supports real-time streaming of 
 \label{fig:livestream}
 \end{figure}
 
+Example WebSocket server:
+
+```python
+import asyncio
+import websockets
+from opencap_visualizer import (
+    build_live_init_dict,
+    send_live_init,
+    send_live_frame,
+    skeleton_bodies_from_visualizer_json,
+)
+
+TEMPLATE = "subject1.json"  # or any visualizer JSON with bodies
+
+async def handler(websocket):
+    meta = skeleton_bodies_from_visualizer_json(TEMPLATE)
+    init = build_live_init_dict(
+        [{"id": "ik", "label": "Test", "bodies": meta, "model": "LaiArnold"}],
+        frame_rate=30.0,
+        camera="anterior",
+    )
+    await send_live_init(websocket, init, mesh_load_delay=0.5)
+
+    frame_rate_hz = 30.0
+    frame_dt = 1.0 / frame_rate_hz
+
+    # Continuous real-time stream. Finite demo: break after N frames or set streaming = False.
+    streaming = True
+    t = 0.0
+    while streaming:
+        # Body pose (example): rotation in rad, translation in model units.
+        # Sample rotation: [0.0, 0.0, 0.0]; sample translation: [0.0, 1.0, 0.0]
+        rot_x = 0.0
+        rot_y = 0.0
+        rot_z = 0.0
+        trans_x = 0.0
+        trans_y = 1.0
+        trans_z = 0.0
+
+        bodies = {}
+        for body_name in meta:
+            bodies[body_name] = {
+                "rotation": [rot_x, rot_y, rot_z],
+                "translation": [trans_x, trans_y, trans_z],
+            }
+
+        await send_live_frame(websocket, {"ik": {"time": t, "bodies": bodies}})
+        t += frame_dt
+        await asyncio.sleep(frame_dt)
+
+async def main():
+    async with websockets.serve(handler, "0.0.0.0", 876):
+        await asyncio.Future()
+
+asyncio.run(main())
+```
+
 ## 3. Python API for Automated Video Creation
 
 The opencap-visualizer Python package ([https://pypi.org/project/opencap-visualizer](https://pypi.org/project/opencap-visualizer)) enables fully programmatic video generation for integration into automated pipelines and headless servers. Users can batch-render videos with configurable camera views, subject overlays, colors, and looping behavior from standard OpenCap and OpenSim inputs, eliminating the need for manual GUI interaction. Example commands for video rendering include:
