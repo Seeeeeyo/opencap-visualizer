@@ -1,6 +1,13 @@
 # OpenCap Visualizer
 
-A comprehensive web-based platform for interactive visualization and automated video creation of biomechanics data. Built with Vue.js and Three.js, the visualizer supports multiple data formats including OpenSim models (.osim files), kinematics data (.mot, .json), markers (.trc), and force data (.mot).
+A web-based platform for interactive visualization of biomechanics data, plus companion Python tooling for livestreaming and automated video creation. Built with Vue.js and Three.js, the visualizer supports OpenSim models (`.osim`), kinematics (`.mot`, `.json`), markers (`.trc`), and force data (`.mot`).
+
+## 🔗 Links
+
+- **Web app**: [https://www.visualizer.opencap.ai/](https://www.visualizer.opencap.ai/)
+- **PyPI package**: [https://pypi.org/project/opencap-visualizer/](https://pypi.org/project/opencap-visualizer/)
+- **Python package repository**: [https://github.com/Seeeeeyo/opencap-visualizer-pip](https://github.com/Seeeeeyo/opencap-visualizer-pip)
+- **OpenSim converter**: [https://github.com/Seeeeeyo/opensim-to-visualizer-api](https://github.com/Seeeeeyo/opensim-to-visualizer-api)
 
 ## 🌐 Live Demo
 
@@ -11,18 +18,21 @@ No installation required - works directly in your browser!
 ## 🚀 Quick Start
 
 ### Web Interface
-1. Visit [https://www.visualizer.opencap.ai/](hhttps://www.visualizer.opencap.ai/)
+1. Visit [https://www.visualizer.opencap.ai/](https://www.visualizer.opencap.ai/)
 2. Upload your biomechanics data files
 3. Explore interactive 3D visualizations
 4. Generate videos and screenshots
 
 ### Python Package
-For programmatic video generation, install the Python package:
+For programmatic video generation and packaged livestream helpers, install `opencap-visualizer` from PyPI:
 
 ```bash
 pip install opencap-visualizer
 playwright install chromium
 ```
+
+- **PyPI**: [https://pypi.org/project/opencap-visualizer/](https://pypi.org/project/opencap-visualizer/)
+- **Source**: [https://github.com/Seeeeeyo/opencap-visualizer-pip](https://github.com/Seeeeeyo/opencap-visualizer-pip)
 
 ```python
 import opencap_visualizer as ocv
@@ -60,18 +70,27 @@ opencap-visualizer subject1.json subject2.json output.mp4 --colors red blue
 opencap-visualizer input.json output.mp4 --zoom 1.5 --width 1920 --height 1080
 ```
 
+### Livestream in 30 Seconds
+
+Use the packaged streamer:
+
+```bash
+pip install "opencap-visualizer[live]"
+opencap-visualizer-stream subject.json
+```
+
+Then open the web app, expand **Live IK Stream**, enter `ws://localhost:8765`, and click **Connect**.
+
 ### Available Camera Angles
 
 | Angle | Description |
 |-------|-------------|
 | `anterior` | Front view |
 | `posterior` | Back view |
-| `sagittal` | Side view (left) |
+| `sagittal_left` | Side view (left) |
 | `sagittal_right` | Side view (right) |
 | `superior` | Top-down view |
 | `isometric` | 3D perspective view |
-
-**📦 Package Repository**: [opencap-visualizer-pip](https://github.com/Seeeeeyo/opencap-visualizer-pip)
 
 ## 🔧 Key Features
 
@@ -96,31 +115,65 @@ opencap-visualizer input.json output.mp4 --zoom 1.5 --width 1920 --height 1080
 
 ### Live IK Streaming
 
-`live_stream_from_json.py` runs a local WebSocket server that replays a visualizer JSON file as if it were a live IK stream. It's useful for monitoring real-time IK results, comparing two subjects side-by-side, or testing visualization pipelines.
+OpenCap Visualizer supports live streaming of kinematics through a lightweight WebSocket server. You can use it to monitor real-time IK results, compare subjects side-by-side, test visualization pipelines, or drive clinician/patient feedback in the browser.
 
-**From PyPI (same behavior as the script):** `pip install opencap-visualizer[live]`, then `opencap-visualizer-stream subject.json` (or `python -m opencap_visualizer.live_stream …`). See the [opencap-visualizer-pip](https://github.com/Seeeeeyo/opencap-visualizer-pip) README.
+You have two equivalent ways to start a stream:
 
-**Requirements (repo script only):** `pip install websockets`
+- **Recommended**: install the packaged streamer from PyPI: [https://pypi.org/project/opencap-visualizer/](https://pypi.org/project/opencap-visualizer/)
+- **Repo-local**: run [`live_stream_from_json.py`](live_stream_from_json.py) directly from this checkout
 
 ---
+
+#### Install
+
+**Packaged streamer**
+
+```bash
+pip install "opencap-visualizer[live]"
+```
+
+Package entry points:
+
+- `opencap-visualizer-stream`
+- `python -m opencap_visualizer.live_stream`
+
+**Repo-local script**
+
+```bash
+pip install websockets
+```
+
+Then run:
+
+```bash
+python live_stream_from_json.py subject.json
+```
 
 #### Basic usage
 
 ```bash
-# Single subject (repo checkout)
-python live_stream_from_json.py subject.json
-
-# Same via installed package
+# Single subject via packaged CLI
 opencap-visualizer-stream subject.json
 
+# Same behavior via repo checkout
+python live_stream_from_json.py subject.json
+
 # Two subjects simultaneously
-python live_stream_from_json.py subject1.json subject2.json
+opencap-visualizer-stream subject1.json subject2.json
 
 # Faster than real-time playback (2× speed)
-python live_stream_from_json.py subject.json 2.0
+opencap-visualizer-stream subject.json 2.0
 ```
 
-The server starts at `ws://localhost:8765`. Open the visualizer, expand the **Live IK Stream** panel in the sidebar, enter the WebSocket URL, and click **Connect**.
+#### Connect from the visualizer
+
+1. Start the streamer with one of the commands above.
+2. Open [https://www.visualizer.opencap.ai/](https://www.visualizer.opencap.ai/).
+3. Expand **Live IK Stream** in the sidebar.
+4. Enter `ws://localhost:8765`.
+5. Click **Connect**.
+
+The streamer listens on `ws://localhost:8765` by default.
 
 **Same WiFi (stream on one computer, view on another):** Run the script on the streaming machine; it listens on all interfaces. On the viewing machine, set WebSocket URL to `ws://<streaming-computer-IP>:8765` (e.g. `ws://192.168.1.50:8765`). If you use the visualizer at [visualizer.opencap.ai](https://www.visualizer.opencap.ai/) (HTTPS), browsers block `ws://` to a LAN IP (mixed content). Either run the visualizer locally on the viewing machine (`npm run serve` → `http://localhost:3001`) and use that URL, or use a tunnel (e.g. ngrok) for `wss://` as below.
 
@@ -157,7 +210,7 @@ The server starts at `ws://localhost:8765`. Open the visualizer, expand the **Li
 Apply a single color to all bones of each subject. Pass comma-separated hex values, one per subject:
 
 ```bash
-python live_stream_from_json.py s1.json s2.json --subject-colors "#d3d3d3,#4995e0"
+opencap-visualizer-stream s1.json s2.json --subject-colors "#d3d3d3,#4995e0"
 ```
 
 For live streams, subject colors are applied when the stream initializes and remain fixed for the duration of that stream.
@@ -170,10 +223,10 @@ Apply a uniform transparency to the entire model of each subject. Pass comma-sep
 
 ```bash
 # Subject 1 at 50% opacity, subject 2 at 80%
-python live_stream_from_json.py s1.json s2.json --subject-opacity 0.5,0.8
+opencap-visualizer-stream s1.json s2.json --subject-opacity 0.5,0.8
 
 # Single subject at 60% opacity
-python live_stream_from_json.py s1.json --subject-opacity 0.6
+opencap-visualizer-stream s1.json --subject-opacity 0.6
 ```
 
 Can be combined with `--subject-colors` and `--body-style`.
@@ -194,27 +247,27 @@ For finer control, map individual bone names to `color`, `visible`, and/or `opac
 
 **Same style for all subjects** (flat dict):
 ```bash
-python live_stream_from_json.py s1.json s2.json \
+opencap-visualizer-stream s1.json s2.json \
   --body-style '{"hand_l": {"visible": false}, "hand_r": {"visible": false}}'
 ```
 
 **With per-bone transparency:**
 ```bash
 # Make the pelvis 50% transparent and color it red
-python live_stream_from_json.py s1.json \
+opencap-visualizer-stream s1.json \
   --body-style '{"pelvis": {"color": "#ff0000", "opacity": 0.5}}'
 ```
 
 **Different style per subject** (JSON array — one dict per subject, in order):
 ```bash
-python live_stream_from_json.py s1.json s2.json \
+opencap-visualizer-stream s1.json s2.json \
   --body-style '[{"pelvis": {"color": "#ff0000"}, "hand_l": {"visible": false}}, {"pelvis": {"color": "#0000ff", "opacity": 0.4}}]'
 ```
 
 Use `{}` as a placeholder for a subject you want to leave at default:
 ```bash
 # Only style subject 2; leave subject 1 at default
-python live_stream_from_json.py s1.json s2.json \
+opencap-visualizer-stream s1.json s2.json \
   --body-style '[{}, {"hand_l": {"visible": false}, "femur_r": {"color": "#ff8800", "opacity": 0.6}}]'
 ```
 
@@ -230,7 +283,7 @@ To control individual geometry files within a body, add a `geometries` sub-objec
 
 ```bash
 # Hide only the ribcage; keep the vertebrae visible
-python live_stream_from_json.py s3.json \
+opencap-visualizer-stream s3.json \
   --body-style '{"thorax": {"geometries": {"ribcage_s.vtp": {"visible": false}}}}'
 ```
 
@@ -238,7 +291,7 @@ Geometry-level keys support the same fields as body-level keys (`visible`, `colo
 
 ```bash
 # Color all of thorax grey, but hide just the ribcage
-python live_stream_from_json.py s3.json \
+opencap-visualizer-stream s3.json \
   --body-style '{"thorax": {"color": "#aaaaaa", "geometries": {"ribcage_s.vtp": {"visible": false}}}}'
 ```
 
@@ -266,13 +319,13 @@ Set the initial camera view when the client connects.
 **Corner/isometric presets:** `frontTopRight`, `frontTopLeft`, `frontBottomRight`, `frontBottomLeft`, `backTopRight`, `backTopLeft`, `backBottomRight`, `backBottomLeft`
 
 ```bash
-python live_stream_from_json.py s1.json s2.json --camera anterior
-python live_stream_from_json.py s1.json s2.json --camera sagittal_right
+opencap-visualizer-stream s1.json s2.json --camera anterior
+opencap-visualizer-stream s1.json s2.json --camera sagittal_right
 ```
 
 **Exact position and target** (coordinates in meters):
 ```bash
-python live_stream_from_json.py s1.json s2.json \
+opencap-visualizer-stream s1.json s2.json \
   --camera '{"position": [3, 2, -4], "target": [0, 1, 0]}'
 ```
 
@@ -296,10 +349,10 @@ Select which geometry model to render. Matches the model names in the visualizer
 
 ```bash
 # Same model for both subjects
-python live_stream_from_json.py s1.json s2.json --model LaiArnold
+opencap-visualizer-stream s1.json s2.json --model LaiArnold
 
 # Different model per subject (comma-separated)
-python live_stream_from_json.py s1.json s2.json --model "LaiArnold,Hu_ISB_shoulder"
+opencap-visualizer-stream s1.json s2.json --model "LaiArnold,Hu_ISB_shoulder"
 ```
 
 ---
@@ -400,7 +453,7 @@ asyncio.run(show_scores())
 #### Full example
 
 ```bash
-python live_stream_from_json.py subject1.json subject2.json \
+opencap-visualizer-stream subject1.json subject2.json \
   --subject-colors "#d3d3d3,#4995e0" \
   --subject-opacity 0.1,0.3 \
   --body-style '[{"hand_l": {"visible": false}, "pelvis": {"opacity": 0.5}}, {"hand_l": {"visible": false}}]' \
@@ -419,7 +472,7 @@ python live_stream_from_json.py subject1.json subject2.json \
 
 **Hide the ribcage but keep the rest of thorax:**
 ```bash
-python live_stream_from_json.py s3.json \
+opencap-visualizer-stream s3.json \
   --body-style '{"thorax": {"geometries": {"ribcage_s.vtp": {"visible": false}}}}' \
   --camera anterior
 ```
@@ -659,23 +712,23 @@ npm run build
 ```
 
 ### Python Package Development
-```bash
-# Install in development mode
-pip install -e .
+The packaged Python renderer and CLI do not live in this repository.
 
-# Run tests
-python -m pytest
-```
+- **PyPI**: [https://pypi.org/project/opencap-visualizer/](https://pypi.org/project/opencap-visualizer/)
+- **Source**: [https://github.com/Seeeeeyo/opencap-visualizer-pip](https://github.com/Seeeeeyo/opencap-visualizer-pip)
+
+This repository contains the web visualizer and the repo-local livestream script [`live_stream_from_json.py`](live_stream_from_json.py).
 
 ## 📚 Documentation
 
 - **Web Interface**: [https://www.visualizer.opencap.ai/](https://www.visualizer.opencap.ai/)
-- **Python Package**: [opencap-visualizer-pip](https://github.com/Seeeeeyo/opencap-visualizer-pip)
+- **PyPI package**: [https://pypi.org/project/opencap-visualizer/](https://pypi.org/project/opencap-visualizer/)
+- **Python package source**: [opencap-visualizer-pip](https://github.com/Seeeeeyo/opencap-visualizer-pip)
 - **OpenSim Converter**: [opensim-to-visualizer-api](https://github.com/Seeeeeyo/opensim-to-visualizer-api)
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please see our contributing guidelines and feel free to submit issues and pull requests.
+Contributions are welcome. Please open an issue for bugs or feature requests, or submit a pull request directly to this repository.
 
 ## 📄 License
 
@@ -689,4 +742,5 @@ We acknowledge the contributions of the OpenCap development team and the broader
 
 - **GitHub Issues**: [Report bugs and request features](https://github.com/Seeeeeyo/opencap-visualizer/issues)
 - **Web App**: [https://www.visualizer.opencap.ai/](https://www.visualizer.opencap.ai)
-- **Documentation**: Check the individual repository READMEs for detailed usage instructions
+- **PyPI package**: [https://pypi.org/project/opencap-visualizer/](https://pypi.org/project/opencap-visualizer/)
+- **Python package source**: [https://github.com/Seeeeeyo/opencap-visualizer-pip](https://github.com/Seeeeeyo/opencap-visualizer-pip)
