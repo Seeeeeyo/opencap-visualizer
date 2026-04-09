@@ -1,5 +1,5 @@
 ---
-title: 'OpenCap Visualizer: A Web-Based Platform for Interactive Biomechanics Visualization and Automated Video Creation'
+title: 'OpenCap Visualizer: A Web-Based Platform for Scriptable, Real-Time, and Interactive Visualization of Biomechanics Data'
 tags:
   - Python
   - JavaScript
@@ -25,12 +25,6 @@ affiliations:
 date: 30 March 2026
 bibliography: paper.bib
 ---
-
-<!-- Other title options that I think are a bit clearer:
-OpenCap Visualizer: A Web-Based Platform for Scriptable, Real-Time, and Interactive Visualization of Biomechanics Data
-
-OpenCap Visualizer: A Web-Based Platform for Scriptable and Real-Time Visualization of Biomechanics Data
--->
 
 # Summary
 
@@ -86,7 +80,7 @@ OpenCap Visualizer provides installation-free 3D visualization directly in the b
 
 ## 2. Live Streaming of Kinematics
 
-In addition to offline playback, the visualizer supports real-time streaming of OpenSim-based kinematics via a lightweight Python WebSocket server. Incoming frames are incrementally rendered in the browser (\autoref{fig:livestream}). Multiple concurrent streams (e.g., predicted vs. reference motion; \autoref{fig:multisubject}) can be displayed simultaneously. This enables real-time monitoring of inverse kinematics, model validation during data collection, and flexible visualization of results from real-time inverse kinematics pipelines such as OpenSenseRT [@opensenseRT]. Example commands for real-time streaming include:
+In addition to offline playback, the visualizer supports real-time streaming of OpenSim-based kinematics via a lightweight Python WebSocket server. Stream setup and frame helpers (e.g., `build_live_init_dict`, `send_live_init`, `send_live_frame`) are included in the **opencap-visualizer** pip package ([PyPI](https://pypi.org/project/opencap-visualizer)). Incoming frames are incrementally rendered in the browser (\autoref{fig:livestream}). Multiple concurrent streams (e.g., predicted vs. reference motion; \autoref{fig:multisubject}) can be displayed simultaneously. This enables real-time monitoring of inverse kinematics, model validation during data collection, and flexible visualization of results from real-time inverse kinematics pipelines such as OpenSenseRT [@opensenseRT]. Example usage from the package includes:
 
 ```python
 import asyncio
