@@ -1,746 +1,108 @@
 # OpenCap Visualizer
 
-A web-based platform for interactive visualization of biomechanics data, plus companion Python tooling for livestreaming and automated video creation. Built with Vue.js and Three.js, the visualizer supports OpenSim models (`.osim`), kinematics (`.mot`, `.json`), markers (`.trc`), and force data (`.mot`).
+OpenCap Visualizer is a Vue.js + Three.js web app for viewing biomechanics data in 3D. This repository contains the browser visualizer, sample data, and a repo-local WebSocket script for replaying an existing visualizer JSON in real time.
 
-## 🔗 Links
+It supports OpenCap-style `.json`, markers `.trc`, ground-reaction-force `.mot`, OpenSim `.osim` + motion `.mot`, synced video, screenshots, browser recording, timelapse, sharing, and live WebSocket playback.
 
-- **Web app**: [https://www.visualizer.opencap.ai/](https://www.visualizer.opencap.ai/)
-- **PyPI package**: [https://pypi.org/project/opencap-visualizer/](https://pypi.org/project/opencap-visualizer/)
-- **Python package repository**: [https://github.com/Seeeeeyo/opencap-visualizer-pip](https://github.com/Seeeeeyo/opencap-visualizer-pip)
-- **OpenSim converter**: [https://github.com/Seeeeeyo/opensim-to-visualizer-api](https://github.com/Seeeeeyo/opensim-to-visualizer-api)
+## Links
 
-## 🌐 Live Demo
+- Web app: [https://www.visualizer.opencap.ai/](https://www.visualizer.opencap.ai/)
+- Paper: [paper/paper.md](paper/paper.md)
+- PyPI package: [https://pypi.org/project/opencap-visualizer/](https://pypi.org/project/opencap-visualizer/)
+- Python package source: [https://github.com/Seeeeeyo/opencap-visualizer-pip](https://github.com/Seeeeeyo/opencap-visualizer-pip)
+- OpenSim converter: [https://github.com/Seeeeeyo/opensim-to-visualizer-api](https://github.com/Seeeeeyo/opensim-to-visualizer-api)
+- Share backend: [share-backend/README.md](share-backend/README.md)
 
-**Try it now**: [https://www.visualizer.opencap.ai/](https://www.visualizer.opencap.ai/)
+## What Is In This Repo
 
-No installation required - works directly in your browser!
+- The web visualizer in `src/`
+- Sample datasets in `public/samples/`
+- A repo-local live stream helper: [`live_stream_from_json.py`](live_stream_from_json.py)
+- An embed demo: [`public/embed-demo.html`](public/embed-demo.html)
 
-## 🚀 Quick Start
+The packaged Python video renderer lives in a separate repository. To avoid drift, package CLI and API details should be taken from PyPI and the package repo rather than duplicated here.
 
-### Web Interface
-1. Visit [https://www.visualizer.opencap.ai/](https://www.visualizer.opencap.ai/)
-2. Upload your biomechanics data files
-3. Explore interactive 3D visualizations
-4. Generate videos and screenshots
-
-### Python Package
-For programmatic video generation and packaged livestream helpers, install `opencap-visualizer` from PyPI:
+## Quick Start
 
 ```bash
-pip install opencap-visualizer
-playwright install chromium
-```
-
-- **PyPI**: [https://pypi.org/project/opencap-visualizer/](https://pypi.org/project/opencap-visualizer/)
-- **Source**: [https://github.com/Seeeeeyo/opencap-visualizer-pip](https://github.com/Seeeeeyo/opencap-visualizer-pip)
-
-```python
-import opencap_visualizer as ocv
-
-# Generate video from single subject
-success = ocv.create_video(
-    "subject_data.json", 
-    "output_video.mp4",
-    camera="anterior",
-    loops=2
-)
-
-# Compare multiple subjects
-success = ocv.create_video(
-    ["subject1.json", "subject2.json"],
-    "comparison.mp4",
-    colors=["red", "blue"],
-    camera="sagittal"
-)
-```
-
-### Command Line Interface
-
-```bash
-# Basic video creation
-opencap-visualizer input.json output.mp4
-
-# With camera angle and loops
-opencap-visualizer input.json output.mp4 --camera anterior --loops 3
-
-# Compare multiple subjects with colors
-opencap-visualizer subject1.json subject2.json output.mp4 --colors red blue
-
-# Custom zoom and resolution
-opencap-visualizer input.json output.mp4 --zoom 1.5 --width 1920 --height 1080
-```
-
-### Livestream in 30 Seconds
-
-Use the packaged streamer:
-
-```bash
-pip install "opencap-visualizer[live]"
-opencap-visualizer-stream subject.json
-```
-
-Then open the web app, expand **Live IK Stream**, enter `ws://localhost:8765`, and click **Connect**.
-
-### Available Camera Angles
-
-| Angle | Description |
-|-------|-------------|
-| `anterior` | Front view |
-| `posterior` | Back view |
-| `sagittal_left` | Side view (left) |
-| `sagittal_right` | Side view (right) |
-| `superior` | Top-down view |
-| `isometric` | 3D perspective view |
-
-## 🔧 Key Features
-
-### Interactive Web-Based Visualization
-- **Real-time 3D rendering** of skeletal models with anatomically accurate geometry
-- **Multi-subject comparison** with independent color coding, subject-level and per-bone transparency controls
-- **Marker visualization** supporting standard motion capture marker sets (.trc files)
-- **Ground reaction forces visualization** using .mot files
-- **Video synchronization** with skeleton for simultaneous viewing
-- **Timeline controls** with adjustable playback speed and frame-by-frame navigation
-- **Recording capabilities** for capturing custom video segments
-- **Image capture** for high-resolution screenshots
-- **Timelapse mode** for accelerated visualizations
-- **Color controls** for customizing all visual elements
-
-### Python API for Automated Video Creation
-- **Command-line interface** for batch processing
-- **Python API** for integration into analysis pipelines
-- **Multiple camera angles** (anterior, posterior, sagittal, superior, etc.)
-- **Customizable output** (resolution, colors, loops, zoom)
-- **Headless operation** for server-side processing
-
-### Live IK Streaming
-
-OpenCap Visualizer supports live streaming of kinematics through a lightweight WebSocket server. You can use it to monitor real-time IK results, compare subjects side-by-side, test visualization pipelines, or drive clinician/patient feedback in the browser.
-
-You have two equivalent ways to start a stream:
-
-- **Recommended**: install the packaged streamer from PyPI: [https://pypi.org/project/opencap-visualizer/](https://pypi.org/project/opencap-visualizer/)
-- **Repo-local**: run [`live_stream_from_json.py`](live_stream_from_json.py) directly from this checkout
-
----
-
-#### Install
-
-**Packaged streamer**
-
-```bash
-pip install "opencap-visualizer[live]"
-```
-
-Package entry points:
-
-- `opencap-visualizer-stream`
-- `python -m opencap_visualizer.live_stream`
-
-**Repo-local script**
-
-```bash
-pip install websockets
-```
-
-Then run:
-
-```bash
-python live_stream_from_json.py subject.json
-```
-
-#### Basic usage
-
-```bash
-# Single subject via packaged CLI
-opencap-visualizer-stream subject.json
-
-# Same behavior via repo checkout
-python live_stream_from_json.py subject.json
-
-# Two subjects simultaneously
-opencap-visualizer-stream subject1.json subject2.json
-
-# Faster than real-time playback (2× speed)
-opencap-visualizer-stream subject.json 2.0
-```
-
-#### Connect from the visualizer
-
-1. Start the streamer with one of the commands above.
-2. Open [https://www.visualizer.opencap.ai/](https://www.visualizer.opencap.ai/).
-3. Expand **Live IK Stream** in the sidebar.
-4. Enter `ws://localhost:8765`.
-5. Click **Connect**.
-
-The streamer listens on `ws://localhost:8765` by default.
-
-**Same WiFi (stream on one computer, view on another):** Run the script on the streaming machine; it listens on all interfaces. On the viewing machine, set WebSocket URL to `ws://<streaming-computer-IP>:8765` (e.g. `ws://192.168.1.50:8765`). If you use the visualizer at [visualizer.opencap.ai](https://www.visualizer.opencap.ai/) (HTTPS), browsers block `ws://` to a LAN IP (mixed content). Either run the visualizer locally on the viewing machine (`npm run serve` → `http://localhost:3001`) and use that URL, or use a tunnel (e.g. ngrok) for `wss://` as below.
-
-> **Connecting from [visualizer.opencap.ai](https://www.visualizer.opencap.ai/):** Browsers block plain `ws://` connections from HTTPS pages (mixed content policy). Use **ngrok HTTP tunnel** to get a `wss://` URL:
->
-> ```bash
-> brew install ngrok/ngrok/ngrok        # one-time install (macOS)
-> ngrok config add-authtoken <your-token>  # one-time setup (free account at ngrok.com)
->
-> # Start the tunnel — must use "http", NOT "tcp"
-> ngrok http 8765
-> ```
->
-> ngrok prints a forwarding line like:
->
-> ```
-> Forwarding   https://xxxx.ngrok-free.app -> localhost:8765
-> ```
->
-> Convert that to a WebSocket URL by replacing `https://` with `wss://`:
->
-> ```
-> wss://xxxx.ngrok-free.app
-> ```
->
-> Paste it into the Live IK Stream URL field on `visualizer.opencap.ai` and click **Connect**.
->
-> > **Important:** `ngrok tcp` does **not** work — it creates a raw TCP tunnel without TLS, which browsers reject from HTTPS pages. Always use `ngrok http`.
-
----
-
-#### Subject colors (`--subject-colors`)
-
-Apply a single color to all bones of each subject. Pass comma-separated hex values, one per subject:
-
-```bash
-opencap-visualizer-stream s1.json s2.json --subject-colors "#d3d3d3,#4995e0"
-```
-
-For live streams, subject colors are applied when the stream initializes and remain fixed for the duration of that stream.
-
----
-
-#### Whole-model transparency (`--subject-opacity`)
-
-Apply a uniform transparency to the entire model of each subject. Pass comma-separated values 0–1 (0 = invisible, 1 = fully opaque), one per subject:
-
-```bash
-# Subject 1 at 50% opacity, subject 2 at 80%
-opencap-visualizer-stream s1.json s2.json --subject-opacity 0.5,0.8
-
-# Single subject at 60% opacity
-opencap-visualizer-stream s1.json --subject-opacity 0.6
-```
-
-Can be combined with `--subject-colors` and `--body-style`.
-For live streams, subject opacity is applied when the stream initializes and does not update dynamically after the subjects have loaded.
-
----
-
-#### Per-bone color, visibility, and transparency (`--body-style`)
-
-For finer control, map individual bone names to `color`, `visible`, and/or `opacity` settings.
-
-| Key | Type | Description |
-|-----|------|-------------|
-| `color` | hex string | Bone color, e.g. `"#ff0000"` |
-| `visible` | boolean | Show or hide the bone |
-| `opacity` | float 0–1 | `1.0` = fully opaque, `0.0` = invisible |
-| `geometries` | object | Per-geometry overrides (see below) |
-
-**Same style for all subjects** (flat dict):
-```bash
-opencap-visualizer-stream s1.json s2.json \
-  --body-style '{"hand_l": {"visible": false}, "hand_r": {"visible": false}}'
-```
-
-**With per-bone transparency:**
-```bash
-# Make the pelvis 50% transparent and color it red
-opencap-visualizer-stream s1.json \
-  --body-style '{"pelvis": {"color": "#ff0000", "opacity": 0.5}}'
-```
-
-**Different style per subject** (JSON array — one dict per subject, in order):
-```bash
-opencap-visualizer-stream s1.json s2.json \
-  --body-style '[{"pelvis": {"color": "#ff0000"}, "hand_l": {"visible": false}}, {"pelvis": {"color": "#0000ff", "opacity": 0.4}}]'
-```
-
-Use `{}` as a placeholder for a subject you want to leave at default:
-```bash
-# Only style subject 2; leave subject 1 at default
-opencap-visualizer-stream s1.json s2.json \
-  --body-style '[{}, {"hand_l": {"visible": false}, "femur_r": {"color": "#ff8800", "opacity": 0.6}}]'
-```
-
-`--subject-colors` and `--body-style` can be combined. `--subject-colors` takes priority over `--body-style` for the same subject.
-
----
-
-#### Per-geometry visibility within a body (`geometries`)
-
-Some bodies share a single entry in `bodyStyle` but are made up of multiple geometry files. For example, `thorax` contains both the thoracic vertebrae (`thoracic1_s.vtp` … `thoracic12_s.vtp`) and the ribcage (`ribcage_s.vtp`). Setting `"thorax": {"visible": false}` hides all of them.
-
-To control individual geometry files within a body, add a `geometries` sub-object whose keys match the filenames listed in `attachedGeometries`:
-
-```bash
-# Hide only the ribcage; keep the vertebrae visible
-opencap-visualizer-stream s3.json \
-  --body-style '{"thorax": {"geometries": {"ribcage_s.vtp": {"visible": false}}}}'
-```
-
-Geometry-level keys support the same fields as body-level keys (`visible`, `color`). A geometry-level setting takes precedence over the body-level setting for that specific mesh:
-
-```bash
-# Color all of thorax grey, but hide just the ribcage
-opencap-visualizer-stream s3.json \
-  --body-style '{"thorax": {"color": "#aaaaaa", "geometries": {"ribcage_s.vtp": {"visible": false}}}}'
-```
-
-The geometry key must exactly match the filename as it appears in the JSON's `attachedGeometries` array (no leading slash). You can inspect those names by looking at the `bodies.<bodyName>.attachedGeometries` field in your JSON file.
-
----
-
-#### Camera angle (`--camera`)
-
-Set the initial camera view when the client connects.
-
-**Anatomical presets** (recommended for OpenCap data):
-
-| Preset | View |
-|---|---|
-| `anterior` | Facing the subject's front |
-| `posterior` | Behind the subject |
-| `sagittal_right` | Subject's right side |
-| `sagittal_left` | Subject's left side |
-| `superior` | Looking down from above |
-| `inferior` | Looking up from below |
-
-**Generic axis presets:** `front`, `back`, `left`, `right`, `top`, `bottom`, `isometric`, `default`
-
-**Corner/isometric presets:** `frontTopRight`, `frontTopLeft`, `frontBottomRight`, `frontBottomLeft`, `backTopRight`, `backTopLeft`, `backBottomRight`, `backBottomLeft`
-
-```bash
-opencap-visualizer-stream s1.json s2.json --camera anterior
-opencap-visualizer-stream s1.json s2.json --camera sagittal_right
-```
-
-**Exact position and target** (coordinates in meters):
-```bash
-opencap-visualizer-stream s1.json s2.json \
-  --camera '{"position": [3, 2, -4], "target": [0, 1, 0]}'
-```
-
-While a stream is already running, you can also change the viewer camera live without reloading the model:
-
-```text
-camera anterior
-camera {"position": [3, 2, -4], "target": [0, 1, 0]}
-```
-
----
-
-#### Skeleton model (`--model`)
-
-Select which geometry model to render. Matches the model names in the visualizer's import dialog.
-
-| `--model` value | Visualizer name |
-|---|---|
-| `LaiArnold` | Lai Arnold *(default)* |
-| `Hu_ISB_shoulder` | Hu Shoulder |
-
-```bash
-# Same model for both subjects
-opencap-visualizer-stream s1.json s2.json --model LaiArnold
-
-# Different model per subject (comma-separated)
-opencap-visualizer-stream s1.json s2.json --model "LaiArnold,Hu_ISB_shoulder"
-```
-
----
-
-#### Hide / show subjects
-
-Each connected subject has a visibility toggle in the **Live IK Stream** panel in the sidebar. Click the switch next to a subject ID to instantly hide or show it in the 3D view.
-
-You can also control visibility remotely **from the streaming script** while it is running. The script reads commands from stdin:
-
-```
-hide subject_0          → hide subject 0 on all connected viewers
-show subject_0          → show it again
-camera anterior         → update the camera without reloading subjects
-```
-
-Subject IDs follow the pattern `subject_0`, `subject_1`, … (order matches the JSON files given on the command line).
-
----
-
-#### Notifications / patient feedback
-
-While streaming you can send a message that appears as a large banner on the visualizer — useful for real-time feedback to a patient:
-
-```
-notify Good job, keep your back straight!
-notify success Perfect technique!
-notify warning Slow down a little
-notify error Stop the movement
-```
-
-Available levels: `info` (blue, default) · `success` (green) · `warning` (orange) · `error` (red).
-
-The banner auto-dismisses after 5 seconds and has a **Dismiss** button. These commands can be typed in the terminal while the server is running.
-
-To send them **programmatically** from another Python script:
-
-```python
-import asyncio
-from live_stream_from_json import send_camera, send_notification, send_subject_visibility
-
-async def my_feedback():
-    await send_notification("Great rep!", level="success")
-    await send_subject_visibility("subject_1", False)
-    await send_camera("anterior")
-
-asyncio.run(my_feedback())
-```
-
----
-
-#### Trial scores plot
-
-At the end of a trial you can show the patient a bar chart of five movement scores (percentages). The plot appears as a full-screen overlay and stays visible until you send a hide command.
-
-**From the terminal** (while the streaming script is running):
-
-```
-scores 85 72 90 68 88
-scores 43 32 90 34 25 arms ankles trunk shoulder overall
-scores 85 72 90 68 88 colors:g o r g o title:Trial 1 Results
-hidescores
-```
-
-- **`scores <n1> <n2> <n3> <n4> <n5>`** — Show trial scores (five numbers 0–100). The visualizer displays a centered bar chart titled "Movement scores".
-- **`scores <n1> <n2> <n3> <n4> <n5> [label1 ... label5]`** — Same, with custom labels on the x-axis (e.g. `arms ankles trunk shoulder overall`).
-- **`scores ... [colors: g o r g o] [title: <text>]`** — Optional per-bar colors and custom title. Colors: **g** = green, **o** = orange, **r** = red (five letters, space-separated or concatenated, e.g. `colors:grgro`). Title replaces the default "Movement scores".
-- **`hidescores`** — Dismiss the scores overlay immediately.
-
-Type **`help`** in the terminal for a short list of all interactive commands.
-
-**Programmatically:**
-
-```python
-import asyncio
-from live_stream_from_json import send_trial_scores, send_hide_scores
-
-async def show_scores():
-    await send_trial_scores([85, 72, 90, 68, 88])
-    # With labels:
-    await send_trial_scores([43, 32, 90, 34, 25], labels=["arms", "ankles", "trunk", "shoulder", "overall"])
-    # With optional title and per-bar colors (g=green, o=orange, r=red):
-    await send_trial_scores(
-        [85, 72, 90, 68, 88],
-        labels=["S1", "S2", "S3", "S4", "S5"],
-        title="Trial 1 Results",
-        colors=["g", "o", "r", "g", "o"]
-    )
-
-async def hide_scores():
-    await send_hide_scores()
-
-asyncio.run(show_scores())
-```
-
----
-
-#### Full example
-
-```bash
-opencap-visualizer-stream subject1.json subject2.json \
-  --subject-colors "#d3d3d3,#4995e0" \
-  --subject-opacity 0.1,0.3 \
-  --body-style '[{"hand_l": {"visible": false}, "pelvis": {"opacity": 0.5}}, {"hand_l": {"visible": false}}]' \
-  --camera anterior \
-  --model "LaiArnold,Hu_ISB_shoulder" \
-  2.0
-
-# While running, type commands in the terminal:
-# notify success Keep it up!
-# scores 85 72 90 68 88 arms ankles trunk shoulder overall
-# scores 85 72 90 68 88 colors:g o r g o title:Trial 1 Results
-# hidescores
-# hide subject_1
-# show subject_1
-```
-
-**Hide the ribcage but keep the rest of thorax:**
-```bash
-opencap-visualizer-stream s3.json \
-  --body-style '{"thorax": {"geometries": {"ribcage_s.vtp": {"visible": false}}}}' \
-  --camera anterior
-```
-
-## 🎮 User Interface Guide
-
-### Loading Data
-There are multiple ways to load your biomechanics data:
-
-1. **Drag & Drop**: Simply drag files directly into the viewer window
-2. **Import Button**: Click the Import button for specific file types
-3. **Sample Data**: Click "Try with Sample Files" to explore with pre-loaded examples
-4. **URL Sharing**: Open a shared visualization link
-
-Supported file combinations:
-- `.json` - Motion data (OpenCap format)
-- `.trc` - Motion capture markers (can be loaded independently)
-- `.osim` + `.mot` - OpenSim model with kinematics
-- `.mot` - Ground reaction force data (auto-positioned at feet)
-
-### Camera Controls
-
-The 3D cube gizmo at the bottom of the viewer provides intuitive camera control:
-
-| View | Description |
-|------|-------------|
-| **Front (Z)** | View from the front of the subject |
-| **Back (-Z)** | View from behind the subject |
-| **Right (X)** | View from the right side |
-| **Left (-X)** | View from the left side |
-| **Top (Y)** | Bird's eye view from above |
-| **Bottom (-Y)** | View from below |
-| **Corner Views** | Click cube corners for isometric perspectives |
-| **Arrow Buttons** | Rotate smoothly between adjacent views |
-| **Reset Button** | Return to default perspective |
-
-You can also click and drag anywhere in the 3D view to orbit, scroll to zoom, and right-click drag to pan.
-
-### Keyboard Shortcuts
-
-| Key | Action |
-|-----|--------|
-| `Space` | Play/Pause animation |
-| `←` Arrow | Previous frame (stops playback) |
-| `→` Arrow | Next frame (stops playback) |
-| `↑` Arrow | Increase playback speed (+0.25x) |
-| `↓` Arrow | Decrease playback speed (-0.25x) |
-| `Shift` + Arrow Keys | Nudge selected subject position |
-
-### Playback Controls
-
-- **Play/Pause**: Toggle animation playback
-- **Loop**: Enable/disable continuous looping
-- **Speed**: Adjust from 0.25x to 4x playback speed
-- **Timeline Slider**: Scrub through the animation
-- **Time Input**: Jump to a specific time in seconds
-- **Frame Navigation**: Step through frame by frame
-
-### Scene Customization
-
-#### Ground Settings
-- **Visibility**: Show/hide the ground plane
-- **Color**: Customize ground color
-- **Opacity**: Adjust transparency (0-100%)
-- **Texture**: Toggle checkerboard or grid patterns
-- **Position**: Adjust vertical position (Y offset)
-
-#### Background & Lighting
-- **Background Color**: Set scene background
-- **Lighting**: Toggle realistic lighting with shadows
-- **Shadow Quality**: Adjust shadow resolution
-
-#### Subject Controls
-- **Color**: Assign unique colors to each subject (palette icon per subject in the Animations list)
-- **Transparency**: Adjust individual subject opacity with a 0–100% slider (opacity icon per subject)
-- **Per-bone transparency**: Open the **Mesh Objects** dialog (cube icon) to control opacity per individual bone or per bone group (Hands / Arms / Other) — the opacity icon turns blue when a bone has non-default transparency
-- **Offset**: Position subjects with X/Y/Z offsets
-- **Visibility**: Show/hide individual subjects or specific bones
-
-### Recording & Export
-
-#### Video Recording
-1. Configure recording settings (loops, capture mode)
-2. Click **Record** to start
-3. Playback will automatically begin
-4. Click **Stop** when done
-5. Video downloads as `.webm` file
-
-#### Screenshot Capture
-- Capture high-resolution images of the current view
-- Options for transparent background export
-- Perfect for publications and presentations
-
-#### Timelapse Mode
-- Create motion trails showing movement over time
-- Adjustable interval and opacity settings
-- Great for visualizing movement patterns
-
-### Sharing Visualizations
-
-1. Load your data into the visualizer
-2. Click the **Share** button in the sidebar
-3. Choose sharing method:
-   - **URL Sharing**: Generate a shareable link (data embedded in URL)
-   - **Backend Storage**: For larger files, data is stored server-side
-4. Copy the generated URL to share with others
-
-#### Embedding
-Add `?embed=true` to any visualization URL to hide the UI controls for clean embedding in websites or presentations.
-
-## 📁 Supported Data Formats
-
-### File Types
-
-| Format | Description | Usage |
-|--------|-------------|-------|
-| `.json` | OpenCap motion data | Primary format with skeleton + kinematics |
-| `.osim` | OpenSim model | Skeletal model definition |
-| `.mot` | Motion/Forces | Kinematics (with .osim) or GRF data |
-| `.trc` | Marker data | Motion capture markers |
-
-### JSON Motion Data Format
-
-The visualizer uses a JSON format that includes skeleton definition and joint positions:
-
-```json
-{
-  "joints": [0.0, 0.9, 0.0, ...],  // Flattened joint positions [x,y,z, x,y,z, ...]
-  "joint_names": ["Pelvis", "L_Hip", "R_Hip", ...],
-  "joint_count": 24,
-  "fps": 30,
-  "frames": 150
-}
-```
-
-### OpenSim Workflow
-
-For OpenSim users:
-1. Use the [OpenSim Converter API](https://github.com/Seeeeeyo/opensim-to-visualizer-api) to convert `.osim` + `.mot` files
-2. Or drag & drop both files directly into the visualizer (automatic conversion)
-
-### Marker Data (.trc)
-
-Standard TRC format from motion capture systems:
-- Markers are displayed as colored spheres
-- Can be loaded independently or alongside skeleton data
-- Marker size and color are customizable
-
-### Ground Reaction Forces (.mot)
-
-Force files are automatically detected and visualized:
-- Force vectors rendered at the feet
-- Magnitude indicated by vector length
-- Customizable colors and scaling
-
-## 🔄 OpenSim Integration
-
-For OpenSim users, we provide a dedicated converter API:
-
-**🔗 OpenSim Converter**: [opensim-to-visualizer-api](https://github.com/Seeeeeyo/opensim-to-visualizer-api)
-
-This service converts OpenSim .osim and .mot files into the JSON format required by the visualizer, enabling seamless integration with existing OpenSim workflows.
-
-## 💡 Tips & Best Practices
-
-### Multi-Subject Comparison
-- Load multiple JSON files to compare subjects side-by-side
-- Use distinct colors for each subject for clarity
-- Adjust transparency to see overlapping movements
-- Use X/Y/Z offsets to position subjects apart
-
-### Creating Publication-Quality Videos
-1. Set up your desired camera angle
-2. Customize colors and background
-3. Hide unnecessary elements (ground, markers if not needed)
-4. Use high bitrate in recording settings
-5. Record multiple loops for smoother transitions
-
-### Performance Tips
-- For large files, consider reducing playback speed initially
-- Close unnecessary browser tabs to free up GPU resources
-- Use Chrome or Edge for best WebGL performance
-
-### Video Overlay
-- Load a reference video alongside your motion data
-- Adjust opacity to blend video with 3D skeleton
-- Use chroma key to remove green screen backgrounds
-- Sync video playback with motion data timeline
-
-## 🔧 Troubleshooting
-
-| Issue | Solution |
-|-------|----------|
-| **Blank screen** | Ensure WebGL is enabled in your browser |
-| **Slow performance** | Close other tabs, use a dedicated GPU |
-| **File won't load** | Check file format matches expected structure |
-| **Markers not visible** | Increase marker size in display settings |
-| **Ground flickering** | Adjust ground position to avoid z-fighting |
-| **Video not syncing** | Verify video frame rate matches motion data FPS |
-
-## 🏗️ Architecture
-
-### Frontend
-- **Vue.js** for reactive user interface components
-- **Three.js** for 3D graphics rendering and animation
-- **Vuetify** for Material Design components
-
-### Backend Services
-- **Node.js sharing backend** for URL-based data sharing
-- **Python CLI and API** using Playwright for automated browser control
-- **OpenSim file converter backend** for .osim/.mot to JSON conversion
-
-## 🎯 Research Applications
-
-- **Algorithm development and quality control**: Enables rapid visual inspection of large datasets, allowing researchers to identify model failures or artifacts across many trials without manual GUI interaction.
-- **Reproducible figures for publications**: Timelapse rendering allows dynamic motion to be represented in static, publication-quality figures, facilitating clear qualitative comparisons in print.
-- **Education and clinical documentation**: Browser-based visualization removes installation barriers, enabling interactive teaching materials and standardized video generation for documenting patient movement and intervention outcomes.
-
-
-## 🛠️ Development
-
-### Prerequisites
-- Node.js (v14+)
-- Python 3.8+
-- npm or yarn
-
-### Local Development
-```bash
-# Install dependencies
 npm install
-
-# Start development server
 npm run serve
+```
 
-# Build for production
+Then open `http://localhost:3001`.
+
+## Supported Inputs
+
+- `.json` visualizer motion files
+- `.trc` marker trajectories
+- `.mot` force files
+- `.osim` + motion `.mot`
+- `.mp4` and `.webm` reference videos
+- `.pkl` / `.pickle` SMPL or skeleton sequences via drag-and-drop
+
+## Example Workflows
+
+The short version is:
+
+- Motion + markers + GRF + recorded browser video: yes
+- Real-time playback from an existing JSON: yes
+- Continuous labeled video across multiple trials: not yet as a repo-local script
+
+See [examples/README.md](examples/README.md) for concrete examples.
+
+## Live Streaming From An Existing JSON
+
+Install the one repo-local dependency:
+
+```bash
+python -m pip install websockets
+```
+
+Replay one subject:
+
+```bash
+python live_stream_from_json.py public/samples/walk/sample_mono.json
+```
+
+Replay two subjects:
+
+```bash
+python live_stream_from_json.py \
+  public/samples/walk/sample_mono.json \
+  public/samples/walk/sample_wham.json
+```
+
+Then open the visualizer, expand **Live IK Stream**, and connect to `ws://localhost:8765`.
+
+## Browser Features Confirmed In This Repo
+
+- Multi-subject overlays with editable trial names
+- Marker visualization
+- Ground reaction force visualization
+- Synced reference video overlay
+- Screenshot export
+- Browser recording to WebM or MP4 when supported by the browser
+- Timelapse mode
+- Shared visualization files/URLs
+- Live WebSocket controls for camera, visibility, notifications, and trial scores
+
+## Notes On The Python Package
+
+The paper discusses a separate pip package for automated rendering. That package is real, but it is not implemented in this repository.
+
+Current package docs:
+
+- PyPI: [https://pypi.org/project/opencap-visualizer/](https://pypi.org/project/opencap-visualizer/)
+- Source: [https://github.com/Seeeeeyo/opencap-visualizer-pip](https://github.com/Seeeeeyo/opencap-visualizer-pip)
+
+## Development
+
+```bash
+npm install
+npm run serve
 npm run build
 ```
 
-### Python Package Development
-The packaged Python renderer and CLI do not live in this repository.
+<!-- ## License
 
-- **PyPI**: [https://pypi.org/project/opencap-visualizer/](https://pypi.org/project/opencap-visualizer/)
-- **Source**: [https://github.com/Seeeeeyo/opencap-visualizer-pip](https://github.com/Seeeeeyo/opencap-visualizer-pip)
-
-This repository contains the web visualizer and the repo-local livestream script [`live_stream_from_json.py`](live_stream_from_json.py).
-
-## 📚 Documentation
-
-- **Web Interface**: [https://www.visualizer.opencap.ai/](https://www.visualizer.opencap.ai/)
-- **PyPI package**: [https://pypi.org/project/opencap-visualizer/](https://pypi.org/project/opencap-visualizer/)
-- **Python package source**: [opencap-visualizer-pip](https://github.com/Seeeeeyo/opencap-visualizer-pip)
-- **OpenSim Converter**: [opensim-to-visualizer-api](https://github.com/Seeeeeyo/opensim-to-visualizer-api)
-
-## 🤝 Contributing
-
-Contributions are welcome. Please open an issue for bugs or feature requests, or submit a pull request directly to this repository.
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE.md) file for details.
-
-## 🙏 Acknowledgements
-
-We acknowledge the contributions of the OpenCap development team and the broader biomechanics research community. This work builds upon the foundation of open-source biomechanics tools including OpenSim and the Three.js graphics library.
-
-## 📞 Support
-
-- **GitHub Issues**: [Report bugs and request features](https://github.com/Seeeeeyo/opencap-visualizer/issues)
-- **Web App**: [https://www.visualizer.opencap.ai/](https://www.visualizer.opencap.ai)
-- **PyPI package**: [https://pypi.org/project/opencap-visualizer/](https://pypi.org/project/opencap-visualizer/)
-- **Python package source**: [https://github.com/Seeeeeyo/opencap-visualizer-pip](https://github.com/Seeeeeyo/opencap-visualizer-pip)
+MIT. See [LICENSE.md](LICENSE.md). -->
