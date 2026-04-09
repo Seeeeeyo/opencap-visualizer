@@ -28,6 +28,7 @@ bibliography: paper.bib
 
 <!-- Other title options that I think are a bit clearer:
 OpenCap Visualizer: A Web-Based Platform for Scriptable, Real-Time, and Interactive Visualization of Biomechanics Data
+
 OpenCap Visualizer: A Web-Based Platform for Scriptable and Real-Time Visualization of Biomechanics Data
 -->
 
