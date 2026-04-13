@@ -68,6 +68,7 @@ Server:
 Interactive commands (type while the server is running):
     notify Good job!                  → info banner on the visualizer
     notify success Great technique!   → colored banner (info/success/warning/error)
+    dismiss                           → dismiss the current notification banner
     camera anterior                   → update the viewer camera without reloading subjects
     camera {"position":[3,2,-4]}      → exact camera position (optional target)
     scores 85 72 90 68 88 [label1 ...] [colors: g o r g o] [title: text] → trial scores (g/r/o = green/red/orange)
@@ -105,6 +106,16 @@ async def send_notification(message: str, level: str = "info", duration: int = 5
         asyncio.run(send_notification("Great job!", level="success"))
     """
     msg = json.dumps({"type": "notification", "message": message, "level": level, "duration": duration})
+    for ws in list(_CONNECTED_CLIENTS):
+        try:
+            await ws.send(msg)
+        except Exception:
+            pass
+
+
+async def send_dismiss_notification():
+    """Dismiss (hide) the current notification banner on every connected visualizer client."""
+    msg = json.dumps({"type": "dismissNotification"})
     for ws in list(_CONNECTED_CLIENTS):
         try:
             await ws.send(msg)
@@ -150,24 +161,23 @@ async def send_trial_scores(
     """
     Show the trial scores plot on every connected visualizer client.
 
-    scores : list of 5 numbers (0–100, percentages)
-    labels : optional list of 5 strings for bar labels
+    scores : list of numbers (0–100, percentages); the number of bars matches len(scores)
+    labels : optional list of strings for bar labels (truncated to len(scores) if longer)
     title : optional string for the plot title
-    colors : optional list of 5 chars: g=green, o=orange, r=red
+    colors : optional list of chars: g=green, o=orange, r=red (truncated to len(scores) if longer)
     """
-    msg = {"type": "trialScores", "scores": scores[:5]}
+    n = len(scores)
+    msg = {"type": "trialScores", "scores": scores}
     if labels:
-        msg["labels"] = labels[:5]
+        msg["labels"] = labels[:n]
     if title:
         msg["title"] = str(title).strip()
     if colors:
         validated = [
             c if c.lower() in _COLOR_MAP else "g"
-            for c in [str(x).lower()[0] for x in colors[:5]]
+            for c in [str(x).lower()[0] for x in colors[:n]]
         ]
-        while len(validated) < 5:
-            validated.append("g")
-        msg["colors"] = validated[:5]
+        msg["colors"] = validated
     for ws in list(_CONNECTED_CLIENTS):
         try:
             await ws.send(json.dumps(msg))
@@ -646,6 +656,7 @@ async def main():
         --------
         notify <message>                    – info banner
         notify <level> <message>            – banner with level (info/success/warning/error)
+        dismiss                             – dismiss the current notification banner
         scores <n1> <n2> <n3> <n4> <n5> [label1 ... label5] [colors: g o r g o] [title: text]  – trial scores (g/r/o=green/red/orange)
         hidescores                          – hide the trial scores plot
         hide <subject_id>                   – hide a subject
@@ -677,6 +688,7 @@ async def main():
                         "Commands:\n"
                         "  notify <message>              – info notification\n"
                         "  notify <level> <message>      – notification with level (info/success/warning/error)\n"
+                        "  dismiss                       – dismiss current notification banner\n"
                         "  camera <preset|json>          – update camera without reloading subjects\n"
                         "  scores <n1> <n2> <n3> <n4> <n5> [label1 ... label5] [colors: g o r g o] [title: text]  – trial scores (g/r/o=green/red/orange)\n"
                         "  hidescores                   – hide trial scores plot\n"
@@ -694,6 +706,9 @@ async def main():
                         print(f"[notify:info] {msg_text}")
                     else:
                         print("Usage: notify [level] <message>")
+                elif verb == "dismiss":
+                    await send_dismiss_notification()
+                    print("[dismiss] notification hidden")
                 elif verb == "camera":
                     parsed_camera = _parse_camera(rest)
                     if parsed_camera is None:

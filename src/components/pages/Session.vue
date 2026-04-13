@@ -15443,6 +15443,8 @@
               this.setLiveSubjectVisibility(msg.subjectId, msg.visible !== false);
             } else if (msg.type === 'notification') {
               this.showLiveNotification(msg.message || '', msg.level || 'info', msg.duration ?? 5000);
+            } else if (msg.type === 'dismissNotification') {
+              this.liveNotification.show = false;
             } else if (msg.type === 'trialScores') {
               this.showLiveTrialScores(msg);
             } else if (msg.type === 'hideScores') {
@@ -15499,11 +15501,10 @@
 
     showLiveTrialScores(msg) {
       const raw = Array.isArray(msg.scores) ? msg.scores : [];
-      const scores = raw.slice(0, 5).map(v => Math.min(100, Math.max(0, Number(v) || 0)));
-      while (scores.length < 5) scores.push(0);
-      const labels = Array.isArray(msg.labels) ? msg.labels.slice(0, 5) : [];
+      const scores = raw.map(v => Math.min(100, Math.max(0, Number(v) || 0)));
+      const labels = Array.isArray(msg.labels) ? msg.labels.slice(0, scores.length) : [];
       const title = typeof msg.title === 'string' && msg.title.trim() ? msg.title.trim() : '';
-      const colors = Array.isArray(msg.colors) ? msg.colors.slice(0, 5) : [];
+      const colors = Array.isArray(msg.colors) ? msg.colors.slice(0, scores.length) : [];
       this.liveTrialScores = { show: true, scores, labels, title, colors };
     },
 

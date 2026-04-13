@@ -45,9 +45,7 @@ export default {
     },
     normalizedScores() {
       if (!Array.isArray(this.scores) || this.scores.length === 0) return [];
-      const padded = this.scores.slice(0, 5);
-      while (padded.length < 5) padded.push(0);
-      return padded.map(v => Math.min(100, Math.max(0, Number(v) || 0)));
+      return this.scores.map(v => Math.min(100, Math.max(0, Number(v) || 0)));
     },
     barColors() {
       const map = { g: 'rgba(76, 175, 80, 0.7)', o: 'rgba(255, 152, 0, 0.7)', r: 'rgba(244, 67, 54, 0.7)' };
