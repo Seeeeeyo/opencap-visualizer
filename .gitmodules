@@ -1,0 +1,3 @@
+[submodule "share-backend"]
+	path = share-backend
+	url = https://github.com/Seeeeeyo/opencap-share-backend.git
