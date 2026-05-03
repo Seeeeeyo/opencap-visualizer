@@ -44,6 +44,13 @@ OpenCap Visualizer addresses these challenges by providing a scriptable, platfor
 The platform builds on the OpenCap ecosystem [@opencap] and is compatible with OpenSim models and standard biomechanics data formats [@opensim], making it applicable to both traditional marker-based workflows and emerging markerless approaches using cameras [@opencap; @opencap-monocular] or IMUs [@opensense; @opensenseRT].
 
 
+# State of the Field
+
+The OpenSim GUI [@opensim] is the most widely used visualization tool in musculoskeletal biomechanics and provides thorough single-trial analysis through a desktop Java application, but it requires local installation, manual loading of each trial, and offers no scripting interface for video generation, which limits its utility in cloud-based and high-throughput workflows. Mokka and the underlying Biomechanical ToolKit (BTK) [@btk] target C3D-based motion capture data and similarly rely on desktop interaction. Physics-oriented packages such as MuJoCo [@mujoco] include integrated viewers but are designed around simulation rather than analysis of measured human movement. Web-based viewers bundled with cloud platforms such as AddBiomechanics [@AddBiomechanics] are tightly coupled to a single processing backend and dataset format, restricting their use as general-purpose visualization layers.
+
+OpenCap Visualizer fills the gap between these tools by providing a format-agnostic web platform that combines interactive browser-based viewing, programmatic batch rendering through a Python API, and real-time streaming over WebSockets. We chose to build a new tool rather than extend the OpenSim GUI because cloud-based processing pipelines require server-side, headless rendering that is impractical inside a desktop Java application; modern browser-based 3D rendering enables zero-install collaboration via shareable URLs; and unifying live streaming, batch video, and interactive viewing under a single data model substantially reduces the friction of moving between visualization modes during research.
+
+
 # Key Features
 
 OpenCap Visualizer supports three complementary modes of interaction: browser-based visualization, live streaming, and automated rendering via Python. It supports common biomechanics data formats, including OpenSim models (.osim), motion and force files (.sto, .mot), marker trajectories (.trc), JSON-based kinematics (e.g., OpenCap), and SMPL motion sequences (.pkl) [@opensim;@opencap;@smpl].
@@ -162,11 +169,13 @@ ocv.create_video(paths, "experimental_visualization.mp4")
 ```
 
 
-# Implementation
+# Software Design
 
-OpenCap Visualizer consists of a web-based frontend and a complementary Python package. The frontend is built with Vue.js and Three.js for interactive 3D visualization, with Vuetify providing UI components. The deployed web application includes cloud-based services for URL-based sharing and server-side conversion of OpenSim models and motion files into a browser-compatible JSON format.
+OpenCap Visualizer is structured as a thin web frontend, a stateless cloud service, and a Python client package, with all three layers sharing a single intermediate JSON representation of bodies, motions, markers, and forces. Centering the architecture on this representation rather than a particular file format was a deliberate trade-off: it adds an explicit conversion step on the server, but decouples the rendering pipeline from OpenSim's C++ runtime and lets the same browser viewer drive interactive playback, headless video export through a Puppeteer-controlled Chromium instance, and live streaming. This shared data model is what makes both batch generation on cloud servers and real-time streaming from local inverse kinematics pipelines fit into a single codebase.
 
-For local and automated workflows, a lightweight Python package enables headless video generation for batch rendering, while a separate local Python script supports real-time kinematics streaming via WebSockets.
+We chose Vue.js and Three.js over a more specialized rendering toolkit to keep the dependency surface compatible with shared hosting, embeddable iframes, and mobile browsers, broadening accessibility for collaborators who do not run dedicated biomechanics software. The Python package wraps a headless browser to reproduce the exact frontend renderer, ensuring that automatically generated videos are visually identical to interactive playback—an important property for paper figures and reproducibility, but difficult to achieve when the offline renderer is a separate program. The live-streaming server is intentionally minimal: it forwards body transforms over WebSockets without owning model state, so users can plug in any inverse kinematics backend (e.g., OpenSenseRT [@opensenseRT]) without modifying the visualizer.
+
+The frontend is built with Vue.js and Three.js, with Vuetify providing UI components. The deployed web application includes cloud-based services for URL-based sharing and server-side conversion of OpenSim models and motion files into the browser-compatible JSON representation. For local and automated workflows, the lightweight Python package enables headless video generation, while a companion Python module supports real-time kinematics streaming via WebSockets.
 
 
 
@@ -184,6 +193,15 @@ OpenCap Visualizer supports high-throughput biomechanics workflows where manual,
 
 - **Education and clinical documentation**: Browser-based visualization removes installation barriers, enabling interactive teaching materials and standardized video generation for documenting patient movement and intervention outcomes.
 
+
+# Research Impact
+
+OpenCap Visualizer is integrated into the OpenCap [@opencap] processing pipeline and serves as the default visualization tool for OpenCap Monocular [@opencap-monocular]. The Python package is published on PyPI ([https://pypi.org/project/opencap-visualizer](https://pypi.org/project/opencap-visualizer)) and has been used by our group to run a parameter optimization across several hundred trials to visualize the resulting motions from OpenCap Monocular, with both the qualitative figures and the supplementary motion videos in [@opencap-monocular] generated directly with the tool. The browser viewer has further supported peer collaboration on OpenCap projects through shareable URLs. The codebase is released open-source under the Apache License 2.0 on GitHub with public issue tracking, automated PyPI releases, and worked examples in the repository. Near-term uptake is anticipated by groups working with markerless motion capture, real-time biofeedback, and large-scale field studies, where the absence of a scriptable, browser-based visualizer has been a recurring bottleneck.
+
+
+# AI Usage Disclosure
+
+Generative AI assistants (GitHub Copilot and Anthropic Claude) were used during software development to draft boilerplate code, write documentation, and propose refactorings, and during paper writing to polish prose and tighten phrasing. All AI-generated code was reviewed, tested, and edited by the authors before being merged.
 
 
 # Usage Summary
