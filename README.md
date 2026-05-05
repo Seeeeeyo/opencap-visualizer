@@ -74,6 +74,33 @@ python live_stream_from_json.py \
 
 Then open the visualizer, expand **Live IK Stream**, and connect to `ws://localhost:8765`.
 
+### Live Notification Messages
+
+The live WebSocket notification message accepts:
+
+- `message`
+- `level`: `info`, `success`, `warning`, or `error`
+- `duration`: milliseconds, with `0` meaning until dismissed
+- `fontSize`: optional font size for the banner text, such as `32`, `"32px"`, or `"1.8rem"`
+
+Raw WebSocket example:
+
+```json
+{
+  "type": "notification",
+  "message": "Great job!",
+  "level": "success",
+  "duration": 5000,
+  "fontSize": "32px"
+}
+```
+
+If you are using the repo-local helper script interactively, you can also send:
+
+```bash
+notify success size=32 Great technique!
+```
+
 ## Browser Features Confirmed In This Repo
 
 - Multi-subject overlays with editable trial names

@@ -1,6 +1,7 @@
 import asyncio
 import copy
 import json
+import re
 import socket
 import sys
 import time
@@ -68,6 +69,7 @@ Server:
 Interactive commands (type while the server is running):
     notify Good job!                  → info banner on the visualizer
     notify success Great technique!   → colored banner (info/success/warning/error)
+    notify success size=32 Great technique! → colored banner with larger text
     dismiss                           → dismiss the current notification banner
     camera anterior                   → update the viewer camera without reloading subjects
     camera {"position":[3,2,-4]}      → exact camera position (optional target)
@@ -94,18 +96,73 @@ DEFAULT_JSON_PATH = Path(__file__).parent / "mono.json"
 # ---------------------------------------------------------------------------
 _CONNECTED_CLIENTS: set = set()
 
+_NOTIFICATION_LEVELS = {"info", "success", "warning", "error"}
 
-async def send_notification(message: str, level: str = "info", duration: int = 5000):
+
+def _normalize_notification_font_size(font_size):
+    """Normalize supported notification font-size inputs to CSS lengths."""
+    if isinstance(font_size, (int, float)) and font_size > 0:
+        return f"{font_size:g}px"
+
+    if isinstance(font_size, str):
+        value = font_size.strip()
+        if not value:
+            return None
+        if re.fullmatch(r"\d+(\.\d+)?", value):
+            return f"{value}px"
+        if re.fullmatch(r"\d+(\.\d+)?(px|rem|em|vw|vh|%)", value):
+            return value
+
+    return None
+
+
+def _parse_notify_command(rest: str):
+    """
+    Parse `notify` command arguments.
+
+    Supported forms:
+      notify <message>
+      notify <level> <message>
+      notify size=<font-size> <message>
+      notify <level> size=<font-size> <message>
+    """
+    tokens = rest.split()
+    if not tokens:
+        return None
+
+    level = "info"
+    font_size = None
+
+    if tokens[0].lower() in _NOTIFICATION_LEVELS:
+        level = tokens.pop(0).lower()
+
+    if tokens and tokens[0].lower().startswith("size="):
+        font_size = tokens.pop(0).split("=", 1)[1]
+
+    message = " ".join(tokens).strip()
+    if not message:
+        return None
+
+    return level, font_size, message
+
+
+async def send_notification(message: str, level: str = "info", duration: int = 5000, font_size=None):
     """
     Show a notification banner on every connected visualizer client.
 
     level    : "info" | "success" | "warning" | "error"
     duration : how long (ms) the banner stays visible (0 = until dismissed)
+    font_size: optional CSS font size (for example 32, "32px", or "1.8rem")
 
     Can also be called programmatically when embedding this script:
-        asyncio.run(send_notification("Great job!", level="success"))
+        asyncio.run(send_notification("Great job!", level="success", font_size=32))
     """
-    msg = json.dumps({"type": "notification", "message": message, "level": level, "duration": duration})
+    payload = {"type": "notification", "message": message, "level": level, "duration": duration}
+    normalized_font_size = _normalize_notification_font_size(font_size)
+    if normalized_font_size:
+        payload["fontSize"] = normalized_font_size
+
+    msg = json.dumps(payload)
     for ws in list(_CONNECTED_CLIENTS):
         try:
             await ws.send(msg)
@@ -656,6 +713,7 @@ async def main():
         --------
         notify <message>                    – info banner
         notify <level> <message>            – banner with level (info/success/warning/error)
+        notify <level> size=<font-size> <message> – banner with custom text size
         dismiss                             – dismiss the current notification banner
         scores <n1> <n2> <n3> <n4> <n5> [label1 ... label5] [colors: g o r g o] [title: text]  – trial scores (g/r/o=green/red/orange)
         hidescores                          – hide the trial scores plot
@@ -688,6 +746,7 @@ async def main():
                         "Commands:\n"
                         "  notify <message>              – info notification\n"
                         "  notify <level> <message>      – notification with level (info/success/warning/error)\n"
+                        "  notify <level> size=<font-size> <message> – notification with custom text size\n"
                         "  dismiss                       – dismiss current notification banner\n"
                         "  camera <preset|json>          – update camera without reloading subjects\n"
                         "  scores <n1> <n2> <n3> <n4> <n5> [label1 ... label5] [colors: g o r g o] [title: text]  – trial scores (g/r/o=green/red/orange)\n"
@@ -696,16 +755,14 @@ async def main():
                         "  show <subject_id>             – show subject\n"
                     )
                 elif verb == "notify":
-                    notify_parts = rest.split(" ", 1) if rest else []
-                    if len(notify_parts) == 2 and notify_parts[0] in ("info", "success", "warning", "error"):
-                        await send_notification(notify_parts[1], level=notify_parts[0])
-                        print(f"[notify:{notify_parts[0]}] {notify_parts[1]}")
-                    elif rest:
-                        msg_text = rest
-                        await send_notification(msg_text)
-                        print(f"[notify:info] {msg_text}")
+                    parsed = _parse_notify_command(rest)
+                    if parsed:
+                        level, font_size, msg_text = parsed
+                        await send_notification(msg_text, level=level, font_size=font_size)
+                        size_text = f" size={_normalize_notification_font_size(font_size)}" if font_size else ""
+                        print(f"[notify:{level}{size_text}] {msg_text}")
                     else:
-                        print("Usage: notify [level] <message>")
+                        print("Usage: notify [level] [size=<font-size>] <message>")
                 elif verb == "dismiss":
                     await send_dismiss_notification()
                     print("[dismiss] notification hidden")

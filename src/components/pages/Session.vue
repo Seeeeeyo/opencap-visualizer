@@ -3771,6 +3771,7 @@
               : liveNotification.level === 'warning' ? 'orange darken-2'
               : liveNotification.level === 'success' ? 'green darken-2'
               : 'indigo darken-2'"
+        class="live-notification-banner"
         top
         centered
         multi-line
@@ -3783,7 +3784,10 @@
              : liveNotification.level === 'success' ? 'mdi-check-circle'
              : 'mdi-information' }}
           </v-icon>
-          <span class="subtitle-1 font-weight-medium">{{ liveNotification.message }}</span>
+          <span
+            class="live-notification-message font-weight-medium"
+            :style="liveNotification.fontSize ? { fontSize: liveNotification.fontSize } : null"
+          >{{ liveNotification.message }}</span>
         </div>
         <template v-slot:action="{ attrs }">
           <v-btn text v-bind="attrs" @click="liveNotification.show = false">Dismiss</v-btn>
@@ -4174,7 +4178,7 @@
               liveSubjectVisibility: {}, // map from subject ID -> boolean (true = visible)
               liveSubjectIds: [], // ordered list of connected subject IDs (for UI)
               liveCameraCentered: false, // true once the camera has been centered on the subject's real position
-              liveNotification: { show: false, message: '', level: 'info', timeout: 5000 },
+              liveNotification: { show: false, message: '', level: 'info', timeout: 5000, fontSize: null },
               liveTrialScores: { show: false, scores: [], labels: [], title: '', colors: [] },
               liveTrialScoresTimer: null,
               showLiveStreamDetails: false, // Toggle for Live IK Stream section
@@ -15442,7 +15446,12 @@
             } else if (msg.type === 'subjectVisibility') {
               this.setLiveSubjectVisibility(msg.subjectId, msg.visible !== false);
             } else if (msg.type === 'notification') {
-              this.showLiveNotification(msg.message || '', msg.level || 'info', msg.duration ?? 5000);
+              this.showLiveNotification(
+                msg.message || '',
+                msg.level || 'info',
+                msg.duration ?? 5000,
+                msg.fontSize ?? msg.font_size ?? null
+              );
             } else if (msg.type === 'dismissNotification') {
               this.liveNotification.show = false;
             } else if (msg.type === 'trialScores') {
@@ -15495,8 +15504,39 @@
       }
     },
 
-    showLiveNotification(message, level = 'info', duration = 5000) {
-      this.liveNotification = { show: true, message, level, timeout: duration };
+    normalizeLiveNotificationFontSize(fontSize) {
+      if (typeof fontSize === 'number' && Number.isFinite(fontSize) && fontSize > 0) {
+        return `${fontSize}px`;
+      }
+
+      if (typeof fontSize !== 'string') {
+        return null;
+      }
+
+      const normalized = fontSize.trim();
+      if (!normalized) {
+        return null;
+      }
+
+      if (/^\d+(\.\d+)?$/.test(normalized)) {
+        return `${normalized}px`;
+      }
+
+      if (/^\d+(\.\d+)?(px|rem|em|vw|vh|%)$/.test(normalized)) {
+        return normalized;
+      }
+
+      return null;
+    },
+
+    showLiveNotification(message, level = 'info', duration = 5000, fontSize = null) {
+      this.liveNotification = {
+        show: true,
+        message,
+        level,
+        timeout: duration,
+        fontSize: this.normalizeLiveNotificationFontSize(fontSize)
+      };
     },
 
     showLiveTrialScores(msg) {
@@ -18141,6 +18181,30 @@
   }
   .live-trial-scores-overlay :deep(.trial-scores-plot) {
     cursor: default;
+  }
+
+  .live-notification-banner {
+    max-width: min(90vw, 960px);
+  }
+
+  .live-notification-banner :deep(.v-snack__wrapper) {
+    max-width: min(90vw, 960px);
+    min-width: min(560px, 90vw);
+  }
+
+  .live-notification-message {
+    font-size: clamp(1.25rem, 1rem + 0.8vw, 1.9rem);
+    line-height: 1.35;
+  }
+
+  @media (max-width: 600px) {
+    .live-notification-banner :deep(.v-snack__wrapper) {
+      min-width: 90vw;
+    }
+
+    .live-notification-message {
+      font-size: clamp(1.1rem, 0.95rem + 1.2vw, 1.4rem);
+    }
   }
   
   /* Ensure camera controls are positioned correctly */
