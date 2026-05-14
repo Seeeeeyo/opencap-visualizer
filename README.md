@@ -72,7 +72,20 @@ python live_stream_from_json.py \
   public/samples/walk/sample_wham.json
 ```
 
+Replay at a fixed low stream rate to test live-view smoothing:
+
+```bash
+python live_stream_from_json.py public/samples/walk/sample_mono.json --stream-hz 6
+```
+
 Then open the visualizer, expand **Live IK Stream**, and connect to `ws://localhost:8765`.
+
+Notes:
+
+- By default, the helper follows the JSON timestamps and caps playback near 30 Hz.
+- `--stream-hz <value>` down-samples the source JSON and emits frames at a fixed wall-clock cadence, which is useful for testing sparse live streams such as `6 Hz`.
+- In live mode, the viewer does not predict beyond the newest received frame. It visually smooths motion by easing each mesh toward the latest streamed pose on every display frame, so fresh packets remain authoritative.
+- The **Live IK Stream** panel shows the observed stream rate in Hz, and when available also shows the nominal rate reported by the sender.
 
 ### Live Notification Messages
 

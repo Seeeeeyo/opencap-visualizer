@@ -272,6 +272,9 @@
                       Status: {{ liveStatus }}
                     </span>
                   </div>
+                  <div class="text-caption grey--text mt-2">
+                    Stream Hz: {{ liveStreamHzDisplay }}
+                  </div>
 
                 </v-card-text>
               </v-expand-transition>
@@ -2304,11 +2307,14 @@
               To use the Live IK Stream feature, you need to run a Python WebSocket server locally that streams kinematics data to the visualizer.
             </p>
             <p class="mb-4 text-caption grey--text">
-              The Python script connects to the visualizer via WebSocket and streams frames from a JSON file in real-time. You can run it on a sample file like this:
+              The Python script connects to the visualizer via WebSocket and streams frames from a JSON file in real-time. For a fixed low-rate stream (e.g. 6 Hz) to test interpolation in the viewer, add <span class="font-weight-medium">--stream-hz 6</span>. Example:
             </p>
             <div class="code-block pa-3 mb-4" style="background-color: rgba(255, 255, 255, 0.05); border-radius: 4px; font-family: monospace; font-size: 12px;">
-              python live_stream_from_json.py path/to/sample.json
+              python live_stream_from_json.py path/to/sample.json --stream-hz 6
             </div>
+            <p class="mb-4 text-caption grey--text">
+              Default pacing follows the JSON timestamps (~30 Hz cap). For sparse live streams, the visualizer eases toward the newest live pose at display rate while keeping the newest streamed frame authoritative.
+            </p>
             <div class="d-flex flex-column">
               <v-btn
                 color="blue darken-2"
@@ -4178,6 +4184,13 @@
               liveSubjectVisibility: {}, // map from subject ID -> boolean (true = visible)
               liveSubjectIds: [], // ordered list of connected subject IDs (for UI)
               liveCameraCentered: false, // true once the camera has been centered on the subject's real position
+              // Low-rate live stream: ease toward the newest streamed pose every rAF (visual only).
+              liveVisualInterpolation: true,
+              livePrevKeyframeArrivalPerf: null,
+              liveLastKeyframeArrivalPerf: null,
+              liveLastVisualUpdatePerf: null,
+              liveObservedHz: null,
+              liveNominalHz: null,
               liveNotification: { show: false, message: '', level: 'info', timeout: 5000, fontSize: null },
               liveTrialScores: { show: false, scores: [], labels: [], title: '', colors: [] },
               liveTrialScoresTimer: null,
@@ -4245,6 +4258,15 @@
         },
         frameRateDisplay() {
           return Number.isFinite(this.frameRate) ? this.frameRate.toFixed(2) : '—';
+        },
+        liveStreamHzDisplay() {
+          const observed = Number.isFinite(this.liveObservedHz)
+            ? `${this.liveObservedHz.toFixed(2)} Hz`
+            : '—';
+          const nominal = Number.isFinite(this.liveNominalHz)
+            ? `${this.liveNominalHz.toFixed(2)} Hz nominal`
+            : null;
+          return nominal ? `${observed} (${nominal})` : observed;
         },
         formattedVideoDuration() {
           if (!Number.isFinite(this.videoDuration) || this.videoDuration <= 0) {
@@ -8449,10 +8471,28 @@
         }
 
         // In live streaming mode, don't advance frames based on our own clock.
-        // Just render the current state; frames are driven by incoming WebSocket data.
+        // Instead, render toward the newest streamed pose on every display frame.
         if (this.liveMode) {
+          if (!this.isHeadlessFastMode) {
+            this.updateVideoPlaneTransform();
+          }
+          if (
+            this.playing &&
+            this.liveVisualInterpolation &&
+            Array.isArray(this.frames) &&
+            this.frames.length >= 2 &&
+            this.livePrevKeyframeArrivalPerf != null
+          ) {
+            this.updateLiveInterpolatedMeshes();
+            if (this.liveBodyStyleDirty) {
+              this.applyLiveBodyStyle();
+            }
+          }
           if (this.renderer && this.scene && this.camera) {
             this.renderer.render(this.scene, this.camera);
+          }
+          if (!this.isHeadlessFastMode) {
+            this.drawProjectedSkeleton();
           }
           return;
         }
@@ -8742,9 +8782,101 @@
           this.drawProjectedSkeleton();
         }
       },
-  
-  
-    togglePlay(value) {
+
+      updateLiveInterpolatedMeshes() {
+        const firstIdx = Object.values(this.liveAnimationIndices)[0];
+        if (firstIdx === undefined) return;
+
+        const masterAnim = this.animations[firstIdx];
+        if (!masterAnim || !masterAnim.data || !masterAnim.data.time) return;
+        const L = masterAnim.data.time.length;
+        if (L < 1) return;
+
+        const now = performance.now();
+        const observedIntervalMs = (
+          this.livePrevKeyframeArrivalPerf != null &&
+          this.liveLastKeyframeArrivalPerf != null
+        )
+          ? Math.max(1, this.liveLastKeyframeArrivalPerf - this.livePrevKeyframeArrivalPerf)
+          : null;
+        const deltaMs = this.liveLastVisualUpdatePerf != null
+          ? Math.max(0, now - this.liveLastVisualUpdatePerf)
+          : null;
+        this.liveLastVisualUpdatePerf = now;
+
+        const shouldSmooth =
+          observedIntervalMs != null &&
+          deltaMs != null &&
+          deltaMs > 0 &&
+          L >= 2;
+        const smoothingTauMs = shouldSmooth
+          ? Math.max(8, observedIntervalMs * 0.35)
+          : 0;
+        const alpha = shouldSmooth
+          ? Math.min(1, 1 - Math.exp(-deltaMs / smoothingTauMs))
+          : 1;
+
+        const targetPosition = new THREE.Vector3();
+        const targetQuaternion = new THREE.Quaternion();
+        const baseQuaternion = new THREE.Quaternion();
+        const animQuaternion = new THREE.Quaternion();
+
+        Object.values(this.liveAnimationIndices).forEach((animIndex) => {
+          const animation = this.animations[animIndex];
+          if (!animation || animation.playable === false) return;
+          const json = animation.data;
+          const len = json.time ? json.time.length : 0;
+          if (len < 1) return;
+          const a1 = len - 1;
+
+          for (const body in json.bodies) {
+            json.bodies[body].attachedGeometries.forEach((geom) => {
+              const meshKey = `anim${animIndex}_${body}${geom}`;
+              const mesh = this.meshes[meshKey];
+              if (!mesh) return;
+
+              const tr = json.bodies[body].translation;
+              const rot = json.bodies[body].rotation;
+              if (!tr || !rot || !tr[a1] || !rot[a1]) return;
+
+              targetPosition.set(
+                tr[a1][0],
+                tr[a1][1],
+                tr[a1][2]
+              );
+              if (animation.rotation) {
+                animQuaternion.setFromEuler(animation.rotation);
+                targetPosition.applyQuaternion(animQuaternion);
+              }
+              targetPosition.add(animation.offset);
+
+              const latestEuler = new THREE.Euler(
+                rot[a1][0],
+                rot[a1][1],
+                rot[a1][2]
+              );
+              baseQuaternion.setFromEuler(latestEuler);
+
+              if (animation.rotation) {
+                animQuaternion.setFromEuler(animation.rotation);
+                targetQuaternion.copy(animQuaternion).multiply(baseQuaternion);
+              } else {
+                targetQuaternion.copy(baseQuaternion);
+              }
+
+              if (alpha >= 1) {
+                mesh.position.copy(targetPosition);
+                mesh.quaternion.copy(targetQuaternion);
+              } else {
+                mesh.position.lerp(targetPosition, alpha);
+                mesh.quaternion.slerp(targetQuaternion, alpha);
+              }
+            });
+          }
+        });
+      },
+
+      togglePlay(value) {
         // Determine the new playing state
         const newPlayingState = value !== undefined ? value : !this.playing;
   
@@ -8777,7 +8909,19 @@
               }
             }
             // Render the current frame without resetting internal timing (handled by streamer)
-            this.animateOneFrame();
+            if (
+              this.liveVisualInterpolation &&
+              Array.isArray(this.frames) &&
+              this.frames.length >= 2 &&
+              this.livePrevKeyframeArrivalPerf != null
+            ) {
+              this.updateLiveInterpolatedMeshes();
+              if (this.liveBodyStyleDirty) {
+                this.applyLiveBodyStyle();
+              }
+            } else {
+              this.animateOneFrame();
+            }
           } else {
             // Normal playback: reset timing references when starting
             this.lastFrameTime = performance.now();
@@ -9073,7 +9217,12 @@
         alert('Recording is not supported in this browser');
         return;
       }
-      const stream = captureStreamFn.call(canvas, this.frameRate);
+      const captureFps = (
+        this.liveMode && this.liveVisualInterpolation
+          ? 60
+          : (Number.isFinite(this.frameRate) && this.frameRate > 0 ? this.frameRate : 60)
+      );
+      const stream = captureStreamFn.call(canvas, captureFps);
   
       // Set the appropriate MIME type and file extension based on the selected format
       let mimeType, fileExtension;
@@ -9239,7 +9388,7 @@
   
     // Start recording with timeslices based on frame rate for smooth capture
     // This ensures data is captured at the right intervals for smooth video
-    const timeslice = Math.max(100, Math.round(1000 / this.frameRate)); // keep chunks coarse enough for Firefox stability
+    const timeslice = Math.max(100, Math.round(1000 / captureFps)); // keep chunks coarse enough for Firefox stability
     this.mediaRecorder.start(timeslice); // Capture at frame rate intervals
       this.isRecording = true;
   
@@ -15482,6 +15631,11 @@
       this.liveSubjectVisibility = {};
       this.liveSubjectIds = [];
       this.liveCameraCentered = false;
+      this.livePrevKeyframeArrivalPerf = null;
+      this.liveLastKeyframeArrivalPerf = null;
+      this.liveLastVisualUpdatePerf = null;
+      this.liveObservedHz = null;
+      this.liveNominalHz = null;
       if (this.liveTrialScoresTimer) {
         clearTimeout(this.liveTrialScoresTimer);
         this.liveTrialScoresTimer = null;
@@ -15590,6 +15744,11 @@
       this.liveSubjectVisibility = {};
       this.liveSubjectIds = [];
       this.liveCameraCentered = false;
+      this.livePrevKeyframeArrivalPerf = null;
+      this.liveLastKeyframeArrivalPerf = null;
+      this.liveLastVisualUpdatePerf = null;
+      this.liveObservedHz = null;
+      this.liveNominalHz = null;
 
       // Global body style fallback (single-subject legacy or applied to all subjects)
       const globalBodyStyle = msg.bodyStyle && typeof msg.bodyStyle === 'object' ? msg.bodyStyle : null;
@@ -15648,6 +15807,7 @@
 
       if (typeof msg.frameRate === 'number' && msg.frameRate > 0) {
         this.frameRate = msg.frameRate;
+        this.liveNominalHz = msg.frameRate;
       }
 
       // Use the first subject's time array as the master frames reference
@@ -15773,7 +15933,31 @@
       this.frames = masterData.time;
       this.frame = this.frames.length - 1;
       this.updateDisplayedTime();
-      this.animateOneFrame();
+
+      const now = performance.now();
+      if (masterData.time.length === 1) {
+        this.livePrevKeyframeArrivalPerf = null;
+        this.liveLastKeyframeArrivalPerf = now;
+        this.liveObservedHz = null;
+      } else {
+        this.livePrevKeyframeArrivalPerf = this.liveLastKeyframeArrivalPerf;
+        this.liveLastKeyframeArrivalPerf = now;
+        const intervalMs = this.liveLastKeyframeArrivalPerf - this.livePrevKeyframeArrivalPerf;
+        if (intervalMs > 0) {
+          const instantHz = 1000 / intervalMs;
+          this.liveObservedHz = Number.isFinite(this.liveObservedHz)
+            ? (0.2 * instantHz) + (0.8 * this.liveObservedHz)
+            : instantHz;
+        }
+      }
+
+      const skipDiscreteFrame =
+        this.liveVisualInterpolation && masterData.time.length >= 2;
+      if (!skipDiscreteFrame) {
+        this.animateOneFrame();
+      } else {
+        this.updateLiveInterpolatedMeshes();
+      }
 
       // On the very first rendered frame, re-center the camera on the subject's actual
       // position. The camera angle and distance set by applyLiveCamera are preserved;

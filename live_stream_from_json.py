@@ -16,13 +16,16 @@ file one-by-one so we can test real-time visualization without running IK.
 
 Playback is paced using the actual timestamps in the JSON so that, on
 average, wall-clock time matches recorded time (optionally scaled by a
-speed factor).
+speed factor), unless you pass --stream-hz to use a fixed wall-clock cadence instead.
 
 Usage (single subject):
     python live_stream_from_json.py subject.json [speed]
 
 Usage (two subjects):
     python live_stream_from_json.py subject1.json subject2.json [speed]
+
+Low-rate test (6 Hz wall clock, optional speed factor still applies):
+    python live_stream_from_json.py subject.json --stream-hz 6
 
 Coloring options:
     # Uniform color per subject
@@ -65,6 +68,11 @@ Model options:
 Server:
     # If default port 8765 is already in use, pick another:
     --port 8766
+
+    # Emit frames at a fixed wall-clock rate (e.g. 6 Hz) for testing low-rate streams;
+    # the visualizer can interpolate between keyframes for smooth motion at display rate.
+    # Downsamples the JSON timeline to match the target rate, then sleeps 1/stream_hz between sends.
+    --stream-hz 6
 
 Interactive commands (type while the server is running):
     notify Good job!                  → info banner on the visualizer
@@ -291,6 +299,7 @@ async def stream_from_json(
     subject_opacity: list[float] | None = None,
     camera: "dict | str | None" = None,
     models: "list[str] | None" = None,
+    stream_hz: float | None = None,
 ):
     """
     Stream one or two visualizer JSON files over WebSocket in (optionally downsampled)
@@ -357,8 +366,9 @@ async def stream_from_json(
                 "assuming roughly aligned and sampling by index."
             )
 
-    # Decide downsampling to target ~30 Hz based on master timeline
-    target_fps = 30.0
+    # Decide downsampling: default cap ~30 Hz on the recorded timeline; optional --stream-hz
+    # picks a different target (e.g. 6 Hz) for both downsampling and fixed wall-clock pacing.
+    target_fps = float(stream_hz) if stream_hz is not None and stream_hz > 0 else 30.0
     num_frames = len(master_time)
     start_time = master_time[0]
 
@@ -379,9 +389,14 @@ async def stream_from_json(
         duration = master_time[kept_indices[-1]] - master_time[kept_indices[0]]
         effective_base_fps = (len(kept_indices) - 1) / duration if duration > 0 else target_fps
 
+    pacing_note = (
+        f"fixed wall-clock ~{stream_hz * speed:.2f} Hz"
+        if stream_hz is not None and stream_hz > 0
+        else "recorded timeline"
+    )
     print(
         f"Downsampling from ~{fps:.2f} Hz to ~{effective_base_fps:.2f} Hz "
-        f"({len(kept_indices)}/{num_frames} frames)"
+        f"({len(kept_indices)}/{num_frames} frames), pacing: {pacing_note}"
     )
 
     # Build subjects metadata for init
@@ -447,10 +462,15 @@ async def stream_from_json(
 
         subjects_meta.append(subject_entry)
 
+    nominal_fps = (
+        stream_hz * speed
+        if stream_hz is not None and stream_hz > 0
+        else effective_base_fps * speed
+    )
     init_msg = {
         "type": "init",
         # Inform client about nominal frame rate (after speed scaling)
-        "frameRate": effective_base_fps * speed,
+        "frameRate": nominal_fps,
         "subjects": subjects_meta,
     }
     # Single-subject frontend compatibility: send flat bodies (and bodyStyle) at top level
@@ -467,19 +487,20 @@ async def stream_from_json(
     await asyncio.sleep(1.0)
 
     # Stream frames in a loop; when we reach the end, loop again.
-    # We use the master timeline to pace playback against wall-clock time.
+    use_fixed_hz = stream_hz is not None and stream_hz > 0
+    wall_period = (1.0 / (stream_hz * speed)) if use_fixed_hz else None
+
     while True:
         loop_start_wall = time.perf_counter()
         for frame_idx in kept_indices:
-            # Target elapsed time (recorded) scaled by speed factor
-            recorded_t = master_time[frame_idx] - start_time
-            target_elapsed = recorded_t / speed
-
-            # How much time has passed in wall-clock since this loop started
-            now_elapsed = time.perf_counter() - loop_start_wall
-            delay = target_elapsed - now_elapsed
-            if delay > 0:
-                await asyncio.sleep(delay)
+            if not use_fixed_hz:
+                # Pace against recorded timeline (scaled by speed).
+                recorded_t = master_time[frame_idx] - start_time
+                target_elapsed = recorded_t / speed
+                now_elapsed = time.perf_counter() - loop_start_wall
+                delay = target_elapsed - now_elapsed
+                if delay > 0:
+                    await asyncio.sleep(delay)
 
             t_val = master_time[frame_idx]
 
@@ -506,7 +527,14 @@ async def stream_from_json(
                 "type": "frame",
                 "streams": streams,
             }
+            tick_start = time.perf_counter()
             await websocket.send(json.dumps(frame_msg))
+
+            if use_fixed_hz and wall_period is not None:
+                elapsed = time.perf_counter() - tick_start
+                wait = wall_period - elapsed
+                if wait > 0:
+                    await asyncio.sleep(wait)
 
 
 _CAMERA_PRESETS = {
@@ -660,6 +688,22 @@ async def main():
             print("Error: --port requires a value (e.g. --port 8766)", file=sys.stderr)
             sys.exit(1)
 
+    stream_hz: float | None = None
+    if "--stream-hz" in args:
+        idx = args.index("--stream-hz")
+        if idx + 1 < len(args):
+            try:
+                stream_hz = float(args[idx + 1])
+                if not (0.1 <= stream_hz <= 120.0):
+                    raise ValueError("out of range")
+            except ValueError:
+                print("Error: --stream-hz must be a number between 0.1 and 120", file=sys.stderr)
+                sys.exit(1)
+            args = args[:idx] + args[idx + 2 :]
+        else:
+            print("Error: --stream-hz requires a value (e.g. --stream-hz 6)", file=sys.stderr)
+            sys.exit(1)
+
     json_args = [a for a in args if a.lower().endswith(".json")]
     other_args = [a for a in args if not a.lower().endswith(".json")]
 
@@ -698,6 +742,7 @@ async def main():
                 subject_opacity=subject_opacity,
                 camera=camera,
                 models=models,
+                stream_hz=stream_hz,
             )
         except Exception as e:
             print(f"Error during streaming: {e}")
