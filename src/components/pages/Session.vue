@@ -276,6 +276,26 @@
                     Stream Hz: {{ liveStreamHzDisplay }}
                   </div>
 
+                  <!-- Multi-camera split view picker, also exposed here so it's
+                       reachable while configuring or watching a live stream. -->
+                  <div class="d-flex align-center mt-3">
+                    <div class="text-caption grey--text mr-2" style="flex-shrink: 0;">Views:</div>
+                    <v-btn-toggle :value="splitViewCount - 1" mandatory dense dark group color="indigo" @change="(v) => setSplitViewCount(v + 1)">
+                      <v-btn x-small title="Single view">
+                        <v-icon x-small>mdi-square-outline</v-icon>
+                      </v-btn>
+                      <v-btn x-small title="Two views (side by side)">
+                        <v-icon x-small>mdi-view-split-vertical</v-icon>
+                      </v-btn>
+                      <v-btn x-small title="Three views (columns)">
+                        <v-icon x-small>mdi-view-column</v-icon>
+                      </v-btn>
+                      <v-btn x-small title="Four views (2x2 grid)">
+                        <v-icon x-small>mdi-view-grid</v-icon>
+                      </v-btn>
+                    </v-btn-toggle>
+                  </div>
+
                 </v-card-text>
               </v-expand-transition>
             </v-card>
@@ -1987,18 +2007,36 @@
       </v-btn>
   
       <div class="viewer flex-grow-1" :class="{ 'sidebar-hidden': !showSidebar, 'left-sidebar-shown': showLeftSidebar, 'is-embedded': $route.query.embed === 'true' }" @dragover.prevent @drop.prevent="handleDrop">
-        <!-- Camera Controls - Always show when renderer exists -->
-        <div class="camera-controls-wrapper" v-if="renderer">
-          <camera-controls
-            v-if="showCameraControls"
-            @setView="setCameraView"
-            @resetCamera="resetCameraView"
-          />
-        </div>
+        <!-- One cube-gizmo per camera panel. Position is computed dynamically
+             based on the active split layout (1, 2, 3, or 4 panels). -->
+        <template v-if="renderer">
+          <div
+            v-for="i in panelIndices"
+            :key="`gizmo-${i}`"
+            class="camera-controls-wrapper"
+            :style="getGizmoStyle(i)"
+          >
+            <camera-controls
+              v-if="showCameraControls"
+              @setView="(v) => onPanelSetView(i, v)"
+              @resetCamera="() => onPanelResetCamera(i)"
+            />
+          </div>
+        </template>
   
         <!-- Main Content -->
-        <div v-if="trial || (markerSpheres.length > 0) || (animations.length > 0) || (smplSequences.length > 0) || trialLoading || converting || conversionError || loadingMarkers || loadingSharedSession || scene || sceneInitializing" class="d-flex flex-column h-100">
+        <div v-if="trial || (markerSpheres.length > 0) || (animations.length > 0) || (smplSequences.length > 0) || trialLoading || converting || conversionError || loadingMarkers || loadingSharedSession || scene || sceneInitializing || liveMode || liveStatus === 'connecting'" class="d-flex flex-column h-100">
           <div id="mocap" ref="mocap" class="flex-grow-1 position-relative">
+            <!-- Vertical dividers for 2-, 3- and 4-panel split views. -->
+            <div v-if="splitViewCount === 2" class="split-view-divider vertical" style="left: 50%"></div>
+            <template v-if="splitViewCount === 3">
+              <div class="split-view-divider vertical" style="left: 33.333%"></div>
+              <div class="split-view-divider vertical" style="left: 66.666%"></div>
+            </template>
+            <template v-if="splitViewCount === 4">
+              <div class="split-view-divider vertical" style="left: 50%"></div>
+              <div class="split-view-divider horizontal" style="top: 50%"></div>
+            </template>
             <!-- Conversion loading overlay on top of scene -->
             <div v-if="converting" class="conversion-overlay-scene">
               <div class="conversion-content">
@@ -2314,6 +2352,9 @@
             </div>
             <p class="mb-4 text-caption grey--text">
               Default pacing follows the JSON timestamps (~30 Hz cap). For sparse live streams, the visualizer eases toward the newest live pose at display rate while keeping the newest streamed frame authoritative.
+            </p>
+            <p class="mb-4 text-caption grey--text">
+              OpenSim segment meshes follow the same live body poses as the skeleton. For a deforming SMPL mesh with fixed shape, include <span class="font-weight-medium">smplSubjects</span> in <span class="font-weight-medium">init</span> (template vertices + faces) and per-frame <span class="font-weight-medium">vertices</span> (and optional <span class="font-weight-medium">joints</span>) in <span class="font-weight-medium">smplStreams</span> on each <span class="font-weight-medium">frame</span> message.
             </p>
             <div class="d-flex flex-column">
               <v-btn
@@ -3432,6 +3473,25 @@
               </v-btn>
             </div>
 
+            <!-- Split view layout picker (1, 2, 3 or 4 simultaneous camera views) -->
+            <div class="d-flex align-center mb-3">
+              <div class="mr-2 text-caption" style="width: 80px; flex-shrink: 0;">Views:</div>
+              <v-btn-toggle :value="splitViewCount - 1" mandatory dense dark group color="indigo" @change="(v) => setSplitViewCount(v + 1)">
+                <v-btn small title="Single view">
+                  <v-icon small>mdi-square-outline</v-icon>
+                </v-btn>
+                <v-btn small title="Two views (side by side)">
+                  <v-icon small>mdi-view-split-vertical</v-icon>
+                </v-btn>
+                <v-btn small title="Three views (columns)">
+                  <v-icon small>mdi-view-column</v-icon>
+                </v-btn>
+                <v-btn small title="Four views (2x2 grid)">
+                  <v-icon small>mdi-view-grid</v-icon>
+                </v-btn>
+              </v-btn-toggle>
+            </div>
+
             <!-- Shadow setting -->
             <div class="d-flex align-center">
               <div class="mr-2 text-caption" style="width: 80px; flex-shrink: 0;">Shadow:</div>
@@ -4089,7 +4149,7 @@
               objColor: '#ffffff',
               customObjects: [], // Track loaded custom objects
               showCustomObjectsManager: false, // Dialog to manage custom objects
-            showLeftSidebar: false, // Add this line to control left sidebar visibility
+            showLeftSidebar: true, // Left sidebar (Files, Live IK Stream)
               showImportDialog: false, // Add this line to control the import dialog
               showModelSelectionDialog: false,
               selectedModelForImport: null,
@@ -4114,6 +4174,13 @@
               showAxes: false, // Add this line to control axes visibility
               axesGroup: null, // Add this line to store the axes group
               showCameraControls: false, // Add this line to control camera controls visibility
+              // --- Split View (multi-camera) state ---
+              // splitViewCount: 1 = single, 2 = 1x2, 3 = 1x3, 4 = 2x2.
+              splitViewCount: 1,
+              // Auxiliary cameras/controls. Their length is (splitViewCount - 1).
+              // The primary camera/controls (this.camera/this.controls) is panel index 0.
+              auxCameras: [],
+              auxControls: [],
               animationDurationInSeconds: 0, // Duration for headless recording
               // Share functionality
               showShareDialog: false,
@@ -4179,6 +4246,8 @@
               liveSocket: null,
               liveStatus: 'disconnected', // 'connecting' | 'connected' | 'error'
               liveAnimationIndices: {}, // map from subject ID -> animation index (supports multiple subjects)
+              liveSmplIndices: {}, // map from live SMPL subject ID -> smplSequences[].id
+              liveMessageQueue: Promise.resolve(), // serializes init before frames (async handleLiveInit)
               liveBodyStyle: {}, // map from subject ID -> { bodyName: { visible, color } }
               liveBodyStyleDirty: false, // avoid reapplying live mesh style every render tick
               liveSubjectVisibility: {}, // map from subject ID -> boolean (true = visible)
@@ -4194,7 +4263,7 @@
               liveNotification: { show: false, message: '', level: 'info', timeout: 5000, fontSize: null },
               liveTrialScores: { show: false, scores: [], labels: [], title: '', colors: [] },
               liveTrialScoresTimer: null,
-              showLiveStreamDetails: false, // Toggle for Live IK Stream section
+              showLiveStreamDetails: true, // Toggle for Live IK Stream section
               showSyncDetails: false, // Toggle for Sync section
               showAnimationsDetails: true, // Toggle for Animations section (default true since it's the main content)
               showForcesDetails: true, // Toggle for Forces section (default true)
@@ -4251,6 +4320,16 @@
               computed: {
         videoControlsDisabled() {
           return (!this.trial && this.markerSpheres.length === 0) || this.frames.length === 0
+        },
+        // True when more than one camera panel is active.
+        splitView() {
+          return this.splitViewCount > 1;
+        },
+        // Returns indices [0, 1, ..., splitViewCount-1] used by the cube-gizmo v-for.
+        panelIndices() {
+          const arr = [];
+          for (let i = 0; i < this.splitViewCount; i++) arr.push(i);
+          return arr;
         },
         formattedTime() {
           // Round time to 2 decimal places for display
@@ -4556,6 +4635,14 @@
       if (this.renderer && this.renderer.domElement && this.handleMarkerClick) {
           this.renderer.domElement.removeEventListener('click', this.handleMarkerClick);
       }
+
+      // Clean up split-view resources
+      this._detachSplitPointerHandlers();
+      for (const ctrls of (this.auxControls || [])) {
+        try { ctrls.dispose(); } catch (e) { /* ignore */ }
+      }
+      this.auxControls = [];
+      this.auxCameras = [];
   
       // Clean up marker spheres
       this.clearMarkerSpheres();
@@ -4683,11 +4770,11 @@
       trial() {
         if (this.trial) {
           this.$nextTick(() => {
-            this.resizeObserver = new ResizeObserver(this.onResize)
-            this.resizeObserver.observe(this.$refs.mocap)
-          })
-        } else {
-          this.resizeObserver?.unobserve(this.$refs.mocap)
+            this.attachMocapResizeObserver();
+            this.onResize();
+          });
+        } else if (this.$refs.mocap) {
+          this.resizeObserver?.unobserve(this.$refs.mocap);
         }
       },
       animations: {
@@ -8440,17 +8527,53 @@
           }
         }
       },
+      attachMocapResizeObserver() {
+        const container = this.$refs.mocap;
+        if (!container) return;
+
+        if (!this.resizeObserver) {
+          this.resizeObserver = new ResizeObserver(() => this.onResize());
+        }
+
+        try {
+          this.resizeObserver.observe(container);
+        } catch (e) {
+          // Already observing this element.
+        }
+      },
+
       onResize() {
         const container = this.$refs.mocap
         if (container && this.renderer) {
-          this.renderer.setPixelRatio(this.isHeadlessFastMode ? 1 : (window.devicePixelRatio || 1))
-          this.renderer.setSize(container.clientWidth, container.clientHeight)
+          const width = container.clientWidth;
+          const height = container.clientHeight;
+          if (width > 0 && height > 0) {
+            this.renderer.setPixelRatio(this.isHeadlessFastMode ? 1 : (window.devicePixelRatio || 1))
+            this.renderer.setSize(width, height)
+          }
         }
   
-        if (this.renderer) {
+        if (this.renderer && this.camera) {
           const canvas = this.renderer.domElement;
-          this.camera.aspect = canvas.clientWidth / canvas.clientHeight;
-          this.camera.updateProjectionMatrix();
+          const aspectWidth = canvas.clientWidth || container?.clientWidth || 1;
+          const aspectHeight = canvas.clientHeight || container?.clientHeight || 1;
+          if (aspectWidth > 0 && aspectHeight > 0) {
+            const regions = this._getSplitRegions
+              ? this._getSplitRegions()
+              : [{ x: 0, y: 0, w: 1, h: 1 }];
+            const updateCam = (cam, region) => {
+              if (!cam || !cam.isPerspectiveCamera) return;
+              const w = Math.max(1, Math.floor(region.w * aspectWidth));
+              const h = Math.max(1, Math.floor(region.h * aspectHeight));
+              cam.aspect = w / h;
+              cam.updateProjectionMatrix();
+            };
+            // Primary camera always corresponds to panel 0.
+            updateCam(this.camera, regions[0]);
+            for (let i = 1; i < regions.length; i++) {
+              updateCam(this.auxCameras[i - 1], regions[i]);
+            }
+          }
         }
     },
     animate() {
@@ -8487,6 +8610,9 @@
             if (this.liveBodyStyleDirty) {
               this.applyLiveBodyStyle();
             }
+          }
+          if (this.playing) {
+            this.updateLiveSmplSequences();
           }
           if (this.renderer && this.scene && this.camera) {
             this.renderer.render(this.scene, this.camera);
@@ -9903,6 +10029,17 @@
         // console.log(`[initScene] Setting background color to: ${this.backgroundColor}`);
         this.scene.background = new THREE.Color(this.backgroundColor);
   
+        // If a previous scene had split view enabled, clean up its controls/listeners
+        // before we create the new renderer (the old aux controls are bound to the
+        // now-defunct renderer.domElement).
+        const prevSplitViewCount = this.splitViewCount;
+        this._detachSplitPointerHandlers();
+        for (const ctrls of this.auxControls) {
+          try { ctrls.dispose(); } catch (e) { /* ignore */ }
+        }
+        this.auxControls = [];
+        this.auxCameras = [];
+
         // Configure renderer with current background color and better shadows
         this.renderer = new THREE.WebGLRenderer({
           antialias: !this.isHeadlessFastMode,
@@ -9913,6 +10050,24 @@
         this.renderer.shadowMap.enabled = !this.isHeadlessFastMode;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         this.renderer.outputEncoding = THREE.sRGBEncoding;
+
+        // Wrap renderer.render so that all existing render() calls automatically
+        // render multiple viewports when split view is enabled.
+        this._splitOriginalRender = this.renderer.render.bind(this.renderer);
+        const componentRef = this;
+        this.renderer.render = function (scene, camera) {
+          if (componentRef.splitViewCount > 1 && scene && camera) {
+            componentRef._renderSplit(scene, camera);
+          } else {
+            componentRef._splitOriginalRender(scene, camera);
+          }
+        };
+
+        // Remember to re-enable split view after the rest of initScene runs so
+        // aux cameras/controls are bound to the freshly-created renderer.
+        this._reenableSplitViewCount = prevSplitViewCount > 1 ? prevSplitViewCount : 0;
+        // Temporarily mark single-panel so renders during init use one camera.
+        this.splitViewCount = 1;
 
         this.onResize();
         
@@ -9986,6 +10141,14 @@
             this.setupNonShadowLights();
         }
   
+        // Re-enable split view if it was active before this re-initialization.
+        if (this._reenableSplitViewCount && this._reenableSplitViewCount > 1) {
+          const count = this._reenableSplitViewCount;
+          this._reenableSplitViewCount = 0;
+          this.splitViewCount = count;
+          this._enableSplitView();
+        }
+
         // Initial render
         try {
           this.renderer.render(this.scene, this.camera);
@@ -10000,6 +10163,8 @@
         
         // Reset initialization flag
         this.sceneInitializing = false;
+
+        this.attachMocapResizeObserver();
         
         // console.log('[initScene] Scene initialization completed successfully:', {
         //   scene: !!this.scene,
@@ -10010,13 +10175,19 @@
     },
     async ensureSceneReady(maxAttempts = 40) {
         if (this.scene && this.renderer && this.camera && this.$refs.mocap) {
+          this.attachMocapResizeObserver();
+          this.onResize();
           return true;
         }
   
-        if (!this.scene && !this.sceneInitializing) {
-          this.sceneInitializing = true;
+        if (!this.scene) {
+          if (!this.sceneInitializing) {
+            this.sceneInitializing = true;
+          }
           await this.$nextTick();
-          this.initScene();
+          if (!this.scene && this.$refs.mocap) {
+            this.initScene();
+          }
         }
   
         for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -10024,12 +10195,15 @@
           await new Promise(resolve => setTimeout(resolve, 25));
   
           if (this.scene && this.renderer && this.camera && this.$refs.mocap) {
+            this.attachMocapResizeObserver();
+            this.onResize();
             return true;
           }
   
-          if (!this.scene && !this.sceneInitializing) {
-            this.sceneInitializing = true;
-            await this.$nextTick();
+          if (!this.scene && this.$refs.mocap) {
+            if (!this.sceneInitializing) {
+              this.sceneInitializing = true;
+            }
             this.initScene();
           }
         }
@@ -11496,6 +11670,291 @@
       }
       return new Float32Array(bytes.buffer);
     },
+
+    parseLiveFloat32Payload(payload, expectedFloatCount) {
+      if (payload == null) return null;
+      let arr = null;
+      if (typeof payload === 'string') {
+        arr = this.decodeBase64ToFloat32(payload);
+      } else if (Array.isArray(payload)) {
+        arr = new Float32Array(payload);
+      } else if (payload instanceof Float32Array) {
+        arr = payload;
+      }
+      if (!arr || arr.length === 0) return null;
+      if (
+        Number.isFinite(expectedFloatCount) &&
+        expectedFloatCount > 0 &&
+        arr.length !== expectedFloatCount
+      ) {
+        if (!this._liveFloat32MismatchLogged) {
+          this._liveFloat32MismatchLogged = true;
+          console.warn(
+            '[live] Float32 payload length mismatch (further mismatches suppressed)',
+            { expected: expectedFloatCount, actual: arr.length }
+          );
+        }
+        return null;
+      }
+      return arr;
+    },
+
+    async createLiveSmplSequence(meta) {
+      if (!meta || !meta.id) return null;
+
+      const vertexCount = Number(meta.vertexCount || meta.vertex_count) || 0;
+      const jointCount = Number(meta.jointCount || meta.joint_count) || 0;
+      const fps = Number(meta.fps) > 0 ? Number(meta.fps) : (this.frameRate || 30);
+      const skeletonEdges = Array.isArray(meta.skeleton_edges) && meta.skeleton_edges.length > 0
+        ? meta.skeleton_edges
+        : SMPL_SKELETON_EDGES;
+
+      const templateVertices = this.parseLiveFloat32Payload(
+        meta.vertices,
+        vertexCount > 0 ? vertexCount * 3 : null
+      );
+      const templateJoints = jointCount > 0
+        ? this.parseLiveFloat32Payload(meta.joints, jointCount * 3)
+        : null;
+
+      const isSkeletonOnly = !templateVertices || vertexCount <= 0;
+      if (isSkeletonOnly && (!templateJoints || jointCount <= 0)) {
+        console.warn('[live] SMPL subject requires template vertices and/or joints:', meta.id);
+        return null;
+      }
+
+      const sceneReady = await this.ensureSceneReady();
+      if (!sceneReady) {
+        console.error('[live] Unable to prepare scene for live SMPL subject', meta.id);
+        return null;
+      }
+
+      let geometry = null;
+      let positionAttribute = null;
+      let mesh = null;
+
+      if (!isSkeletonOnly) {
+        positionAttribute = new THREE.Float32BufferAttribute(
+          templateVertices.slice(0, vertexCount * 3),
+          3
+        );
+        geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', positionAttribute);
+        if (meta.faces && meta.faces.length) {
+          let facesArray = meta.faces;
+          if (Array.isArray(facesArray[0])) {
+            facesArray = facesArray.flat();
+          }
+          const typedIndices = facesArray.constructor === Uint16Array || facesArray.constructor === Uint32Array
+            ? facesArray
+            : (vertexCount > 65535 ? new Uint32Array(facesArray) : new Uint16Array(facesArray));
+          geometry.setIndex(new THREE.BufferAttribute(typedIndices, 1));
+        }
+        geometry.computeVertexNormals();
+        geometry.computeBoundingBox();
+        geometry.computeBoundingSphere();
+
+        const colorIndex = this.smplSequences.length % this.colors.length;
+        const baseColor = this.colors[colorIndex] ? this.colors[colorIndex].clone() : new THREE.Color(0xd3d3d3);
+        const material = new THREE.MeshPhongMaterial({
+          color: baseColor,
+          transparent: false,
+          opacity: 1.0,
+          side: THREE.DoubleSide
+        });
+        mesh = new THREE.Mesh(geometry, material);
+        mesh.castShadow = false;
+        mesh.receiveShadow = false;
+        mesh.frustumCulled = false;
+      }
+
+      let skeleton = null;
+      let skeletonAttribute = null;
+      // Live mesh streams only need the surface; skip skeleton lines unless skeleton-only.
+      const hasSkeleton = isSkeletonOnly && jointCount > 0 && skeletonEdges.length > 0;
+      if (hasSkeleton) {
+        const skeletonGeometry = new THREE.BufferGeometry();
+        skeletonAttribute = new THREE.Float32BufferAttribute(
+          new Float32Array(skeletonEdges.length * 2 * 3),
+          3
+        );
+        skeletonGeometry.setAttribute('position', skeletonAttribute);
+        const skeletonMaterial = new THREE.LineBasicMaterial({ color: 0xffb04a });
+        skeleton = new THREE.LineSegments(skeletonGeometry, skeletonMaterial);
+        skeleton.frustumCulled = false;
+      }
+
+      const colorIndex = this.smplSequences.length % this.colors.length;
+      const baseColor = this.colors[colorIndex] ? this.colors[colorIndex].clone() : new THREE.Color(0xd3d3d3);
+
+      const sequenceId = this.nextSmplSequenceId++;
+      const sequence = {
+        id: sequenceId,
+        name: meta.label || meta.id,
+        fileName: `live:${meta.id}`,
+        gender: meta.gender || 'neutral',
+        vertexCount,
+        jointCount,
+        frameCount: 0,
+        fps,
+        time: [],
+        faces: meta.faces || [],
+        vertices: new Float32Array(0),
+        joints: new Float32Array(0),
+        frameStride: vertexCount * 3,
+        jointStride: jointCount * 3,
+        mesh,
+        geometry,
+        positionAttribute,
+        skeleton,
+        skeletonAttribute,
+        skeletonEdges,
+        offset: new THREE.Vector3(0, 0, 0),
+        rotation: new THREE.Euler(0, 0, 0, 'XYZ'),
+        color: baseColor.clone(),
+        baseColor: baseColor.clone(),
+        displayColor: this.formatColor(baseColor),
+        opacity: 1.0,
+        visible: true,
+        playable: true,
+        showSkeleton: isSkeletonOnly,
+        lastRenderedFrame: -1,
+        speedMultiplier: 1.0,
+        projectedFrames: null,
+        projectedFramesBuffer: null,
+        projectedFramesShape: null,
+        projectedImageSize: null,
+        projectionDirty: true,
+        isLive: true,
+        liveSubjectId: meta.id,
+        liveHasMesh: !isSkeletonOnly
+      };
+
+      if (mesh && !this.scene.children.includes(mesh)) {
+        this.scene.add(mesh);
+      }
+      if (skeleton && !this.scene.children.includes(skeleton)) {
+        skeleton.visible = sequence.visible && sequence.showSkeleton;
+        this.scene.add(skeleton);
+      }
+
+      if (templateVertices && sequence.frameStride > 0) {
+        sequence.vertices = templateVertices.slice(0, sequence.frameStride);
+        sequence.time = [0];
+        sequence.frameCount = 1;
+      }
+      if (templateJoints && sequence.jointStride > 0) {
+        sequence.joints = templateJoints.slice(0, sequence.jointStride);
+        if (sequence.frameCount < 1) {
+          sequence.time = [0];
+          sequence.frameCount = 1;
+        }
+      }
+
+      this.smplSequences.push(sequence);
+      this.liveSmplIndices[meta.id] = sequenceId;
+
+      if (!this.activeSubject || this.activeSubject.type !== 'smpl') {
+        this.setActiveSubject('smpl', sequenceId);
+      }
+
+      if (!this.animateLoopStarted) {
+        this.animate();
+      }
+
+      if (this.renderer && this.scene && this.camera) {
+        this.renderer.render(this.scene, this.camera);
+      }
+
+      return sequence;
+    },
+
+    trimLiveSmplMotionBuffers(sequence) {
+      if (!sequence || !sequence.isLive || !this.maxLiveFrames) return;
+      const maxFrames = this.maxLiveFrames;
+      if (!Array.isArray(sequence.time) || sequence.time.length <= maxFrames) return;
+
+      const excess = sequence.time.length - maxFrames;
+      sequence.time.splice(0, excess);
+
+      const vertexStride = sequence.frameStride || 0;
+      if (vertexStride > 0 && sequence.vertices && sequence.vertices.length >= excess * vertexStride) {
+        sequence.vertices = sequence.vertices.slice(excess * vertexStride);
+      }
+
+      const jointStride = sequence.jointStride || 0;
+      if (jointStride > 0 && sequence.joints && sequence.joints.length >= excess * jointStride) {
+        sequence.joints = sequence.joints.slice(excess * jointStride);
+      }
+
+      sequence.frameCount = sequence.time.length;
+    },
+
+    appendLiveSmplFrame(sequence, streamData) {
+      if (!sequence || !sequence.isLive || !streamData) return false;
+
+      const t = typeof streamData.time === 'number'
+        ? streamData.time
+        : (sequence.time.length > 0 ? sequence.time[sequence.time.length - 1] : 0);
+
+      const vertexStride = sequence.frameStride || 0;
+      const jointStride = sequence.jointStride || 0;
+
+      let frameVerts = null;
+      if (sequence.liveHasMesh && vertexStride > 0 && streamData.vertices != null) {
+        frameVerts = this.parseLiveFloat32Payload(streamData.vertices, vertexStride);
+      }
+
+      let frameJoints = null;
+      if (jointStride > 0 && streamData.joints != null) {
+        frameJoints = this.parseLiveFloat32Payload(streamData.joints, jointStride);
+      }
+
+      if (!frameVerts && !frameJoints) {
+        return false;
+      }
+
+      sequence.time.push(t);
+
+      if (frameVerts && vertexStride > 0) {
+        const prev = sequence.vertices || new Float32Array(0);
+        const next = new Float32Array(prev.length + vertexStride);
+        if (prev.length > 0) next.set(prev);
+        next.set(frameVerts, prev.length);
+        sequence.vertices = next;
+      }
+
+      if (frameJoints && jointStride > 0) {
+        const prev = sequence.joints || new Float32Array(0);
+        const next = new Float32Array(prev.length + jointStride);
+        if (prev.length > 0) next.set(prev);
+        next.set(frameJoints, prev.length);
+        sequence.joints = next;
+      }
+
+      sequence.frameCount = sequence.time.length;
+      this.trimLiveSmplMotionBuffers(sequence);
+      return true;
+    },
+
+    updateLiveSmplSequences() {
+      Object.values(this.liveSmplIndices).forEach((sequenceId) => {
+        const sequence = this.smplSequences.find((seq) => seq.id === sequenceId);
+        if (!sequence || !sequence.isLive || sequence.frameCount < 1) return;
+        const frameIndex = sequence.frameCount - 1;
+        if (sequence.lastRenderedFrame === frameIndex) {
+          return;
+        }
+        this.updateSmplSequenceFrame(sequence, frameIndex, true);
+      });
+    },
+
+    removeLiveSmplSequences() {
+      const ids = Object.values(this.liveSmplIndices);
+      ids.forEach((sequenceId) => this.removeSmplSequence(sequenceId));
+      this.liveSmplIndices = {};
+    },
+
     generateTimeArray(frameCount, fps) {
       const timeArray = [];
       if (!frameCount || frameCount <= 0) return timeArray;
@@ -11538,25 +11997,31 @@
   
       // Update mesh vertices if mesh exists
       if (sequence.mesh && sequence.vertices && sequence.vertexCount > 0) {
-    const start = clampedFrame * sequence.frameStride;
-    const end = start + sequence.frameStride;
-    const positions = sequence.vertices.subarray(start, end);
-        if (sequence.positionAttribute && sequence.positionAttribute.array !== positions) {
-      sequence.positionAttribute.array = positions;
-      sequence.positionAttribute.count = sequence.vertexCount;
-    }
-        if (sequence.positionAttribute) {
-    sequence.positionAttribute.needsUpdate = true;
+        const start = clampedFrame * sequence.frameStride;
+        const end = start + sequence.frameStride;
+        if (
+          sequence.positionAttribute &&
+          end <= sequence.vertices.length &&
+          sequence.positionAttribute.array.length >= sequence.frameStride
+        ) {
+          // Copy into the fixed BufferAttribute array (live stream reallocates vertices each frame).
+          sequence.positionAttribute.array.set(sequence.vertices.subarray(start, end));
+          sequence.positionAttribute.needsUpdate = true;
+          if (sequence.geometry) {
+            if (
+              sequence.geometry.attributes.position !== sequence.positionAttribute
+            ) {
+              sequence.geometry.setAttribute('position', sequence.positionAttribute);
+            }
+            sequence.geometry.computeVertexNormals();
+          }
         }
-    if (sequence.geometry && sequence.geometry.attributes && sequence.geometry.attributes.position !== sequence.positionAttribute) {
-      sequence.geometry.setAttribute('position', sequence.positionAttribute);
-    }
-    if (sequence.mesh) {
-      sequence.mesh.rotation.copy(sequence.rotation);
-      if (sequence.offset) {
-        sequence.mesh.position.set(sequence.offset.x, sequence.offset.y, sequence.offset.z);
-      }
-    }
+        if (sequence.mesh) {
+          sequence.mesh.rotation.copy(sequence.rotation);
+          if (sequence.offset) {
+            sequence.mesh.position.set(sequence.offset.x, sequence.offset.y, sequence.offset.z);
+          }
+        }
       }
       
       // Update skeleton position and joints
@@ -15325,6 +15790,13 @@
         if (settings.showTimelapseSettings !== undefined) this.showTimelapseSettings = settings.showTimelapseSettings;
           if (settings.recentSubjectColors) this.recentSubjectColors = settings.recentSubjectColors;
           if (settings.showCameraControls !== undefined) this.showCameraControls = settings.showCameraControls;
+          // Backwards compat: older versions only stored a boolean "splitView".
+          if (settings.splitViewCount !== undefined) {
+            const n = Math.max(1, Math.min(4, Math.floor(settings.splitViewCount)));
+            if (n > 1) this._pendingSplitViewCount = n;
+          } else if (settings.splitView) {
+            this._pendingSplitViewCount = 2;
+          }
           if (settings.enableShadows !== undefined) this.enableShadows = settings.enableShadows;
           // Legacy support: migrate old enableLights to enableShadows (inverted logic)
           if (settings.enableLights !== undefined && settings.enableShadows === undefined) {
@@ -15377,6 +15849,7 @@
       showTimelapseSettings: this.showTimelapseSettings,
         recentSubjectColors: this.recentSubjectColors, // Save recent colors
         showCameraControls: this.showCameraControls, // Save camera controls visibility
+        splitViewCount: this.splitViewCount, // Save split view panel count (1-4)
         enableShadows: this.enableShadows, // Save shadow state
         syncMode: this.syncMode,
         syncReferenceFrame: this.syncReferenceFrame,
@@ -15452,7 +15925,16 @@
               // Marker functionality removed
       // Apply marker visibility (don't toggle, just update current frame visibility)
                   // Marker functionality removed
-  
+
+      // If split view was enabled in the saved settings, turn it on now that the scene exists.
+      if (this._pendingSplitViewCount && this._pendingSplitViewCount > 1 && this.splitViewCount === 1) {
+        const desired = this._pendingSplitViewCount;
+        this._pendingSplitViewCount = 0;
+        this.$nextTick(() => {
+          this.setSplitViewCount(desired);
+        });
+      }
+
       // Re-render to apply all changes
       if (this.renderer && this.scene && this.camera) {
         this.renderer.render(this.scene, this.camera);
@@ -15555,6 +16037,12 @@
 
       try {
         this.liveStatus = 'connecting';
+        // Mount #mocap before init arrives (ensureSceneReady needs $refs.mocap).
+        this.liveMode = true;
+        this.$nextTick(() => {
+          this.attachMocapResizeObserver();
+          this.onResize();
+        });
         const socket = new WebSocket(this.liveUrl);
         this.liveSocket = socket;
 
@@ -15572,6 +16060,7 @@
           this.liveMode = false;
           this.liveSocket = null;
           this.liveAnimationIndices = {};
+          this.removeLiveSmplSequences();
         };
 
         socket.onerror = (err) => {
@@ -15579,38 +16068,18 @@
           this.liveStatus = 'error';
         };
 
+        this.liveMessageQueue = Promise.resolve();
         socket.onmessage = (event) => {
+          let msg;
           try {
-            const msg = JSON.parse(event.data);
-            if (msg.type === 'init') {
-              if (this.isCameraOnlyLiveInit(msg)) {
-                this.handleLiveCameraUpdate(msg.camera);
-              } else {
-                this.handleLiveInit(msg);
-              }
-            } else if (msg.type === 'camera') {
-              this.handleLiveCameraUpdate(msg.camera);
-            } else if (msg.type === 'frame') {
-              this.handleLiveFrame(msg);
-            } else if (msg.type === 'subjectVisibility') {
-              this.setLiveSubjectVisibility(msg.subjectId, msg.visible !== false);
-            } else if (msg.type === 'notification') {
-              this.showLiveNotification(
-                msg.message || '',
-                msg.level || 'info',
-                msg.duration ?? 5000,
-                msg.fontSize ?? msg.font_size ?? null
-              );
-            } else if (msg.type === 'dismissNotification') {
-              this.liveNotification.show = false;
-            } else if (msg.type === 'trialScores') {
-              this.showLiveTrialScores(msg);
-            } else if (msg.type === 'hideScores') {
-              this.hideLiveTrialScores();
-            }
+            msg = JSON.parse(event.data);
           } catch (e) {
             console.error('[live] Failed to parse message', e);
+            return;
           }
+          this.liveMessageQueue = this.liveMessageQueue
+            .then(() => this.processLiveWebSocketMessage(msg))
+            .catch((e) => console.error('[live] Message handler error', e));
         };
       } catch (e) {
         console.error('[live] Failed to connect', e);
@@ -15625,7 +16094,15 @@
       this.liveSocket = null;
       this.liveStatus = 'disconnected';
       this.liveMode = false;
+      if (
+        this.animations.length === 0 &&
+        this.smplSequences.length === 0 &&
+        this.markerSpheres.length === 0
+      ) {
+        this.sceneInitializing = false;
+      }
       this.liveAnimationIndices = {};
+      this.removeLiveSmplSequences();
       this.liveBodyStyle = {};
       this.liveBodyStyleDirty = false;
       this.liveSubjectVisibility = {};
@@ -15636,11 +16113,42 @@
       this.liveLastVisualUpdatePerf = null;
       this.liveObservedHz = null;
       this.liveNominalHz = null;
+      this._liveFloat32MismatchLogged = false;
       if (this.liveTrialScoresTimer) {
         clearTimeout(this.liveTrialScoresTimer);
         this.liveTrialScoresTimer = null;
       }
       this.liveTrialScores = { show: false, scores: [], labels: [], title: '', colors: [] };
+      this.liveMessageQueue = Promise.resolve();
+    },
+
+    async processLiveWebSocketMessage(msg) {
+      if (msg.type === 'init') {
+        if (this.isCameraOnlyLiveInit(msg)) {
+          this.handleLiveCameraUpdate(msg.camera);
+        } else {
+          await this.handleLiveInit(msg);
+        }
+      } else if (msg.type === 'camera') {
+        this.handleLiveCameraUpdate(msg.camera);
+      } else if (msg.type === 'frame') {
+        this.handleLiveFrame(msg);
+      } else if (msg.type === 'subjectVisibility') {
+        this.setLiveSubjectVisibility(msg.subjectId, msg.visible !== false);
+      } else if (msg.type === 'notification') {
+        this.showLiveNotification(
+          msg.message || '',
+          msg.level || 'info',
+          msg.duration ?? 5000,
+          msg.fontSize ?? msg.font_size ?? null
+        );
+      } else if (msg.type === 'dismissNotification') {
+        this.liveNotification.show = false;
+      } else if (msg.type === 'trialScores') {
+        this.showLiveTrialScores(msg);
+      } else if (msg.type === 'hideScores') {
+        this.hideLiveTrialScores();
+      }
     },
 
     setLiveSubjectVisibility(subjectId, visible) {
@@ -15717,7 +16225,16 @@
 
       const hasSubjects = Array.isArray(msg.subjects) && msg.subjects.length > 0;
       const hasBodies = msg.bodies && typeof msg.bodies === 'object' && Object.keys(msg.bodies).length > 0;
-      return !hasSubjects && !hasBodies;
+      const hasSmplSubjects = Array.isArray(msg.smplSubjects) && msg.smplSubjects.length > 0;
+      return !hasSubjects && !hasBodies && !hasSmplSubjects;
+    },
+
+    liveHasRenderableOpenSim() {
+      return Object.values(this.liveAnimationIndices).some((animIdx) => {
+        const anim = this.animations[animIdx];
+        if (!anim || !anim.data || !anim.data.bodies) return false;
+        return Object.keys(anim.data.bodies).length > 0;
+      });
     },
 
     handleLiveCameraUpdate(camera) {
@@ -15738,9 +16255,13 @@
     async handleLiveInit(msg) {
       console.log('[live] init', msg);
 
+      this.liveMode = true;
+      await this.$nextTick();
+
       this.liveBodyStyle = {};
       this.liveBodyStyleDirty = false;
       this.liveAnimationIndices = {};
+      this.removeLiveSmplSequences();
       this.liveSubjectVisibility = {};
       this.liveSubjectIds = [];
       this.liveCameraCentered = false;
@@ -15749,14 +16270,34 @@
       this.liveLastVisualUpdatePerf = null;
       this.liveObservedHz = null;
       this.liveNominalHz = null;
+      this._liveFloat32MismatchLogged = false;
 
       // Global body style fallback (single-subject legacy or applied to all subjects)
       const globalBodyStyle = msg.bodyStyle && typeof msg.bodyStyle === 'object' ? msg.bodyStyle : null;
 
-      // Support multi-subject (subjects array) or single-subject (flat bodies)
-      const subjects = msg.subjects && msg.subjects.length > 0
+      const smplSubjects = Array.isArray(msg.smplSubjects) ? msg.smplSubjects : [];
+      const hasSmplInit = smplSubjects.length > 0;
+
+      // Support multi-subject (subjects array) or single-subject (flat bodies).
+      // SMPL-only inits must not create an empty OpenSim subject (breaks camera + frame routing).
+      let subjects = Array.isArray(msg.subjects) && msg.subjects.length > 0
         ? msg.subjects
-        : [{ id: '__default__', bodies: msg.bodies || {} }];
+        : [];
+      if (subjects.length === 0) {
+        const flatBodies = msg.bodies && typeof msg.bodies === 'object' ? msg.bodies : {};
+        if (Object.keys(flatBodies).length > 0) {
+          subjects = [{ id: '__default__', bodies: flatBodies }];
+        } else if (!hasSmplInit) {
+          subjects = [{ id: '__default__', bodies: {} }];
+        }
+      }
+
+      if (subjects.length === 0 && hasSmplInit) {
+        await this.ensureSceneReady();
+        if (this.scene) {
+          this.clearScene();
+        }
+      }
 
       for (let si = 0; si < subjects.length; si++) {
         const subject = subjects[si];
@@ -15805,6 +16346,26 @@
         });
       }
 
+      for (const smplMeta of smplSubjects) {
+        await this.createLiveSmplSequence(smplMeta);
+      }
+
+      if (Object.keys(this.liveSmplIndices).length > 0) {
+        const firstSmplId = Object.values(this.liveSmplIndices)[0];
+        const liveSeq = this.smplSequences.find((seq) => seq.id === firstSmplId);
+        if (liveSeq) {
+          this.updateSmplSequenceFrame(liveSeq, 0, true);
+          if (liveSeq.mesh) {
+            this.centerCameraOnSmplSequence(liveSeq);
+            this.liveCameraCentered = true;
+          }
+        }
+      }
+
+      await this.$nextTick();
+      this.attachMocapResizeObserver();
+      this.onResize();
+
       if (typeof msg.frameRate === 'number' && msg.frameRate > 0) {
         this.frameRate = msg.frameRate;
         this.liveNominalHz = msg.frameRate;
@@ -15821,6 +16382,13 @@
 
       this.applyLiveBodyStyle({ render: false });
       this.applyLiveCamera(msg.camera);
+
+      if (
+        Object.keys(this.liveAnimationIndices).length > 0 ||
+        Object.keys(this.liveSmplIndices).length > 0
+      ) {
+        this.togglePlay(true);
+      }
     },
 
     applyLiveCamera(camera) {
@@ -15842,6 +16410,8 @@
         this.controls.target.set(tx, ty, tz);
         this.camera.position.set(px, py, pz);
         this.controls.update();
+      } else if (typeof camera === 'string') {
+        this.setCameraView(camera);
       } else if (camera.view) {
         // Named preset — setCameraView reads the current distance, so calling it
         // after setting the close default above means it uses that shorter distance.
@@ -15854,7 +16424,9 @@
     },
 
     handleLiveFrame(msg) {
-      if (Object.keys(this.liveAnimationIndices).length === 0) {
+      const hasLiveOpenSim = this.liveHasRenderableOpenSim();
+      const hasLiveSmpl = Object.keys(this.liveSmplIndices).length > 0;
+      if (!hasLiveOpenSim && !hasLiveSmpl) {
         console.warn('[live] Frame received before init; ignoring');
         return;
       }
@@ -15925,17 +16497,46 @@
         }
       });
 
+      const smplStreams = msg.smplStreams && typeof msg.smplStreams === 'object'
+        ? msg.smplStreams
+        : {};
+      let smplMasterTime = null;
+      Object.entries(smplStreams).forEach(([subjectId, streamData]) => {
+        const sequenceId = this.liveSmplIndices[subjectId];
+        if (sequenceId === undefined) return;
+        const sequence = this.smplSequences.find((seq) => seq.id === sequenceId);
+        if (!sequence) return;
+        if (this.appendLiveSmplFrame(sequence, streamData)) {
+          if (smplMasterTime === null && sequence.time.length > 0) {
+            smplMasterTime = sequence.time;
+          }
+        }
+      });
+
       // If playback is paused, buffer frames but don't update the visible pose yet.
-      if (!this.playing || !masterData) {
+      if (!this.playing) {
         return;
       }
 
+      if (!masterData && !smplMasterTime) {
+        return;
+      }
+
+      if (masterData) {
       this.frames = masterData.time;
       this.frame = this.frames.length - 1;
       this.updateDisplayedTime();
+      } else if (smplMasterTime) {
+        this.frames = smplMasterTime;
+        this.frame = this.frames.length - 1;
+        this.updateDisplayedTime();
+      }
 
       const now = performance.now();
-      if (masterData.time.length === 1) {
+      const masterTimeLen = masterData
+        ? masterData.time.length
+        : (smplMasterTime ? smplMasterTime.length : 0);
+      if (masterTimeLen === 1) {
         this.livePrevKeyframeArrivalPerf = null;
         this.liveLastKeyframeArrivalPerf = now;
         this.liveObservedHz = null;
@@ -15951,12 +16552,19 @@
         }
       }
 
-      const skipDiscreteFrame =
-        this.liveVisualInterpolation && masterData.time.length >= 2;
-      if (!skipDiscreteFrame) {
-        this.animateOneFrame();
+      const skipDiscreteOpenSim =
+        masterData &&
+        this.liveVisualInterpolation &&
+        masterData.time.length >= 2;
+      if (!skipDiscreteOpenSim) {
+        if (masterData) {
+          this.animateOneFrame();
+        }
       } else {
         this.updateLiveInterpolatedMeshes();
+      }
+      if (smplMasterTime) {
+        this.updateLiveSmplSequences();
       }
 
       // On the very first rendered frame, re-center the camera on the subject's actual
@@ -15964,7 +16572,19 @@
       // only the look-at target shifts to where the subject really is.
       if (!this.liveCameraCentered) {
         this.liveCameraCentered = true;
-        this.centerCameraOnLiveSubject();
+        const liveSmplId = Object.values(this.liveSmplIndices)[0];
+        const liveSeq = liveSmplId !== undefined
+          ? this.smplSequences.find((seq) => seq.id === liveSmplId)
+          : null;
+        if (hasLiveSmpl && liveSeq && liveSeq.mesh && !hasLiveOpenSim) {
+          this.centerCameraOnSmplSequence(liveSeq);
+        } else if (hasLiveOpenSim) {
+          this.centerCameraOnLiveSubject();
+        } else if (liveSeq && liveSeq.mesh) {
+          this.centerCameraOnSmplSequence(liveSeq);
+        } else {
+          this.centerCameraOnSubject();
+        }
       }
     },
 
@@ -16129,6 +16749,15 @@
         }
       }
   
+      // Priority 1.5: SMPL mesh bounds (live stream or file load)
+      if (!foundSubject && this.smplSequences.length > 0) {
+        const smplSeq = this.smplSequences.find((seq) => seq.mesh) || this.smplSequences[0];
+        if (smplSeq && smplSeq.mesh) {
+          this.centerCameraOnSmplSequence(smplSeq);
+          return;
+        }
+      }
+
       // Priority 2: Use markers if no animations exist
       if (!foundSubject && this.markerSpheres.length > 0) {
         // Find center of all marker positions at current frame
@@ -17327,6 +17956,367 @@
       if (this.renderer) {
         this.renderer.render(this.scene, this.camera);
       }
+    },
+
+    // --- Split View (multi-camera) implementation ---
+
+    // Normalized panel regions in CSS coordinates (origin = top-left of the canvas).
+    // Returns an array of {x, y, w, h} sized as fractions of the canvas. The order
+    // matches panel indices: 0 = primary, 1..N-1 = auxiliaries.
+    _getSplitRegions(count) {
+      const n = count !== undefined ? count : this.splitViewCount;
+      if (n <= 1) return [{ x: 0, y: 0, w: 1, h: 1 }];
+      if (n === 2) return [
+        { x: 0,   y: 0, w: 0.5, h: 1 },
+        { x: 0.5, y: 0, w: 0.5, h: 1 },
+      ];
+      if (n === 3) {
+        const w = 1 / 3;
+        return [
+          { x: 0,     y: 0, w, h: 1 },
+          { x: w,     y: 0, w, h: 1 },
+          { x: 2 * w, y: 0, w, h: 1 },
+        ];
+      }
+      // n === 4 — 2x2 grid, ordered: top-left, top-right, bottom-left, bottom-right.
+      return [
+        { x: 0,   y: 0,   w: 0.5, h: 0.5 },
+        { x: 0.5, y: 0,   w: 0.5, h: 0.5 },
+        { x: 0,   y: 0.5, w: 0.5, h: 0.5 },
+        { x: 0.5, y: 0.5, w: 0.5, h: 0.5 },
+      ];
+    },
+
+    // Return the camera and controls instance for a given panel index. Index 0
+    // is the primary camera/controls; 1..N-1 map into the aux arrays.
+    _getPanelCamera(index) {
+      if (index === 0) return this.camera;
+      return this.auxCameras[index - 1] || null;
+    },
+    _getPanelControls(index) {
+      if (index === 0) return this.controls;
+      return this.auxControls[index - 1] || null;
+    },
+
+    // Set a preset view on the camera at a specific panel index.
+    onPanelSetView(panelIndex, viewType) {
+      if (panelIndex === 0) {
+        this.setCameraView(viewType);
+        return;
+      }
+      const cam = this._getPanelCamera(panelIndex);
+      const ctrls = this._getPanelControls(panelIndex);
+      if (!cam || !ctrls) return;
+
+      const distance = cam.position.distanceTo(ctrls.target);
+      const currentTarget = ctrls.target.clone();
+
+      const newPosition = new THREE.Vector3();
+      const offset = Math.max(distance, 1.0);
+      const isoFactor = offset / Math.sqrt(3);
+
+      switch (viewType) {
+        case 'top':
+        case 'superior':
+          newPosition.set(currentTarget.x, currentTarget.y + offset, currentTarget.z); break;
+        case 'bottom':
+        case 'inferior':
+          newPosition.set(currentTarget.x, currentTarget.y - offset, currentTarget.z); break;
+        case 'front':
+        case 'sagittal_right':
+          newPosition.set(currentTarget.x, currentTarget.y, currentTarget.z + offset); break;
+        case 'back':
+        case 'sagittal_left':
+          newPosition.set(currentTarget.x, currentTarget.y, currentTarget.z - offset); break;
+        case 'left':
+        case 'posterior':
+          newPosition.set(currentTarget.x - offset, currentTarget.y, currentTarget.z); break;
+        case 'right':
+        case 'anterior':
+          newPosition.set(currentTarget.x + offset, currentTarget.y, currentTarget.z); break;
+        case 'frontTopRight':
+          newPosition.set(currentTarget.x + isoFactor, currentTarget.y + isoFactor, currentTarget.z + isoFactor); break;
+        case 'frontTopLeft':
+          newPosition.set(currentTarget.x - isoFactor, currentTarget.y + isoFactor, currentTarget.z + isoFactor); break;
+        case 'frontBottomRight':
+          newPosition.set(currentTarget.x + isoFactor, currentTarget.y - isoFactor, currentTarget.z + isoFactor); break;
+        case 'frontBottomLeft':
+          newPosition.set(currentTarget.x - isoFactor, currentTarget.y - isoFactor, currentTarget.z + isoFactor); break;
+        case 'backTopRight':
+          newPosition.set(currentTarget.x + isoFactor, currentTarget.y + isoFactor, currentTarget.z - isoFactor); break;
+        case 'backTopLeft':
+          newPosition.set(currentTarget.x - isoFactor, currentTarget.y + isoFactor, currentTarget.z - isoFactor); break;
+        case 'backBottomRight':
+          newPosition.set(currentTarget.x + isoFactor, currentTarget.y - isoFactor, currentTarget.z - isoFactor); break;
+        case 'backBottomLeft':
+          newPosition.set(currentTarget.x - isoFactor, currentTarget.y - isoFactor, currentTarget.z - isoFactor); break;
+        case 'default':
+        case 'isometric':
+          newPosition.set(currentTarget.x + isoFactor, currentTarget.y + isoFactor, currentTarget.z + isoFactor); break;
+        default:
+          console.warn('Unknown view type (panel', panelIndex, '):', viewType);
+          return;
+      }
+
+      ctrls.target.copy(currentTarget);
+      cam.position.copy(newPosition);
+      ctrls.update();
+      if (this.renderer) this.renderer.render(this.scene, this.camera);
+    },
+
+    // Reset a single panel's camera back to a sensible default.
+    onPanelResetCamera(panelIndex) {
+      if (panelIndex === 0) {
+        this.resetCameraView();
+        return;
+      }
+      const cam = this._getPanelCamera(panelIndex);
+      const ctrls = this._getPanelControls(panelIndex);
+      if (!cam || !ctrls) return;
+
+      // Default each auxiliary panel to a different preset so the user gets a
+      // useful starting layout (e.g. side + back views).
+      const presets = ['right', 'left', 'front'];
+      const preset = presets[(panelIndex - 1) % presets.length];
+      const initialTarget = this.controls
+        ? this.controls.target.clone()
+        : new THREE.Vector3(0, 1, 0);
+      ctrls.target.copy(initialTarget);
+      this.onPanelSetView(panelIndex, preset);
+    },
+
+    // Choose how many camera panels to display. n must be in [1, 4].
+    setSplitViewCount(n) {
+      const target = Math.max(1, Math.min(4, Math.floor(n)));
+      if (target === this.splitViewCount) return;
+
+      const prev = this.splitViewCount;
+      this.splitViewCount = target;
+
+      if (target === 1) {
+        this._disableSplitView();
+      } else if (prev === 1) {
+        // Going from single to multi-panel — create aux cameras/controls for the
+        // additional panels and attach pointer routing.
+        this._enableSplitView();
+      } else {
+        // Adjust the auxiliary count up or down in place.
+        this._resizeSplitAuxes();
+      }
+      this.saveSettings && this.saveSettings();
+    },
+
+    // Backwards-compatible: keep the simple two-view toggle alias.
+    toggleSplitView() {
+      this.setSplitViewCount(this.splitViewCount > 1 ? 1 : 2);
+    },
+
+    _enableSplitView() {
+      if (!this.renderer || !this.camera) {
+        console.warn('[splitView] Cannot enable: renderer/camera not initialized.');
+        return;
+      }
+      this._resizeSplitAuxes();
+      this._attachSplitPointerHandlers();
+      this.onResize();
+      if (this.renderer && this.scene && this.camera) {
+        this.renderer.render(this.scene, this.camera);
+      }
+    },
+
+    _disableSplitView() {
+      this._detachSplitPointerHandlers();
+
+      // Dispose all auxiliary controls.
+      for (const ctrls of this.auxControls) {
+        try { ctrls.dispose(); } catch (e) { /* ignore */ }
+      }
+      this.auxControls = [];
+      // Keep camera instances around in case the user re-enables split view
+      // shortly. They'll be re-bound to fresh controls in _resizeSplitAuxes.
+
+      // Re-enable the primary controls in case they were disabled by the pointer handler.
+      if (this.controls) this.controls.enabled = true;
+
+      // Restore full-canvas viewport/aspect.
+      if (this.renderer) {
+        const canvas = this.renderer.domElement;
+        const dpr = this.renderer.getPixelRatio();
+        const w = canvas.width / dpr;
+        const h = canvas.height / dpr;
+        this.renderer.setScissorTest(false);
+        this.renderer.setViewport(0, 0, w, h);
+      }
+      this.onResize();
+      if (this.renderer && this.scene && this.camera) {
+        this.renderer.render(this.scene, this.camera);
+      }
+    },
+
+    // Ensure auxCameras/auxControls have exactly (splitViewCount - 1) entries.
+    _resizeSplitAuxes() {
+      if (!this.renderer || !this.camera) return;
+      const desired = Math.max(0, this.splitViewCount - 1);
+      const targetA = this.controls
+        ? this.controls.target.clone()
+        : new THREE.Vector3(0, 1, 0);
+      const distance = Math.max(1.0, this.camera.position.distanceTo(targetA));
+
+      // Sensible default starting positions for auxiliary panels so each one
+      // shows a different angle out of the box (right, left, front).
+      const defaultOffsets = [
+        new THREE.Vector3(distance, 0, 0),
+        new THREE.Vector3(-distance, 0, 0),
+        new THREE.Vector3(0, 0, distance),
+      ];
+
+      // Grow the auxiliary arrays as needed.
+      while (this.auxCameras.length < desired) {
+        const idx = this.auxCameras.length;
+        const cam = new THREE.PerspectiveCamera(
+          this.camera.fov,
+          this.camera.aspect,
+          this.camera.near,
+          this.camera.far
+        );
+        const offset = defaultOffsets[idx % defaultOffsets.length];
+        cam.position.set(
+          targetA.x + offset.x,
+          targetA.y + offset.y,
+          targetA.z + offset.z
+        );
+        cam.lookAt(targetA);
+        this.auxCameras.push(cam);
+      }
+      while (this.auxControls.length < desired) {
+        const idx = this.auxControls.length;
+        const cam = this.auxCameras[idx];
+        const ctrls = new THREE_OC.OrbitControls(cam, this.renderer.domElement);
+        ctrls.target.copy(targetA);
+        ctrls.screenSpacePanning = true;
+        ctrls.enableDamping = false;
+        ctrls.minDistance = 0;
+        ctrls.maxDistance = Infinity;
+        ctrls.maxPolarAngle = Math.PI;
+        ctrls.update();
+        this.auxControls.push(ctrls);
+      }
+
+      // Shrink the arrays if going from a higher count to a lower one.
+      while (this.auxControls.length > desired) {
+        const ctrls = this.auxControls.pop();
+        try { ctrls.dispose(); } catch (e) { /* ignore */ }
+      }
+      while (this.auxCameras.length > desired) {
+        this.auxCameras.pop();
+      }
+    },
+
+    _attachSplitPointerHandlers() {
+      if (!this.renderer || !this.renderer.domElement) return;
+      if (this._splitPointerHandler) return; // already attached
+
+      const handler = (event) => {
+        if (this.splitViewCount <= 1 || !this.renderer) return;
+        const rect = this.renderer.domElement.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) return;
+        const px = (event.clientX - rect.left) / rect.width;
+        const py = (event.clientY - rect.top) / rect.height;
+        const regions = this._getSplitRegions();
+        let activeIdx = 0;
+        for (let i = 0; i < regions.length; i++) {
+          const r = regions[i];
+          if (px >= r.x && px < r.x + r.w && py >= r.y && py < r.y + r.h) {
+            activeIdx = i;
+            break;
+          }
+        }
+        if (this.controls) this.controls.enabled = (activeIdx === 0);
+        for (let i = 0; i < this.auxControls.length; i++) {
+          this.auxControls[i].enabled = (activeIdx === i + 1);
+        }
+      };
+      this._splitPointerHandler = handler;
+      // Capture phase so we run before the OrbitControls bubble-phase handlers.
+      this.renderer.domElement.addEventListener('pointerdown', handler, true);
+      this.renderer.domElement.addEventListener('wheel', handler, true);
+      this.renderer.domElement.addEventListener('touchstart', handler, true);
+    },
+
+    _detachSplitPointerHandlers() {
+      if (!this.renderer || !this.renderer.domElement || !this._splitPointerHandler) return;
+      this.renderer.domElement.removeEventListener('pointerdown', this._splitPointerHandler, true);
+      this.renderer.domElement.removeEventListener('wheel', this._splitPointerHandler, true);
+      this.renderer.domElement.removeEventListener('touchstart', this._splitPointerHandler, true);
+      this._splitPointerHandler = null;
+    },
+
+    // Render the scene up to four times (one per panel) using viewport + scissor
+    // on the same canvas. The primary camera draws panel 0; the aux cameras draw
+    // panels 1..N-1.
+    _renderSplit(scene, camera) {
+      if (!this._splitOriginalRender) return;
+      const renderer = this.renderer;
+      const canvas = renderer.domElement;
+      const dpr = renderer.getPixelRatio();
+      const fullW = canvas.width / dpr;
+      const fullH = canvas.height / dpr;
+      if (fullW < 2 || fullH < 2 || this.splitViewCount <= 1) {
+        this._splitOriginalRender(scene, camera);
+        return;
+      }
+
+      const regions = this._getSplitRegions();
+      renderer.setScissorTest(true);
+
+      for (let i = 0; i < regions.length; i++) {
+        const r = regions[i];
+        // CSS coords have origin at top-left; three.js viewport at bottom-left.
+        const vx = Math.round(r.x * fullW);
+        const vyTop = Math.round(r.y * fullH);
+        const vw = Math.max(1, Math.round(r.w * fullW));
+        const vh = Math.max(1, Math.round(r.h * fullH));
+        const vyGL = Math.max(0, fullH - vyTop - vh);
+
+        renderer.setViewport(vx, vyGL, vw, vh);
+        renderer.setScissor(vx, vyGL, vw, vh);
+
+        const panelCamera = i === 0 ? camera : (this.auxCameras[i - 1] || camera);
+        if (panelCamera && panelCamera.isPerspectiveCamera) {
+          panelCamera.aspect = vw / vh;
+          panelCamera.updateProjectionMatrix();
+        }
+        this._splitOriginalRender(scene, panelCamera);
+      }
+
+      // Restore full-canvas viewport so downstream code (e.g. readPixels-based
+      // capture flows) gets the expected behavior.
+      renderer.setScissorTest(false);
+      renderer.setViewport(0, 0, fullW, fullH);
+    },
+
+    // Inline style for the cube gizmo wrapper at a given panel index. Keeps each
+    // gizmo centered horizontally inside its panel and just above the timeline
+    // (or just above the bottom edge of its panel in 2x2 mode).
+    getGizmoStyle(panelIndex) {
+      const n = this.splitViewCount;
+      if (n <= 1) return null; // use the default centered placement from CSS
+      if (n === 2) {
+        return { left: panelIndex === 0 ? '25%' : '75%', bottom: '80px' };
+      }
+      if (n === 3) {
+        const positions = ['16.67%', '50%', '83.33%'];
+        return { left: positions[panelIndex] || '50%', bottom: '80px' };
+      }
+      // n === 4 (2x2)
+      const isTop = panelIndex < 2;
+      const isLeft = panelIndex % 2 === 0;
+      return {
+        left: isLeft ? '25%' : '75%',
+        // Top row sits inside the upper-half panels; bottom row sits just above
+        // the timeline like the other modes.
+        bottom: isTop ? 'calc(50% + 20px)' : '80px',
+      };
     },
 
     alignCameraWithCapture(behindPlane = true, distanceBehind = null) {
@@ -18993,6 +19983,28 @@
   transform: translateX(-50%);
   z-index: 1000;
   pointer-events: auto;
+  }
+
+  /* Divider lines drawn over the canvas to make the split layout obvious.
+     Inline `left` / `top` styles position each instance for the active layout.
+     z-index is intentionally below the sidebars (.left/.right have z-index: 10)
+     so the side menus cover the divider where they overlap. */
+  .split-view-divider {
+    position: absolute;
+    background: rgba(255, 255, 255, 0.35);
+    box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
+    pointer-events: none;
+    z-index: 4;
+  }
+  .split-view-divider.vertical {
+    top: 0;
+    bottom: 0;
+    width: 1px;
+  }
+  .split-view-divider.horizontal {
+    left: 0;
+    right: 0;
+    height: 1px;
   }
   
   /* Beautiful Loading UI */
