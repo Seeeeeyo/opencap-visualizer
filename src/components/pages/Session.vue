@@ -16125,12 +16125,12 @@
     async processLiveWebSocketMessage(msg) {
       if (msg.type === 'init') {
         if (this.isCameraOnlyLiveInit(msg)) {
-          this.handleLiveCameraUpdate(msg.camera);
+          this.handleLiveCameraUpdate(msg);
         } else {
           await this.handleLiveInit(msg);
         }
       } else if (msg.type === 'camera') {
-        this.handleLiveCameraUpdate(msg.camera);
+        this.handleLiveCameraUpdate(msg);
       } else if (msg.type === 'frame') {
         this.handleLiveFrame(msg);
       } else if (msg.type === 'subjectVisibility') {
@@ -16219,9 +16219,9 @@
     },
 
     isCameraOnlyLiveInit(msg) {
-      if (!msg || typeof msg !== 'object' || !msg.camera) {
-        return false;
-      }
+      if (!msg || typeof msg !== 'object') return false;
+      const hasCamera = !!msg.camera || !!msg.panels;
+      if (!hasCamera) return false;
 
       const hasSubjects = Array.isArray(msg.subjects) && msg.subjects.length > 0;
       const hasBodies = msg.bodies && typeof msg.bodies === 'object' && Object.keys(msg.bodies).length > 0;
@@ -16237,17 +16237,49 @@
       });
     },
 
-    handleLiveCameraUpdate(camera) {
-      if (!camera) return;
+    // Normalize a live camera WebSocket payload into a single spec understood by
+    // applyLiveCamera (string preset, {view}, {position}, or {panels: [...]}).
+    normalizeLiveCameraMessage(msg) {
+      if (msg == null) return null;
+      if (typeof msg === 'string') return msg;
+      if (typeof msg !== 'object') return msg;
 
-      this.applyLiveCamera(camera);
+      if (Array.isArray(msg.panels) || (msg.panels && typeof msg.panels === 'object')) {
+        return {
+          splitViewCount: msg.splitViewCount,
+          panels: msg.panels,
+        };
+      }
+
+      if (msg.camera !== undefined) {
+        const c = msg.camera;
+        if (c && typeof c === 'object' && (Array.isArray(c.panels) || c.panels)) {
+          return {
+            splitViewCount: c.splitViewCount ?? msg.splitViewCount,
+            panels: c.panels,
+          };
+        }
+        return c;
+      }
+
+      if (msg.view || msg.position) return msg;
+      return null;
+    },
+
+    handleLiveCameraUpdate(msg) {
+      const spec = this.normalizeLiveCameraMessage(msg);
+      if (spec == null) return;
+
+      this.applyLiveCamera(spec);
 
       const hasLiveSubjects = Object.keys(this.liveAnimationIndices).length > 0;
-      const hasExplicitTarget = typeof camera === 'object'
-        && Array.isArray(camera.target)
-        && camera.target.length === 3;
+      const isMultiPanel = spec && typeof spec === 'object' && spec.panels;
+      const hasExplicitTarget = !isMultiPanel
+        && typeof spec === 'object'
+        && Array.isArray(spec.target)
+        && spec.target.length === 3;
 
-      if (this.liveMode && hasLiveSubjects && this.liveCameraCentered && !hasExplicitTarget) {
+      if (this.liveMode && hasLiveSubjects && this.liveCameraCentered && !hasExplicitTarget && !isMultiPanel) {
         this.centerCameraOnLiveSubject();
       }
     },
@@ -16381,7 +16413,7 @@
       this.updateDisplayedTime();
 
       this.applyLiveBodyStyle({ render: false });
-      this.applyLiveCamera(msg.camera);
+      this.handleLiveCameraUpdate(msg);
 
       if (
         Object.keys(this.liveAnimationIndices).length > 0 ||
@@ -16391,31 +16423,78 @@
       }
     },
 
+    // Apply one camera spec to a specific split-view panel (0 = primary).
+    applyPanelCameraSpec(panelIndex, spec, { bootstrapLiveDefault = false } = {}) {
+      const cam = this._getPanelCamera(panelIndex);
+      const ctrls = this._getPanelControls(panelIndex);
+      if (!cam || !ctrls) return false;
+
+      if (bootstrapLiveDefault) {
+        ctrls.target.set(0, 1, 0);
+        cam.position.set(1.8, 2.4, -1.3);
+        ctrls.update();
+      }
+
+      if (spec == null) return true;
+
+      if (typeof spec === 'string') {
+        if (panelIndex === 0) this.setCameraView(spec);
+        else this.onPanelSetView(panelIndex, spec);
+        return true;
+      }
+
+      if (typeof spec === 'object') {
+        if (spec.view) {
+          if (panelIndex === 0) this.setCameraView(spec.view);
+          else this.onPanelSetView(panelIndex, spec.view);
+          return true;
+        }
+        if (Array.isArray(spec.position) && spec.position.length >= 3) {
+          const [px, py, pz] = spec.position;
+          const [tx, ty, tz] = spec.target || [0, 1, 0];
+          ctrls.target.set(tx, ty, tz);
+          cam.position.set(px, py, pz);
+          ctrls.update();
+          return true;
+        }
+      }
+
+      console.warn('[live] Unrecognized camera spec for panel', panelIndex, spec);
+      return false;
+    },
+
     applyLiveCamera(camera) {
       if (!this.camera || !this.controls) return;
 
-      // For live streaming always start from a closer default (~2.6 m) so that both
-      // the no-camera fallback AND named presets use a tighter framing.
-      // Exact JSON positions are used as-is since the caller chose them explicitly.
-      this.controls.target.set(0, 1, 0);
-      this.camera.position.set(1.8, 2.4, -1.3);
-      this.controls.update();
+      const hasPanels = camera
+        && typeof camera === 'object'
+        && camera.panels
+        && (Array.isArray(camera.panels) || typeof camera.panels === 'object');
 
-      if (!camera) {
-        // No camera specified: the close default set above is the final position.
-      } else if (typeof camera === 'object' && camera.position) {
-        // Exact position + optional target — override the default entirely.
-        const [px, py, pz] = camera.position;
-        const [tx, ty, tz] = camera.target || [0, 1, 0];
-        this.controls.target.set(tx, ty, tz);
-        this.camera.position.set(px, py, pz);
-        this.controls.update();
-      } else if (typeof camera === 'string') {
-        this.setCameraView(camera);
-      } else if (camera.view) {
-        // Named preset — setCameraView reads the current distance, so calling it
-        // after setting the close default above means it uses that shorter distance.
-        this.setCameraView(camera.view);
+      if (hasPanels) {
+        const rawPanels = camera.panels;
+        const panelSpecs = Array.isArray(rawPanels)
+          ? rawPanels
+          : Object.keys(rawPanels)
+              .sort((a, b) => Number(a) - Number(b))
+              .map((key) => rawPanels[key]);
+
+        const inferredCount = panelSpecs.length;
+        const targetCount = Math.max(
+          1,
+          Math.min(4, Math.floor(camera.splitViewCount ?? inferredCount))
+        );
+
+        if (this.splitViewCount !== targetCount) {
+          this.setSplitViewCount(targetCount);
+        }
+
+        panelSpecs.forEach((spec, index) => {
+          if (index >= targetCount) return;
+          this.applyPanelCameraSpec(index, spec, { bootstrapLiveDefault: index === 0 });
+        });
+      } else {
+        this.applyPanelCameraSpec(0, camera, { bootstrapLiveDefault: true });
       }
 
       if (this.renderer && this.scene) {
