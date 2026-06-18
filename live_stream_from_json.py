@@ -57,6 +57,18 @@ Camera options:
     # Exact position + look-at target (meters)
     --camera '{"position": [3, 2, -4], "target": [0, 1, 0]}'
 
+    # Named preset + "up" override (controls which direction faces screen-top; useful for
+    # top/bottom views where you want to spin the orientation).
+    # "up" is a world-space vector that faces the top of the screen.
+    # Examples for a superior (top-down) view:
+    #   anterior (+X) faces screen-top:  --camera '{"view":"superior","up":[1,0,0]}'
+    #   posterior (-X) faces screen-top: --camera '{"view":"superior","up":[-1,0,0]}'
+    #   sagittal_right (+Z) faces up:    --camera '{"view":"superior","up":[0,0,1]}'
+    --camera '{"view": "superior", "up": [1, 0, 0]}'
+
+    # Position + target + up (full control):
+    --camera '{"position": [0, 5, 0], "target": [0, 1, 0], "up": [1, 0, 0]}'
+
 Model options:
     # Single model for all subjects (folder_name from the visualizer model list)
     --model LaiArnold
@@ -79,8 +91,14 @@ Interactive commands (type while the server is running):
     notify success Great technique!   → colored banner (info/success/warning/error)
     notify success size=32 Great technique! → colored banner with larger text
     dismiss                           → dismiss the current notification banner
-    camera anterior                   → update the viewer camera without reloading subjects
-    camera {"position":[3,2,-4]}      → exact camera position (optional target)
+    camera anterior                                      → update the viewer camera without reloading subjects
+    camera {"position":[3,2,-4]}                         → exact camera position (optional target/up)
+    camera {"view":"superior","up":[1,0,0]}              → preset + up vector (anterior faces screen-top)
+    camera {"position":[0,5,0],"target":[0,1,0],"up":[1,0,0]}  → full position+target+up control
+    panels 2 anterior sagittal_right  → split view: 2 panels with named presets
+    panels 3 anterior sagittal_right superior
+    panels 4 anterior sagittal_right superior posterior
+    panels [{"view":"anterior"},{"position":[3,2,-4],"target":[0,1,0]}]
     scores 85 72 90 68 88 [label1 ...] [colors: g o r g o] [title: text] → trial scores (g/r/o = green/red/orange)
     hidescores                        → hide the trial scores plot
     hide subject_0                    → hide a subject
@@ -262,15 +280,40 @@ async def send_hide_scores():
 
 async def send_camera(camera: "dict | str | None"):
     """
-    Update the camera on every connected visualizer client without reinitializing.
+    Update the primary camera on every connected visualizer client.
 
     camera : preset string (e.g. "anterior") or dict with
-             {"position": [x, y, z], "target": [x, y, z]}
+             {"view": "anterior"} or {"position": [x, y, z], "target": [x, y, z]}
     """
     if camera is None:
         return
     payload = camera if isinstance(camera, dict) else {"view": camera}
     msg = json.dumps({"type": "camera", "camera": payload})
+    for ws in list(_CONNECTED_CLIENTS):
+        try:
+            await ws.send(msg)
+        except Exception:
+            pass
+
+
+async def send_camera_panels(
+    panels: "list | dict",
+    split_view_count: "int | None" = None,
+):
+    """
+    Update split-view panels on every connected visualizer client.
+
+    panels : list of preset strings and/or dicts, e.g.
+             ["anterior", "sagittal_right"]
+             [{"view": "anterior"}, {"position": [3, 2, -4], "target": [0, 1, 0]}]
+    split_view_count : optional panel count (1–4); defaults to len(panels)
+    """
+    if not panels:
+        return
+    msg_obj = {"type": "camera", "panels": panels}
+    if split_view_count is not None:
+        msg_obj["splitViewCount"] = int(split_view_count)
+    msg = json.dumps(msg_obj)
     for ws in list(_CONNECTED_CLIENTS):
         try:
             await ws.send(msg)
@@ -479,7 +522,11 @@ async def stream_from_json(
     if body_style and not isinstance(body_style, list):
         init_msg["bodyStyle"] = body_style
     if camera is not None:
-        init_msg["camera"] = camera if isinstance(camera, dict) else {"view": camera}
+        if isinstance(camera, dict) and camera.get("panels"):
+            init_msg["splitViewCount"] = camera.get("splitViewCount", len(camera["panels"]))
+            init_msg["panels"] = camera["panels"]
+        else:
+            init_msg["camera"] = camera if isinstance(camera, dict) else {"view": camera}
     await websocket.send(json.dumps(init_msg))
     print(f"  Subject IDs: {subject_ids}  (use these with hide/show commands)")
 
@@ -554,13 +601,21 @@ _CAMERA_PRESETS = {
 
 
 def _parse_camera(arg: str) -> "dict | str | None":
-    """Parse --camera: a named preset string or inline JSON with position/target.
+    """Parse --camera: a named preset string or inline JSON with position/target/up.
 
     Named presets: front | back | left | right | top | bottom | isometric | default
                    frontTopRight | frontTopLeft | backTopRight | backTopLeft | ...
 
-    JSON format:  {"position": [x, y, z], "target": [x, y, z]}
-                  (target defaults to [0, 1, 0] if omitted)
+    JSON format (position-based):
+      {"position": [x, y, z], "target": [x, y, z], "up": [x, y, z]}
+        - target defaults to [0, 1, 0] if omitted
+        - up defaults to [0, 1, 0] (world up) if omitted; override to rotate the view
+
+    JSON format (preset + optional up override):
+      {"view": "superior", "up": [1, 0, 0]}
+        - Useful for top/bottom views: "up" controls which direction faces the screen top.
+        - For a top-down view with the subject's anterior (+X) facing screen-up: "up":[1,0,0]
+        - For a top-down view with the subject's posterior (-X) facing screen-up: "up":[-1,0,0]
     """
     if not arg or not arg.strip():
         return None
@@ -570,13 +625,57 @@ def _parse_camera(arg: str) -> "dict | str | None":
     # Try JSON
     try:
         data = json.loads(arg)
-        if isinstance(data, dict) and "position" in data:
+        if isinstance(data, dict) and ("position" in data or "view" in data):
             return data
-        print(f"--camera JSON must contain a 'position' key; got: {arg[:60]}")
+        print(f"--camera JSON must contain a 'position' or 'view' key; got: {arg[:60]}")
         return None
     except json.JSONDecodeError:
         print(f"Unknown --camera value '{arg}'. Valid presets: {sorted(_CAMERA_PRESETS)}")
         return None
+
+
+def _parse_panels_command(rest: str) -> "tuple[int | None, list | None]":
+    """Parse interactive panels command.
+
+    panels 2 anterior sagittal_right
+    panels [{"view":"anterior"},{"view":"sagittal_right"}]
+    """
+    if not rest or not rest.strip():
+        return None, None
+    rest = rest.strip()
+    if rest.startswith("["):
+        try:
+            panels = json.loads(rest)
+            if isinstance(panels, list) and panels:
+                return len(panels), panels
+        except json.JSONDecodeError:
+            print("Invalid panels JSON array")
+        return None, None
+
+    tokens = rest.split()
+    if len(tokens) < 2:
+        return None, None
+    try:
+        count = int(tokens[0])
+    except ValueError:
+        print("Usage: panels <count> <preset|json> ...")
+        return None, None
+    if count < 1 or count > 4:
+        print("Panel count must be between 1 and 4")
+        return None, None
+
+    presets = tokens[1:]
+    if len(presets) != count:
+        print(f"Expected {count} panel preset(s), got {len(presets)}")
+        return None, None
+
+    panels = []
+    for preset in presets:
+        parsed = _parse_camera(preset)
+        if parsed is None:
+            return None, None
+        panels.append(parsed)
+    return count, panels
 
 
 def _parse_body_style(arg: str) -> "dict | list | None":
@@ -793,7 +892,9 @@ async def main():
                         "  notify <level> <message>      – notification with level (info/success/warning/error)\n"
                         "  notify <level> size=<font-size> <message> – notification with custom text size\n"
                         "  dismiss                       – dismiss current notification banner\n"
-                        "  camera <preset|json>          – update camera without reloading subjects\n"
+                        "  camera <preset|json>          – update primary camera\n"
+                        "  panels <count> <preset> ...   – split view (1–4 panels)\n"
+                        "  panels [<json array>]         – split view with JSON panel specs\n"
                         "  scores <n1> <n2> <n3> <n4> <n5> [label1 ... label5] [colors: g o r g o] [title: text]  – trial scores (g/r/o=green/red/orange)\n"
                         "  hidescores                   – hide trial scores plot\n"
                         "  hide <subject_id>             – hide subject\n"
@@ -818,6 +919,13 @@ async def main():
                     else:
                         await send_camera(parsed_camera)
                         print(f"[camera] {parsed_camera}")
+                elif verb == "panels":
+                    count, panel_specs = _parse_panels_command(rest)
+                    if panel_specs is None:
+                        print("Usage: panels <count> <preset|json> ...  OR  panels [<json array>]")
+                    else:
+                        await send_camera_panels(panel_specs, split_view_count=count)
+                        print(f"[panels] count={count} specs={panel_specs}")
                 elif verb == "scores" and rest:
                     remainder = rest
                     title = None
