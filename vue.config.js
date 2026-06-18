@@ -36,6 +36,13 @@ module.exports = {
         secure: false,
         ws: true,
         logLevel: 'debug'
+      },
+      '/api/mhr': {
+        target: 'http://127.0.0.1:8001',
+        changeOrigin: true,
+        secure: false,
+        ws: true,
+        logLevel: 'debug'
       }
     }
   },
