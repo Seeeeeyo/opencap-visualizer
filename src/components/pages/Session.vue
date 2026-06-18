@@ -263,13 +263,26 @@
                       color="red darken-1"
                       class="mr-2"
                       v-else
-                      @click="disconnectLiveStream"
+                      @click="disconnectLiveStream(true)"
                     >
                       <v-icon left small>mdi-stop-circle</v-icon>
                       Disconnect
                     </v-btn>
                     <span class="text-caption grey--text">
                       Status: {{ liveStatus }}
+                    </span>
+                  </div>
+                  <div class="d-flex align-center mt-1">
+                    <v-switch
+                      v-model="liveAutoConnect"
+                      dense
+                      hide-details
+                      class="mt-0 pt-0 mr-2"
+                      style="flex-shrink: 0;"
+                      @change="onLiveAutoConnectToggle"
+                    ></v-switch>
+                    <span class="text-caption grey--text">
+                      Auto-connect{{ liveAutoConnect && liveStatus !== 'connected' ? ' (probing…)' : '' }}
                     </span>
                   </div>
                   <div class="text-caption grey--text mt-2">
@@ -4255,6 +4268,8 @@
               liveUrl: 'ws://localhost:8765',
               liveSocket: null,
               liveStatus: 'disconnected', // 'connecting' | 'connected' | 'error'
+              liveAutoConnect: true, // probe localhost and connect automatically when a server appears
+              liveAutoConnectTimer: null, // internal retry timer handle
               liveAnimationIndices: {}, // map from subject ID -> animation index (supports multiple subjects)
               liveSmplIndices: {}, // map from live SMPL subject ID -> smplSequences[].id
               liveMhrIndices: {}, // map from live MHR subject ID -> mhrSequences[].id
@@ -4545,6 +4560,11 @@
         this.$nextTick(() => {
         this.initScene(); // initScene will now call applyLoadedSceneSettings
         });
+
+        // Auto-connect: start probing for a local live-stream server
+        if (!this.isHeadlessMode && this.liveAutoConnect) {
+          this.scheduleLiveProbe(1500);
+        }
   
         // Check for shared visualization first
         if (this.$route.query.share || this.$route.query.shareId) {
@@ -4624,6 +4644,11 @@
       Object.values(this.offsetUpdateTimers).forEach(timer => clearTimeout(timer));
               // Marker timer cleanup removed
       Object.values(this.objectUpdateTimers).forEach(timer => clearTimeout(timer));
+
+      if (this.liveAutoConnectTimer) {
+        clearTimeout(this.liveAutoConnectTimer);
+        this.liveAutoConnectTimer = null;
+      }
 
       if (this.liveTrialScoresTimer) {
         clearTimeout(this.liveTrialScoresTimer);
@@ -16152,6 +16177,69 @@
         return this.handleFileUpload(fakeEvent, { skipModelSelection: true });
     },
 
+    // --- Auto-connect: silently probe liveUrl and connect when a server appears ---
+
+    scheduleLiveProbe(delayMs = 3000) {
+      if (this.liveAutoConnectTimer) clearTimeout(this.liveAutoConnectTimer);
+      this.liveAutoConnectTimer = setTimeout(() => this.probeLiveServer(), delayMs);
+    },
+
+    probeLiveServer() {
+      this.liveAutoConnectTimer = null;
+      if (!this.liveAutoConnect || this.liveSocket) return;
+
+      let probe;
+      try {
+        probe = new WebSocket(this.liveUrl || 'ws://localhost:8765');
+      } catch (e) {
+        this.scheduleLiveProbe();
+        return;
+      }
+
+      // Safety: close the probe after 3 s if it hasn't resolved yet
+      const safetyTimer = setTimeout(() => {
+        if (probe.readyState === WebSocket.CONNECTING) {
+          probe.onopen = probe.onerror = probe.onclose = null;
+          probe.close();
+          this.scheduleLiveProbe();
+        }
+      }, 3000);
+
+      probe.onopen = () => {
+        clearTimeout(safetyTimer);
+        probe.onopen = probe.onerror = probe.onclose = null;
+        probe.close();
+        if (this.liveAutoConnect && !this.liveSocket) {
+          this.connectLiveStream();
+        }
+      };
+
+      probe.onerror = () => {
+        clearTimeout(safetyTimer);
+        probe.onopen = probe.onerror = probe.onclose = null;
+        this.scheduleLiveProbe();
+      };
+
+      probe.onclose = () => {
+        clearTimeout(safetyTimer);
+        probe.onopen = probe.onerror = probe.onclose = null;
+        if (!this.liveSocket) this.scheduleLiveProbe();
+      };
+    },
+
+    onLiveAutoConnectToggle(val) {
+      if (val) {
+        // User re-enabled: start probing immediately
+        this.probeLiveServer();
+      } else {
+        // User disabled: cancel any pending probe
+        if (this.liveAutoConnectTimer) {
+          clearTimeout(this.liveAutoConnectTimer);
+          this.liveAutoConnectTimer = null;
+        }
+      }
+    },
+
     connectLiveStream() {
       if (this.liveSocket) {
         this.disconnectLiveStream();
@@ -16208,13 +16296,27 @@
       }
     },
 
-    disconnectLiveStream() {
+    disconnectLiveStream(explicit = false) {
+      if (explicit) {
+        // User pressed Disconnect: pause auto-connect so it doesn't immediately reconnect
+        this.liveAutoConnect = false;
+        if (this.liveAutoConnectTimer) {
+          clearTimeout(this.liveAutoConnectTimer);
+          this.liveAutoConnectTimer = null;
+        }
+      }
+
       if (this.liveSocket) {
         this.liveSocket.onclose = null; // prevent recursive call
         this.liveSocket.close();
       }
       this.liveSocket = null;
       this.liveStatus = 'disconnected';
+
+      // Natural drop (not user-initiated): resume probing if auto-connect is still on
+      if (!explicit && this.liveAutoConnect) {
+        this.scheduleLiveProbe(3000);
+      }
       this.liveMode = false;
       this.liveAnimationIndices = {};
       this.removeLiveSmplSequences();
