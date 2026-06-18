@@ -2354,7 +2354,7 @@
               Default pacing follows the JSON timestamps (~30 Hz cap). For sparse live streams, the visualizer eases toward the newest live pose at display rate while keeping the newest streamed frame authoritative.
             </p>
             <p class="mb-4 text-caption grey--text">
-              OpenSim segment meshes follow the same live body poses as the skeleton. For a deforming SMPL mesh with fixed shape, include <span class="font-weight-medium">smplSubjects</span> in <span class="font-weight-medium">init</span> (template vertices + faces) and per-frame <span class="font-weight-medium">vertices</span> (and optional <span class="font-weight-medium">joints</span>) in <span class="font-weight-medium">smplStreams</span> on each <span class="font-weight-medium">frame</span> message.
+              OpenSim segment meshes follow the same live body poses as the skeleton. For a deforming SMPL mesh with fixed shape, include <span class="font-weight-medium">smplSubjects</span> in <span class="font-weight-medium">init</span> (template vertices + faces) and per-frame <span class="font-weight-medium">vertices</span> (and optional <span class="font-weight-medium">joints</span>) in <span class="font-weight-medium">smplStreams</span> on each <span class="font-weight-medium">frame</span> message. For Meta MHR mesh motion (SAM 3D Body / Momentum Human Rig), use <span class="font-weight-medium">mhrSubjects</span> and <span class="font-weight-medium">mhrStreams</span> with the same vertex + faces layout; run <span class="font-weight-medium">python live_stream_from_mhr.py --demo</span> to test.
             </p>
             <div class="d-flex flex-column">
               <v-btn
@@ -3895,6 +3895,14 @@
   import { Line2 } from 'three/examples/jsm/lines/Line2.js'
   import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue';
   import { apiError } from '@/util/ErrorMessage.js';
+  import {
+    buildMhrMesh,
+    centerCameraOnMhrSequence,
+    disposeMhrSequence,
+    appendLiveMhrFrame as appendLiveMhrFramePayload,
+    trimLiveMhrMotionBuffers,
+    updateMhrSequenceFrame,
+  } from '@/util/mhrMesh.js';
   
   // Create a new axios instance for SMPL service
   // In production, use the deployed service; in development, use the proxy
@@ -3971,6 +3979,8 @@
               animations: [], // Array to store multiple animations
               smplSequences: [], // SMPL sequence animations
               nextSmplSequenceId: 1,
+              mhrSequences: [], // MHR (Momentum Human Rig) mesh sequences
+              nextMhrSequenceId: 1,
               frameRate: 60,
               lastFrameTime: 0,
               frameAccumulator: 0,
@@ -4247,6 +4257,7 @@
               liveStatus: 'disconnected', // 'connecting' | 'connected' | 'error'
               liveAnimationIndices: {}, // map from subject ID -> animation index (supports multiple subjects)
               liveSmplIndices: {}, // map from live SMPL subject ID -> smplSequences[].id
+              liveMhrIndices: {}, // map from live MHR subject ID -> mhrSequences[].id
               liveMessageQueue: Promise.resolve(), // serializes init before frames (async handleLiveInit)
               liveBodyStyle: {}, // map from subject ID -> { bodyName: { visible, color } }
               liveBodyStyleDirty: false, // avoid reapplying live mesh style every render tick
@@ -4340,10 +4351,10 @@
         },
         liveStreamHzDisplay() {
           const observed = Number.isFinite(this.liveObservedHz)
-            ? `${this.liveObservedHz.toFixed(2)} Hz`
+            ? `${this.liveObservedHz.toFixed(0)} Hz`
             : '—';
           const nominal = Number.isFinite(this.liveNominalHz)
-            ? `${this.liveNominalHz.toFixed(2)} Hz nominal`
+            ? `${this.liveNominalHz.toFixed(0)} Hz nominal`
             : null;
           return nominal ? `${observed} (${nominal})` : observed;
         },
@@ -8613,6 +8624,7 @@
           }
           if (this.playing) {
             this.updateLiveSmplSequences();
+            this.updateLiveMhrSequences();
           }
           if (this.renderer && this.scene && this.camera) {
             this.renderer.render(this.scene, this.camera);
@@ -11953,6 +11965,119 @@
       const ids = Object.values(this.liveSmplIndices);
       ids.forEach((sequenceId) => this.removeSmplSequence(sequenceId));
       this.liveSmplIndices = {};
+    },
+
+    async createLiveMhrSequence(meta) {
+      if (!meta || !meta.id) return null;
+
+      const vertexCount = Number(meta.vertexCount || meta.vertex_count) || 0;
+      const fps = Number(meta.fps) > 0 ? Number(meta.fps) : (this.frameRate || 30);
+      const templateVertices = this.parseLiveFloat32Payload(
+        meta.vertices,
+        vertexCount > 0 ? vertexCount * 3 : null
+      );
+
+      if (!templateVertices || vertexCount <= 0) {
+        console.warn('[live] MHR subject requires template vertices:', meta.id);
+        return null;
+      }
+
+      const sceneReady = await this.ensureSceneReady();
+      if (!sceneReady) {
+        console.error('[live] Unable to prepare scene for live MHR subject', meta.id);
+        return null;
+      }
+
+      const colorIndex = this.mhrSequences.length % this.colors.length;
+      const baseColor = this.colors[colorIndex]
+        ? this.colors[colorIndex].getHex()
+        : 0x7ec8e3;
+      const built = buildMhrMesh(meta, templateVertices, baseColor);
+      if (!built || !built.mesh) return null;
+
+      const sequenceId = this.nextMhrSequenceId++;
+      const sequence = {
+        id: sequenceId,
+        name: meta.label || meta.id,
+        fileName: `live:${meta.id}`,
+        vertexCount,
+        frameCount: 0,
+        fps,
+        time: [],
+        faces: meta.faces || [],
+        vertices: new Float32Array(0),
+        frameStride: vertexCount * 3,
+        mesh: built.mesh,
+        geometry: built.geometry,
+        positionAttribute: built.positionAttribute,
+        offset: new THREE.Vector3(0, 0, 0),
+        rotation: new THREE.Euler(0, 0, 0, 'XYZ'),
+        color: new THREE.Color(baseColor),
+        visible: true,
+        lastRenderedFrame: -1,
+        isLive: true,
+        liveSubjectId: meta.id,
+        liveHasMesh: true,
+      };
+
+      if (!this.scene.children.includes(built.mesh)) {
+        this.scene.add(built.mesh);
+      }
+
+      sequence.vertices = templateVertices.slice(0, sequence.frameStride);
+      sequence.time = [0];
+      sequence.frameCount = 1;
+
+      this.mhrSequences.push(sequence);
+      this.liveMhrIndices[meta.id] = sequenceId;
+
+      if (!this.animateLoopStarted) {
+        this.animate();
+      }
+
+      if (this.renderer && this.scene && this.camera) {
+        this.renderer.render(this.scene, this.camera);
+      }
+
+      return sequence;
+    },
+
+    appendLiveMhrFrame(sequence, streamData) {
+      const appended = appendLiveMhrFramePayload(sequence, streamData, (payload, expected) => {
+        return this.parseLiveFloat32Payload(payload, expected);
+      });
+      if (appended) {
+        trimLiveMhrMotionBuffers(sequence, this.maxLiveFrames);
+      }
+      return appended;
+    },
+
+    updateLiveMhrSequences() {
+      Object.values(this.liveMhrIndices).forEach((sequenceId) => {
+        const sequence = this.mhrSequences.find((seq) => seq.id === sequenceId);
+        if (!sequence || !sequence.isLive || sequence.frameCount < 1) return;
+        const frameIndex = sequence.frameCount - 1;
+        if (sequence.lastRenderedFrame === frameIndex) return;
+        updateMhrSequenceFrame(sequence, frameIndex, true);
+      });
+    },
+
+    removeLiveMhrSequences() {
+      const ids = Object.values(this.liveMhrIndices);
+      ids.forEach((sequenceId) => this.removeMhrSequence(sequenceId));
+      this.liveMhrIndices = {};
+    },
+
+    removeMhrSequence(sequenceId) {
+      const index = this.mhrSequences.findIndex((seq) => seq.id === sequenceId);
+      if (index === -1) return;
+      const sequence = this.mhrSequences[index];
+      disposeMhrSequence(sequence, this.scene);
+      this.mhrSequences.splice(index, 1);
+    },
+
+    centerCameraOnMhrSequence(sequence) {
+      centerCameraOnMhrSequence(sequence, this.camera, this.controls, this.renderer, this.scene);
     },
 
     generateTimeArray(frameCount, fps) {
@@ -16056,11 +16181,7 @@
 
         socket.onclose = () => {
           console.log('[live] Disconnected');
-          this.liveStatus = 'disconnected';
-          this.liveMode = false;
-          this.liveSocket = null;
-          this.liveAnimationIndices = {};
-          this.removeLiveSmplSequences();
+          this.disconnectLiveStream();
         };
 
         socket.onerror = (err) => {
@@ -16089,11 +16210,15 @@
 
     disconnectLiveStream() {
       if (this.liveSocket) {
+        this.liveSocket.onclose = null; // prevent recursive call
         this.liveSocket.close();
       }
       this.liveSocket = null;
       this.liveStatus = 'disconnected';
       this.liveMode = false;
+      this.liveAnimationIndices = {};
+      this.removeLiveSmplSequences();
+      this.clearScene();
       if (
         this.animations.length === 0 &&
         this.smplSequences.length === 0 &&
@@ -16101,8 +16226,6 @@
       ) {
         this.sceneInitializing = false;
       }
-      this.liveAnimationIndices = {};
-      this.removeLiveSmplSequences();
       this.liveBodyStyle = {};
       this.liveBodyStyleDirty = false;
       this.liveSubjectVisibility = {};
@@ -16226,7 +16349,8 @@
       const hasSubjects = Array.isArray(msg.subjects) && msg.subjects.length > 0;
       const hasBodies = msg.bodies && typeof msg.bodies === 'object' && Object.keys(msg.bodies).length > 0;
       const hasSmplSubjects = Array.isArray(msg.smplSubjects) && msg.smplSubjects.length > 0;
-      return !hasSubjects && !hasBodies && !hasSmplSubjects;
+      const hasMhrSubjects = Array.isArray(msg.mhrSubjects) && msg.mhrSubjects.length > 0;
+      return !hasSubjects && !hasBodies && !hasSmplSubjects && !hasMhrSubjects;
     },
 
     liveHasRenderableOpenSim() {
@@ -16294,6 +16418,7 @@
       this.liveBodyStyleDirty = false;
       this.liveAnimationIndices = {};
       this.removeLiveSmplSequences();
+      this.removeLiveMhrSequences();
       this.liveSubjectVisibility = {};
       this.liveSubjectIds = [];
       this.liveCameraCentered = false;
@@ -16309,9 +16434,11 @@
 
       const smplSubjects = Array.isArray(msg.smplSubjects) ? msg.smplSubjects : [];
       const hasSmplInit = smplSubjects.length > 0;
+      const mhrSubjects = Array.isArray(msg.mhrSubjects) ? msg.mhrSubjects : [];
+      const hasMhrInit = mhrSubjects.length > 0;
 
       // Support multi-subject (subjects array) or single-subject (flat bodies).
-      // SMPL-only inits must not create an empty OpenSim subject (breaks camera + frame routing).
+      // SMPL/MHR-only inits must not create an empty OpenSim subject (breaks camera + frame routing).
       let subjects = Array.isArray(msg.subjects) && msg.subjects.length > 0
         ? msg.subjects
         : [];
@@ -16319,12 +16446,12 @@
         const flatBodies = msg.bodies && typeof msg.bodies === 'object' ? msg.bodies : {};
         if (Object.keys(flatBodies).length > 0) {
           subjects = [{ id: '__default__', bodies: flatBodies }];
-        } else if (!hasSmplInit) {
+        } else if (!hasSmplInit && !hasMhrInit) {
           subjects = [{ id: '__default__', bodies: {} }];
         }
       }
 
-      if (subjects.length === 0 && hasSmplInit) {
+      if (subjects.length === 0 && (hasSmplInit || hasMhrInit)) {
         await this.ensureSceneReady();
         if (this.scene) {
           this.clearScene();
@@ -16382,6 +16509,22 @@
         await this.createLiveSmplSequence(smplMeta);
       }
 
+      for (const mhrMeta of mhrSubjects) {
+        await this.createLiveMhrSequence(mhrMeta);
+      }
+
+      if (Object.keys(this.liveMhrIndices).length > 0) {
+        const firstMhrId = Object.values(this.liveMhrIndices)[0];
+        const liveMhrSeq = this.mhrSequences.find((seq) => seq.id === firstMhrId);
+        if (liveMhrSeq) {
+          updateMhrSequenceFrame(liveMhrSeq, 0, true);
+          if (liveMhrSeq.mesh && Object.keys(this.liveSmplIndices).length === 0) {
+            this.centerCameraOnMhrSequence(liveMhrSeq);
+            this.liveCameraCentered = true;
+          }
+        }
+      }
+
       if (Object.keys(this.liveSmplIndices).length > 0) {
         const firstSmplId = Object.values(this.liveSmplIndices)[0];
         const liveSeq = this.smplSequences.find((seq) => seq.id === firstSmplId);
@@ -16417,13 +16560,22 @@
 
       if (
         Object.keys(this.liveAnimationIndices).length > 0 ||
-        Object.keys(this.liveSmplIndices).length > 0
+        Object.keys(this.liveSmplIndices).length > 0 ||
+        Object.keys(this.liveMhrIndices).length > 0
       ) {
         this.togglePlay(true);
       }
     },
 
     // Apply one camera spec to a specific split-view panel (0 = primary).
+    //
+    // Supports an optional "up" field in any spec object to control the camera's
+    // up vector (i.e. what direction appears as "up" on screen). This is especially
+    // useful for top/bottom views where the default up direction may not match the
+    // desired orientation.
+    //
+    //   {"view": "superior", "up": [1, 0, 0]}   → top-down, +X (anterior) faces screen top
+    //   {"position": [0,5,0], "target": [0,1,0], "up": [1, 0, 0]}  → same via explicit pos
     applyPanelCameraSpec(panelIndex, spec, { bootstrapLiveDefault = false } = {}) {
       const cam = this._getPanelCamera(panelIndex);
       const ctrls = this._getPanelControls(panelIndex);
@@ -16437,9 +16589,23 @@
 
       if (spec == null) return true;
 
+      // Optional "up" override that can be attached to any spec type.
+      const upOverride =
+        spec !== null &&
+        typeof spec === 'object' &&
+        !Array.isArray(spec) &&
+        Array.isArray(spec.up) &&
+        spec.up.length >= 3
+          ? spec.up
+          : null;
+
       if (typeof spec === 'string') {
         if (panelIndex === 0) this.setCameraView(spec);
         else this.onPanelSetView(panelIndex, spec);
+        if (upOverride) {
+          cam.up.set(upOverride[0], upOverride[1], upOverride[2]);
+          ctrls.update();
+        }
         return true;
       }
 
@@ -16447,6 +16613,10 @@
         if (spec.view) {
           if (panelIndex === 0) this.setCameraView(spec.view);
           else this.onPanelSetView(panelIndex, spec.view);
+          if (upOverride) {
+            cam.up.set(upOverride[0], upOverride[1], upOverride[2]);
+            ctrls.update();
+          }
           return true;
         }
         if (Array.isArray(spec.position) && spec.position.length >= 3) {
@@ -16454,6 +16624,9 @@
           const [tx, ty, tz] = spec.target || [0, 1, 0];
           ctrls.target.set(tx, ty, tz);
           cam.position.set(px, py, pz);
+          if (upOverride) {
+            cam.up.set(upOverride[0], upOverride[1], upOverride[2]);
+          }
           ctrls.update();
           return true;
         }
@@ -16505,7 +16678,8 @@
     handleLiveFrame(msg) {
       const hasLiveOpenSim = this.liveHasRenderableOpenSim();
       const hasLiveSmpl = Object.keys(this.liveSmplIndices).length > 0;
-      if (!hasLiveOpenSim && !hasLiveSmpl) {
+      const hasLiveMhr = Object.keys(this.liveMhrIndices).length > 0;
+      if (!hasLiveOpenSim && !hasLiveSmpl && !hasLiveMhr) {
         console.warn('[live] Frame received before init; ignoring');
         return;
       }
@@ -16592,12 +16766,28 @@
         }
       });
 
+      const mhrStreams = msg.mhrStreams && typeof msg.mhrStreams === 'object'
+        ? msg.mhrStreams
+        : {};
+      let mhrMasterTime = null;
+      Object.entries(mhrStreams).forEach(([subjectId, streamData]) => {
+        const sequenceId = this.liveMhrIndices[subjectId];
+        if (sequenceId === undefined) return;
+        const sequence = this.mhrSequences.find((seq) => seq.id === sequenceId);
+        if (!sequence) return;
+        if (this.appendLiveMhrFrame(sequence, streamData)) {
+          if (mhrMasterTime === null && sequence.time.length > 0) {
+            mhrMasterTime = sequence.time;
+          }
+        }
+      });
+
       // If playback is paused, buffer frames but don't update the visible pose yet.
       if (!this.playing) {
         return;
       }
 
-      if (!masterData && !smplMasterTime) {
+      if (!masterData && !smplMasterTime && !mhrMasterTime) {
         return;
       }
 
@@ -16609,12 +16799,16 @@
         this.frames = smplMasterTime;
         this.frame = this.frames.length - 1;
         this.updateDisplayedTime();
+      } else if (mhrMasterTime) {
+        this.frames = mhrMasterTime;
+        this.frame = this.frames.length - 1;
+        this.updateDisplayedTime();
       }
 
       const now = performance.now();
       const masterTimeLen = masterData
         ? masterData.time.length
-        : (smplMasterTime ? smplMasterTime.length : 0);
+        : (smplMasterTime ? smplMasterTime.length : (mhrMasterTime ? mhrMasterTime.length : 0));
       if (masterTimeLen === 1) {
         this.livePrevKeyframeArrivalPerf = null;
         this.liveLastKeyframeArrivalPerf = now;
@@ -16645,6 +16839,9 @@
       if (smplMasterTime) {
         this.updateLiveSmplSequences();
       }
+      if (mhrMasterTime) {
+        this.updateLiveMhrSequences();
+      }
 
       // On the very first rendered frame, re-center the camera on the subject's actual
       // position. The camera angle and distance set by applyLiveCamera are preserved;
@@ -16655,12 +16852,20 @@
         const liveSeq = liveSmplId !== undefined
           ? this.smplSequences.find((seq) => seq.id === liveSmplId)
           : null;
+        const liveMhrId = Object.values(this.liveMhrIndices)[0];
+        const liveMhrSeq = liveMhrId !== undefined
+          ? this.mhrSequences.find((seq) => seq.id === liveMhrId)
+          : null;
         if (hasLiveSmpl && liveSeq && liveSeq.mesh && !hasLiveOpenSim) {
           this.centerCameraOnSmplSequence(liveSeq);
+        } else if (hasLiveMhr && liveMhrSeq && liveMhrSeq.mesh && !hasLiveOpenSim && !hasLiveSmpl) {
+          this.centerCameraOnMhrSequence(liveMhrSeq);
         } else if (hasLiveOpenSim) {
           this.centerCameraOnLiveSubject();
         } else if (liveSeq && liveSeq.mesh) {
           this.centerCameraOnSmplSequence(liveSeq);
+        } else if (liveMhrSeq && liveMhrSeq.mesh) {
+          this.centerCameraOnMhrSequence(liveMhrSeq);
         } else {
           this.centerCameraOnSubject();
         }
@@ -17570,6 +17775,13 @@
           }
         }
       });
+
+      // Remove MHR meshes
+      this.mhrSequences.forEach((sequence) => {
+        disposeMhrSequence(sequence, this.scene);
+      });
+      this.mhrSequences = [];
+      this.liveMhrIndices = {};
 
       // Remove measurement line
       if (this.measurementLine && this.scene.children.includes(this.measurementLine) && !objectsToPreserve.has(this.measurementLine)) {
