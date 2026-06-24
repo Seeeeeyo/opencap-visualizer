@@ -1,6 +1,7 @@
 import Vue from 'vue'
 import VueRouter from 'vue-router'
 import Session from '@/components/pages/Session'
+import Kinematics from '@/components/pages/Kinematics'
 // import HeadlessRenderer from '@/components/pages/HeadlessRenderer'
 
 Vue.use(VueRouter)
@@ -15,6 +16,11 @@ const routes = [
     path: '/samples',
     name: 'Samples',
     component: Session
+  },
+  {
+    path: '/kinematics',
+    name: 'Kinematics',
+    component: Kinematics
   },
 
 ]

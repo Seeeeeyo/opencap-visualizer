@@ -1,0 +1,410 @@
+{
+  "order": [
+    "pelvis",
+    "femur_r",
+    "tibia_r",
+    "talus_r",
+    "calcn_r",
+    "toes_r",
+    "femur_l",
+    "tibia_l",
+    "talus_l",
+    "calcn_l",
+    "toes_l",
+    "torso",
+    "humerus_r",
+    "ulna_r",
+    "radius_r",
+    "hand_r",
+    "humerus_l",
+    "ulna_l",
+    "radius_l",
+    "hand_l"
+  ],
+  "rootPosition": [
+    0.0,
+    0.915482,
+    0.0
+  ],
+  "bodies": {
+    "pelvis": {
+      "parent": null,
+      "offset": [
+        0,
+        0,
+        0
+      ],
+      "scaleFactors": [
+        1.130753,
+        1.130753,
+        1.243874
+      ],
+      "attachedGeometries": [
+        "r_pelvis.vtp",
+        "l_pelvis.vtp",
+        "sacrum.vtp"
+      ]
+    },
+    "femur_r": {
+      "parent": "pelvis",
+      "offset": [
+        -0.063634,
+        -0.088753,
+        0.096102
+      ],
+      "scaleFactors": [
+        0.935704,
+        0.935704,
+        0.935704
+      ],
+      "attachedGeometries": [
+        "r_femur.vtp"
+      ]
+    },
+    "tibia_r": {
+      "parent": "femur_r",
+      "offset": [
+        0.007577,
+        -0.387196,
+        -0.001779
+      ],
+      "scaleFactors": [
+        0.991361,
+        0.991361,
+        0.991361
+      ],
+      "attachedGeometries": [
+        "r_tibia.vtp",
+        "r_fibula.vtp"
+      ]
+    },
+    "talus_r": {
+      "parent": "tibia_r",
+      "offset": [
+        -0.009914,
+        -0.396545,
+        -0.0
+      ],
+      "scaleFactors": [
+        0.978133,
+        0.978133,
+        0.978133
+      ],
+      "attachedGeometries": [
+        "r_talus.vtp"
+      ]
+    },
+    "calcn_r": {
+      "parent": "talus_r",
+      "offset": [
+        -0.047704,
+        -0.041033,
+        0.007747
+      ],
+      "scaleFactors": [
+        0.978133,
+        0.978133,
+        0.978133
+      ],
+      "attachedGeometries": [
+        "r_foot.vtp"
+      ]
+    },
+    "toes_r": {
+      "parent": "calcn_r",
+      "offset": [
+        0.17489,
+        -0.001956,
+        0.001056
+      ],
+      "scaleFactors": [
+        0.978133,
+        0.978133,
+        0.978133
+      ],
+      "attachedGeometries": [
+        "r_bofoot.vtp"
+      ]
+    },
+    "femur_l": {
+      "parent": "pelvis",
+      "offset": [
+        -0.063634,
+        -0.088753,
+        -0.096102
+      ],
+      "scaleFactors": [
+        0.930988,
+        0.930988,
+        0.930988
+      ],
+      "attachedGeometries": [
+        "l_femur.vtp"
+      ]
+    },
+    "tibia_l": {
+      "parent": "femur_l",
+      "offset": [
+        0.00691,
+        -0.381135,
+        0.00114
+      ],
+      "scaleFactors": [
+        0.998896,
+        0.998896,
+        0.998896
+      ],
+      "attachedGeometries": [
+        "l_tibia.vtp",
+        "l_fibula.vtp"
+      ]
+    },
+    "talus_l": {
+      "parent": "tibia_l",
+      "offset": [
+        -0.009989,
+        -0.399558,
+        0.0
+      ],
+      "scaleFactors": [
+        0.961761,
+        0.961761,
+        0.961761
+      ],
+      "attachedGeometries": [
+        "l_talus.vtp"
+      ]
+    },
+    "calcn_l": {
+      "parent": "talus_l",
+      "offset": [
+        -0.046905,
+        -0.040346,
+        -0.007617
+      ],
+      "scaleFactors": [
+        0.961761,
+        0.961761,
+        0.961761
+      ],
+      "attachedGeometries": [
+        "l_foot.vtp"
+      ]
+    },
+    "toes_l": {
+      "parent": "calcn_l",
+      "offset": [
+        0.171963,
+        -0.001924,
+        -0.001039
+      ],
+      "scaleFactors": [
+        0.961761,
+        0.961761,
+        0.961761
+      ],
+      "attachedGeometries": [
+        "l_bofoot.vtp"
+      ]
+    },
+    "torso": {
+      "parent": "pelvis",
+      "offset": [
+        -0.113867,
+        0.092156,
+        -0.0
+      ],
+      "scaleFactors": [
+        1.13109,
+        0.865944,
+        1.056934
+      ],
+      "attachedGeometries": [
+        "hat_spine.vtp",
+        "hat_jaw.vtp",
+        "hat_skull.vtp",
+        "hat_ribs_scap.vtp"
+      ]
+    },
+    "humerus_r": {
+      "parent": "torso",
+      "offset": [
+        -0.019229,
+        0.304379,
+        0.179679
+      ],
+      "scaleFactors": [
+        0.868556,
+        0.868556,
+        0.868556
+      ],
+      "attachedGeometries": [
+        "humerus_rv.vtp"
+      ]
+    },
+    "ulna_r": {
+      "parent": "humerus_r",
+      "offset": [
+        0.011416,
+        -0.248644,
+        -0.008334
+      ],
+      "scaleFactors": [
+        0.954392,
+        0.954392,
+        0.954392
+      ],
+      "attachedGeometries": [
+        "ulna_rv.vtp"
+      ]
+    },
+    "radius_r": {
+      "parent": "ulna_r",
+      "offset": [
+        -0.00642,
+        -0.012414,
+        0.024893
+      ],
+      "scaleFactors": [
+        0.954392,
+        0.954392,
+        0.954392
+      ],
+      "attachedGeometries": [
+        "radius_rv.vtp"
+      ]
+    },
+    "hand_r": {
+      "parent": "radius_r",
+      "offset": [
+        -0.008396,
+        -0.225085,
+        0.012989
+      ],
+      "scaleFactors": [
+        0.811233,
+        0.811233,
+        0.811233
+      ],
+      "attachedGeometries": [
+        "pisiform_rvs.vtp",
+        "lunate_rvs.vtp",
+        "scaphoid_rvs.vtp",
+        "triquetrum_rvs.vtp",
+        "hamate_rvs.vtp",
+        "capitate_rvs.vtp",
+        "trapezoid_rvs.vtp",
+        "trapezium_rvs.vtp",
+        "metacarpal2_rvs.vtp",
+        "index_proximal_rvs.vtp",
+        "index_medial_rvs.vtp",
+        "index_distal_rvs.vtp",
+        "metacarpal3_rvs.vtp",
+        "middle_proximal_rvs.vtp",
+        "middle_medial_rvs.vtp",
+        "middle_distal_rvs.vtp",
+        "metacarpal4_rvs.vtp",
+        "ring_proximal_rvs.vtp",
+        "ring_medial_rvs.vtp",
+        "ring_distal_rvs.vtp",
+        "metacarpal5_rvs.vtp",
+        "little_proximal_rvs.vtp",
+        "little_medial_rvs.vtp",
+        "little_distal_rvs.vtp",
+        "metacarpal1_rvs.vtp",
+        "thumb_proximal_rvs.vtp",
+        "thumb_distal_rvs.vtp"
+      ]
+    },
+    "humerus_l": {
+      "parent": "torso",
+      "offset": [
+        -0.019229,
+        0.304379,
+        -0.179679
+      ],
+      "scaleFactors": [
+        0.875135,
+        0.875135,
+        0.875135
+      ],
+      "attachedGeometries": [
+        "humerus_lv.vtp"
+      ]
+    },
+    "ulna_l": {
+      "parent": "humerus_l",
+      "offset": [
+        0.011503,
+        -0.250528,
+        0.008397
+      ],
+      "scaleFactors": [
+        0.955872,
+        0.955872,
+        0.955872
+      ],
+      "attachedGeometries": [
+        "ulna_lv.vtp"
+      ]
+    },
+    "radius_l": {
+      "parent": "ulna_l",
+      "offset": [
+        -0.00643,
+        -0.012433,
+        -0.024932
+      ],
+      "scaleFactors": [
+        0.955872,
+        0.955872,
+        0.955872
+      ],
+      "attachedGeometries": [
+        "radius_lv.vtp"
+      ]
+    },
+    "hand_l": {
+      "parent": "radius_l",
+      "offset": [
+        -0.008409,
+        -0.225434,
+        -0.013009
+      ],
+      "scaleFactors": [
+        0.812491,
+        0.812491,
+        0.812491
+      ],
+      "attachedGeometries": [
+        "pisiform_lvs.vtp",
+        "lunate_lvs.vtp",
+        "scaphoid_lvs.vtp",
+        "triquetrum_lvs.vtp",
+        "hamate_lvs.vtp",
+        "capitate_lvs.vtp",
+        "trapezoid_lvs.vtp",
+        "trapezium_lvs.vtp",
+        "metacarpal2_lvs.vtp",
+        "index_proximal_lvs.vtp",
+        "index_medial_lvs.vtp",
+        "index_distal_lvs.vtp",
+        "metacarpal3_lvs.vtp",
+        "middle_proximal_lvs.vtp",
+        "middle_medial_lvs.vtp",
+        "middle_distal_lvs.vtp",
+        "metacarpal4_lvs.vtp",
+        "ring_proximal_lvs.vtp",
+        "ring_medial_lvs.vtp",
+        "ring_distal_lvs.vtp",
+        "metacarpal5_lvs.vtp",
+        "little_proximal_lvs.vtp",
+        "little_medial_lvs.vtp",
+        "little_distal_lvs.vtp",
+        "metacarpal1_lvs.vtp",
+        "thumb_proximal_lvs.vtp",
+        "thumb_distal_lvs.vtp"
+      ]
+    }
+  }
+}
