@@ -3697,8 +3697,16 @@
           </v-card>
         </v-dialog>
   
+        <!-- Kinematics Reference link -->
+        <div class="text-center mt-auto pt-2">
+          <v-btn small outlined color="blue lighten-1" to="/kinematics" block>
+            <v-icon left small>mdi-human-handsup</v-icon>
+            Kinematics Reference
+          </v-btn>
+        </div>
+
         <!-- Credits -->
-        <div class="credits mt-auto pt-2 text-center">
+        <div class="credits pt-2 text-center">
           <div class="text-caption grey--text text--lighten-1">
             Developed by <a href="https://www.linkedin.com/in/selim-gilon/" target="_blank" class="text-decoration-none">Selim Gilon</a><br>
             Based on OpenCap<br>
