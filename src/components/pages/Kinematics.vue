@@ -1,10 +1,24 @@
 <template>
-  <div class="kin-page">
+  <div class="kin-page" :class="{ 'kin-page--drawer-open': sidebarOpen }">
+    <!-- Mobile: button to open the measurements drawer -->
+    <button class="kin-menu-btn" @click="sidebarOpen = true" aria-label="Open motions list">
+      <span class="kin-menu-btn__icon">&#9776;</span>
+      <span>Motions</span>
+    </button>
+
+    <!-- Backdrop behind the drawer on small screens -->
+    <div v-if="sidebarOpen" class="kin-backdrop" @click="sidebarOpen = false" />
+
     <!-- Sidebar: list of measurements grouped by joint -->
-    <aside class="kin-sidebar">
+    <aside class="kin-sidebar" :class="{ 'kin-sidebar--open': sidebarOpen }">
       <div class="kin-sidebar__header">
-        <div class="kin-title">Kinematics Reference</div>
-        <div class="kin-subtitle">Joint motions of human biomechanics</div>
+        <div>
+          <div class="kin-title">Kinematics Reference</div>
+          <div class="kin-subtitle">Joint motions of human biomechanics</div>
+        </div>
+        <button class="kin-sidebar__close" @click="sidebarOpen = false" aria-label="Close menu">
+          &times;
+        </button>
       </div>
 
       <div class="kin-list">
@@ -42,18 +56,63 @@
         <div>Loading skeleton… {{ loadedCount }}/{{ totalToLoad }}</div>
       </div>
 
-      <!-- View preset buttons -->
+      <!-- Click-catcher to dismiss open dropdowns -->
+      <div v-if="openMenu" class="kin-menu-catcher" @click="openMenu = null" />
+
+      <!-- Compact dropdown toolbar -->
       <div class="kin-views">
-        <button v-for="v in viewPresets" :key="v.id"
-          class="kin-view-btn" :class="{ 'kin-view-btn--active': activeView === v.id }"
-          @click="selectView(v.id)">{{ v.label }}</button>
-        <span class="kin-views__sep" />
-        <button class="kin-view-btn" :class="{ 'kin-view-btn--active': showPlanes }"
-          @click="togglePlanes">Planes</button>
-        <button class="kin-view-btn" :class="{ 'kin-view-btn--active': showBoneNames }"
-          @click="toggleBoneNames">Bones</button>
-        <button class="kin-view-btn" :class="{ 'kin-view-btn--active': showSubgroups }"
-          @click="toggleSubgroups">Subgroups</button>
+        <!-- View / camera presets -->
+        <div class="kin-dropdown">
+          <button class="kin-view-btn kin-view-btn--menu"
+            :class="{ 'kin-view-btn--active': openMenu === 'view' }"
+            @click="toggleMenu('view')">
+            View: {{ currentViewLabel }} <span class="kin-caret">▾</span>
+          </button>
+          <div v-if="openMenu === 'view'" class="kin-menu">
+            <button v-for="v in viewPresets" :key="v.id"
+              class="kin-menu__item" :class="{ 'kin-menu__item--active': activeView === v.id }"
+              @click="selectView(v.id); openMenu = null">
+              <span class="kin-menu__check">{{ activeView === v.id ? '✓' : '' }}</span>{{ v.label }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Display / overlay toggles -->
+        <div class="kin-dropdown">
+          <button class="kin-view-btn kin-view-btn--menu"
+            :class="{ 'kin-view-btn--active': openMenu === 'display' }"
+            @click="toggleMenu('display')">
+            Display <span class="kin-caret">▾</span>
+          </button>
+          <div v-if="openMenu === 'display'" class="kin-menu kin-menu--wide">
+            <button class="kin-menu__item" :class="{ 'kin-menu__item--active': showPlanes }"
+              @click="togglePlanes">
+              <span class="kin-menu__check">{{ showPlanes ? '✓' : '' }}</span>Planes
+            </button>
+            <button class="kin-menu__item" :class="{ 'kin-menu__item--active': showBoneNames }"
+              @click="toggleBoneNames">
+              <span class="kin-menu__check">{{ showBoneNames ? '✓' : '' }}</span>Bone names
+            </button>
+            <button class="kin-menu__item" :class="{ 'kin-menu__item--active': showSubgroups }"
+              @click="toggleSubgroups">
+              <span class="kin-menu__check">{{ showSubgroups ? '✓' : '' }}</span>Subgroups
+            </button>
+            <button class="kin-menu__item" :class="{ 'kin-menu__item--active': showGuideLabels }"
+              @click="toggleGuideLabels">
+              <span class="kin-menu__check">{{ showGuideLabels ? '✓' : '' }}</span>Motion labels
+            </button>
+            <div class="kin-menu__divider" />
+            <div class="kin-menu__row">
+              <span>Label size</span>
+              <div class="kin-menu__size">
+                <button class="kin-view-btn kin-view-btn--icon" title="Smaller labels"
+                  @click="changeLabelSize(-1)">A&minus;</button>
+                <button class="kin-view-btn kin-view-btn--icon" title="Larger labels"
+                  @click="changeLabelSize(1)">A+</button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Control panel -->
@@ -168,6 +227,10 @@ export default {
       showPlanes: false,
       showBoneNames: false,
       showSubgroups: false,
+      showGuideLabels: true,
+      labelScale: 1,
+      sidebarOpen: false,
+      openMenu: null,
       viewPresets: [
         { id: 'sagittal', label: 'Side' },
         { id: 'frontal', label: 'Front' },
@@ -177,6 +240,10 @@ export default {
     }
   },
   computed: {
+    currentViewLabel() {
+      const v = this.viewPresets.find((p) => p.id === this.activeView)
+      return v ? v.label : '3D'
+    },
     directionLabel() {
       if (!this.selected) return ''
       const dir = this.selected.dir
@@ -544,10 +611,12 @@ export default {
       this.applyPlaneEmphasis()
       this.updatePose(m.neutral)
       this.buildGuide()
+      this.sidebarOpen = false
     },
     selectStatic() {
       this.selected = null
       this.playing = false
+      this.sidebarOpen = false
       this.clearGuide()
       this.visibleBodies = null
       if (this.meshesByBody) {
@@ -618,9 +687,26 @@ export default {
       texture.minFilter = THREE.LinearFilter
       const mat = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false })
       const sprite = new THREE.Sprite(mat)
-      sprite.scale.set(canvas.width * worldScale, canvas.height * worldScale, 1)
+      // Remember the intrinsic size so the user-controlled labelScale can be re-applied.
+      sprite.userData.baseScale = { x: canvas.width * worldScale, y: canvas.height * worldScale }
+      const s = this.labelScale || 1
+      sprite.scale.set(sprite.userData.baseScale.x * s, sprite.userData.baseScale.y * s, 1)
       sprite.renderOrder = 999
       return sprite
+    },
+    applyLabelScale() {
+      if (!this.scene) return
+      const s = this.labelScale
+      this.scene.traverse((o) => {
+        if (o.isSprite && o.userData && o.userData.baseScale) {
+          o.scale.set(o.userData.baseScale.x * s, o.userData.baseScale.y * s, 1)
+        }
+      })
+    },
+    changeLabelSize(delta) {
+      const next = Math.round((this.labelScale + delta * 0.2) * 100) / 100
+      this.labelScale = Math.min(2.6, Math.max(0.4, next))
+      this.applyLabelScale()
     },
     buildGuide() {
       if (!this.scene || !this.selected) return
@@ -683,17 +769,31 @@ export default {
       const labelOffset = 0.05
       const posEnd = pts[N - 1].clone().add(pts[N - 1].clone().sub(C).normalize().multiplyScalar(labelOffset))
       const negEnd = pts[0].clone().add(pts[0].clone().sub(C).normalize().multiplyScalar(labelOffset))
+      this.guideLabelSprites = []
       const s0 = this.makeTextSprite(labels[0], colorStr)
       s0.position.copy(posEnd)
+      s0.visible = this.showGuideLabels
       group.add(s0)
+      this.guideLabelSprites.push(s0)
       if (labels[1]) {
         const s1 = this.makeTextSprite(labels[1], '#c7cdd6')
         s1.position.copy(negEnd)
+        s1.visible = this.showGuideLabels
         group.add(s1)
+        this.guideLabelSprites.push(s1)
       }
 
       this.guideGroup = group
       this.scene.add(group)
+    },
+    toggleGuideLabels() {
+      this.showGuideLabels = !this.showGuideLabels
+      if (this.guideLabelSprites) {
+        this.guideLabelSprites.forEach((s) => (s.visible = this.showGuideLabels))
+      }
+    },
+    toggleMenu(name) {
+      this.openMenu = this.openMenu === name ? null : name
     },
     applyVisibility() {
       if (!this.meshesByBody || !this.selected) return
@@ -943,9 +1043,63 @@ export default {
   border-right: 1px solid #2a2f37;
 
   &__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
     padding: 20px 20px 14px;
     border-bottom: 1px solid #2a2f37;
   }
+
+  &__close {
+    display: none; // shown only on small screens
+    flex: 0 0 auto;
+    width: 34px;
+    height: 34px;
+    border: none;
+    border-radius: 8px;
+    background: #232831;
+    color: #c7cdd6;
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+    &:hover {
+      background: #2b3442;
+      color: #fff;
+    }
+  }
+}
+
+// Mobile-only "open drawer" button (hidden on desktop)
+.kin-menu-btn {
+  display: none;
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 30;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(27, 31, 37, 0.9);
+  border: 1px solid #2a2f37;
+  border-radius: 10px;
+  color: #e9ecf1;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  &__icon {
+    font-size: 15px;
+    line-height: 1;
+  }
+}
+
+.kin-backdrop {
+  display: none;
+  position: absolute;
+  inset: 0;
+  z-index: 35;
+  background: rgba(0, 0, 0, 0.5);
 }
 
 .kin-title {
@@ -1065,6 +1219,7 @@ export default {
   position: absolute;
   top: 16px;
   right: 16px;
+  z-index: 29; // sit above the click-catcher so menu items remain clickable
   display: flex;
   gap: 6px;
   background: rgba(27, 31, 37, 0.8);
@@ -1092,6 +1247,101 @@ export default {
   &--active {
     background: #4995e0;
     color: #fff;
+  }
+  &--icon {
+    min-width: 34px;
+    padding: 6px 8px;
+    font-weight: 700;
+    text-align: center;
+  }
+  &--menu {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+}
+
+.kin-caret {
+  font-size: 10px;
+  opacity: 0.8;
+}
+
+.kin-dropdown {
+  position: relative;
+}
+
+.kin-menu-catcher {
+  position: absolute;
+  inset: 0;
+  z-index: 28;
+}
+
+.kin-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  left: auto;
+  z-index: 25;
+  min-width: 156px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: rgba(27, 31, 37, 0.97);
+  border: 1px solid #2a2f37;
+  border-radius: 10px;
+  padding: 6px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+
+  &--wide {
+    min-width: 196px;
+  }
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: none;
+    color: #c7cdd6;
+    font-size: 13px;
+    padding: 8px 10px;
+    border-radius: 7px;
+    cursor: pointer;
+    &:hover {
+      background: #232831;
+      color: #fff;
+    }
+    &--active {
+      color: #fff;
+    }
+  }
+  &__check {
+    display: inline-block;
+    width: 14px;
+    flex: 0 0 14px;
+    color: #4995e0;
+    font-weight: 700;
+  }
+  &__divider {
+    height: 1px;
+    background: #2a2f37;
+    margin: 4px 2px;
+  }
+  &__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 6px 10px;
+    font-size: 13px;
+    color: #c7cdd6;
+  }
+  &__size {
+    display: flex;
+    gap: 4px;
   }
 }
 
@@ -1197,5 +1447,86 @@ export default {
   font-size: 11px;
   color: #6f7886;
   font-variant-numeric: tabular-nums;
+}
+
+/* ---- Tablet / mobile: sidebar becomes a slide-in drawer ---- */
+@media (max-width: 860px) {
+  .kin-menu-btn {
+    display: inline-flex;
+  }
+
+  .kin-sidebar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: min(320px, 86vw);
+    flex: none;
+    z-index: 40;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.55);
+
+    &--open {
+      transform: translateX(0);
+    }
+    &__close {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+  }
+
+  .kin-page--drawer-open .kin-backdrop {
+    display: block;
+  }
+
+  // Compact dropdown toolbar pinned to the top-right on narrow screens.
+  .kin-views {
+    top: 10px;
+    right: 10px;
+    left: auto;
+    max-width: none;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+    gap: 4px;
+    padding: 4px;
+  }
+  .kin-view-btn {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    font-size: 12px;
+    padding: 6px 9px;
+  }
+
+  .kin-panel {
+    bottom: 14px;
+    padding: 10px 12px;
+    width: calc(100% - 20px);
+  }
+  .kin-controls {
+    gap: 10px;
+  }
+  .kin-play {
+    width: 36px;
+    height: 36px;
+  }
+}
+
+@media (max-width: 480px) {
+  .kin-view-btn {
+    font-size: 11px;
+    padding: 5px 7px;
+  }
+  .kin-play {
+    width: 34px;
+    height: 34px;
+  }
+  .kin-controls {
+    gap: 8px;
+  }
+  .kin-range-label {
+    font-size: 10px;
+  }
 }
 </style>
