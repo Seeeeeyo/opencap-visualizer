@@ -16,7 +16,7 @@ authors:
     affiliation: 1
   - name: Scott Uhlrich
     orcid: 0000-0002-3113-367X
-    affiliation: 1,2
+    affiliation: "1, 2"
 affiliations:
   - name: Department of Mechanical Engineering, University of Utah, Salt Lake City, UT, USA
     index: 1
