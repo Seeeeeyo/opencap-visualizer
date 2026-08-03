@@ -18,9 +18,9 @@ authors:
     orcid: 0000-0002-3113-367X
     affiliation: "1, 2"
 affiliations:
-  - name: Department of Mechanical Engineering, University of Utah, Salt Lake City, UT, USA
+  - name: Department of Mechanical Engineering, University of Utah, Salt Lake City, UT, United States of America
     index: 1
-  - name: Department of Orthopaedic Surgery, University of Utah, Salt Lake City, UT, USA
+  - name: Department of Orthopaedic Surgery, University of Utah, Salt Lake City, UT, United States of America
     index: 2
 date: 30 March 2026
 bibliography: paper.bib
@@ -192,7 +192,7 @@ OpenCap Visualizer supports high-throughput biomechanics workflows where manual,
 - **Education and clinical documentation**: Browser-based visualization removes installation barriers, enabling interactive teaching materials and standardized video generation for documenting patient movement and intervention outcomes.
 
 
-# Research Impact
+# Research Impact Statement
 
 OpenCap Visualizer is integrated into the OpenCap [@opencap] processing pipeline and serves as the default visualization tool for OpenCap Monocular [@opencap-monocular]. The Python package is published on PyPI ([https://pypi.org/project/opencap-visualizer](https://pypi.org/project/opencap-visualizer)) and has been used by our group to run a parameter optimization across several hundred trials to visualize the resulting motions from OpenCap Monocular, with both the qualitative figures and the supplementary motion videos in [@opencap-monocular] generated directly with the tool. The browser viewer has further supported peer collaboration on OpenCap projects through shareable URLs. The codebase is released open-source under the Apache License 2.0 on GitHub with public issue tracking, automated PyPI releases, and worked examples in the repository. Near-term uptake is anticipated by groups working with markerless motion capture, real-time biofeedback, and large-scale field studies, where the absence of a scriptable, browser-based visualizer has been a recurring bottleneck.
 
