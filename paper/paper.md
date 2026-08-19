@@ -204,7 +204,7 @@ Generative AI assistants (GitHub Copilot and Anthropic Claude) were used during 
 
 # Usage Summary
 
-The web visualizer is available at [https://www.visualizer.opencap.ai](https://www.visualizer.opencap.ai). The Python package, *opencap-visualizer*, can be installed via pip at [https://pypi.org/project/opencap-visualizer](https://pypi.org/project/opencap-visualizer). The open-source code and example Python scripts are available at [https://github.com/utahmobl/opencap-visualizer](https://github.com/utahmobl/opencap-visualizer).
+The web visualizer is available at [https://www.visualizer.opencap.ai](https://www.visualizer.opencap.ai). The Python package, *opencap-visualizer*, can be installed via pip at [https://pypi.org/project/opencap-visualizer](https://pypi.org/project/opencap-visualizer). The open-source code and example Python scripts are available at [https://github.com/Seeeeeyo/opencap-visualizer](https://github.com/Seeeeeyo/opencap-visualizer).
 
 
 # References 
