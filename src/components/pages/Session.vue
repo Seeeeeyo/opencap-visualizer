@@ -3850,36 +3850,36 @@
         </v-dialog>
       </div>
 
-      <!-- Live stream notification overlay -->
-      <v-snackbar
-        v-model="liveNotification.show"
-        :timeout="liveNotification.timeout"
-        :color="liveNotification.level === 'error' ? 'red darken-2'
-              : liveNotification.level === 'warning' ? 'orange darken-2'
-              : liveNotification.level === 'success' ? 'green darken-2'
-              : 'indigo darken-2'"
-        class="live-notification-banner"
-        top
-        centered
-        multi-line
-        style="z-index: 9999;"
+      <!-- Live stream notification overlay (supports multi-line text and stacked banners) -->
+      <div
+        v-if="liveNotifications.length"
+        class="live-notification-stack"
       >
-        <div class="d-flex align-center">
-          <v-icon class="mr-3" large>
-            {{ liveNotification.level === 'error' ? 'mdi-alert-circle'
-             : liveNotification.level === 'warning' ? 'mdi-alert'
-             : liveNotification.level === 'success' ? 'mdi-check-circle'
-             : 'mdi-information' }}
-          </v-icon>
-          <span
-            class="live-notification-message font-weight-medium"
-            :style="liveNotification.fontSize ? { fontSize: liveNotification.fontSize } : null"
-          >{{ liveNotification.message }}</span>
-        </div>
-        <template v-slot:action="{ attrs }">
-          <v-btn text v-bind="attrs" @click="liveNotification.show = false">Dismiss</v-btn>
-        </template>
-      </v-snackbar>
+        <v-sheet
+          v-for="notification in liveNotifications"
+          :key="notification.id"
+          :color="liveNotificationColor(notification.level)"
+          class="live-notification-banner pa-3 px-4 d-flex align-center justify-space-between"
+          dark
+          rounded
+          elevation="8"
+        >
+          <div class="d-flex align-center flex-grow-1 mr-3">
+            <v-icon class="mr-3 flex-shrink-0" large>
+              {{ liveNotificationIcon(notification.level) }}
+            </v-icon>
+            <span
+              class="live-notification-message font-weight-medium"
+              :style="notification.fontSize ? { fontSize: notification.fontSize } : null"
+            >{{ notification.message }}</span>
+          </div>
+          <v-btn
+            text
+            class="flex-shrink-0"
+            @click="dismissLiveNotification(notification.id)"
+          >Dismiss</v-btn>
+        </v-sheet>
+      </div>
 
       <!-- Live stream trial scores overlay (full-screen, centered) -->
       <div
@@ -4294,7 +4294,9 @@
               liveLastVisualUpdatePerf: null,
               liveObservedHz: null,
               liveNominalHz: null,
-              liveNotification: { show: false, message: '', level: 'info', timeout: 5000, fontSize: null },
+              liveNotifications: [],
+              liveNotificationTimers: {},
+              liveNotificationIdCounter: 0,
               liveTrialScores: { show: false, scores: [], labels: [], title: '', colors: [] },
               liveTrialScoresTimer: null,
               showLiveStreamDetails: true, // Toggle for Live IK Stream section
@@ -16369,14 +16371,13 @@
       } else if (msg.type === 'subjectVisibility') {
         this.setLiveSubjectVisibility(msg.subjectId, msg.visible !== false);
       } else if (msg.type === 'notification') {
-        this.showLiveNotification(
-          msg.message || '',
-          msg.level || 'info',
-          msg.duration ?? 5000,
-          msg.fontSize ?? msg.font_size ?? null
-        );
+        this.handleLiveNotificationMessage(msg);
       } else if (msg.type === 'dismissNotification') {
-        this.liveNotification.show = false;
+        if (msg.id != null) {
+          this.dismissLiveNotification(msg.id);
+        } else {
+          this.dismissAllLiveNotifications();
+        }
       } else if (msg.type === 'trialScores') {
         this.showLiveTrialScores(msg);
       } else if (msg.type === 'hideScores') {
@@ -16424,14 +16425,82 @@
       return null;
     },
 
-    showLiveNotification(message, level = 'info', duration = 5000, fontSize = null) {
-      this.liveNotification = {
-        show: true,
+    liveNotificationColor(level) {
+      if (level === 'error') return 'red darken-2';
+      if (level === 'warning') return 'orange darken-2';
+      if (level === 'success') return 'green darken-2';
+      return 'indigo darken-2';
+    },
+
+    liveNotificationIcon(level) {
+      if (level === 'error') return 'mdi-alert-circle';
+      if (level === 'warning') return 'mdi-alert';
+      if (level === 'success') return 'mdi-check-circle';
+      return 'mdi-information';
+    },
+
+    handleLiveNotificationMessage(msg) {
+      const level = msg.level || 'info';
+      const duration = msg.duration ?? 5000;
+      const fontSize = this.normalizeLiveNotificationFontSize(msg.fontSize ?? msg.font_size ?? null);
+      const append = msg.append === true;
+
+      if (!append) {
+        this.dismissAllLiveNotifications();
+      }
+
+      if (Array.isArray(msg.messages) && msg.messages.length > 0) {
+        msg.messages.forEach((text) => {
+          if (text != null && String(text).trim()) {
+            this.addLiveNotification(String(text), level, duration, fontSize);
+          }
+        });
+        return;
+      }
+
+      this.addLiveNotification(msg.message || '', level, duration, fontSize);
+    },
+
+    addLiveNotification(message, level = 'info', duration = 5000, fontSize = null) {
+      const id = ++this.liveNotificationIdCounter;
+      this.liveNotifications.push({
+        id,
         message,
         level,
-        timeout: duration,
-        fontSize: this.normalizeLiveNotificationFontSize(fontSize)
-      };
+        fontSize
+      });
+
+      if (duration > 0) {
+        this.scheduleLiveNotificationDismiss(id, duration);
+      }
+    },
+
+    scheduleLiveNotificationDismiss(id, duration) {
+      if (this.liveNotificationTimers[id]) {
+        clearTimeout(this.liveNotificationTimers[id]);
+      }
+
+      this.liveNotificationTimers[id] = setTimeout(() => {
+        this.dismissLiveNotification(id);
+      }, duration);
+    },
+
+    dismissLiveNotification(id) {
+      const index = this.liveNotifications.findIndex((notification) => notification.id === id);
+      if (index >= 0) {
+        this.liveNotifications.splice(index, 1);
+      }
+
+      if (this.liveNotificationTimers[id]) {
+        clearTimeout(this.liveNotificationTimers[id]);
+        delete this.liveNotificationTimers[id];
+      }
+    },
+
+    dismissAllLiveNotifications() {
+      Object.values(this.liveNotificationTimers).forEach((timerId) => clearTimeout(timerId));
+      this.liveNotificationTimers = {};
+      this.liveNotifications = [];
     },
 
     showLiveTrialScores(msg) {
@@ -19758,22 +19827,33 @@
     cursor: default;
   }
 
-  .live-notification-banner {
-    max-width: min(90vw, 960px);
+  .live-notification-stack {
+    position: fixed;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: min(90vw, 960px);
+    pointer-events: none;
   }
 
-  .live-notification-banner :deep(.v-snack__wrapper) {
-    max-width: min(90vw, 960px);
+  .live-notification-banner {
+    width: 100%;
     min-width: min(560px, 90vw);
+    pointer-events: auto;
   }
 
   .live-notification-message {
     font-size: clamp(1.25rem, 1rem + 0.8vw, 1.9rem);
     line-height: 1.35;
+    white-space: pre-line;
   }
 
   @media (max-width: 600px) {
-    .live-notification-banner :deep(.v-snack__wrapper) {
+    .live-notification-banner {
       min-width: 90vw;
     }
 
