@@ -172,21 +172,41 @@ def _parse_notify_command(rest: str):
     return level, font_size, message
 
 
-async def send_notification(message: str, level: str = "info", duration: int = 5000, font_size=None):
+async def send_notification(
+    message=None,
+    messages=None,
+    level: str = "info",
+    duration: int = 5000,
+    font_size=None,
+    append: bool = False,
+):
     """
     Show a notification banner on every connected visualizer client.
 
+    message  : single banner text; use "\\n" for line breaks within one banner
+    messages : list of strings, each shown as a separate stacked banner
     level    : "info" | "success" | "warning" | "error"
     duration : how long (ms) the banner stays visible (0 = until dismissed)
     font_size: optional CSS font size (for example 32, "32px", or "1.8rem")
+    append   : when True, add banners without clearing existing ones
 
     Can also be called programmatically when embedding this script:
         asyncio.run(send_notification("Great job!", level="success", font_size=32))
+        asyncio.run(send_notification(messages=["Feedback A", "Feedback B"]))
     """
-    payload = {"type": "notification", "message": message, "level": level, "duration": duration}
+    payload = {"type": "notification", "level": level, "duration": duration}
     normalized_font_size = _normalize_notification_font_size(font_size)
     if normalized_font_size:
         payload["fontSize"] = normalized_font_size
+    if append:
+        payload["append"] = True
+
+    if messages:
+        payload["messages"] = [str(item) for item in messages if item is not None and str(item).strip()]
+    elif message is not None:
+        payload["message"] = str(message)
+    else:
+        payload["message"] = ""
 
     msg = json.dumps(payload)
     for ws in list(_CONNECTED_CLIENTS):
@@ -855,10 +875,11 @@ async def main():
 
         Commands
         --------
-        notify <message>                    – info banner
+        notify <message>                    – info banner (use \\n for line breaks)
         notify <level> <message>            – banner with level (info/success/warning/error)
         notify <level> size=<font-size> <message> – banner with custom text size
-        dismiss                             – dismiss the current notification banner
+        notify-stack <message> || <message> – stacked banners (optional level/size prefix)
+        dismiss                             – dismiss all notification banners
         scores <n1> <n2> <n3> <n4> <n5> [label1 ... label5] [colors: g o r g o] [title: text]  – trial scores (g/r/o=green/red/orange)
         hidescores                          – hide the trial scores plot
         hide <subject_id>                   – hide a subject
@@ -888,10 +909,11 @@ async def main():
                 if verb == "help":
                     print(
                         "Commands:\n"
-                        "  notify <message>              – info notification\n"
+                        "  notify <message>              – info notification (use \\n for line breaks)\n"
                         "  notify <level> <message>      – notification with level (info/success/warning/error)\n"
                         "  notify <level> size=<font-size> <message> – notification with custom text size\n"
-                        "  dismiss                       – dismiss current notification banner\n"
+                        "  notify-stack [level] [size=<font-size>] <msg> || <msg> – stacked banners\n"
+                        "  dismiss                       – dismiss all notification banners\n"
                         "  camera <preset|json>          – update primary camera\n"
                         "  panels <count> <preset> ...   – split view (1–4 panels)\n"
                         "  panels [<json array>]         – split view with JSON panel specs\n"
@@ -904,11 +926,29 @@ async def main():
                     parsed = _parse_notify_command(rest)
                     if parsed:
                         level, font_size, msg_text = parsed
+                        msg_text = msg_text.replace("\\n", "\n")
                         await send_notification(msg_text, level=level, font_size=font_size)
                         size_text = f" size={_normalize_notification_font_size(font_size)}" if font_size else ""
                         print(f"[notify:{level}{size_text}] {msg_text}")
                     else:
                         print("Usage: notify [level] [size=<font-size>] <message>")
+                elif verb == "notify-stack":
+                    if not rest or "||" not in rest:
+                        print("Usage: notify-stack [level] [size=<font-size>] <message> || <message>")
+                    else:
+                        segments = [part.strip() for part in rest.split("||")]
+                        parsed = _parse_notify_command(segments[0])
+                        if not parsed:
+                            print("Usage: notify-stack [level] [size=<font-size>] <message> || <message>")
+                        else:
+                            level, font_size, first_message = parsed
+                            stack_messages = [first_message] + [part for part in segments[1:] if part]
+                            await send_notification(
+                                messages=stack_messages,
+                                level=level,
+                                font_size=font_size,
+                            )
+                            print(f"[notify-stack:{level}] {stack_messages}")
                 elif verb == "dismiss":
                     await send_dismiss_notification()
                     print("[dismiss] notification hidden")
