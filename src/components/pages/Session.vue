@@ -289,6 +289,113 @@
                     Stream Hz: {{ liveStreamHzDisplay }}
                   </div>
 
+                  <div v-if="liveMode || liveStatus === 'connected'" class="mt-3">
+                    <v-divider class="mb-3" dark></v-divider>
+                    <v-switch
+                      :input-value="liveTarget.enabled"
+                      dense
+                      hide-details
+                      color="cyan lighten-2"
+                      class="mt-0"
+                      label="Target"
+                      @change="onLiveTargetEnabledChange"
+                    ></v-switch>
+                    <div v-show="liveTarget.enabled">
+                      <v-select
+                        v-model="liveTarget.objectType"
+                        :items="liveTargetObjectTypes"
+                        dense
+                        hide-details
+                        label="Object type"
+                        class="mt-2"
+                        @change="onLiveTargetObjectTypeChange"
+                      ></v-select>
+                      <div class="text-caption grey--text mt-3 mb-1">
+                        Size (m): {{ Number(liveTarget.size).toFixed(2) }}
+                      </div>
+                      <v-slider
+                        :value="liveTarget.size"
+                        dense
+                        hide-details
+                        :min="0.03"
+                        :max="1.0"
+                        :step="0.01"
+                        color="cyan lighten-2"
+                        @input="onLiveTargetSizeInput"
+                      ></v-slider>
+                      <div class="text-caption grey--text mt-3 mb-1">
+                        Position from pelvis (m)
+                      </div>
+                      <div class="d-flex">
+                        <v-text-field
+                          :value="liveTarget.position.x"
+                          dense
+                          hide-details
+                          type="number"
+                          step="0.01"
+                          label="X"
+                          class="mr-1"
+                          @input="(value) => onLiveTargetPositionInput('x', value)"
+                        ></v-text-field>
+                        <v-text-field
+                          :value="liveTarget.position.y"
+                          dense
+                          hide-details
+                          type="number"
+                          step="0.01"
+                          label="Y"
+                          class="mx-1"
+                          @input="(value) => onLiveTargetPositionInput('y', value)"
+                        ></v-text-field>
+                        <v-text-field
+                          :value="liveTarget.position.z"
+                          dense
+                          hide-details
+                          type="number"
+                          step="0.01"
+                          label="Z"
+                          class="ml-1"
+                          @input="(value) => onLiveTargetPositionInput('z', value)"
+                        ></v-text-field>
+                      </div>
+                      <div class="text-caption grey--text mt-3 mb-1">
+                        Rotation (deg)
+                      </div>
+                      <div class="d-flex">
+                        <v-text-field
+                          :value="liveTarget.rotation.x"
+                          dense
+                          hide-details
+                          type="number"
+                          step="1"
+                          label="X"
+                          class="mr-1"
+                          @input="(value) => onLiveTargetRotationInput('x', value)"
+                        ></v-text-field>
+                        <v-text-field
+                          :value="liveTarget.rotation.y"
+                          dense
+                          hide-details
+                          type="number"
+                          step="1"
+                          label="Y"
+                          class="mx-1"
+                          @input="(value) => onLiveTargetRotationInput('y', value)"
+                        ></v-text-field>
+                        <v-text-field
+                          :value="liveTarget.rotation.z"
+                          dense
+                          hide-details
+                          type="number"
+                          step="1"
+                          label="Z"
+                          class="ml-1"
+                          @input="(value) => onLiveTargetRotationInput('z', value)"
+                        ></v-text-field>
+                      </div>
+                    </div>
+                  </div>
+
                   <!-- Multi-camera split view picker, also exposed here so it's
                        reachable while configuring or watching a live stream. -->
                   <div class="d-flex align-center mt-3">
@@ -2367,7 +2474,7 @@
               Default pacing follows the JSON timestamps (~30 Hz cap). For sparse live streams, the visualizer eases toward the newest live pose at display rate while keeping the newest streamed frame authoritative.
             </p>
             <p class="mb-4 text-caption grey--text">
-              OpenSim segment meshes follow the same live body poses as the skeleton. For a deforming SMPL mesh with fixed shape, include <span class="font-weight-medium">smplSubjects</span> in <span class="font-weight-medium">init</span> (template vertices + faces) and per-frame <span class="font-weight-medium">vertices</span> (and optional <span class="font-weight-medium">joints</span>) in <span class="font-weight-medium">smplStreams</span> on each <span class="font-weight-medium">frame</span> message. For Meta MHR mesh motion (SAM 3D Body / Momentum Human Rig), use <span class="font-weight-medium">mhrSubjects</span> and <span class="font-weight-medium">mhrStreams</span> with the same vertex + faces layout; run <span class="font-weight-medium">python live_stream_from_mhr.py --demo</span> to test.
+              OpenSim segment meshes follow the same live body poses as the skeleton. For a deforming SMPL mesh with fixed shape, include <span class="font-weight-medium">smplSubjects</span> in <span class="font-weight-medium">init</span> (template vertices + faces) and per-frame <span class="font-weight-medium">vertices</span> (and optional <span class="font-weight-medium">joints</span>) in <span class="font-weight-medium">smplStreams</span> on each <span class="font-weight-medium">frame</span> message. For Meta MHR mesh motion (SAM 3D Body / Momentum Human Rig), use <span class="font-weight-medium">mhrSubjects</span> and <span class="font-weight-medium">mhrStreams</span> with the same vertex + faces layout. Add a pelvis-relative reach target with <span class="font-weight-medium">target</span>: <span class="font-weight-medium">{ objectType, size, position, rotation }</span> on init, frame, or a standalone target message; run <span class="font-weight-medium">python live_stream_from_mhr.py --demo</span> to test.
             </p>
             <div class="d-flex flex-column">
               <v-btn
@@ -4299,6 +4406,24 @@
               liveNotificationIdCounter: 0,
               liveTrialScores: { show: false, scores: [], labels: [], title: '', colors: [] },
               liveTrialScoresTimer: null,
+              liveTarget: {
+                enabled: false,
+                streamControlled: false,
+                subjectId: null,
+                objectType: 'sphere',
+                size: 0.15,
+                position: { x: 0.5, y: 1.0, z: 0 },
+                rotation: { x: 0, y: 0, z: 0 },
+                color: '#ff3b30',
+                opacity: 0.9
+              },
+              liveTargetObjectTypes: [
+                { text: 'Sphere', value: 'sphere' },
+                { text: 'Box', value: 'box' },
+                { text: 'Cylinder', value: 'cylinder' },
+                { text: 'Ring', value: 'ring' }
+              ],
+              liveTargetMesh: null,
               showLiveStreamDetails: true, // Toggle for Live IK Stream section
               showSyncDetails: false, // Toggle for Sync section
               showAnimationsDetails: true, // Toggle for Animations section (default true since it's the main content)
@@ -4642,6 +4767,7 @@
         URL.revokeObjectURL(this.videoUrl);
       }
       this.disposeVideoPlane();
+      this.disposeLiveTargetMesh();
 
       if (this.resizeObserver) {
         this.resizeObserver.unobserve(this.$refs.mocap)
@@ -8660,6 +8786,7 @@
           if (this.playing) {
             this.updateLiveSmplSequences();
             this.updateLiveMhrSequences();
+            this.updateLiveTargetTransform();
           }
           if (this.renderer && this.scene && this.camera) {
             this.renderer.render(this.scene, this.camera);
@@ -8934,6 +9061,10 @@
             this.updateForceArrows(cframe);
           }
 
+          if (this.liveMode) {
+            this.updateLiveTargetTransform();
+          }
+
           // Render the scene again after force updates
           if (this.renderer && this.scene && this.camera) {
             this.updateVideoPlaneTransform();
@@ -9047,6 +9178,7 @@
             });
           }
         });
+        this.updateLiveTargetTransform();
       },
 
       togglePlay(value) {
@@ -16330,6 +16462,7 @@
       this.liveMode = false;
       this.liveAnimationIndices = {};
       this.removeLiveSmplSequences();
+      this.disposeLiveTargetMesh();
       this.clearScene();
       if (
         this.animations.length === 0 &&
@@ -16354,6 +16487,7 @@
         this.liveTrialScoresTimer = null;
       }
       this.liveTrialScores = { show: false, scores: [], labels: [], title: '', colors: [] };
+      this.resetLiveTargetState();
       this.liveMessageQueue = Promise.resolve();
     },
 
@@ -16368,6 +16502,8 @@
         this.handleLiveCameraUpdate(msg);
       } else if (msg.type === 'frame') {
         this.handleLiveFrame(msg);
+      } else if (msg.type === 'target') {
+        this.handleLiveTargetMessage(msg);
       } else if (msg.type === 'subjectVisibility') {
         this.setLiveSubjectVisibility(msg.subjectId, msg.visible !== false);
       } else if (msg.type === 'notification') {
@@ -16520,6 +16656,342 @@
       this.liveTrialScores = { show: false, scores: [], labels: [], title: '', colors: [] };
     },
 
+    defaultLiveTargetState() {
+      return {
+        enabled: false,
+        streamControlled: false,
+        subjectId: null,
+        objectType: 'sphere',
+        size: 0.15,
+        position: { x: 0.5, y: 1.0, z: 0 },
+        rotation: { x: 0, y: 0, z: 0 },
+        color: '#ff3b30',
+        opacity: 0.9
+      };
+    },
+
+    resetLiveTargetState({ preserveManual = false } = {}) {
+      const current = this.liveTarget || this.defaultLiveTargetState();
+      const keepManual = preserveManual && current.enabled && !current.streamControlled;
+      const next = keepManual
+        ? {
+            ...this.defaultLiveTargetState(),
+            enabled: true,
+            streamControlled: false,
+            subjectId: current.subjectId || null,
+            objectType: current.objectType || 'sphere',
+            size: current.size,
+            position: { ...current.position },
+            rotation: { ...(current.rotation || { x: 0, y: 0, z: 0 }) },
+            color: current.color || '#ff3b30',
+            opacity: current.opacity ?? 0.9
+          }
+        : this.defaultLiveTargetState();
+
+      this.disposeLiveTargetMesh();
+      this.$set(this, 'liveTarget', next);
+    },
+
+    disposeLiveTargetMesh() {
+      if (!this.liveTargetMesh) return;
+      if (this.scene && this.liveTargetMesh.parent) {
+        this.liveTargetMesh.parent.remove(this.liveTargetMesh);
+      }
+      if (this.liveTargetMesh.geometry) {
+        this.liveTargetMesh.geometry.dispose();
+      }
+      const material = this.liveTargetMesh.material;
+      if (Array.isArray(material)) {
+        material.forEach(mat => mat.dispose && mat.dispose());
+      } else if (material && material.dispose) {
+        material.dispose();
+      }
+      this.liveTargetMesh = null;
+    },
+
+    normalizeLiveTargetPosition(value) {
+      if (Array.isArray(value) && value.length >= 3) {
+        const parsed = value.slice(0, 3).map(item => Number(item));
+        return parsed.every(Number.isFinite)
+          ? { x: parsed[0], y: parsed[1], z: parsed[2] }
+          : null;
+      }
+      if (value && typeof value === 'object') {
+        const x = Number(value.x);
+        const y = Number(value.y);
+        const z = Number(value.z);
+        return [x, y, z].every(Number.isFinite) ? { x, y, z } : null;
+      }
+      return null;
+    },
+
+    normalizeLiveTargetRotation(value, unit = 'degrees') {
+      const normalized = this.normalizeLiveTargetPosition(value);
+      if (!normalized) return null;
+      if (unit === 'radians') {
+        return {
+          x: THREE.Math.radToDeg(normalized.x),
+          y: THREE.Math.radToDeg(normalized.y),
+          z: THREE.Math.radToDeg(normalized.z)
+        };
+      }
+      return normalized;
+    },
+
+    normalizeLiveTargetSpec(msg) {
+      const raw = msg && msg.target !== undefined ? msg.target : msg;
+      if (raw === false || raw === null) {
+        return { enabled: false, streamControlled: true };
+      }
+      if (!raw || typeof raw !== 'object') {
+        return null;
+      }
+
+      const validTypes = new Set(this.liveTargetObjectTypes.map(item => item.value));
+      const requestedType = raw.objectType || raw.object_type || raw.shape || raw.geometry || raw.targetType;
+      const objectType = validTypes.has(requestedType) ? requestedType : (raw.type && validTypes.has(raw.type) ? raw.type : null);
+
+      let size = raw.size ?? raw.radius ?? raw.diameter;
+      if (Array.isArray(size)) {
+        size = Math.max(...size.map(item => Number(item)).filter(Number.isFinite));
+      }
+      const numericSize = Number(size);
+
+      const position =
+        this.normalizeLiveTargetPosition(raw.position) ||
+        this.normalizeLiveTargetPosition(raw.pos) ||
+        this.normalizeLiveTargetPosition(raw.relativePosition) ||
+        this.normalizeLiveTargetPosition(raw.relative_position);
+      const rotation =
+        this.normalizeLiveTargetRotation(raw.rotationDegrees || raw.rotation_degrees || raw.rotation, 'degrees') ||
+        this.normalizeLiveTargetRotation(raw.rotationRadians || raw.rotation_radians, 'radians');
+
+      const spec = {
+        enabled: raw.visible === false || raw.enabled === false ? false : true,
+        streamControlled: true
+      };
+      if (objectType) spec.objectType = objectType;
+      if (Number.isFinite(numericSize) && numericSize > 0) {
+        spec.size = Math.min(Math.max(numericSize, 0.01), 5);
+      }
+      if (position) spec.position = position;
+      if (rotation) spec.rotation = rotation;
+      if (typeof raw.color === 'string') spec.color = raw.color;
+      if (Number.isFinite(Number(raw.opacity))) {
+        spec.opacity = Math.min(Math.max(Number(raw.opacity), 0), 1);
+      }
+      if (raw.subjectId || raw.subject_id) {
+        spec.subjectId = raw.subjectId || raw.subject_id;
+      }
+      return spec;
+    },
+
+    handleLiveTargetMessage(msg) {
+      const spec = this.normalizeLiveTargetSpec(msg);
+      if (!spec) return;
+
+      const next = {
+        ...this.liveTarget,
+        ...spec,
+        position: spec.position ? { ...spec.position } : { ...this.liveTarget.position },
+        rotation: spec.rotation ? { ...spec.rotation } : { ...(this.liveTarget.rotation || { x: 0, y: 0, z: 0 }) }
+      };
+      this.$set(this, 'liveTarget', next);
+      if (!next.enabled) {
+        this.disposeLiveTargetMesh();
+        return;
+      }
+      this.ensureLiveTargetMesh();
+      this.updateLiveTargetTransform();
+      if (this.renderer && this.scene && this.camera) {
+        this.renderer.render(this.scene, this.camera);
+      }
+    },
+
+    onLiveTargetEnabledChange(value) {
+      this.$set(this.liveTarget, 'enabled', value === true);
+      this.$set(this.liveTarget, 'streamControlled', false);
+      if (this.liveTarget.enabled) {
+        this.ensureLiveTargetMesh();
+        this.updateLiveTargetTransform();
+      } else {
+        this.disposeLiveTargetMesh();
+      }
+      if (this.renderer && this.scene && this.camera) {
+        this.renderer.render(this.scene, this.camera);
+      }
+    },
+
+    onLiveTargetObjectTypeChange() {
+      this.$set(this.liveTarget, 'streamControlled', false);
+      this.rebuildLiveTargetMesh();
+      this.updateLiveTargetTransform();
+    },
+
+    onLiveTargetSizeInput(value) {
+      const size = Number(value);
+      if (!Number.isFinite(size) || size <= 0) return;
+      this.$set(this.liveTarget, 'size', Math.min(Math.max(size, 0.01), 5));
+      this.$set(this.liveTarget, 'streamControlled', false);
+      this.rebuildLiveTargetMesh();
+      this.updateLiveTargetTransform();
+    },
+
+    onLiveTargetPositionInput(axis, value) {
+      if (!['x', 'y', 'z'].includes(axis)) return;
+      const numeric = Number(value);
+      if (!Number.isFinite(numeric)) return;
+      this.$set(this.liveTarget.position, axis, numeric);
+      this.$set(this.liveTarget, 'streamControlled', false);
+      this.updateLiveTargetTransform();
+    },
+
+    onLiveTargetRotationInput(axis, value) {
+      if (!['x', 'y', 'z'].includes(axis)) return;
+      const numeric = Number(value);
+      if (!Number.isFinite(numeric)) return;
+      if (!this.liveTarget.rotation) {
+        this.$set(this.liveTarget, 'rotation', { x: 0, y: 0, z: 0 });
+      }
+      this.$set(this.liveTarget.rotation, axis, numeric);
+      this.$set(this.liveTarget, 'streamControlled', false);
+      this.updateLiveTargetTransform();
+    },
+
+    buildLiveTargetGeometry() {
+      const size = Math.min(Math.max(Number(this.liveTarget.size) || 0.15, 0.01), 5);
+      switch (this.liveTarget.objectType) {
+        case 'box':
+          return new THREE.BoxGeometry(size, size, size);
+        case 'cylinder':
+          return new THREE.CylinderGeometry(size * 0.5, size * 0.5, size, 32);
+        case 'ring':
+          return new THREE.TorusGeometry(size * 0.5, size * 0.06, 12, 48);
+        case 'sphere':
+        default:
+          return new THREE.SphereGeometry(size * 0.5, 32, 16);
+      }
+    },
+
+    ensureLiveTargetMesh() {
+      if (!this.scene || !this.liveTarget.enabled) return null;
+      if (this.liveTargetMesh && this.liveTargetMesh.userData.objectType === this.liveTarget.objectType) {
+        return this.liveTargetMesh;
+      }
+      this.rebuildLiveTargetMesh();
+      return this.liveTargetMesh;
+    },
+
+    rebuildLiveTargetMesh() {
+      if (!this.scene || !this.liveTarget.enabled) return;
+      const previous = this.liveTargetMesh;
+      const material = previous && previous.material
+        ? previous.material
+        : new THREE.MeshPhongMaterial({
+            color: new THREE.Color(this.liveTarget.color || '#ff3b30'),
+            emissive: new THREE.Color(0x330000),
+            transparent: true,
+            opacity: this.liveTarget.opacity ?? 0.9,
+            shininess: 60,
+            side: THREE.DoubleSide
+          });
+      if (previous) {
+        if (previous.parent) previous.parent.remove(previous);
+        if (previous.geometry) previous.geometry.dispose();
+      }
+
+      const mesh = new THREE.Mesh(this.buildLiveTargetGeometry(), material);
+      mesh.name = 'liveTarget';
+      mesh.userData.objectType = this.liveTarget.objectType;
+      mesh.castShadow = true;
+      mesh.receiveShadow = false;
+      mesh.frustumCulled = false;
+      this.liveTargetMesh = mesh;
+      this.scene.add(mesh);
+      this.updateLiveTargetMaterial();
+    },
+
+    updateLiveTargetMaterial() {
+      if (!this.liveTargetMesh || !this.liveTargetMesh.material) return;
+      try {
+        this.liveTargetMesh.material.color.set(this.liveTarget.color || '#ff3b30');
+      } catch (e) {
+        this.liveTargetMesh.material.color.set('#ff3b30');
+      }
+      this.liveTargetMesh.material.opacity = this.liveTarget.opacity ?? 0.9;
+      this.liveTargetMesh.material.transparent = this.liveTargetMesh.material.opacity < 1;
+      this.liveTargetMesh.material.needsUpdate = true;
+    },
+
+    getLivePelvisWorldPosition(subjectId = null) {
+      const preferredSubjectId = subjectId || this.liveTarget.subjectId || this.liveSubjectIds[0] || Object.keys(this.liveAnimationIndices)[0];
+      const openSimIndex = preferredSubjectId ? this.liveAnimationIndices[preferredSubjectId] : undefined;
+      if (openSimIndex !== undefined) {
+        const anim = this.animations[openSimIndex];
+        const bodies = anim && anim.data ? anim.data.bodies : null;
+        const pelvis = bodies && (bodies.pelvis || bodies.Pelvis || bodies.midHip || bodies.hip);
+        const translations = pelvis && pelvis.translation;
+        const frameIndex = Math.min(Math.max(this.frame || 0, 0), Math.max((translations || []).length - 1, 0));
+        if (translations && translations[frameIndex]) {
+          return new THREE.Vector3(
+            translations[frameIndex][0] + anim.offset.x,
+            translations[frameIndex][1] + anim.offset.y,
+            translations[frameIndex][2] + anim.offset.z
+          );
+        }
+      }
+
+      const smplSubjectId = subjectId || this.liveTarget.subjectId || Object.keys(this.liveSmplIndices)[0];
+      const smplSequenceId = smplSubjectId ? this.liveSmplIndices[smplSubjectId] : undefined;
+      if (smplSequenceId !== undefined) {
+        const sequence = this.smplSequences.find(seq => seq.id === smplSequenceId);
+        if (sequence && sequence.joints && sequence.jointStride > 0) {
+          const frameIndex = Math.min(Math.max(sequence.frameCount - 1, 0), Math.max(sequence.time.length - 1, 0));
+          const start = frameIndex * sequence.jointStride;
+          if (start + 2 < sequence.joints.length) {
+            return new THREE.Vector3(
+              sequence.joints[start] + sequence.offset.x,
+              sequence.joints[start + 1] + sequence.offset.y,
+              sequence.joints[start + 2] + sequence.offset.z
+            );
+          }
+        }
+      }
+
+      const mhrSubjectId = subjectId || this.liveTarget.subjectId || Object.keys(this.liveMhrIndices)[0];
+      const mhrSequenceId = mhrSubjectId ? this.liveMhrIndices[mhrSubjectId] : undefined;
+      if (mhrSequenceId !== undefined) {
+        const sequence = this.mhrSequences.find(seq => seq.id === mhrSequenceId);
+        if (sequence && sequence.mesh) {
+          return sequence.mesh.position.clone();
+        }
+      }
+
+      return new THREE.Vector3(0, 0, 0);
+    },
+
+    updateLiveTargetTransform() {
+      if (!this.liveMode || !this.liveTarget.enabled) return;
+      const mesh = this.ensureLiveTargetMesh();
+      if (!mesh) return;
+
+      this.updateLiveTargetMaterial();
+      const pelvis = this.getLivePelvisWorldPosition(this.liveTarget.subjectId);
+      const rel = this.liveTarget.position || { x: 0, y: 0, z: 0 };
+      mesh.position.set(
+        pelvis.x + (Number(rel.x) || 0),
+        pelvis.y + (Number(rel.y) || 0),
+        pelvis.z + (Number(rel.z) || 0)
+      );
+      const rot = this.liveTarget.rotation || { x: 0, y: 0, z: 0 };
+      mesh.rotation.set(
+        THREE.Math.degToRad(Number(rot.x) || 0),
+        THREE.Math.degToRad(Number(rot.y) || 0),
+        THREE.Math.degToRad(Number(rot.z) || 0)
+      );
+      mesh.visible = true;
+    },
+
     isCameraOnlyLiveInit(msg) {
       if (!msg || typeof msg !== 'object') return false;
       const hasCamera = !!msg.camera || !!msg.panels;
@@ -16598,6 +17070,7 @@
       this.liveAnimationIndices = {};
       this.removeLiveSmplSequences();
       this.removeLiveMhrSequences();
+      this.resetLiveTargetState({ preserveManual: true });
       this.liveSubjectVisibility = {};
       this.liveSubjectIds = [];
       this.liveCameraCentered = false;
@@ -16736,6 +17209,12 @@
 
       this.applyLiveBodyStyle({ render: false });
       this.handleLiveCameraUpdate(msg);
+      if (msg.target !== undefined) {
+        this.handleLiveTargetMessage({ target: msg.target });
+      } else if (this.liveTarget.enabled) {
+        this.ensureLiveTargetMesh();
+        this.updateLiveTargetTransform();
+      }
 
       if (
         Object.keys(this.liveAnimationIndices).length > 0 ||
@@ -16864,6 +17343,9 @@
       }
 
       const streams = msg.streams && typeof msg.streams === 'object' ? msg.streams : {};
+      if (msg.target !== undefined) {
+        this.handleLiveTargetMessage({ target: msg.target });
+      }
 
       // Backward-compat: flat msg.time/msg.bodies with no streams dict (single-subject servers)
       if (Object.keys(streams).length === 0 && (msg.time !== undefined || msg.bodies !== undefined)) {
@@ -16883,6 +17365,12 @@
         if (!anim) return;
 
         const data = anim.data;
+        if (streamData && streamData.target !== undefined) {
+          const target = streamData.target && typeof streamData.target === 'object'
+            ? { ...streamData.target, subjectId: streamData.target.subjectId || streamData.target.subject_id || subjectId }
+            : streamData.target;
+          this.handleLiveTargetMessage({ target });
+        }
         const t = typeof streamData.time === 'number'
           ? streamData.time
           : (data.time.length > 0 ? data.time[data.time.length - 1] : 0);
@@ -16938,6 +17426,12 @@
         if (sequenceId === undefined) return;
         const sequence = this.smplSequences.find((seq) => seq.id === sequenceId);
         if (!sequence) return;
+        if (streamData && streamData.target !== undefined) {
+          const target = streamData.target && typeof streamData.target === 'object'
+            ? { ...streamData.target, subjectId: streamData.target.subjectId || streamData.target.subject_id || subjectId }
+            : streamData.target;
+          this.handleLiveTargetMessage({ target });
+        }
         if (this.appendLiveSmplFrame(sequence, streamData)) {
           if (smplMasterTime === null && sequence.time.length > 0) {
             smplMasterTime = sequence.time;
@@ -16954,6 +17448,12 @@
         if (sequenceId === undefined) return;
         const sequence = this.mhrSequences.find((seq) => seq.id === sequenceId);
         if (!sequence) return;
+        if (streamData && streamData.target !== undefined) {
+          const target = streamData.target && typeof streamData.target === 'object'
+            ? { ...streamData.target, subjectId: streamData.target.subjectId || streamData.target.subject_id || subjectId }
+            : streamData.target;
+          this.handleLiveTargetMessage({ target });
+        }
         if (this.appendLiveMhrFrame(sequence, streamData)) {
           if (mhrMasterTime === null && sequence.time.length > 0) {
             mhrMasterTime = sequence.time;
@@ -17021,6 +17521,7 @@
       if (mhrMasterTime) {
         this.updateLiveMhrSequences();
       }
+      this.updateLiveTargetTransform();
 
       // On the very first rendered frame, re-center the camera on the subject's actual
       // position. The camera angle and distance set by applyLiveCamera are preserved;
@@ -17961,6 +18462,7 @@
       });
       this.mhrSequences = [];
       this.liveMhrIndices = {};
+      this.disposeLiveTargetMesh();
 
       // Remove measurement line
       if (this.measurementLine && this.scene.children.includes(this.measurementLine) && !objectsToPreserve.has(this.measurementLine)) {

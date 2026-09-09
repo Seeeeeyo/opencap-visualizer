@@ -99,6 +99,8 @@ Interactive commands (type while the server is running):
     panels 3 anterior sagittal_right superior
     panels 4 anterior sagittal_right superior posterior
     panels [{"view":"anterior"},{"position":[3,2,-4],"target":[0,1,0]}]
+    target {"objectType":"sphere","size":0.15,"position":[0.5,1.0,0],"rotation":[0,0,0]} → pelvis-relative target
+    target off                         → hide the live 3D target
     scores 85 72 90 68 88 [label1 ...] [colors: g o r g o] [title: text] → trial scores (g/r/o = green/red/orange)
     hidescores                        → hide the trial scores plot
     hide subject_0                    → hide a subject
@@ -291,6 +293,54 @@ async def send_trial_scores(
 async def send_hide_scores():
     """Hide the trial scores plot on every connected visualizer client."""
     msg = json.dumps({"type": "hideScores"})
+    for ws in list(_CONNECTED_CLIENTS):
+        try:
+            await ws.send(msg)
+        except Exception:
+            pass
+
+
+async def send_target(
+    object_type: str = "sphere",
+    size: float = 0.15,
+    position: list[float] | tuple[float, float, float] = (0.5, 1.0, 0.0),
+    rotation: list[float] | tuple[float, float, float] | None = None,
+    visible: bool = True,
+    subject_id: str | None = None,
+    color: str = "#ff3b30",
+    opacity: float = 0.9,
+):
+    """
+    Show or update a pelvis-relative 3D target on every connected visualizer client.
+
+    object_type: sphere | box | cylinder | ring
+    size       : target diameter/extent in meters
+    position   : [x, y, z] meters relative to the pelvis/root origin
+    rotation   : optional [x, y, z] degrees around world axes
+    """
+    payload = {
+        "objectType": object_type,
+        "size": float(size),
+        "position": [float(v) for v in position[:3]],
+        "visible": bool(visible),
+        "color": color,
+        "opacity": float(opacity),
+    }
+    if rotation is not None:
+        payload["rotation"] = [float(v) for v in rotation[:3]]
+    if subject_id:
+        payload["subjectId"] = subject_id
+    msg = json.dumps({"type": "target", "target": payload})
+    for ws in list(_CONNECTED_CLIENTS):
+        try:
+            await ws.send(msg)
+        except Exception:
+            pass
+
+
+async def hide_target():
+    """Hide the live 3D target on every connected visualizer client."""
+    msg = json.dumps({"type": "target", "target": {"visible": False}})
     for ws in list(_CONNECTED_CLIENTS):
         try:
             await ws.send(msg)
@@ -917,6 +967,8 @@ async def main():
                         "  camera <preset|json>          – update primary camera\n"
                         "  panels <count> <preset> ...   – split view (1–4 panels)\n"
                         "  panels [<json array>]         – split view with JSON panel specs\n"
+                        "  target <json>                 – update pelvis-relative 3D target\n"
+                        "  target off                    – hide 3D target\n"
                         "  scores <n1> <n2> <n3> <n4> <n5> [label1 ... label5] [colors: g o r g o] [title: text]  – trial scores (g/r/o=green/red/orange)\n"
                         "  hidescores                   – hide trial scores plot\n"
                         "  hide <subject_id>             – hide subject\n"
@@ -966,6 +1018,33 @@ async def main():
                     else:
                         await send_camera_panels(panel_specs, split_view_count=count)
                         print(f"[panels] count={count} specs={panel_specs}")
+                elif verb == "target":
+                    if rest.lower() in {"off", "hide", "false", "0"}:
+                        await hide_target()
+                        print("[target] hidden")
+                    else:
+                        try:
+                            target = json.loads(rest)
+                            position = target.get("position") or target.get("pos") or target.get("relativePosition")
+                            if not isinstance(position, list) or len(position) < 3:
+                                raise ValueError("target JSON requires position: [x, y, z]")
+                            rotation = target.get("rotation") or target.get("rotationDegrees") or target.get("rotation_degrees")
+                            if rotation is not None and (not isinstance(rotation, list) or len(rotation) < 3):
+                                raise ValueError("rotation must be [x, y, z] degrees")
+                            await send_target(
+                                object_type=target.get("objectType") or target.get("object_type") or target.get("shape") or "sphere",
+                                size=target.get("size", 0.15),
+                                position=position,
+                                rotation=rotation,
+                                visible=target.get("visible", True),
+                                subject_id=target.get("subjectId") or target.get("subject_id"),
+                                color=target.get("color", "#ff3b30"),
+                                opacity=target.get("opacity", 0.9),
+                            )
+                            print(f"[target] {target}")
+                        except Exception as e:
+                            print('Usage: target {"objectType":"box","size":0.15,"position":[0.5,1.0,0],"rotation":[0,45,0]}  OR  target off')
+                            print(f"[target] Error: {e}")
                 elif verb == "scores" and rest:
                     remainder = rest
                     title = None

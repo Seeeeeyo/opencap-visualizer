@@ -151,10 +151,34 @@ Notes:
 
 The live WebSocket notification message accepts:
 
-- `message`
+- `message`: single banner text; `\n` renders as a line break within one banner
+- `messages`: array of strings, each shown as a separate stacked banner
 - `level`: `info`, `success`, `warning`, or `error`
 - `duration`: milliseconds, with `0` meaning until dismissed
 - `fontSize`: optional font size for the banner text, such as `32`, `"32px"`, or `"1.8rem"`
+- `append`: when `true`, add banners without clearing existing ones
+
+Single banner with line breaks:
+
+```json
+{
+  "type": "notification",
+  "message": "1. Extend your elbow\n2. Don't shrug your shoulder",
+  "level": "info",
+  "duration": 0
+}
+```
+
+Stacked banners:
+
+```json
+{
+  "type": "notification",
+  "messages": ["1. Extend your elbow", "2. Don't shrug your shoulder"],
+  "level": "info",
+  "duration": 0
+}
+```
 
 Raw WebSocket example:
 
@@ -171,6 +195,8 @@ Raw WebSocket example:
 If you are using the repo-local helper script interactively, you can also send:
 
 ```bash
+notify info 1. Extend your elbow\n2. Don't shrug your shoulder
+notify-stack info 1. Extend your elbow || 2. Don't shrug your shoulder
 notify success size=32 Great technique!
 panels 2 anterior sagittal_right
 panels 4 anterior sagittal_right superior posterior
