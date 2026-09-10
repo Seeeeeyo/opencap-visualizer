@@ -144,7 +144,8 @@ Notes:
 
 - By default, the helper follows the JSON timestamps and caps playback near 30 Hz.
 - `--stream-hz <value>` down-samples the source JSON and emits frames at a fixed wall-clock cadence, which is useful for testing sparse live streams such as `6 Hz`.
-- In live mode, the viewer does not predict beyond the newest received frame. It visually smooths motion by easing each mesh toward the latest streamed pose on every display frame, so fresh packets remain authoritative.
+- In live mode, **Low-latency motion smoothing** is enabled by default. The viewer eases motion at display refresh rate and predicts at most half of one observed stream interval beyond the newest pose, avoiding a delayed frame buffer while smoothing 20–30 Hz input.
+- Disable **Low-latency motion smoothing** in the Live IK Stream panel to render each received pose directly.
 - The **Live IK Stream** panel shows the observed stream rate in Hz, and when available also shows the nominal rate reported by the sender.
 
 ### Live Notification Messages
