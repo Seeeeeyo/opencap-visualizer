@@ -288,6 +288,30 @@
                   <div class="text-caption grey--text mt-2">
                     Stream Hz: {{ liveStreamHzDisplay }}
                   </div>
+                  <div class="text-caption grey--text mt-1" v-if="liveCaptureToScreenLowerBoundMs !== null">
+                    Camera capture→screen: ≥{{ Math.round(liveCaptureToScreenLowerBoundMs) }} ms
+                  </div>
+                  <div class="text-caption grey--text mt-1" v-if="livePhoneCaptureDeliveryMs !== null">
+                    iPhone capture delivery: {{ Math.round(livePhoneCaptureDeliveryMs) }} ms
+                  </div>
+                  <div class="text-caption grey--text mt-1" v-if="livePhoneServerHoldMs !== null">
+                    iPhone server hold: {{ livePhoneServerHoldMs.toFixed(1) }} ms
+                  </div>
+                  <div class="text-caption grey--text mt-1" v-if="liveHostFrameLatencyMs !== null">
+                    Host receipt→screen: {{ Math.round(liveHostFrameLatencyMs) }} ms
+                  </div>
+                  <div class="text-caption grey--text mt-1" v-if="liveHostProcessingLatencyMs !== null">
+                    PC pipeline: {{ Math.round(liveHostProcessingLatencyMs) }} ms
+                  </div>
+                  <div class="text-caption grey--text mt-1" v-if="liveTransportLatencyMs !== null">
+                    Server send→screen: {{ Math.round(liveTransportLatencyMs) }} ms
+                  </div>
+                  <div class="text-caption grey--text mt-1" v-if="liveBrowserQueueLatencyMs !== null">
+                    Browser receive→screen: {{ Math.round(liveBrowserQueueLatencyMs) }} ms
+                  </div>
+                  <div class="text-caption grey--text text--darken-1 mt-1" v-if="liveHostFrameLatencyMs !== null">
+                    Camera total is a lower bound; excludes USB transit and monitor pixel response.
+                  </div>
                   <div class="d-flex align-center mt-1">
                     <v-switch
                       v-model="liveVisualInterpolation"
@@ -4294,13 +4318,24 @@
               liveSmplIndices: {}, // map from live SMPL subject ID -> smplSequences[].id
               liveMhrIndices: {}, // map from live MHR subject ID -> mhrSequences[].id
               liveMessageQueue: Promise.resolve(), // serializes init before frames (async handleLiveInit)
+              livePendingFrameMessage: null, // newest unrendered live frame; stale frames are overwritten
+              liveFrameMessageScheduled: false,
+              liveDroppedFrameMessages: 0,
+              liveCaptureToScreenLowerBoundMs: null,
+              livePhoneCaptureDeliveryMs: null,
+              livePhoneServerHoldMs: null,
+              liveHostFrameLatencyMs: null,
+              liveHostProcessingLatencyMs: null,
+              liveTransportLatencyMs: null,
+              liveBrowserQueueLatencyMs: null,
+              livePendingLatencySample: null,
               liveBodyStyle: {}, // map from subject ID -> { bodyName: { visible, color } }
               liveBodyStyleDirty: false, // avoid reapplying live mesh style every render tick
               liveSubjectVisibility: {}, // map from subject ID -> boolean (true = visible)
               liveSubjectIds: [], // ordered list of connected subject IDs (for UI)
               liveCameraCentered: false, // true once the camera has been centered on the subject's real position
-              // Render-rate easing plus bounded prediction between streamed poses.
-              liveVisualInterpolation: true,
+              // Default to exact latest-pose rendering for minimum live latency.
+              liveVisualInterpolation: false,
               livePrevKeyframeArrivalPerf: null,
               liveLastKeyframeArrivalPerf: null,
               liveLastVisualUpdatePerf: null,
@@ -4574,6 +4609,8 @@
             this.groundColor = '#000000';
         }
   
+        this.applyLiveQueryParams();
+
         // Add keyboard event listeners
         window.addEventListener('keydown', this.handleKeyDown);
   
@@ -8675,6 +8712,7 @@
           }
           if (this.renderer && this.scene && this.camera) {
             this.renderer.render(this.scene, this.camera);
+            this.recordLiveFrameRendered();
           }
           if (!this.isHeadlessFastMode) {
             this.drawProjectedSkeleton();
@@ -16230,7 +16268,29 @@
         return this.handleFileUpload(fakeEvent, { skipModelSelection: true });
     },
 
-    // --- Auto-connect: silently probe liveUrl and connect when a server appears ---
+    parseLiveBooleanQuery(value, fallback) {
+      if (value === undefined || value === null) return fallback;
+      if (value === true || value === false) return value;
+      const normalized = String(value).trim().toLowerCase();
+      if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
+      if (['0', 'false', 'no', 'off'].includes(normalized)) return false;
+      return fallback;
+    },
+
+    applyLiveQueryParams() {
+      const query = (this.$route && this.$route.query) ? this.$route.query : {};
+      if (typeof query.live_url === 'string' && query.live_url.trim()) {
+        this.liveUrl = query.live_url.trim();
+      }
+      if (query.live_autoconnect !== undefined) {
+        this.liveAutoConnect = this.parseLiveBooleanQuery(query.live_autoconnect, this.liveAutoConnect);
+      }
+      if (query.live_smoothing !== undefined) {
+        this.liveVisualInterpolation = this.parseLiveBooleanQuery(query.live_smoothing, this.liveVisualInterpolation);
+      }
+    },
+
+    // --- Auto-connect: try the liveUrl directly and reconnect if it drops ---
 
     scheduleLiveProbe(delayMs = 3000) {
       if (this.liveAutoConnectTimer) clearTimeout(this.liveAutoConnectTimer);
@@ -16240,44 +16300,7 @@
     probeLiveServer() {
       this.liveAutoConnectTimer = null;
       if (!this.liveAutoConnect || this.liveSocket) return;
-
-      let probe;
-      try {
-        probe = new WebSocket(this.liveUrl || 'ws://localhost:8765');
-      } catch (e) {
-        this.scheduleLiveProbe();
-        return;
-      }
-
-      // Safety: close the probe after 3 s if it hasn't resolved yet
-      const safetyTimer = setTimeout(() => {
-        if (probe.readyState === WebSocket.CONNECTING) {
-          probe.onopen = probe.onerror = probe.onclose = null;
-          probe.close();
-          this.scheduleLiveProbe();
-        }
-      }, 3000);
-
-      probe.onopen = () => {
-        clearTimeout(safetyTimer);
-        probe.onopen = probe.onerror = probe.onclose = null;
-        probe.close();
-        if (this.liveAutoConnect && !this.liveSocket) {
-          this.connectLiveStream();
-        }
-      };
-
-      probe.onerror = () => {
-        clearTimeout(safetyTimer);
-        probe.onopen = probe.onerror = probe.onclose = null;
-        this.scheduleLiveProbe();
-      };
-
-      probe.onclose = () => {
-        clearTimeout(safetyTimer);
-        probe.onopen = probe.onerror = probe.onclose = null;
-        if (!this.liveSocket) this.scheduleLiveProbe();
-      };
+      this.connectLiveStream();
     },
 
     onLiveAutoConnectToggle(val) {
@@ -16332,11 +16355,19 @@
 
         this.liveMessageQueue = Promise.resolve();
         socket.onmessage = (event) => {
+          const browserReceivedWallTimeMs = Date.now();
+          const browserReceivedPerfMs = performance.now();
           let msg;
           try {
             msg = JSON.parse(event.data);
           } catch (e) {
             console.error('[live] Failed to parse message', e);
+            return;
+          }
+          if (msg.type === 'frame') {
+            msg.browserReceivedWallTimeMs = browserReceivedWallTimeMs;
+            msg.browserReceivedPerfMs = browserReceivedPerfMs;
+            this.enqueueLiveFrameMessage(msg);
             return;
           }
           this.liveMessageQueue = this.liveMessageQueue
@@ -16391,6 +16422,17 @@
       this.liveLastVisualUpdatePerf = null;
       this.liveObservedHz = null;
       this.liveNominalHz = null;
+      this.livePendingFrameMessage = null;
+      this.liveFrameMessageScheduled = false;
+      this.liveDroppedFrameMessages = 0;
+      this.liveCaptureToScreenLowerBoundMs = null;
+      this.livePhoneCaptureDeliveryMs = null;
+      this.livePhoneServerHoldMs = null;
+      this.liveHostFrameLatencyMs = null;
+      this.liveHostProcessingLatencyMs = null;
+      this.liveTransportLatencyMs = null;
+      this.liveBrowserQueueLatencyMs = null;
+      this.livePendingLatencySample = null;
       this._liveFloat32MismatchLogged = false;
       if (this.liveTrialScoresTimer) {
         clearTimeout(this.liveTrialScoresTimer);
@@ -16398,6 +16440,97 @@
       }
       this.liveTrialScores = { show: false, scores: [], labels: [], title: '', colors: [] };
       this.liveMessageQueue = Promise.resolve();
+    },
+
+    enqueueLiveFrameMessage(msg) {
+      if (this.livePendingFrameMessage) {
+        this.liveDroppedFrameMessages += 1;
+      }
+      this.livePendingFrameMessage = msg;
+      if (this.liveFrameMessageScheduled) {
+        return;
+      }
+
+      this.liveFrameMessageScheduled = true;
+      this.liveMessageQueue = this.liveMessageQueue
+        .then(() => {
+          this.liveFrameMessageScheduled = false;
+          const latest = this.livePendingFrameMessage;
+          this.livePendingFrameMessage = null;
+          if (latest) {
+            this.handleLiveFrame(latest);
+          }
+        })
+        .catch((e) => {
+          this.liveFrameMessageScheduled = false;
+          console.error('[live] Frame handler error', e);
+        });
+    },
+
+    updateLiveLatencyMetric(name, value) {
+      if (!Number.isFinite(value)) return;
+      const bounded = Math.max(0, value);
+      const previous = this[name];
+      this[name] = Number.isFinite(previous)
+        ? (0.2 * bounded) + (0.8 * previous)
+        : bounded;
+    },
+
+    recordLiveFrameRendered() {
+      const sample = this.livePendingLatencySample;
+      if (!sample) return;
+      this.livePendingLatencySample = null;
+
+      const renderedWallTimeMs = Date.now();
+      const renderedPerfMs = performance.now();
+      if (Number.isFinite(sample.captureDeliveryMs)) {
+        this.updateLiveLatencyMetric(
+          'livePhoneCaptureDeliveryMs',
+          sample.captureDeliveryMs
+        );
+      }
+      if (Number.isFinite(sample.phoneServerHoldMs)) {
+        this.updateLiveLatencyMetric(
+          'livePhoneServerHoldMs',
+          sample.phoneServerHoldMs
+        );
+      }
+      if (Number.isFinite(sample.hostReceiveWallTimeMs)) {
+        const hostToScreenMs = renderedWallTimeMs - sample.hostReceiveWallTimeMs;
+        this.updateLiveLatencyMetric(
+          'liveHostFrameLatencyMs',
+          hostToScreenMs
+        );
+        if (Number.isFinite(sample.captureDeliveryMs)) {
+          this.updateLiveLatencyMetric(
+            'liveCaptureToScreenLowerBoundMs',
+            sample.captureDeliveryMs +
+              (Number.isFinite(sample.phoneServerHoldMs) ? sample.phoneServerHoldMs : 0) +
+              hostToScreenMs
+          );
+        }
+      }
+      if (
+        Number.isFinite(sample.hostReceiveWallTimeMs) &&
+        Number.isFinite(sample.serverWallTimeMs)
+      ) {
+        this.updateLiveLatencyMetric(
+          'liveHostProcessingLatencyMs',
+          sample.serverWallTimeMs - sample.hostReceiveWallTimeMs
+        );
+      }
+      if (Number.isFinite(sample.serverWallTimeMs)) {
+        this.updateLiveLatencyMetric(
+          'liveTransportLatencyMs',
+          renderedWallTimeMs - sample.serverWallTimeMs
+        );
+      }
+      if (Number.isFinite(sample.browserReceivedPerfMs)) {
+        this.updateLiveLatencyMetric(
+          'liveBrowserQueueLatencyMs',
+          renderedPerfMs - sample.browserReceivedPerfMs
+        );
+      }
     },
 
     async processLiveWebSocketMessage(msg) {
@@ -17051,9 +17184,17 @@
         masterData &&
         this.liveVisualInterpolation &&
         masterData.time.length >= 2;
+      this.livePendingLatencySample = {
+        hostReceiveWallTimeMs: Number(msg.hostReceiveWallTimeMs),
+        serverWallTimeMs: Number(msg.serverWallTimeMs),
+        browserReceivedPerfMs: Number(msg.browserReceivedPerfMs),
+        captureDeliveryMs: Number(msg.captureDeliveryMs),
+        phoneServerHoldMs: Number(msg.phoneServerHoldMs)
+      };
       if (!skipDiscreteOpenSim) {
         if (masterData) {
           this.animateOneFrame();
+          this.recordLiveFrameRendered();
         }
       } else {
         this.updateLiveInterpolatedMeshes();
