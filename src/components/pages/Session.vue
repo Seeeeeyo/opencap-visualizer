@@ -4302,12 +4302,17 @@
               modelChoices: [
                 { name: 'Lai Arnold', folder_name: 'LaiArnold', enabled: true },
                 { name: 'Hu Shoulder', folder_name: 'Hu_ISB_shoulder', enabled: true },
+                { name: 'LaiUhlrich + Hu', folder_name: 'LaiUhlrich_Hu', enabled: true },
                 { name: 'Upload Geometry Folder', folder_name: '__uploaded_geometry__', enabled: true },
                 { name: 'Placeholder Model 3', folder_name: 'placeholder_model_3', enabled: false },
                 // { name: 'Placeholder Model 4', folder_name: 'placeholder_model_4', enabled: false },
                 // { name: 'Placeholder Model 5', folder_name: 'placeholder_model_5', enabled: false },
                 // { name: 'Placeholder Model 6', folder_name: 'placeholder_model_6', enabled: false }
               ],
+              // Combined model: prefer Hu shoulder meshes, then LaiArnold, then generic S3 root
+              combinedModelGeometryFolders: {
+                LaiUhlrich_Hu: ['Hu_ISB_shoulder', 'LaiArnold'],
+              },
   
               showAxes: false, // Add this line to control axes visibility
               axesGroup: null, // Add this line to store the axes group
@@ -18735,6 +18740,19 @@
     buildGeometryPaths(geom, folderName = '') {
       if (folderName === this.customGeometryModelKey) {
         return [this.buildGeometryPath(geom, '')];
+      }
+      const sourceFolders = this.combinedModelGeometryFolders?.[folderName];
+      if (sourceFolders?.length) {
+        const baseName = geom.substr(0, geom.length - 4);
+        const paths = [
+          // Existing S3 model folders (Hu shoulder meshes first, then LaiArnold)
+          ...sourceFolders.map((src) => this.buildGeometryPath(geom, src)),
+          // Local merged copy under public/models/<combined>/
+          `/models/${folderName}/${baseName}.obj`,
+          // Generic S3 root fallback
+          this.buildGeometryPath(geom, ''),
+        ];
+        return [...new Set(paths)];
       }
       const primary = this.buildGeometryPath(geom, folderName);
       const fallback = this.buildGeometryPath(geom, '');
