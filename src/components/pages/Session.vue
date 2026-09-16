@@ -2468,10 +2468,10 @@
               The Python script connects to the visualizer via WebSocket and streams frames from a JSON file in real-time. For a fixed low-rate stream (e.g. 6 Hz) to test interpolation in the viewer, add <span class="font-weight-medium">--stream-hz 6</span>. Example:
             </p>
             <div class="code-block pa-3 mb-4" style="background-color: rgba(255, 255, 255, 0.05); border-radius: 4px; font-family: monospace; font-size: 12px;">
-              python live_stream_from_json.py path/to/sample.json --stream-hz 6
+              python live_stream_from_json.py path/to/sample.json --stream-hz 6 --rep 3 --reps 10
             </div>
             <p class="mb-4 text-caption grey--text">
-              Default pacing follows the JSON timestamps (~30 Hz cap). For sparse live streams, the visualizer eases toward the newest live pose at display rate while keeping the newest streamed frame authoritative.
+              Default pacing follows the JSON timestamps (~30 Hz cap). For sparse live streams, the visualizer eases toward the newest live pose at display rate while keeping the newest streamed frame authoritative. Optional <span class="font-weight-medium">--rep</span> / <span class="font-weight-medium">--reps</span> show a repetition counter (e.g. 3/10) in the viewer; update live with the stdin command <span class="font-weight-medium">reps 4 10</span>.
             </p>
             <p class="mb-4 text-caption grey--text">
               OpenSim segment meshes follow the same live body poses as the skeleton. For a deforming SMPL mesh with fixed shape, include <span class="font-weight-medium">smplSubjects</span> in <span class="font-weight-medium">init</span> (template vertices + faces) and per-frame <span class="font-weight-medium">vertices</span> (and optional <span class="font-weight-medium">joints</span>) in <span class="font-weight-medium">smplStreams</span> on each <span class="font-weight-medium">frame</span> message. For Meta MHR mesh motion (SAM 3D Body / Momentum Human Rig), use <span class="font-weight-medium">mhrSubjects</span> and <span class="font-weight-medium">mhrStreams</span> with the same vertex + faces layout. Add a pelvis-relative reach target with <span class="font-weight-medium">target</span>: <span class="font-weight-medium">{ objectType, size, position, rotation }</span> on init, frame, or a standalone target message; run <span class="font-weight-medium">python live_stream_from_mhr.py --demo</span> to test.
@@ -4001,6 +4001,15 @@
           :colors="liveTrialScores.colors"
         />
       </div>
+
+      <!-- Live stream repetition counter (e.g. 3/10) -->
+      <div
+        v-if="liveRepetition.show && liveMode"
+        class="live-repetition-counter"
+        aria-live="polite"
+      >
+        {{ liveRepetitionDisplay }}
+      </div>
     </div>
   </template>
   
@@ -4411,6 +4420,7 @@
               liveNotificationIdCounter: 0,
               liveTrialScores: { show: false, scores: [], labels: [], title: '', colors: [] },
               liveTrialScoresTimer: null,
+              liveRepetition: { show: false, current: 0, total: 0 },
               liveTarget: {
                 enabled: false,
                 streamControlled: false,
@@ -4512,6 +4522,10 @@
             ? `${this.liveNominalHz.toFixed(0)} Hz nominal`
             : null;
           return nominal ? `${observed} (${nominal})` : observed;
+        },
+        liveRepetitionDisplay() {
+          if (!this.liveRepetition || !this.liveRepetition.show) return '';
+          return `${this.liveRepetition.current}/${this.liveRepetition.total}`;
         },
         formattedVideoDuration() {
           if (!Number.isFinite(this.videoDuration) || this.videoDuration <= 0) {
@@ -16492,6 +16506,7 @@
         this.liveTrialScoresTimer = null;
       }
       this.liveTrialScores = { show: false, scores: [], labels: [], title: '', colors: [] };
+      this.liveRepetition = { show: false, current: 0, total: 0 };
       this.resetLiveTargetState();
       this.liveMessageQueue = Promise.resolve();
     },
@@ -16523,6 +16538,10 @@
         this.showLiveTrialScores(msg);
       } else if (msg.type === 'hideScores') {
         this.hideLiveTrialScores();
+      } else if (msg.type === 'repetition') {
+        this.showLiveRepetition(msg);
+      } else if (msg.type === 'hideRepetition') {
+        this.hideLiveRepetition();
       }
     },
 
@@ -16659,6 +16678,26 @@
         this.liveTrialScoresTimer = null;
       }
       this.liveTrialScores = { show: false, scores: [], labels: [], title: '', colors: [] };
+    },
+
+    showLiveRepetition(msg) {
+      const source = (msg && msg.repetition && typeof msg.repetition === 'object')
+        ? msg.repetition
+        : msg;
+      const current = Number(source && source.current);
+      const total = Number(source && source.total);
+      if (!Number.isFinite(current) || !Number.isFinite(total) || total < 1 || current < 0) {
+        return;
+      }
+      this.liveRepetition = {
+        show: true,
+        current: Math.trunc(current),
+        total: Math.trunc(total)
+      };
+    },
+
+    hideLiveRepetition() {
+      this.liveRepetition = { show: false, current: 0, total: 0 };
     },
 
     defaultLiveTargetState() {
@@ -17085,6 +17124,12 @@
       this.liveObservedHz = null;
       this.liveNominalHz = null;
       this._liveFloat32MismatchLogged = false;
+
+      if (msg.repetition) {
+        this.showLiveRepetition(msg);
+      } else {
+        this.hideLiveRepetition();
+      }
 
       // Global body style fallback (single-subject legacy or applied to all subjects)
       const globalBodyStyle = msg.bodyStyle && typeof msg.bodyStyle === 'object' ? msg.bodyStyle : null;
@@ -20358,6 +20403,30 @@
     gap: 8px;
     width: min(90vw, 960px);
     pointer-events: none;
+  }
+
+  .live-repetition-counter {
+    position: fixed;
+    top: 20px;
+    right: 24px;
+    z-index: 9997;
+    pointer-events: none;
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    font-size: clamp(2.4rem, 2rem + 2vw, 4rem);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: #ffffff;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.65);
+    line-height: 1;
+    user-select: none;
+  }
+
+  @media (max-width: 600px) {
+    .live-repetition-counter {
+      top: 12px;
+      right: 14px;
+      font-size: clamp(1.8rem, 1.4rem + 3vw, 2.6rem);
+    }
   }
 
   .live-notification-banner {
