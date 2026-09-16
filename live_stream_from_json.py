@@ -73,9 +73,11 @@ Model options:
     # Single model for all subjects (folder_name from the visualizer model list)
     --model LaiArnold
     --model Hu_ISB_shoulder
+    --model LaiUhlrich_Hu
 
     # Different model per subject (comma-separated, one per subject)
     --model "LaiArnold,Hu_ISB_shoulder"
+    --model "LaiUhlrich_Hu,LaiArnold"
 
 Server:
     # If default port 8765 is already in use, pick another:
@@ -85,6 +87,9 @@ Server:
     # the visualizer can interpolate between keyframes for smooth motion at display rate.
     # Downsamples the JSON timeline to match the target rate, then sleeps 1/stream_hz between sends.
     --stream-hz 6
+
+Repetition counter (shown in the visualizer as current/total, e.g. 3/10):
+    --rep 3 --reps 10
 
 Interactive commands (type while the server is running):
     notify Good job!                  → info banner on the visualizer
@@ -103,6 +108,8 @@ Interactive commands (type while the server is running):
     target off                         → hide the live 3D target
     scores 85 72 90 68 88 [label1 ...] [colors: g o r g o] [title: text] → trial scores (g/r/o = green/red/orange)
     hidescores                        → hide the trial scores plot
+    reps 3 10                         → show repetition counter as 3/10
+    hidereps                          → hide the repetition counter
     hide subject_0                    → hide a subject
     show subject_0                    → show a subject
     help                              → list all commands
@@ -300,6 +307,42 @@ async def send_hide_scores():
             pass
 
 
+def _normalize_repetition(current, total):
+    """Validate repetition counter values; returns (current, total) or None."""
+    try:
+        cur = int(current)
+        tot = int(total)
+    except (TypeError, ValueError):
+        return None
+    if tot < 1 or cur < 0:
+        return None
+    return cur, tot
+
+
+async def send_repetition(current: int, total: int):
+    """Show a repetition counter (current/total) on every connected visualizer client."""
+    normalized = _normalize_repetition(current, total)
+    if normalized is None:
+        raise ValueError("current and total must be integers with total >= 1 and current >= 0")
+    cur, tot = normalized
+    msg = json.dumps({"type": "repetition", "current": cur, "total": tot})
+    for ws in list(_CONNECTED_CLIENTS):
+        try:
+            await ws.send(msg)
+        except Exception:
+            pass
+
+
+async def send_hide_repetition():
+    """Hide the repetition counter on every connected visualizer client."""
+    msg = json.dumps({"type": "hideRepetition"})
+    for ws in list(_CONNECTED_CLIENTS):
+        try:
+            await ws.send(msg)
+        except Exception:
+            pass
+
+
 async def send_target(
     object_type: str = "sphere",
     size: float = 0.15,
@@ -413,6 +456,7 @@ async def stream_from_json(
     camera: "dict | str | None" = None,
     models: "list[str] | None" = None,
     stream_hz: float | None = None,
+    repetition: "tuple[int, int] | None" = None,
 ):
     """
     Stream one or two visualizer JSON files over WebSocket in (optionally downsampled)
@@ -424,6 +468,7 @@ async def stream_from_json(
     subject_colors: list of hex color strings, one per subject (e.g. ["#d3d3d3", "#4995e0"]).
                     Colors every bone of that subject uniformly. Takes priority over body_style.
     subject_opacity: list of floats 0-1, one per subject (e.g. [0.5, 0.8]). Whole-model transparency.
+    repetition: optional (current, total) shown in the visualizer as current/total.
 
     Protocol:
       init:
@@ -435,7 +480,8 @@ async def stream_from_json(
             { "id": "subj2", "label": "Subject 2", "bodies": { ... }, "bodyStyle": { ... } }
           ],
           "bodies": { ... },   // flat, first subject only (single-subject frontend compat)
-          "bodyStyle": { ... } // optional global per-body visibility/color
+          "bodyStyle": { ... }, // optional global per-body visibility/color
+          "repetition": { "current": 3, "total": 10 }  // optional counter overlay
         }
 
       frame:
@@ -597,8 +643,13 @@ async def stream_from_json(
             init_msg["panels"] = camera["panels"]
         else:
             init_msg["camera"] = camera if isinstance(camera, dict) else {"view": camera}
+    if repetition is not None:
+        cur, tot = repetition
+        init_msg["repetition"] = {"current": int(cur), "total": int(tot)}
     await websocket.send(json.dumps(init_msg))
     print(f"  Subject IDs: {subject_ids}  (use these with hide/show commands)")
+    if repetition is not None:
+        print(f"  Repetition counter: {repetition[0]}/{repetition[1]}")
 
     # Give the client a brief moment to load meshes
     await asyncio.sleep(1.0)
@@ -873,6 +924,45 @@ async def main():
             print("Error: --stream-hz requires a value (e.g. --stream-hz 6)", file=sys.stderr)
             sys.exit(1)
 
+    # Optional repetition counter: --rep <current> --reps <total> → shown as current/total
+    rep_current: int | None = None
+    rep_total: int | None = None
+    if "--rep" in args:
+        idx = args.index("--rep")
+        if idx + 1 < len(args):
+            try:
+                rep_current = int(args[idx + 1])
+            except ValueError:
+                print("Error: --rep must be an integer (current repetition)", file=sys.stderr)
+                sys.exit(1)
+            args = args[:idx] + args[idx + 2 :]
+        else:
+            print("Error: --rep requires a value (e.g. --rep 3)", file=sys.stderr)
+            sys.exit(1)
+    if "--reps" in args:
+        idx = args.index("--reps")
+        if idx + 1 < len(args):
+            try:
+                rep_total = int(args[idx + 1])
+            except ValueError:
+                print("Error: --reps must be an integer (total repetitions)", file=sys.stderr)
+                sys.exit(1)
+            args = args[:idx] + args[idx + 2 :]
+        else:
+            print("Error: --reps requires a value (e.g. --reps 10)", file=sys.stderr)
+            sys.exit(1)
+
+    repetition: tuple[int, int] | None = None
+    if rep_current is not None or rep_total is not None:
+        if rep_current is None or rep_total is None:
+            print("Error: both --rep (current) and --reps (total) are required together", file=sys.stderr)
+            sys.exit(1)
+        normalized = _normalize_repetition(rep_current, rep_total)
+        if normalized is None:
+            print("Error: --rep/--reps must be integers with total >= 1 and current >= 0", file=sys.stderr)
+            sys.exit(1)
+        repetition = normalized
+
     json_args = [a for a in args if a.lower().endswith(".json")]
     other_args = [a for a in args if not a.lower().endswith(".json")]
 
@@ -912,6 +1002,7 @@ async def main():
                 camera=camera,
                 models=models,
                 stream_hz=stream_hz,
+                repetition=repetition,
             )
         except Exception as e:
             print(f"Error during streaming: {e}")
@@ -932,6 +1023,8 @@ async def main():
         dismiss                             – dismiss all notification banners
         scores <n1> <n2> <n3> <n4> <n5> [label1 ... label5] [colors: g o r g o] [title: text]  – trial scores (g/r/o=green/red/orange)
         hidescores                          – hide the trial scores plot
+        reps <current> <total>              – show repetition counter as current/total
+        hidereps                            – hide the repetition counter
         hide <subject_id>                   – hide a subject
         show <subject_id>                   – show a subject
         help                                – print this list
@@ -971,6 +1064,8 @@ async def main():
                         "  target off                    – hide 3D target\n"
                         "  scores <n1> <n2> <n3> <n4> <n5> [label1 ... label5] [colors: g o r g o] [title: text]  – trial scores (g/r/o=green/red/orange)\n"
                         "  hidescores                   – hide trial scores plot\n"
+                        "  reps <current> <total>        – show repetition counter (e.g. 3/10)\n"
+                        "  hidereps                      – hide repetition counter\n"
                         "  hide <subject_id>             – hide subject\n"
                         "  show <subject_id>             – show subject\n"
                     )
@@ -1082,6 +1177,19 @@ async def main():
                 elif verb == "hidescores":
                     await send_hide_scores()
                     print("[hidescores]")
+                elif verb in ("reps", "rep", "counter"):
+                    tokens = rest.replace("/", " ").split()
+                    if len(tokens) >= 2:
+                        try:
+                            await send_repetition(tokens[0], tokens[1])
+                            print(f"[reps] {int(tokens[0])}/{int(tokens[1])}")
+                        except (ValueError, TypeError) as e:
+                            print(f"Usage: reps <current> <total>. Error: {e}")
+                    else:
+                        print("Usage: reps <current> <total>  (e.g. reps 3 10 or reps 3/10)")
+                elif verb == "hidereps":
+                    await send_hide_repetition()
+                    print("[hidereps]")
                 elif verb == "hide" and rest:
                     await send_subject_visibility(rest, False)
                     print(f"[hide] {rest}")
