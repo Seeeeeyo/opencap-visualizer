@@ -104,7 +104,8 @@ Interactive commands (type while the server is running):
     panels 3 anterior sagittal_right superior
     panels 4 anterior sagittal_right superior posterior
     panels [{"view":"anterior"},{"position":[3,2,-4],"target":[0,1,0]}]
-    target {"objectType":"sphere","size":0.15,"position":[0.5,1.0,0],"rotation":[0,0,0]} → pelvis-relative target
+    target {"objectType":"sphere","size":0.15,"position":[0.5,1.0,0],"rotation":[0,0,0],"color":"#ff3b30"} → pelvis-relative target
+    target {"color":"#2ecc71"}      → partial target update, e.g. change color mid-trial
     target off                         → hide the live 3D target
     scores 85 72 90 68 88 [label1 ...] [colors: g o r g o] [title: text] → trial scores (g/r/o = green/red/orange)
     hidescores                        → hide the trial scores plot
@@ -373,6 +374,19 @@ async def send_target(
         payload["rotation"] = [float(v) for v in rotation[:3]]
     if subject_id:
         payload["subjectId"] = subject_id
+    msg = json.dumps({"type": "target", "target": payload})
+    for ws in list(_CONNECTED_CLIENTS):
+        try:
+            await ws.send(msg)
+        except Exception:
+            pass
+
+
+async def send_target_update(**target):
+    """Send a partial live target update, preserving unspecified fields in the viewer."""
+    payload = {key: value for key, value in target.items() if value is not None}
+    if not payload:
+        return
     msg = json.dumps({"type": "target", "target": payload})
     for ws in list(_CONNECTED_CLIENTS):
         try:
@@ -1060,7 +1074,7 @@ async def main():
                         "  camera <preset|json>          – update primary camera\n"
                         "  panels <count> <preset> ...   – split view (1–4 panels)\n"
                         "  panels [<json array>]         – split view with JSON panel specs\n"
-                        "  target <json>                 – update pelvis-relative 3D target\n"
+                        "  target <json>                 – update pelvis-relative 3D target; partial updates are allowed\n"
                         "  target off                    – hide 3D target\n"
                         "  scores <n1> <n2> <n3> <n4> <n5> [label1 ... label5] [colors: g o r g o] [title: text]  – trial scores (g/r/o=green/red/orange)\n"
                         "  hidescores                   – hide trial scores plot\n"
@@ -1121,24 +1135,27 @@ async def main():
                         try:
                             target = json.loads(rest)
                             position = target.get("position") or target.get("pos") or target.get("relativePosition")
-                            if not isinstance(position, list) or len(position) < 3:
-                                raise ValueError("target JSON requires position: [x, y, z]")
                             rotation = target.get("rotation") or target.get("rotationDegrees") or target.get("rotation_degrees")
                             if rotation is not None and (not isinstance(rotation, list) or len(rotation) < 3):
                                 raise ValueError("rotation must be [x, y, z] degrees")
-                            await send_target(
-                                object_type=target.get("objectType") or target.get("object_type") or target.get("shape") or "sphere",
-                                size=target.get("size", 0.15),
-                                position=position,
-                                rotation=rotation,
-                                visible=target.get("visible", True),
-                                subject_id=target.get("subjectId") or target.get("subject_id"),
-                                color=target.get("color", "#ff3b30"),
-                                opacity=target.get("opacity", 0.9),
-                            )
+                            if isinstance(position, list) and len(position) >= 3:
+                                await send_target(
+                                    object_type=target.get("objectType") or target.get("object_type") or target.get("shape") or "sphere",
+                                    size=target.get("size", 0.15),
+                                    position=position,
+                                    rotation=rotation,
+                                    visible=target.get("visible", True),
+                                    subject_id=target.get("subjectId") or target.get("subject_id"),
+                                    color=target.get("color", "#ff3b30"),
+                                    opacity=target.get("opacity", 0.9),
+                                )
+                            elif position is None:
+                                await send_target_update(**target)
+                            else:
+                                raise ValueError("position must be [x, y, z]")
                             print(f"[target] {target}")
                         except Exception as e:
-                            print('Usage: target {"objectType":"box","size":0.15,"position":[0.5,1.0,0],"rotation":[0,45,0]}  OR  target off')
+                            print('Usage: target {"objectType":"box","size":0.15,"position":[0.5,1.0,0],"rotation":[0,45,0],"color":"#2ecc71"}  OR  target {"color":"#ffcc00"}  OR  target off')
                             print(f"[target] Error: {e}")
                 elif verb == "scores" and rest:
                     remainder = rest
