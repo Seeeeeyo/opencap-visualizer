@@ -191,6 +191,48 @@ reps 4 10
 hidereps
 ```
 
+### Live 3D Target
+
+The live viewer can show a pelvis-relative target object. In the **Live IK Stream** panel, the user can manually enable the target and set its object type, size, position, and rotation.
+
+Programmatic updates can be sent on `init`, on any `frame`, inside a subject stream, or as a standalone WebSocket message:
+
+```json
+{
+  "type": "target",
+  "target": {
+    "objectType": "sphere",
+    "size": 0.15,
+    "position": [0.5, 1.0, 0],
+    "rotation": [0, 0, 0],
+    "color": "#ff3b30",
+    "opacity": 0.9
+  }
+}
+```
+
+Supported object types are `sphere`, `box`, `cylinder`, and `ring`. `size` is in meters, `position` is `[x, y, z]` relative to the subject pelvis/root, and `rotation` is in degrees. To change the target color during a trial, send another target update with a new `color` value, for example:
+
+```json
+{ "type": "target", "target": { "color": "#2ecc71" } }
+```
+
+The target keeps its previous size, shape, position, and rotation unless those fields are included in the update. Hide it with:
+
+```json
+{ "type": "target", "target": { "visible": false } }
+```
+
+With `live_stream_from_json.py`, you can use the helpers directly:
+
+```python
+from live_stream_from_json import send_target, send_target_update, hide_target
+
+await send_target(object_type="box", size=0.2, position=[0.5, 1.0, 0], color="#2ecc71")
+await send_target_update(color="#ffcc00")
+await hide_target()
+```
+
 ### Live Notification Messages
 
 The live WebSocket notification message accepts:
@@ -242,6 +284,9 @@ If you are using the repo-local helper script interactively, you can also send:
 notify info 1. Extend your elbow\n2. Don't shrug your shoulder
 notify-stack info 1. Extend your elbow || 2. Don't shrug your shoulder
 notify success size=32 Great technique!
+target {"objectType":"box","size":0.2,"position":[0.5,1.0,0],"color":"#2ecc71"}
+target {"color":"#ffcc00"}
+target off
 panels 2 anterior sagittal_right
 panels 4 anterior sagittal_right superior posterior
 ```
@@ -423,7 +468,7 @@ panels [{"view":"superior","up":[1,0,0]},{"view":"anterior"}]
 - Browser recording to WebM or MP4 when supported by the browser
 - Timelapse mode
 - Shared visualization files/URLs
-- Live WebSocket controls for camera (including per-panel split view), visibility, notifications, and trial scores
+- Live WebSocket controls for camera (including per-panel split view), visibility, notifications, trial scores, repetition counts, and 3D targets
 - Split-view camera layout (1, 2, 3, or 4 panels) in the UI and over WebSocket
 
 ## Notes On The Python Package
