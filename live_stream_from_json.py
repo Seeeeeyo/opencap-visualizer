@@ -405,6 +405,21 @@ async def hide_target():
             pass
 
 
+async def send_capture_camera(position=None, rotation=None, visible=True):
+    """Update the physical iPhone: world meters, XYZ Euler degrees, rear lens +Z."""
+    payload = {"visible": bool(visible)}
+    if position is not None:
+        payload["position"] = list(position)
+    if rotation is not None:
+        payload["rotation"] = list(rotation)
+    msg = json.dumps({"type": "captureCamera", "captureCamera": payload})
+    for ws in list(_CONNECTED_CLIENTS):
+        try:
+            await ws.send(msg)
+        except Exception:
+            pass
+
+
 async def send_camera(camera: "dict | str | None"):
     """
     Update the primary camera on every connected visualizer client.
@@ -471,6 +486,7 @@ async def stream_from_json(
     models: "list[str] | None" = None,
     stream_hz: float | None = None,
     repetition: "tuple[int, int] | None" = None,
+    capture_camera: "dict | None" = None,
 ):
     """
     Stream one or two visualizer JSON files over WebSocket in (optionally downsampled)
@@ -660,6 +676,14 @@ async def stream_from_json(
     if repetition is not None:
         cur, tot = repetition
         init_msg["repetition"] = {"current": int(cur), "total": int(tot)}
+    # The first JSON may contain a fixed pose or a pose per original frame.
+    capture_poses = data_list[0].get("captureCamera")
+    initial_capture = capture_camera if capture_camera is not None else (
+        capture_poses[kept_indices[0]] if isinstance(capture_poses, list) and kept_indices
+        and kept_indices[0] < len(capture_poses) else capture_poses if isinstance(capture_poses, dict) else None
+    )
+    if initial_capture is not None:
+        init_msg["captureCamera"] = initial_capture
     await websocket.send(json.dumps(init_msg))
     print(f"  Subject IDs: {subject_ids}  (use these with hide/show commands)")
     if repetition is not None:
@@ -709,6 +733,10 @@ async def stream_from_json(
                 "type": "frame",
                 "streams": streams,
             }
+            if capture_camera is not None:
+                frame_msg["captureCamera"] = capture_camera
+            elif isinstance(capture_poses, list) and frame_idx < len(capture_poses):
+                frame_msg["captureCamera"] = capture_poses[frame_idx]
             tick_start = time.perf_counter()
             await websocket.send(json.dumps(frame_msg))
 
@@ -884,6 +912,17 @@ async def main():
         else:
             args = args[:idx] + args[idx + 1 :]
 
+    capture_camera = None
+    if "--capture-camera" in args:
+        idx = args.index("--capture-camera")
+        try:
+            capture_camera = json.loads(args[idx + 1])
+            if not isinstance(capture_camera, dict):
+                raise ValueError("expected a JSON object")
+        except (IndexError, ValueError) as exc:
+            raise SystemExit(f"Invalid --capture-camera: {exc}")
+        args = args[:idx] + args[idx + 2:]
+
     # Extract --camera if present
     # Accepts a named preset (e.g. "front") or inline JSON {"position":[x,y,z],"target":[x,y,z]}
     camera: "dict | str | None" = None
@@ -1014,6 +1053,7 @@ async def main():
                 subject_colors=subject_colors,
                 subject_opacity=subject_opacity,
                 camera=camera,
+                capture_camera=capture_camera,
                 models=models,
                 stream_hz=stream_hz,
                 repetition=repetition,
