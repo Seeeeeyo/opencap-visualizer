@@ -408,6 +408,28 @@
                     </div>
                   </div>
 
+                  <div v-if="liveMode || liveStatus === 'connected'" class="mt-3">
+                    <v-divider class="mb-3" dark></v-divider>
+                    <v-switch v-model="liveCaptureCamera.enabled" dense hide-details
+                      label="Capture camera (iPhone)" color="cyan lighten-2"
+                      @change="updateLiveCaptureCamera"></v-switch>
+                    <div v-show="liveCaptureCamera.enabled">
+                      <div v-for="field in ['position', 'rotation']" :key="field" class="mt-3">
+                        <div class="text-caption grey--text mb-1">
+                          {{ field === 'position' ? 'World position (m)' : 'Rotation XYZ (deg)' }}
+                        </div>
+                        <div class="d-flex">
+                          <v-text-field v-for="axis in ['x', 'y', 'z']" :key="axis"
+                            :value="liveCaptureCamera[field][axis]" :label="axis.toUpperCase()"
+                            type="number" :step="field === 'position' ? 0.01 : 1"
+                            dense hide-details class="mr-1"
+                            @input="value => onLiveCaptureCameraInput(field, axis, value)"></v-text-field>
+                        </div>
+                      </div>
+                      <div class="text-caption grey--text mt-2">Rear lens faces local +Z; phone top is +Y. Stream updates replace this pose.</div>
+                    </div>
+                  </div>
+
                   <!-- Multi-camera split view picker, also exposed here so it's
                        reachable while configuring or watching a live stream. -->
                   <div class="d-flex align-center mt-3">
@@ -4027,6 +4049,7 @@
   
   <script>
   import axios from 'axios'
+  import liveCaptureCamera from '@/mixins/liveCaptureCamera'
   import * as THREE from 'three'
   import * as THREE_OC from '@/orbitControls'
   import VideoNavigation from '@/components/ui/VideoNavigation'
@@ -4104,6 +4127,7 @@
   
   export default {
       name: 'Session',
+      mixins: [liveCaptureCamera],
       components: {
           VideoNavigation,
           SpeedControl,
@@ -4799,6 +4823,7 @@
       }
       this.disposeVideoPlane();
       this.disposeLiveTargetMesh();
+      this.disposeLiveCaptureCamera();
 
       if (this.resizeObserver) {
         this.resizeObserver.unobserve(this.$refs.mocap)
@@ -16525,6 +16550,7 @@
       this.liveAnimationIndices = {};
       this.removeLiveSmplSequences();
       this.disposeLiveTargetMesh();
+      this.disposeLiveCaptureCamera();
       this.clearScene();
       if (
         this.animations.length === 0 &&
@@ -16551,6 +16577,7 @@
       this.liveTrialScores = { show: false, scores: [], labels: [], title: '', colors: [] };
       this.liveRepetition = { show: false, current: 0, total: 0 };
       this.resetLiveTargetState();
+      this.resetLiveCaptureCamera();
       this.liveMessageQueue = Promise.resolve();
     },
 
@@ -16561,6 +16588,8 @@
         } else {
           await this.handleLiveInit(msg);
         }
+      } else if (msg.type === 'captureCamera') {
+        this.handleLiveCaptureCamera(msg.captureCamera !== undefined ? msg.captureCamera : msg);
       } else if (msg.type === 'camera') {
         this.handleLiveCameraUpdate(msg);
       } else if (msg.type === 'frame') {
@@ -17158,6 +17187,7 @@
       this.removeLiveSmplSequences();
       this.removeLiveMhrSequences();
       this.resetLiveTargetState({ preserveManual: true });
+      this.resetLiveCaptureCamera();
       this.liveSubjectVisibility = {};
       this.liveSubjectIds = [];
       this.liveCameraCentered = false;
@@ -17302,6 +17332,7 @@
 
       this.applyLiveBodyStyle({ render: false });
       this.handleLiveCameraUpdate(msg);
+      if (msg.captureCamera !== undefined) this.handleLiveCaptureCamera(msg.captureCamera);
       if (msg.target !== undefined) {
         this.handleLiveTargetMessage({ target: msg.target });
       } else if (this.liveTarget.enabled) {
@@ -17427,6 +17458,7 @@
     },
 
     handleLiveFrame(msg) {
+      if (msg.captureCamera !== undefined) this.handleLiveCaptureCamera(msg.captureCamera);
       const hasLiveOpenSim = this.liveHasRenderableOpenSim();
       const hasLiveSmpl = Object.keys(this.liveSmplIndices).length > 0;
       const hasLiveMhr = Object.keys(this.liveMhrIndices).length > 0;
@@ -18556,6 +18588,7 @@
       this.mhrSequences = [];
       this.liveMhrIndices = {};
       this.disposeLiveTargetMesh();
+      this.disposeLiveCaptureCamera();
 
       // Remove measurement line
       if (this.measurementLine && this.scene.children.includes(this.measurementLine) && !objectsToPreserve.has(this.measurementLine)) {

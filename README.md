@@ -491,3 +491,40 @@ npm run build
 <!-- ## License
 
 MIT. See [LICENSE.md](LICENSE.md). -->
+
+### Livestream capture camera
+
+Enable **Capture camera (iPhone)** in the livestream panel to place a physical
+phone in the scene. Position uses world coordinates in meters, independently of
+the pelvis. Rotation is XYZ Euler angles in degrees. At zero rotation the phone
+is upright (+Y), its rear lens points toward +Z, and its round lens is at the
+upper left when looking at the back. The phone is 7.5 × 15 × 0.8 cm.
+
+Stream its pose together with existing bodies by adding `captureCamera` to an
+`init` or `frame` message (the `streams`/`bodies` payload stays the same):
+
+```json
+{"type":"frame","captureCamera":{"position":[0,1.5,2],"rotation":[0,180,0]},"streams":{}}
+```
+
+A standalone update is also supported:
+
+```json
+{"type":"captureCamera","captureCamera":{"position":[1,1.5,2],"rotation":[0,180,0]}}
+```
+
+Unspecified pose fields retain their values. `rotationRadians` is supported as
+an alternative to `rotation`; `captureCamera: null` or `{"visible":false}` hides
+the phone. Existing `camera` messages still control the viewer viewpoint.
+
+For the JSON streamer, pass a fixed pose:
+
+```sh
+python live_stream_from_json.py motion.json --capture-camera '{"position":[0,1.5,2],"rotation":[0,180,0]}'
+```
+
+Alternatively, add `captureCamera` to the first motion JSON as either one pose
+object or an array of pose objects aligned to the original body frames. The
+streamer sends the corresponding poses alongside the bodies, including when
+frames are downsampled. The CLI pose overrides poses in the file. Python callers
+can use `await send_capture_camera(position=[0,1.5,2], rotation=[0,180,0])`.
