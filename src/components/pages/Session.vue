@@ -288,6 +288,18 @@
                   <div class="text-caption grey--text mt-2">
                     Stream Hz: {{ liveStreamHzDisplay }}
                   </div>
+                  <div class="d-flex align-center mt-1">
+                    <v-switch
+                      v-model="liveVisualInterpolation"
+                      dense
+                      hide-details
+                      class="mt-0 pt-0 mr-2"
+                      style="flex-shrink: 0;"
+                    ></v-switch>
+                    <span class="text-caption grey--text">
+                      Low-latency motion smoothing
+                    </span>
+                  </div>
 
                   <div v-if="liveMode || liveStatus === 'connected'" class="mt-3">
                     <v-divider class="mb-3" dark></v-divider>
@@ -4408,7 +4420,7 @@
               liveSubjectVisibility: {}, // map from subject ID -> boolean (true = visible)
               liveSubjectIds: [], // ordered list of connected subject IDs (for UI)
               liveCameraCentered: false, // true once the camera has been centered on the subject's real position
-              // Low-rate live stream: ease toward the newest streamed pose every rAF (visual only).
+              // Render-rate easing plus bounded prediction between streamed poses.
               liveVisualInterpolation: true,
               livePrevKeyframeArrivalPerf: null,
               liveLastKeyframeArrivalPerf: null,
@@ -9138,9 +9150,22 @@
         const alpha = shouldSmooth
           ? Math.min(1, 1 - Math.exp(-deltaMs / smoothingTauMs))
           : 1;
+        // Predict no more than half one observed frame beyond the latest pose.
+        // This fills part of the 20-30 Hz packet gap without introducing a
+        // delayed interpolation buffer. The next real packet stays authoritative.
+        const predictionRatio = shouldSmooth
+          ? Math.min(
+              0.5,
+              Math.max(0, (now - this.liveLastKeyframeArrivalPerf) / observedIntervalMs)
+            )
+          : 0;
 
         const targetPosition = new THREE.Vector3();
+        const previousPosition = new THREE.Vector3();
+        const predictionDelta = new THREE.Vector3();
         const targetQuaternion = new THREE.Quaternion();
+        const previousQuaternion = new THREE.Quaternion();
+        const latestQuaternion = new THREE.Quaternion();
         const baseQuaternion = new THREE.Quaternion();
         const animQuaternion = new THREE.Quaternion();
 
@@ -9151,6 +9176,7 @@
           const len = json.time ? json.time.length : 0;
           if (len < 1) return;
           const a1 = len - 1;
+          const a0 = Math.max(0, a1 - 1);
 
           for (const body in json.bodies) {
             json.bodies[body].attachedGeometries.forEach((geom) => {
@@ -9167,6 +9193,13 @@
                 tr[a1][1],
                 tr[a1][2]
               );
+              if (predictionRatio > 0 && tr[a0]) {
+                previousPosition.set(tr[a0][0], tr[a0][1], tr[a0][2]);
+                targetPosition.addScaledVector(
+                  predictionDelta.copy(targetPosition).sub(previousPosition),
+                  predictionRatio
+                );
+              }
               if (animation.rotation) {
                 animQuaternion.setFromEuler(animation.rotation);
                 targetPosition.applyQuaternion(animQuaternion);
@@ -9178,7 +9211,17 @@
                 rot[a1][1],
                 rot[a1][2]
               );
-              baseQuaternion.setFromEuler(latestEuler);
+              latestQuaternion.setFromEuler(latestEuler);
+              baseQuaternion.copy(latestQuaternion);
+              if (predictionRatio > 0 && rot[a0]) {
+                previousQuaternion.setFromEuler(
+                  new THREE.Euler(rot[a0][0], rot[a0][1], rot[a0][2])
+                );
+                baseQuaternion.copy(previousQuaternion).slerp(
+                  latestQuaternion,
+                  1 + predictionRatio
+                );
+              }
 
               if (animation.rotation) {
                 animQuaternion.setFromEuler(animation.rotation);
