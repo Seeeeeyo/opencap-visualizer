@@ -193,7 +193,7 @@ hidereps
 
 ### Live 3D Target
 
-The live viewer can show a pelvis-relative target object. In the **Live IK Stream** panel, the user can manually enable the target and set its object type, size, position, and rotation.
+The live viewer can show a scene-fixed target object. In the **Live IK Stream** panel, the user can manually enable the target and set its object type, size, position, and rotation.
 
 Programmatic updates can be sent on `init`, on any `frame`, inside a subject stream, or as a standalone WebSocket message:
 
@@ -211,7 +211,7 @@ Programmatic updates can be sent on `init`, on any `frame`, inside a subject str
 }
 ```
 
-Supported object types are `sphere`, `box`, `cylinder`, and `ring`. `size` is in meters, `position` is `[x, y, z]` relative to the subject pelvis/root, and `rotation` is in degrees. To change the target color during a trial, send another target update with a new `color` value, for example:
+Supported object types are `sphere`, `box`, `cylinder`, and `ring`. `size` is in meters, `position` is `[x, y, z]` from the scene origin, and `rotation` is in degrees. The target stays at that world position while the body moves. To change the target color during a trial, send another target update with a new `color` value, for example:
 
 ```json
 { "type": "target", "target": { "color": "#2ecc71" } }
