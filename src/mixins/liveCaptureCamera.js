@@ -2,6 +2,8 @@ import * as THREE from 'three';
 
 const defaultPose = () => ({
   enabled: false,
+  streamVisible: false,
+  viewerVisible: true,
   position: { x: 0, y: 1.5, z: 2 },
   rotation: { x: 0, y: 180, z: 0 }
 });
@@ -43,18 +45,35 @@ export default {
       this.disposeLiveCaptureCamera();
       this.liveCaptureCamera = defaultPose();
     },
+    setLiveCaptureCameraVisibility() {
+      this.$set(
+        this.liveCaptureCamera,
+        'enabled',
+        this.liveCaptureCamera.streamVisible !== false && this.liveCaptureCamera.viewerVisible !== false
+      );
+    },
     handleLiveCaptureCamera(raw) {
       if (raw === null || raw === false) raw = { visible: false };
       if (!raw || typeof raw !== 'object') return;
       const position = this.normalizeLiveTargetPosition(raw.position);
       const rotation = this.normalizeLiveTargetRotation(raw.rotation, 'degrees') ||
         this.normalizeLiveTargetRotation(raw.rotationRadians, 'radians');
+      const streamVisible = raw.visible !== false && raw.enabled !== false;
       this.liveCaptureCamera = {
         ...this.liveCaptureCamera,
-        enabled: raw.visible !== false && raw.enabled !== false,
+        streamVisible,
+        enabled: streamVisible && this.liveCaptureCamera.viewerVisible !== false,
         ...(position ? { position } : {}),
         ...(rotation ? { rotation } : {})
       };
+      this.updateLiveCaptureCamera();
+    },
+    onLiveCaptureCameraEnabledChange(value) {
+      this.$set(this.liveCaptureCamera, 'viewerVisible', value === true);
+      if (value === true && this.liveCaptureCamera.streamVisible === false) {
+        this.$set(this.liveCaptureCamera, 'streamVisible', true);
+      }
+      this.setLiveCaptureCameraVisibility();
       this.updateLiveCaptureCamera();
     },
     onLiveCaptureCameraInput(field, axis, value) {

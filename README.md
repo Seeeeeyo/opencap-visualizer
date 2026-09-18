@@ -515,7 +515,10 @@ A standalone update is also supported:
 
 Unspecified pose fields retain their values. `rotationRadians` is supported as
 an alternative to `rotation`; `captureCamera: null` or `{"visible":false}` hides
-the phone. Existing `camera` messages still control the viewer viewpoint.
+the phone. The viewer-side **Capture camera (iPhone)** toggle can also hide the
+phone locally; incoming stream messages keep updating the saved pose but do not
+force the phone visible again until the toggle is turned back on. Existing
+`camera` messages still control the viewer viewpoint.
 
 For the JSON streamer, pass a fixed pose:
 

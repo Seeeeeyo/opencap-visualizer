@@ -410,9 +410,9 @@
 
                   <div v-if="liveMode || liveStatus === 'connected'" class="mt-3">
                     <v-divider class="mb-3" dark></v-divider>
-                    <v-switch v-model="liveCaptureCamera.enabled" dense hide-details
+                    <v-switch :input-value="liveCaptureCamera.enabled" dense hide-details
                       label="Capture camera (iPhone)" color="cyan lighten-2"
-                      @change="updateLiveCaptureCamera"></v-switch>
+                      @change="onLiveCaptureCameraEnabledChange"></v-switch>
                     <div v-show="liveCaptureCamera.enabled">
                       <div v-for="field in ['position', 'rotation']" :key="field" class="mt-3">
                         <div class="text-caption grey--text mb-1">
