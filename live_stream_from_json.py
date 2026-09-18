@@ -104,7 +104,7 @@ Interactive commands (type while the server is running):
     panels 3 anterior sagittal_right superior
     panels 4 anterior sagittal_right superior posterior
     panels [{"view":"anterior"},{"position":[3,2,-4],"target":[0,1,0]}]
-    target {"objectType":"sphere","size":0.15,"position":[0.5,1.0,0],"rotation":[0,0,0],"color":"#ff3b30"} → pelvis-relative target
+    target {"objectType":"sphere","size":0.15,"position":[0.5,1.0,0],"rotation":[0,0,0],"color":"#ff3b30"} → scene-fixed target
     target {"color":"#2ecc71"}      → partial target update, e.g. change color mid-trial
     target off                         → hide the live 3D target
     scores 85 72 90 68 88 [label1 ...] [colors: g o r g o] [title: text] → trial scores (g/r/o = green/red/orange)
@@ -355,11 +355,11 @@ async def send_target(
     opacity: float = 0.9,
 ):
     """
-    Show or update a pelvis-relative 3D target on every connected visualizer client.
+    Show or update a scene-fixed 3D target on every connected visualizer client.
 
     object_type: sphere | box | cylinder | ring
     size       : target diameter/extent in meters
-    position   : [x, y, z] meters relative to the pelvis/root origin
+    position   : [x, y, z] meters from the scene origin
     rotation   : optional [x, y, z] degrees around world axes
     """
     payload = {
@@ -1114,7 +1114,7 @@ async def main():
                         "  camera <preset|json>          – update primary camera\n"
                         "  panels <count> <preset> ...   – split view (1–4 panels)\n"
                         "  panels [<json array>]         – split view with JSON panel specs\n"
-                        "  target <json>                 – update pelvis-relative 3D target; partial updates are allowed\n"
+                        "  target <json>                 – update scene-fixed 3D target; partial updates are allowed\n"
                         "  target off                    – hide 3D target\n"
                         "  scores <n1> <n2> <n3> <n4> <n5> [label1 ... label5] [colors: g o r g o] [title: text]  – trial scores (g/r/o=green/red/orange)\n"
                         "  hidescores                   – hide trial scores plot\n"
@@ -1174,7 +1174,14 @@ async def main():
                     else:
                         try:
                             target = json.loads(rest)
-                            position = target.get("position") or target.get("pos") or target.get("relativePosition")
+                            position = (
+                                target.get("position")
+                                or target.get("pos")
+                                or target.get("worldPosition")
+                                or target.get("world_position")
+                                or target.get("absolutePosition")
+                                or target.get("absolute_position")
+                            )
                             rotation = target.get("rotation") or target.get("rotationDegrees") or target.get("rotation_degrees")
                             if rotation is not None and (not isinstance(rotation, list) or len(rotation) < 3):
                                 raise ValueError("rotation must be [x, y, z] degrees")

@@ -336,7 +336,7 @@
                         @input="onLiveTargetSizeInput"
                       ></v-slider>
                       <div class="text-caption grey--text mt-3 mb-1">
-                        Position from pelvis (m)
+                        Position from scene origin (m)
                       </div>
                       <div class="d-flex">
                         <v-text-field
@@ -410,9 +410,9 @@
 
                   <div v-if="liveMode || liveStatus === 'connected'" class="mt-3">
                     <v-divider class="mb-3" dark></v-divider>
-                    <v-switch v-model="liveCaptureCamera.enabled" dense hide-details
+                    <v-switch :input-value="liveCaptureCamera.enabled" dense hide-details
                       label="Capture camera (iPhone)" color="cyan lighten-2"
-                      @change="updateLiveCaptureCamera"></v-switch>
+                      @change="onLiveCaptureCameraEnabledChange"></v-switch>
                     <div v-show="liveCaptureCamera.enabled">
                       <div v-for="field in ['position', 'rotation']" :key="field" class="mt-3">
                         <div class="text-caption grey--text mb-1">
@@ -2508,7 +2508,7 @@
               Default pacing follows the JSON timestamps (~30 Hz cap). For sparse live streams, the visualizer eases toward the newest live pose at display rate while keeping the newest streamed frame authoritative. Optional <span class="font-weight-medium">--rep</span> / <span class="font-weight-medium">--reps</span> show a repetition counter (e.g. 3/10) in the viewer; update live with the stdin command <span class="font-weight-medium">reps 4 10</span>.
             </p>
             <p class="mb-4 text-caption grey--text">
-              OpenSim segment meshes follow the same live body poses as the skeleton. For a deforming SMPL mesh with fixed shape, include <span class="font-weight-medium">smplSubjects</span> in <span class="font-weight-medium">init</span> (template vertices + faces) and per-frame <span class="font-weight-medium">vertices</span> (and optional <span class="font-weight-medium">joints</span>) in <span class="font-weight-medium">smplStreams</span> on each <span class="font-weight-medium">frame</span> message. For Meta MHR mesh motion (SAM 3D Body / Momentum Human Rig), use <span class="font-weight-medium">mhrSubjects</span> and <span class="font-weight-medium">mhrStreams</span> with the same vertex + faces layout. Add a pelvis-relative reach target with <span class="font-weight-medium">target</span>: <span class="font-weight-medium">{ objectType, size, position, rotation }</span> on init, frame, or a standalone target message; run <span class="font-weight-medium">python live_stream_from_mhr.py --demo</span> to test.
+              OpenSim segment meshes follow the same live body poses as the skeleton. For a deforming SMPL mesh with fixed shape, include <span class="font-weight-medium">smplSubjects</span> in <span class="font-weight-medium">init</span> (template vertices + faces) and per-frame <span class="font-weight-medium">vertices</span> (and optional <span class="font-weight-medium">joints</span>) in <span class="font-weight-medium">smplStreams</span> on each <span class="font-weight-medium">frame</span> message. For Meta MHR mesh motion (SAM 3D Body / Momentum Human Rig), use <span class="font-weight-medium">mhrSubjects</span> and <span class="font-weight-medium">mhrStreams</span> with the same vertex + faces layout. Add a scene-fixed reach target with <span class="font-weight-medium">target</span>: <span class="font-weight-medium">{ objectType, size, position, rotation }</span> on init, frame, or a standalone target message; run <span class="font-weight-medium">python live_stream_from_mhr.py --demo</span> to test.
             </p>
             <div class="d-flex flex-column">
               <v-btn
@@ -16874,10 +16874,12 @@
       const numericSize = Number(size);
 
       const position =
+        this.normalizeLiveTargetPosition(raw.worldPosition) ||
+        this.normalizeLiveTargetPosition(raw.world_position) ||
+        this.normalizeLiveTargetPosition(raw.absolutePosition) ||
+        this.normalizeLiveTargetPosition(raw.absolute_position) ||
         this.normalizeLiveTargetPosition(raw.position) ||
-        this.normalizeLiveTargetPosition(raw.pos) ||
-        this.normalizeLiveTargetPosition(raw.relativePosition) ||
-        this.normalizeLiveTargetPosition(raw.relative_position);
+        this.normalizeLiveTargetPosition(raw.pos);
       const rotation =
         this.normalizeLiveTargetRotation(raw.rotationDegrees || raw.rotation_degrees || raw.rotation, 'degrees') ||
         this.normalizeLiveTargetRotation(raw.rotationRadians || raw.rotation_radians, 'radians');
@@ -17039,65 +17041,17 @@
       this.liveTargetMesh.material.needsUpdate = true;
     },
 
-    getLivePelvisWorldPosition(subjectId = null) {
-      const preferredSubjectId = subjectId || this.liveTarget.subjectId || this.liveSubjectIds[0] || Object.keys(this.liveAnimationIndices)[0];
-      const openSimIndex = preferredSubjectId ? this.liveAnimationIndices[preferredSubjectId] : undefined;
-      if (openSimIndex !== undefined) {
-        const anim = this.animations[openSimIndex];
-        const bodies = anim && anim.data ? anim.data.bodies : null;
-        const pelvis = bodies && (bodies.pelvis || bodies.Pelvis || bodies.midHip || bodies.hip);
-        const translations = pelvis && pelvis.translation;
-        const frameIndex = Math.min(Math.max(this.frame || 0, 0), Math.max((translations || []).length - 1, 0));
-        if (translations && translations[frameIndex]) {
-          return new THREE.Vector3(
-            translations[frameIndex][0] + anim.offset.x,
-            translations[frameIndex][1] + anim.offset.y,
-            translations[frameIndex][2] + anim.offset.z
-          );
-        }
-      }
-
-      const smplSubjectId = subjectId || this.liveTarget.subjectId || Object.keys(this.liveSmplIndices)[0];
-      const smplSequenceId = smplSubjectId ? this.liveSmplIndices[smplSubjectId] : undefined;
-      if (smplSequenceId !== undefined) {
-        const sequence = this.smplSequences.find(seq => seq.id === smplSequenceId);
-        if (sequence && sequence.joints && sequence.jointStride > 0) {
-          const frameIndex = Math.min(Math.max(sequence.frameCount - 1, 0), Math.max(sequence.time.length - 1, 0));
-          const start = frameIndex * sequence.jointStride;
-          if (start + 2 < sequence.joints.length) {
-            return new THREE.Vector3(
-              sequence.joints[start] + sequence.offset.x,
-              sequence.joints[start + 1] + sequence.offset.y,
-              sequence.joints[start + 2] + sequence.offset.z
-            );
-          }
-        }
-      }
-
-      const mhrSubjectId = subjectId || this.liveTarget.subjectId || Object.keys(this.liveMhrIndices)[0];
-      const mhrSequenceId = mhrSubjectId ? this.liveMhrIndices[mhrSubjectId] : undefined;
-      if (mhrSequenceId !== undefined) {
-        const sequence = this.mhrSequences.find(seq => seq.id === mhrSequenceId);
-        if (sequence && sequence.mesh) {
-          return sequence.mesh.position.clone();
-        }
-      }
-
-      return new THREE.Vector3(0, 0, 0);
-    },
-
     updateLiveTargetTransform() {
       if (!this.liveMode || !this.liveTarget.enabled) return;
       const mesh = this.ensureLiveTargetMesh();
       if (!mesh) return;
 
       this.updateLiveTargetMaterial();
-      const pelvis = this.getLivePelvisWorldPosition(this.liveTarget.subjectId);
-      const rel = this.liveTarget.position || { x: 0, y: 0, z: 0 };
+      const pos = this.liveTarget.position || { x: 0, y: 0, z: 0 };
       mesh.position.set(
-        pelvis.x + (Number(rel.x) || 0),
-        pelvis.y + (Number(rel.y) || 0),
-        pelvis.z + (Number(rel.z) || 0)
+        Number(pos.x) || 0,
+        Number(pos.y) || 0,
+        Number(pos.z) || 0
       );
       const rot = this.liveTarget.rotation || { x: 0, y: 0, z: 0 };
       mesh.rotation.set(

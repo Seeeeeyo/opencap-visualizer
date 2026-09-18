@@ -193,7 +193,7 @@ hidereps
 
 ### Live 3D Target
 
-The live viewer can show a pelvis-relative target object. In the **Live IK Stream** panel, the user can manually enable the target and set its object type, size, position, and rotation.
+The live viewer can show a scene-fixed target object. In the **Live IK Stream** panel, the user can manually enable the target and set its object type, size, position, and rotation.
 
 Programmatic updates can be sent on `init`, on any `frame`, inside a subject stream, or as a standalone WebSocket message:
 
@@ -211,7 +211,7 @@ Programmatic updates can be sent on `init`, on any `frame`, inside a subject str
 }
 ```
 
-Supported object types are `sphere`, `box`, `cylinder`, and `ring`. `size` is in meters, `position` is `[x, y, z]` relative to the subject pelvis/root, and `rotation` is in degrees. To change the target color during a trial, send another target update with a new `color` value, for example:
+Supported object types are `sphere`, `box`, `cylinder`, and `ring`. `size` is in meters, `position` is `[x, y, z]` from the scene origin, and `rotation` is in degrees. The target stays at that world position while the body moves. To change the target color during a trial, send another target update with a new `color` value, for example:
 
 ```json
 { "type": "target", "target": { "color": "#2ecc71" } }
@@ -515,7 +515,10 @@ A standalone update is also supported:
 
 Unspecified pose fields retain their values. `rotationRadians` is supported as
 an alternative to `rotation`; `captureCamera: null` or `{"visible":false}` hides
-the phone. Existing `camera` messages still control the viewer viewpoint.
+the phone. The viewer-side **Capture camera (iPhone)** toggle can also hide the
+phone locally; incoming stream messages keep updating the saved pose but do not
+force the phone visible again until the toggle is turned back on. Existing
+`camera` messages still control the viewer viewpoint.
 
 For the JSON streamer, pass a fixed pose:
 
