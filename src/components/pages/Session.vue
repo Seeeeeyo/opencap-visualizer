@@ -85,6 +85,81 @@
           @touchstart="startResize"
         ></div>
       </div>
+
+      <!-- Live iPhone RGB preview from the FastSAM WebSocket (same chrome as recording video) -->
+      <div
+        id="live-camera-preview-overlay"
+        v-if="liveCameraPreviewVisible"
+        :style="{
+          position: 'fixed',
+          top: liveCameraPreviewPosition.y + 'px',
+          left: liveCameraPreviewPosition.x + 'px',
+          width: liveCameraPreviewSize.width + 'px',
+          background: '#000',
+          border: '2px solid #4dd0e1',
+          borderRadius: '8px',
+          zIndex: 99998,
+          boxShadow: '0 4px 20px rgba(0,0,0,0.8)',
+          overflow: 'hidden',
+          cursor: liveCameraPreviewDragging ? 'grabbing' : 'default'
+        }"
+      >
+        <div
+          :style="{
+            display: 'flex',
+            justifyContent: 'space-between',
+            padding: '4px',
+            background: 'rgba(0, 0, 0, 0.85)',
+            cursor: 'grab'
+          }"
+          @mousedown="startLiveCameraPreviewDrag"
+          @touchstart="startLiveCameraPreviewDrag"
+        >
+          <div style="display: flex; align-items: center;">
+            <v-icon x-small dark class="mr-1">mdi-cellphone</v-icon>
+            <span class="caption white--text">Live camera</span>
+          </div>
+          <div style="display: flex; align-items: center;">
+            <v-btn icon x-small dark class="mr-1" @click.stop="toggleLiveCameraPreviewMinimized">
+              <v-icon>{{ liveCameraPreviewMinimized ? 'mdi-arrow-expand' : 'mdi-arrow-collapse' }}</v-icon>
+            </v-btn>
+            <v-btn icon x-small dark @click.stop="closeLiveCameraPreview">
+              <v-icon>mdi-close</v-icon>
+            </v-btn>
+          </div>
+        </div>
+        <img
+          v-if="liveCameraPreviewUrl"
+          :src="liveCameraPreviewUrl"
+          alt="Live iPhone camera"
+          :style="{
+            width: '100%',
+            height: 'auto',
+            display: 'block',
+            minHeight: liveCameraPreviewMinimized ? '100px' : '160px',
+            background: '#111'
+          }"
+        />
+        <div
+          v-else
+          class="caption grey--text text-center pa-4"
+        >
+          Waiting for live frames…
+        </div>
+        <div
+          :style="{
+            position: 'absolute',
+            bottom: '0',
+            right: '0',
+            width: '20px',
+            height: '20px',
+            cursor: 'nwse-resize',
+            background: 'linear-gradient(135deg, transparent 50%, rgba(77,208,225,0.6) 50%)'
+          }"
+          @mousedown="startLiveCameraPreviewResize"
+          @touchstart="startLiveCameraPreviewResize"
+        ></div>
+      </div>
   
       <!-- Left Sidebar -->
       <div class="left d-flex flex-column" :class="{ 'hidden': !showLeftSidebar }" v-if="$route.query.embed !== 'true'">
@@ -288,6 +363,30 @@
                   <div class="text-caption grey--text mt-2">
                     Stream Hz: {{ liveStreamHzDisplay }}
                   </div>
+                  <div class="text-caption grey--text mt-1" v-if="liveCaptureToScreenLowerBoundMs !== null">
+                    Camera capture→screen: ≥{{ Math.round(liveCaptureToScreenLowerBoundMs) }} ms
+                  </div>
+                  <div class="text-caption grey--text mt-1" v-if="livePhoneCaptureDeliveryMs !== null">
+                    iPhone capture delivery: {{ Math.round(livePhoneCaptureDeliveryMs) }} ms
+                  </div>
+                  <div class="text-caption grey--text mt-1" v-if="livePhoneServerHoldMs !== null">
+                    iPhone server hold: {{ livePhoneServerHoldMs.toFixed(1) }} ms
+                  </div>
+                  <div class="text-caption grey--text mt-1" v-if="liveHostFrameLatencyMs !== null">
+                    Host receipt→screen: {{ Math.round(liveHostFrameLatencyMs) }} ms
+                  </div>
+                  <div class="text-caption grey--text mt-1" v-if="liveHostProcessingLatencyMs !== null">
+                    PC pipeline: {{ Math.round(liveHostProcessingLatencyMs) }} ms
+                  </div>
+                  <div class="text-caption grey--text mt-1" v-if="liveTransportLatencyMs !== null">
+                    Server send→screen: {{ Math.round(liveTransportLatencyMs) }} ms
+                  </div>
+                  <div class="text-caption grey--text mt-1" v-if="liveBrowserQueueLatencyMs !== null">
+                    Browser receive→screen: {{ Math.round(liveBrowserQueueLatencyMs) }} ms
+                  </div>
+                  <div class="text-caption grey--text text--darken-1 mt-1" v-if="liveHostFrameLatencyMs !== null">
+                    Camera total is a lower bound; excludes USB transit and monitor pixel response.
+                  </div>
                   <div class="d-flex align-center mt-1">
                     <v-switch
                       v-model="liveVisualInterpolation"
@@ -420,13 +519,14 @@
                         </div>
                         <div class="d-flex">
                           <v-text-field v-for="axis in ['x', 'y', 'z']" :key="axis"
-                            :value="liveCaptureCamera[field][axis]" :label="axis.toUpperCase()"
+                            :value="formatLiveCaptureCameraValue(field, liveCaptureCamera[field][axis])"
+                            :label="axis.toUpperCase()"
                             type="number" :step="field === 'position' ? 0.01 : 1"
                             dense hide-details class="mr-1"
                             @input="value => onLiveCaptureCameraInput(field, axis, value)"></v-text-field>
                         </div>
                       </div>
-                      <div class="text-caption grey--text mt-2">Rear lens faces local +Z; phone top is +Y. Stream updates replace this pose.</div>
+                      <div class="text-caption grey--text mt-2">Rear lens faces local +Z; phone top is +Y. Sized like iPhone 12 (71.5×146.7×7.4 mm). Live stream poses auto-enable this mesh.</div>
                     </div>
                   </div>
 
@@ -4290,6 +4390,21 @@
               dragOffset: { x: 0, y: 0 },
               resizeStartPosition: { x: 0, y: 0 },
               resizeStartSize: { width: 0, height: 0 },
+              // Live OpenCap camera preview (WebSocket JPEG frames)
+              liveCameraPreviewVisible: false,
+              liveCameraPreviewClosed: false,
+              liveCameraPreviewUrl: null,
+              liveCameraPreviewMinimized: false,
+              liveCameraPreviewPosition: {
+                x: Math.max(20, (typeof window !== 'undefined' ? window.innerWidth : 1280) - 340),
+                y: 20
+              },
+              liveCameraPreviewSize: { width: 300, height: 'auto' },
+              liveCameraPreviewDragging: false,
+              liveCameraPreviewResizing: false,
+              liveCameraPreviewDragOffset: { x: 0, y: 0 },
+              liveCameraPreviewResizeStart: { x: 0, y: 0, width: 0 },
+              liveCameraPreviewObjectUrl: null,
               showSidebar: false, // Add this line to control sidebar visibility
               meshDialogs: {}, // Add this line to store mesh dialog states
               meshOpacities: {}, // per-mesh opacity: { [meshKey]: number 0-1 }
@@ -4451,6 +4566,14 @@
               liveLastVisualUpdatePerf: null,
               liveObservedHz: null,
               liveNominalHz: null,
+              liveCaptureToScreenLowerBoundMs: null,
+              livePhoneCaptureDeliveryMs: null,
+              livePhoneServerHoldMs: null,
+              liveHostFrameLatencyMs: null,
+              liveHostProcessingLatencyMs: null,
+              liveTransportLatencyMs: null,
+              liveBrowserQueueLatencyMs: null,
+              livePendingLatencySample: null,
               liveNotifications: [],
               liveNotificationTimers: {},
               liveNotificationIdCounter: 0,
@@ -4475,6 +4598,10 @@
                 { text: 'Ring', value: 'ring' }
               ],
               liveTargetMesh: null,
+              liveAudioContext: null,
+              liveTargetHit: false,
+              liveTargetRestColor: null,
+              liveTargetSuccessSoundAt: 0,
               showLiveStreamDetails: true, // Toggle for Live IK Stream section
               showSyncDetails: false, // Toggle for Sync section
               showAnimationsDetails: true, // Toggle for Animations section (default true since it's the main content)
@@ -4824,6 +4951,7 @@
       this.disposeVideoPlane();
       this.disposeLiveTargetMesh();
       this.disposeLiveCaptureCamera();
+      this.clearLiveCameraPreview();
 
       if (this.resizeObserver) {
         this.resizeObserver.unobserve(this.$refs.mocap)
@@ -9104,6 +9232,7 @@
           if (!isHeadlessFast && this.renderer && this.scene && this.camera) {
             this.updateVideoPlaneTransform();
             this.renderer.render(this.scene, this.camera);
+            if (this.liveMode) this.recordLiveFrameRendered();
           }
   
           // Handle markers separately based on markersPlayable flag
@@ -15785,6 +15914,154 @@
       this.clearProjectionCanvas();
       this.saveSettings();
     },
+
+  handleLiveCameraPreview(raw) {
+    if (!raw || typeof raw !== 'object') return;
+    const data = raw.data || raw.image || raw.jpeg || raw.base64;
+    if (typeof data !== 'string' || !data) return;
+    const mime = String(raw.mime || raw.contentType || 'image/jpeg').trim() || 'image/jpeg';
+    const dataUrl = data.startsWith('data:')
+      ? data
+      : `data:${mime};base64,${data}`;
+
+    if (this.liveCameraPreviewObjectUrl) {
+      URL.revokeObjectURL(this.liveCameraPreviewObjectUrl);
+      this.liveCameraPreviewObjectUrl = null;
+    }
+
+    // Prefer blob URLs so Vue doesn't retain giant data: strings in reactive state.
+    try {
+      const comma = dataUrl.indexOf(',');
+      const b64 = comma >= 0 ? dataUrl.slice(comma + 1) : data;
+      const binary = atob(b64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i += 1) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      const blob = new Blob([bytes], { type: mime });
+      this.liveCameraPreviewObjectUrl = URL.createObjectURL(blob);
+      this.liveCameraPreviewUrl = this.liveCameraPreviewObjectUrl;
+    } catch (e) {
+      this.liveCameraPreviewUrl = dataUrl;
+    }
+
+    if (!this.liveCameraPreviewClosed) {
+      this.liveCameraPreviewVisible = true;
+    }
+  },
+
+  clearLiveCameraPreview() {
+    if (this.liveCameraPreviewObjectUrl) {
+      URL.revokeObjectURL(this.liveCameraPreviewObjectUrl);
+      this.liveCameraPreviewObjectUrl = null;
+    }
+    this.liveCameraPreviewUrl = null;
+    this.liveCameraPreviewVisible = false;
+  },
+
+  closeLiveCameraPreview() {
+    this.liveCameraPreviewClosed = true;
+    this.clearLiveCameraPreview();
+  },
+
+  toggleLiveCameraPreviewMinimized() {
+    this.liveCameraPreviewMinimized = !this.liveCameraPreviewMinimized;
+    this.liveCameraPreviewSize.width = this.liveCameraPreviewMinimized ? 200 : 300;
+  },
+
+  startLiveCameraPreviewDrag(event) {
+    const clientX = event.clientX || (event.touches && event.touches[0].clientX);
+    const clientY = event.clientY || (event.touches && event.touches[0].clientY);
+    if (!clientX || !clientY) return;
+    this.liveCameraPreviewDragging = true;
+    this.liveCameraPreviewDragOffset = {
+      x: clientX - this.liveCameraPreviewPosition.x,
+      y: clientY - this.liveCameraPreviewPosition.y
+    };
+    if (event.type === 'mousedown') {
+      window.addEventListener('mousemove', this.doLiveCameraPreviewDrag);
+      window.addEventListener('mouseup', this.stopLiveCameraPreviewDrag);
+    } else {
+      window.addEventListener('touchmove', this.doLiveCameraPreviewDrag);
+      window.addEventListener('touchend', this.stopLiveCameraPreviewDrag);
+    }
+    event.preventDefault();
+  },
+
+  doLiveCameraPreviewDrag(event) {
+    if (!this.liveCameraPreviewDragging) return;
+    const clientX = event.clientX || (event.touches && event.touches[0].clientX);
+    const clientY = event.clientY || (event.touches && event.touches[0].clientY);
+    if (!clientX || !clientY) return;
+    const viewport = {
+      width: window.innerWidth || document.documentElement.clientWidth,
+      height: window.innerHeight || document.documentElement.clientHeight
+    };
+    this.liveCameraPreviewPosition = {
+      x: clientX - this.liveCameraPreviewDragOffset.x,
+      y: clientY - this.liveCameraPreviewDragOffset.y
+    };
+    const width = Number(this.liveCameraPreviewSize.width) || 300;
+    if (this.liveCameraPreviewPosition.x < -width + 100) {
+      this.liveCameraPreviewPosition.x = -width + 100;
+    }
+    if (this.liveCameraPreviewPosition.x > viewport.width - 100) {
+      this.liveCameraPreviewPosition.x = viewport.width - 100;
+    }
+    if (this.liveCameraPreviewPosition.y < 0) {
+      this.liveCameraPreviewPosition.y = 0;
+    }
+    if (this.liveCameraPreviewPosition.y > viewport.height - 50) {
+      this.liveCameraPreviewPosition.y = viewport.height - 50;
+    }
+    event.preventDefault();
+  },
+
+  stopLiveCameraPreviewDrag() {
+    this.liveCameraPreviewDragging = false;
+    window.removeEventListener('mousemove', this.doLiveCameraPreviewDrag);
+    window.removeEventListener('mouseup', this.stopLiveCameraPreviewDrag);
+    window.removeEventListener('touchmove', this.doLiveCameraPreviewDrag);
+    window.removeEventListener('touchend', this.stopLiveCameraPreviewDrag);
+  },
+
+  startLiveCameraPreviewResize(event) {
+    const clientX = event.clientX || (event.touches && event.touches[0].clientX);
+    const clientY = event.clientY || (event.touches && event.touches[0].clientY);
+    if (!clientX || !clientY) return;
+    this.liveCameraPreviewResizing = true;
+    this.liveCameraPreviewResizeStart = {
+      x: clientX,
+      y: clientY,
+      width: Number(this.liveCameraPreviewSize.width) || 300
+    };
+    if (event.type === 'mousedown') {
+      window.addEventListener('mousemove', this.doLiveCameraPreviewResize);
+      window.addEventListener('mouseup', this.stopLiveCameraPreviewResize);
+    } else {
+      window.addEventListener('touchmove', this.doLiveCameraPreviewResize);
+      window.addEventListener('touchend', this.stopLiveCameraPreviewResize);
+    }
+    event.preventDefault();
+  },
+
+  doLiveCameraPreviewResize(event) {
+    if (!this.liveCameraPreviewResizing) return;
+    const clientX = event.clientX || (event.touches && event.touches[0].clientX);
+    if (!clientX) return;
+    const delta = clientX - this.liveCameraPreviewResizeStart.x;
+    const newWidth = Math.max(160, Math.min(720, this.liveCameraPreviewResizeStart.width + delta));
+    this.liveCameraPreviewSize = { ...this.liveCameraPreviewSize, width: newWidth };
+    event.preventDefault();
+  },
+
+  stopLiveCameraPreviewResize() {
+    this.liveCameraPreviewResizing = false;
+    window.removeEventListener('mousemove', this.doLiveCameraPreviewResize);
+    window.removeEventListener('mouseup', this.stopLiveCameraPreviewResize);
+    window.removeEventListener('touchmove', this.doLiveCameraPreviewResize);
+    window.removeEventListener('touchend', this.stopLiveCameraPreviewResize);
+  },
   
     handleVideoError(event) {
       console.error('Video error:', event);
@@ -16481,6 +16758,7 @@
         this.liveStatus = 'connecting';
         // Mount #mocap before init arrives (ensureSceneReady needs $refs.mocap).
         this.liveMode = true;
+        this.liveCameraPreviewClosed = false;
         this.$nextTick(() => {
           this.attachMocapResizeObserver();
           this.onResize();
@@ -16508,12 +16786,18 @@
 
         this.liveMessageQueue = Promise.resolve();
         socket.onmessage = (event) => {
+          const browserReceivedWallTimeMs = Date.now();
+          const browserReceivedPerfMs = performance.now();
           let msg;
           try {
             msg = JSON.parse(event.data);
           } catch (e) {
             console.error('[live] Failed to parse message', e);
             return;
+          }
+          if (msg && typeof msg === 'object') {
+            msg.browserReceivedWallTimeMs = browserReceivedWallTimeMs;
+            msg.browserReceivedPerfMs = browserReceivedPerfMs;
           }
           this.liveMessageQueue = this.liveMessageQueue
             .then(() => this.processLiveWebSocketMessage(msg))
@@ -16569,6 +16853,14 @@
       this.liveLastVisualUpdatePerf = null;
       this.liveObservedHz = null;
       this.liveNominalHz = null;
+      this.liveCaptureToScreenLowerBoundMs = null;
+      this.livePhoneCaptureDeliveryMs = null;
+      this.livePhoneServerHoldMs = null;
+      this.liveHostFrameLatencyMs = null;
+      this.liveHostProcessingLatencyMs = null;
+      this.liveTransportLatencyMs = null;
+      this.liveBrowserQueueLatencyMs = null;
+      this.livePendingLatencySample = null;
       this._liveFloat32MismatchLogged = false;
       if (this.liveTrialScoresTimer) {
         clearTimeout(this.liveTrialScoresTimer);
@@ -16578,7 +16870,72 @@
       this.liveRepetition = { show: false, current: 0, total: 0 };
       this.resetLiveTargetState();
       this.resetLiveCaptureCamera();
+      this.clearLiveCameraPreview();
       this.liveMessageQueue = Promise.resolve();
+    },
+
+    updateLiveLatencyMetric(name, value) {
+      if (!Number.isFinite(value)) return;
+      const bounded = Math.max(0, value);
+      const previous = this[name];
+      this[name] = Number.isFinite(previous)
+        ? (0.2 * bounded) + (0.8 * previous)
+        : bounded;
+    },
+
+    recordLiveFrameRendered() {
+      const sample = this.livePendingLatencySample;
+      if (!sample) return;
+      this.livePendingLatencySample = null;
+
+      const renderedWallTimeMs = Date.now();
+      const renderedPerfMs = performance.now();
+      if (Number.isFinite(sample.captureDeliveryMs)) {
+        this.updateLiveLatencyMetric('livePhoneCaptureDeliveryMs', sample.captureDeliveryMs);
+      }
+      if (Number.isFinite(sample.phoneServerHoldMs)) {
+        this.updateLiveLatencyMetric('livePhoneServerHoldMs', sample.phoneServerHoldMs);
+      }
+      if (Number.isFinite(sample.hostReceiveWallTimeMs)) {
+        const hostToScreenMs = renderedWallTimeMs - sample.hostReceiveWallTimeMs;
+        this.updateLiveLatencyMetric('liveHostFrameLatencyMs', hostToScreenMs);
+        if (Number.isFinite(sample.captureDeliveryMs)) {
+          this.updateLiveLatencyMetric(
+            'liveCaptureToScreenLowerBoundMs',
+            sample.captureDeliveryMs +
+              (Number.isFinite(sample.phoneServerHoldMs) ? sample.phoneServerHoldMs : 0) +
+              hostToScreenMs
+          );
+        }
+      }
+      if (
+        Number.isFinite(sample.hostReceiveWallTimeMs) &&
+        Number.isFinite(sample.serverWallTimeMs)
+      ) {
+        this.updateLiveLatencyMetric(
+          'liveHostProcessingLatencyMs',
+          sample.serverWallTimeMs - sample.hostReceiveWallTimeMs
+        );
+      }
+      if (Number.isFinite(sample.serverWallTimeMs)) {
+        this.updateLiveLatencyMetric(
+          'liveTransportLatencyMs',
+          renderedWallTimeMs - sample.serverWallTimeMs
+        );
+      }
+      if (Number.isFinite(sample.browserReceivedPerfMs)) {
+        this.updateLiveLatencyMetric(
+          'liveBrowserQueueLatencyMs',
+          renderedPerfMs - sample.browserReceivedPerfMs
+        );
+      }
+    },
+
+    formatLiveCaptureCameraValue(field, value) {
+      const num = Number(value);
+      if (!Number.isFinite(num)) return value;
+      if (field === 'position') return num.toFixed(3);
+      return num.toFixed(1);
     },
 
     async processLiveWebSocketMessage(msg) {
@@ -16589,7 +16946,12 @@
           await this.handleLiveInit(msg);
         }
       } else if (msg.type === 'captureCamera') {
-        this.handleLiveCaptureCamera(msg.captureCamera !== undefined ? msg.captureCamera : msg);
+        if (msg.captureCamera !== undefined) {
+          this.handleLiveCaptureCamera(msg.captureCamera);
+        }
+        if (msg.cameraPreview) this.handleLiveCameraPreview(msg.cameraPreview);
+      } else if (msg.type === 'cameraPreview') {
+        this.handleLiveCameraPreview(msg.cameraPreview !== undefined ? msg.cameraPreview : msg);
       } else if (msg.type === 'camera') {
         this.handleLiveCameraUpdate(msg);
       } else if (msg.type === 'frame') {
@@ -16598,13 +16960,17 @@
         this.handleLiveTargetMessage(msg);
       } else if (msg.type === 'subjectVisibility') {
         this.setLiveSubjectVisibility(msg.subjectId, msg.visible !== false);
+      } else if (msg.type === 'bodyStyle') {
+        this.handleLiveBodyStyleMessage(msg);
+      } else if (msg.type === 'sound') {
+        this.playLiveSound(msg.sound);
       } else if (msg.type === 'notification') {
         this.handleLiveNotificationMessage(msg);
       } else if (msg.type === 'dismissNotification') {
         if (msg.id != null) {
           this.dismissLiveNotification(msg.id);
         } else {
-          this.dismissAllLiveNotifications();
+          this.dismissAllLiveNotifications({ keepTimedSuccess: true });
         }
       } else if (msg.type === 'trialScores') {
         this.showLiveTrialScores(msg);
@@ -16627,6 +16993,39 @@
           mesh.visible = visible;
         }
       });
+      // After re-showing the subject, re-apply per-body FOV styles so legs that
+      // should stay hidden are not forced visible by the subject-level toggle.
+      if (visible) {
+        this.liveBodyStyleDirty = true;
+        this.applyLiveBodyStyle({ render: false });
+      }
+      if (this.renderer && this.scene && this.camera) {
+        this.renderer.render(this.scene, this.camera);
+      }
+    },
+
+    handleLiveBodyStyleMessage(msg) {
+      const subjectId = msg.subjectId
+        || Object.keys(this.liveAnimationIndices)[0]
+        || null;
+      if (!subjectId) return;
+      const incoming = msg.bodyStyle && typeof msg.bodyStyle === 'object'
+        ? msg.bodyStyle
+        : {};
+      const merged = {
+        ...(this.liveBodyStyle[subjectId] || {}),
+      };
+      Object.entries(incoming).forEach(([bodyName, props]) => {
+        if (!props || typeof props !== 'object') return;
+        merged[bodyName] = {
+          ...(merged[bodyName] || {}),
+          ...props,
+        };
+      });
+      this.$set(this.liveBodyStyle, subjectId, merged);
+      this.liveBodyStyleDirty = true;
+      // Apply immediately so hide/show does not wait for the next render tick.
+      this.applyLiveBodyStyle();
       if (this.renderer && this.scene && this.camera) {
         this.renderer.render(this.scene, this.camera);
       }
@@ -16671,9 +17070,78 @@
       return 'mdi-information';
     },
 
+    // Cues are synthesized rather than loaded from a file: nothing to ship with
+    // the build, and no decode delay between the hand landing on the target and
+    // the patient hearing it.
+    liveSoundTones(name) {
+      if (name === 'success') return [880.0, 1108.73, 1318.51];  // rising A major
+      if (name === 'failure') return [392.0, 293.66];            // falling G -> D
+      return null;
+    },
+
+    ensureLiveAudioContext() {
+      if (this.liveAudioContext) return this.liveAudioContext;
+      const Ctor = window.AudioContext || window.webkitAudioContext;
+      if (!Ctor) return null;
+      try {
+        this.liveAudioContext = new Ctor();
+      } catch (e) {
+        return null;
+      }
+      // Autoplay rules keep the context suspended until the page is touched,
+      // so the first click or keypress anywhere unblocks every later cue.
+      const resume = () => {
+        if (this.liveAudioContext && this.liveAudioContext.state === 'suspended') {
+          this.liveAudioContext.resume().catch(() => {});
+        }
+      };
+      ['pointerdown', 'keydown'].forEach((event) => {
+        window.addEventListener(event, resume, { passive: true });
+      });
+      return this.liveAudioContext;
+    },
+
+    playLiveSound(name) {
+      const kind = String(name || '').toLowerCase();
+      if (kind === 'success') {
+        const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+        if (now - (this.liveTargetSuccessSoundAt || 0) < 1500) return;
+        this.liveTargetSuccessSoundAt = now;
+      }
+      const tones = this.liveSoundTones(kind);
+      if (!tones) return;
+      const ctx = this.ensureLiveAudioContext();
+      if (!ctx) return;
+      if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+
+      const step = 0.1;
+      tones.forEach((frequency, index) => {
+        const start = ctx.currentTime + index * step;
+        const end = start + step * 1.8;
+        const oscillator = ctx.createOscillator();
+        const gain = ctx.createGain();
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(frequency, start);
+        // Ramped rather than switched: a square-edged gain clicks.
+        gain.gain.setValueAtTime(0.0001, start);
+        gain.gain.exponentialRampToValueAtTime(0.25, start + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.0001, end);
+        oscillator.connect(gain);
+        gain.connect(ctx.destination);
+        oscillator.start(start);
+        oscillator.stop(end + 0.02);
+      });
+    },
+
     handleLiveNotificationMessage(msg) {
       const level = msg.level || 'info';
-      const duration = msg.duration ?? 5000;
+      // Success is a flash of confirmation, not a sticky overlay. duration 0
+      // used to mean "until dismissed", which left the banner up for the rest
+      // of the trial; treat that as the five-second default instead.
+      let duration = msg.duration ?? 5000;
+      if (level === 'success' && !(Number(duration) > 0)) {
+        duration = 5000;
+      }
       const fontSize = this.normalizeLiveNotificationFontSize(msg.fontSize ?? msg.font_size ?? null);
       const append = msg.append === true;
 
@@ -16729,10 +17197,25 @@
       }
     },
 
-    dismissAllLiveNotifications() {
-      Object.values(this.liveNotificationTimers).forEach((timerId) => clearTimeout(timerId));
-      this.liveNotificationTimers = {};
-      this.liveNotifications = [];
+    dismissAllLiveNotifications(options = {}) {
+      const keepTimedSuccess = options.keepTimedSuccess === true;
+      if (!keepTimedSuccess) {
+        Object.values(this.liveNotificationTimers).forEach((timerId) => clearTimeout(timerId));
+        this.liveNotificationTimers = {};
+        this.liveNotifications = [];
+        return;
+      }
+      const kept = [];
+      this.liveNotifications.forEach((notification) => {
+        const timed = notification.level === 'success' && this.liveNotificationTimers[notification.id];
+        if (timed) {
+          kept.push(notification);
+        } else if (this.liveNotificationTimers[notification.id]) {
+          clearTimeout(this.liveNotificationTimers[notification.id]);
+          delete this.liveNotificationTimers[notification.id];
+        }
+      });
+      this.liveNotifications = kept;
     },
 
     showLiveTrialScores(msg) {
@@ -17060,6 +17543,114 @@
         THREE.Math.degToRad(Number(rot.z) || 0)
       );
       mesh.visible = true;
+      this.updateLiveTargetContact();
+    },
+
+    liveTargetPatientSubjectId() {
+      const ids = this.liveSubjectIds || [];
+      const preferred = this.liveTarget.subjectId;
+      if (preferred && !/reference|ghost/i.test(String(preferred))) return preferred;
+      return ids.find((id) => !/reference|ghost/i.test(String(id))) || ids[0] || null;
+    },
+
+    isLiveHandContactBody(name) {
+      const n = String(name || '').toLowerCase();
+      return /hand|finger|thumb|phalan|metacarp|carpal|wrist|ulna|radius/.test(n);
+    },
+
+    liveHandTouchesTarget() {
+      const target = this.liveTargetMesh;
+      if (!target) return false;
+      const center = target.getWorldPosition(new THREE.Vector3());
+      const radius = Math.max(0.005, (Number(this.liveTarget.size) || 0.12) * 0.5);
+      const subjectId = this.liveTargetPatientSubjectId();
+      const animIdx = subjectId != null ? this.liveAnimationIndices[subjectId] : undefined;
+      const anim = animIdx !== undefined ? this.animations[animIdx] : null;
+      const bodies = anim && anim.data ? anim.data.bodies : null;
+      if (!bodies) return false;
+
+      const box = new THREE.Box3();
+      const closest = new THREE.Vector3();
+      const handCenters = [];
+      const forearmCenters = [];
+      let meshHit = false;
+
+      Object.keys(bodies).forEach((bodyName) => {
+        if (!this.isLiveHandContactBody(bodyName)) return;
+        const geoms = bodies[bodyName].attachedGeometries || [];
+        const keys = geoms.length
+          ? geoms.map((geom) => `anim${animIdx}_${bodyName}${geom}`)
+          : [`anim${animIdx}_${bodyName}`];
+        keys.forEach((meshKey) => {
+          const bodyMesh = this.meshes[meshKey];
+          if (!bodyMesh || bodyMesh.visible === false) return;
+          bodyMesh.updateWorldMatrix(true, false);
+          box.setFromObject(bodyMesh);
+          if (box.isEmpty()) return;
+          box.clampPoint(center, closest);
+          if (closest.distanceTo(center) <= radius) {
+            meshHit = true;
+          }
+          const mid = box.getCenter(new THREE.Vector3());
+          if (/hand|finger|thumb|phalan|metacarp|carpal|wrist/.test(bodyName.toLowerCase())) {
+            handCenters.push(mid);
+          } else {
+            forearmCenters.push(mid);
+          }
+        });
+      });
+
+      if (meshHit) return true;
+
+      // The OpenSim hand mesh is often just the palm. A point a finger's
+      // length past it along the forearm->hand axis is where the fingertips
+      // actually are on screen.
+      if (handCenters.length && forearmCenters.length) {
+        const hand = handCenters[handCenters.length - 1];
+        const forearm = forearmCenters[0];
+        const along = hand.clone().sub(forearm);
+        if (along.lengthSq() > 1e-8) {
+          along.normalize();
+          for (const extra of [0.06, 0.10, 0.14]) {
+            if (hand.clone().addScaledVector(along, extra).distanceTo(center) <= radius) {
+              return true;
+            }
+          }
+        }
+      } else if (handCenters.length) {
+        const hand = handCenters[handCenters.length - 1];
+        if (hand.distanceTo(center) <= radius + 0.10) return true;
+      }
+
+      return false;
+    },
+
+    showLiveTargetSuccess() {
+      const already = this.liveNotifications.some(
+        (n) => n.level === 'success' && String(n.message || '').toLowerCase().includes('success')
+      );
+      if (!already) {
+        this.addLiveNotification('Success!', 'success', 5000);
+      }
+      this.playLiveSound('success');
+    },
+
+    updateLiveTargetContact() {
+      if (!this.liveMode || !this.liveTarget.enabled || !this.liveTargetMesh) return;
+      const hitting = this.liveHandTouchesTarget();
+      if (hitting === this.liveTargetHit) return;
+      this.liveTargetHit = hitting;
+      if (hitting) {
+        if (!this.liveTargetRestColor) {
+          this.liveTargetRestColor = this.liveTarget.color || '#F97316';
+        }
+        this.$set(this.liveTarget, 'color', '#22C55E');
+        this.updateLiveTargetMaterial();
+        this.showLiveTargetSuccess();
+      } else if (this.liveTargetRestColor) {
+        this.$set(this.liveTarget, 'color', this.liveTargetRestColor);
+        this.updateLiveTargetMaterial();
+      }
     },
 
     isCameraOnlyLiveInit(msg) {
@@ -17150,6 +17741,14 @@
       this.liveLastVisualUpdatePerf = null;
       this.liveObservedHz = null;
       this.liveNominalHz = null;
+      this.liveCaptureToScreenLowerBoundMs = null;
+      this.livePhoneCaptureDeliveryMs = null;
+      this.livePhoneServerHoldMs = null;
+      this.liveHostFrameLatencyMs = null;
+      this.liveHostProcessingLatencyMs = null;
+      this.liveTransportLatencyMs = null;
+      this.liveBrowserQueueLatencyMs = null;
+      this.livePendingLatencySample = null;
       this._liveFloat32MismatchLogged = false;
 
       if (msg.repetition) {
@@ -17287,6 +17886,7 @@
       this.applyLiveBodyStyle({ render: false });
       this.handleLiveCameraUpdate(msg);
       if (msg.captureCamera !== undefined) this.handleLiveCaptureCamera(msg.captureCamera);
+      if (msg.cameraPreview) this.handleLiveCameraPreview(msg.cameraPreview);
       if (msg.target !== undefined) {
         this.handleLiveTargetMessage({ target: msg.target });
       } else if (this.liveTarget.enabled) {
@@ -17413,6 +18013,7 @@
 
     handleLiveFrame(msg) {
       if (msg.captureCamera !== undefined) this.handleLiveCaptureCamera(msg.captureCamera);
+      if (msg.cameraPreview) this.handleLiveCameraPreview(msg.cameraPreview);
       const hasLiveOpenSim = this.liveHasRenderableOpenSim();
       const hasLiveSmpl = Object.keys(this.liveSmplIndices).length > 0;
       const hasLiveMhr = Object.keys(this.liveMhrIndices).length > 0;
@@ -17629,6 +18230,14 @@
           this.centerCameraOnSubject();
         }
       }
+
+      this.livePendingLatencySample = {
+        hostReceiveWallTimeMs: Number(msg.hostReceiveWallTimeMs),
+        serverWallTimeMs: Number(msg.serverWallTimeMs),
+        browserReceivedPerfMs: Number(msg.browserReceivedPerfMs),
+        captureDeliveryMs: Number(msg.captureDeliveryMs),
+        phoneServerHoldMs: Number(msg.phoneServerHoldMs)
+      };
     },
 
     applyLiveBodyStyle(options = {}) {
@@ -17645,7 +18254,9 @@
         Object.keys(bodies).forEach((bodyName) => {
           const style = bodyStyle[bodyName];
           if (!style) return;
-          const bodyVisible = style.visible !== false;
+          // Subject-level hide wins over per-body style (e.g. out-of-frame).
+          const subjectVisible = this.liveSubjectVisibility[subjectId] !== false;
+          const bodyVisible = subjectVisible && style.visible !== false;
           const bodyColorHex = style.color;
           // Per-geometry overrides: bodyStyle.thorax.geometries.ribcage_s.vtp = { visible, color }
           const geomOverrides = style.geometries && typeof style.geometries === 'object'

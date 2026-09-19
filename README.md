@@ -498,7 +498,8 @@ Enable **Capture camera (iPhone)** in the livestream panel to place a physical
 phone in the scene. Position uses world coordinates in meters, independently of
 the pelvis. Rotation is XYZ Euler angles in degrees. At zero rotation the phone
 is upright (+Y), its rear lens points toward +Z, and its round lens is at the
-upper left when looking at the back. The phone is 7.5 × 15 × 0.8 cm.
+upper left when looking at the back. The phone is sized like an iPhone 12
+(71.5 × 146.7 × 7.4 mm).
 
 Stream its pose together with existing bodies by adding `captureCamera` to an
 `init` or `frame` message (the `streams`/`bodies` payload stays the same):
