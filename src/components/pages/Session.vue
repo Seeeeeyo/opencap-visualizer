@@ -161,6 +161,130 @@
         ></div>
       </div>
   
+      <!-- LiDAR depth/confidence and dense-fit correspondence preview -->
+      <div
+        id="live-lidar-preview-overlay"
+        v-if="liveLidarPreviewVisible"
+        :style="{
+          position: 'fixed',
+          top: liveLidarPreviewPosition.y + 'px',
+          left: liveLidarPreviewPosition.x + 'px',
+          width: liveLidarPreviewSize.width + 'px',
+          background: '#000',
+          border: '2px solid #ffb300',
+          borderRadius: '8px',
+          zIndex: 99997,
+          boxShadow: '0 4px 20px rgba(0,0,0,0.8)',
+          overflow: 'hidden',
+          cursor: liveLidarPreviewDragging ? 'grabbing' : 'default'
+        }"
+      >
+        <div
+          :style="{
+            display: 'flex', justifyContent: 'space-between', padding: '4px',
+            background: 'rgba(0,0,0,0.85)', cursor: 'grab'
+          }"
+          @mousedown="startLiveLidarPreviewDrag"
+          @touchstart="startLiveLidarPreviewDrag"
+        >
+          <div style="display: flex; align-items: center;">
+            <v-icon x-small dark class="mr-1">mdi-gradient</v-icon>
+            <span class="caption white--text">LiDAR depth</span>
+          </div>
+          <div style="display: flex; align-items: center;">
+            <v-btn icon x-small dark class="mr-1" @click.stop="toggleLiveLidarPreviewMinimized">
+              <v-icon>{{ liveLidarPreviewMinimized ? 'mdi-arrow-expand' : 'mdi-arrow-collapse' }}</v-icon>
+            </v-btn>
+            <v-btn icon x-small dark @click.stop="closeLiveLidarPreview">
+              <v-icon>mdi-close</v-icon>
+            </v-btn>
+          </div>
+        </div>
+        <img
+          v-if="liveLidarPreviewUrl"
+          :src="liveLidarPreviewUrl"
+          alt="Live LiDAR depth heatmap"
+          :style="{
+            width: '100%', height: 'auto', display: 'block',
+            minHeight: liveLidarPreviewMinimized ? '100px' : '160px', background: '#111'
+          }"
+        />
+        <div v-else class="caption grey--text text-center pa-4">
+          Waiting for LiDAR frames…
+        </div>
+        <div
+          :style="{
+            position: 'absolute', bottom: '0', right: '0', width: '20px', height: '20px',
+            cursor: 'nwse-resize',
+            background: 'linear-gradient(135deg, transparent 50%, rgba(255,179,0,0.7) 50%)'
+          }"
+          @mousedown="startLiveLidarPreviewResize"
+          @touchstart="startLiveLidarPreviewResize"
+        ></div>
+      </div>
+
+      <!-- Live OpenSim generalized-coordinate history (angles in degrees). -->
+      <v-card
+        v-if="liveKinematicsPlotVisible"
+        id="live-kinematics-plot"
+        dark
+        :style="{
+            position: 'fixed',
+            top: liveKinematicsPlotPosition.y + 'px',
+            left: liveKinematicsPlotPosition.x + 'px',
+            width: liveKinematicsPlotSize.width + 'px',
+            height: liveKinematicsPlotSize.height + 'px',
+            display: 'flex', flexDirection: 'column', overflow: 'hidden',
+            zIndex: 99996, background: 'rgba(12, 18, 28, 0.94)',
+            border: '1px solid rgba(77, 208, 225, 0.75)',
+            cursor: liveKinematicsPlotDragging ? 'grabbing' : 'default'
+        }"
+      >
+          <v-card-title class="py-2 px-3 d-flex align-center"
+            style="cursor: grab; flex: 0 0 auto; user-select: none;"
+            @mousedown="startLiveKinematicsPlotDrag" @touchstart="startLiveKinematicsPlotDrag">
+          <v-icon small color="cyan lighten-2" class="mr-2">mdi-chart-line</v-icon>
+          <span class="subtitle-2">Live kinematics · last {{ liveKinematicsHistorySeconds }} s</span>
+          <v-spacer></v-spacer>
+            <v-btn icon x-small @mousedown.stop @touchstart.stop @click="liveKinematicsPlotVisible = false"><v-icon>mdi-close</v-icon></v-btn>
+          </v-card-title>
+          <v-card-text class="px-3 pb-3 pt-0" style="flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column;">
+          <div v-if="livePlotSeries.length === 0" class="text-caption grey--text py-6 text-center">
+            Waiting for solved coordinate values…
+          </div>
+          <template v-else>
+              <svg viewBox="0 0 480 190" preserveAspectRatio="none" style="width: 100%; flex: 1 1 auto; min-height: 140px; display: block;">
+                <g v-for="grid in livePlotGridLines" :key="grid.y">
+                  <line x1="48" :y1="grid.y" x2="480" :y2="grid.y"
+                    stroke="rgba(255,255,255,0.16)" stroke-width="1" vector-effect="non-scaling-stroke" />
+                  <text x="42" :y="grid.y + 4" text-anchor="end"
+                    fill="rgba(255,255,255,0.68)" font-size="11">{{ grid.label }}</text>
+                </g>
+                <polyline v-for="series in livePlotSeries" :key="series.name"
+                  :points="series.points" fill="none" :stroke="series.color" stroke-width="2.5"
+                  stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke" />
+            </svg>
+            <div class="d-flex flex-wrap mt-1" style="gap: 6px 16px;">
+              <div v-for="series in livePlotSeries" :key="`legend-${series.name}`" class="text-caption">
+                <span :style="{ color: series.color }">●</span>
+                {{ formatCoordinateLabel(series.name) }}:
+                <strong>{{ series.latest.toFixed(0) }} {{ series.unit }}</strong>
+              </div>
+            </div>
+            <div class="text-caption grey--text mt-1">
+              Shared range: {{ livePlotValueRange.min.toFixed(0) }} to {{ livePlotValueRange.max.toFixed(0) }}
+            </div>
+            </template>
+          </v-card-text>
+          <div :style="{
+              position: 'absolute', bottom: '0', right: '0', width: '22px', height: '22px',
+              cursor: 'nwse-resize',
+              background: 'linear-gradient(135deg, transparent 50%, rgba(77,208,225,0.75) 50%)'
+            }"
+            @mousedown="startLiveKinematicsPlotResize"
+            @touchstart="startLiveKinematicsPlotResize"></div>
+        </v-card>
+
       <!-- Left Sidebar -->
       <div class="left d-flex flex-column" :class="{ 'hidden': !showLeftSidebar }" v-if="$route.query.embed !== 'true'">
         <!-- Empty left sidebar - will be populated later -->
@@ -399,6 +523,30 @@
                       Low-latency motion smoothing
                     </span>
                   </div>
+                  <div class="d-flex align-center mt-1">
+                    <v-switch
+                      v-model="liveKinematicsPlotVisible"
+                      dense hide-details color="cyan lighten-2"
+                      class="mt-0 pt-0 mr-2" style="flex-shrink: 0;"
+                    ></v-switch>
+                    <span class="text-caption grey--text">Live kinematics plot</span>
+                  </div>
+                  <v-select
+                    v-if="liveKinematicsPlotVisible"
+                    v-model="liveSelectedCoordinates"
+                    :items="liveCoordinateOptions"
+                    item-text="text" item-value="value"
+                    label="Coordinates" multiple chips small-chips dense hide-details
+                    class="mt-2"
+                  ></v-select>
+                  <div v-if="liveKinematicsPlotVisible" class="text-caption grey--text mt-2 mb-1">
+                    History: {{ liveKinematicsHistorySeconds }} seconds
+                  </div>
+                  <v-slider
+                    v-if="liveKinematicsPlotVisible"
+                    v-model="liveKinematicsHistorySeconds"
+                    :min="2" :max="30" :step="1" dense hide-details color="cyan lighten-2"
+                  ></v-slider>
 
                   <div v-if="liveMode || liveStatus === 'connected'" class="mt-3">
                     <v-divider class="mb-3" dark></v-divider>
@@ -4146,7 +4294,6 @@
       </div>
     </div>
   </template>
-  
   <script>
   import axios from 'axios'
   import liveCaptureCamera from '@/mixins/liveCaptureCamera'
@@ -4338,6 +4485,7 @@
               groundOpacity: 1.0,
               groundPositionY: 0,
               groundSize: 200,
+              liveSceneFloor: null,
               useGroundTexture: true,
               groundMesh: null,
               groundTexture: null,
@@ -4372,6 +4520,15 @@
               sceneInitializing: false, // Flag to track scene initialization
               isHeadlessMode: false,
               isHeadlessFastMode: false,
+              isLiveFastMode: false,
+              vizStatsTimer: null,
+              vizStats: {
+                windowStartedAt: 0,
+                renderCalls: 0,
+                renderMs: 0,
+                panels: 1,
+                last: null
+              },
               syncMode: 'none',
               syncReferenceFrame: 0,
 
@@ -4405,6 +4562,20 @@
               liveCameraPreviewDragOffset: { x: 0, y: 0 },
               liveCameraPreviewResizeStart: { x: 0, y: 0, width: 0 },
               liveCameraPreviewObjectUrl: null,
+              liveLidarPreviewVisible: false,
+              liveLidarPreviewClosed: false,
+              liveLidarPreviewUrl: null,
+              liveLidarPreviewMinimized: false,
+              liveLidarPreviewPosition: {
+                x: Math.max(20, (typeof window !== 'undefined' ? window.innerWidth : 1280) - 340),
+                y: 360
+              },
+              liveLidarPreviewSize: { width: 300, height: 'auto' },
+              liveLidarPreviewDragging: false,
+              liveLidarPreviewResizing: false,
+              liveLidarPreviewDragOffset: { x: 0, y: 0 },
+              liveLidarPreviewResizeStart: { x: 0, y: 0, width: 0 },
+              liveLidarPreviewObjectUrl: null,
               showSidebar: false, // Add this line to control sidebar visibility
               meshDialogs: {}, // Add this line to store mesh dialog states
               meshOpacities: {}, // per-mesh opacity: { [meshKey]: number 0-1 }
@@ -4554,6 +4725,30 @@
               liveSmplIndices: {}, // map from live SMPL subject ID -> smplSequences[].id
               liveMhrIndices: {}, // map from live MHR subject ID -> mhrSequences[].id
               liveMessageQueue: Promise.resolve(), // serializes init before frames (async handleLiveInit)
+              // Frame messages are state, not events. Keep only the newest
+              // frame while async init/control work is ahead of it so the
+              // browser never replays an obsolete pose backlog.
+              livePendingFrameMessage: null,
+              liveFrameDrainQueued: false,
+              livePendingCameraPreviewMessage: null,
+              liveCameraPreviewDrainQueued: false,
+              liveKinematicsPlotVisible: false,
+              liveKinematicsHistorySeconds: 10,
+              liveKinematicsPlotPosition: {
+                x: Math.max(20, (typeof window !== 'undefined' ? window.innerWidth : 1280) - 540),
+                y: Math.max(20, (typeof window !== 'undefined' ? window.innerHeight : 800) - 350)
+              },
+              liveKinematicsPlotSize: {
+                width: Math.max(360, Math.min(520, (typeof window !== 'undefined' ? window.innerWidth : 1280) - 40)),
+                height: Math.max(260, Math.min(330, (typeof window !== 'undefined' ? window.innerHeight : 800) - 40))
+              },
+              liveKinematicsPlotDragging: false,
+              liveKinematicsPlotResizing: false,
+              liveKinematicsPlotDragOffset: { x: 0, y: 0 },
+              liveKinematicsPlotResizeStart: { x: 0, y: 0, width: 0, height: 0 },
+              liveCoordinateDefinitions: [],
+              liveSelectedCoordinates: [],
+              liveCoordinateHistory: {},
               liveBodyStyle: {}, // map from subject ID -> { bodyName: { visible, color } }
               liveBodyStyleDirty: false, // avoid reapplying live mesh style every render tick
               liveSubjectVisibility: {}, // map from subject ID -> boolean (true = visible)
@@ -4686,6 +4881,67 @@
             : null;
           return nominal ? `${observed} (${nominal})` : observed;
         },
+        liveCoordinateOptions() {
+          return this.liveCoordinateDefinitions.map((definition) => ({
+            text: `${this.formatCoordinateLabel(definition.name)} (${definition.unit})`,
+            value: definition.name
+          }));
+        },
+        livePlotValueRange() {
+          const values = [];
+          this.liveSelectedCoordinates.forEach((name) => {
+            const history = this.liveCoordinateHistory[name];
+            if (history && Array.isArray(history.values)) values.push(...history.values);
+          });
+          if (values.length === 0) return { min: -1, max: 1 };
+          let min = Math.min(...values);
+          let max = Math.max(...values);
+          if (max - min < 1e-6) {
+            const padding = Math.max(1, Math.abs(max) * 0.05);
+            min -= padding;
+            max += padding;
+          } else {
+            const padding = (max - min) * 0.08;
+            min -= padding;
+            max += padding;
+          }
+          return { min, max };
+        },
+        livePlotGridLines() {
+          const range = this.livePlotValueRange;
+          const span = range.max - range.min;
+      return [0, 1, 2, 3, 4].map((index) => ({
+            y: 10 + index * 42.5,
+            value: range.max - (span * index / 4),
+        label: (range.max - (span * index / 4)).toFixed(0)
+          }));
+        },
+        livePlotSeries() {
+          const colors = ['#4DD0E1', '#FFB74D', '#CE93D8', '#81C784', '#FF8A80', '#90CAF9'];
+          const range = this.livePlotValueRange;
+          const selected = this.liveSelectedCoordinates.slice(0, colors.length);
+          return selected.map((name, index) => {
+            const history = this.liveCoordinateHistory[name];
+            if (!history || history.values.length === 0) return null;
+            const latestTime = history.times[history.times.length - 1];
+            const earliestTime = latestTime - this.liveKinematicsHistorySeconds;
+            const timeSpan = Math.max(0.001, latestTime - earliestTime);
+            const valueSpan = Math.max(0.001, range.max - range.min);
+            const points = history.values.map((value, valueIndex) => {
+              const x = 48 + ((history.times[valueIndex] - earliestTime) / timeSpan) * 432;
+              const y = 180 - ((value - range.min) / valueSpan) * 170;
+              return `${Math.max(48, Math.min(480, x)).toFixed(1)},${Math.max(10, Math.min(180, y)).toFixed(1)}`;
+            }).join(' ');
+            const definition = this.liveCoordinateDefinitions.find((item) => item.name === name);
+            return {
+              name,
+              unit: definition ? definition.unit : '',
+              latest: history.values[history.values.length - 1],
+              color: colors[index],
+              points
+            };
+          }).filter(Boolean);
+        },
         liveRepetitionDisplay() {
           if (!this.liveRepetition || !this.liveRepetition.show) return '';
           return `${this.liveRepetition.current}/${this.liveRepetition.total}`;
@@ -4811,8 +5067,19 @@
         console.log('Query params:', this.$route.query);
 
         this.isHeadlessMode = this.$route.query.headless === 'true';
-        // Enable by default for CLI automation; opt out with ?headless_fast=false
-        this.isHeadlessFastMode = this.isHeadlessMode && this.$route.query.headless_fast !== 'false';
+        this.isLiveFastMode = this.$route.query.live_fast === 'true';
+        this.liveKinematicsPlotVisible = this.$route.query.kinematics_plot === 'true';
+        if (this.$route.query.live_smoothing === 'false') {
+          this.liveVisualInterpolation = false;
+        } else if (this.$route.query.live_smoothing === 'true') {
+          this.liveVisualInterpolation = true;
+        }
+        // Keep the existing headless flag, and allow the same renderer profile
+        // for ordinary live reach feedback via ?live_fast=true.
+        this.isHeadlessFastMode = (
+          (this.isHeadlessMode && this.$route.query.headless_fast !== 'false') ||
+          this.isLiveFastMode
+        );
   
         // Load settings from localStorage first
         if (!this.isHeadlessMode) {
@@ -4824,6 +5091,7 @@
         if (this.isHeadlessFastMode) {
           this.applyHeadlessPerformanceDefaults();
         }
+        this.startVizStats();
   
         // Initialize displayColors from THREE.Color objects
         this.initializeDisplayColors();
@@ -4944,6 +5212,7 @@
         window.addEventListener('message', this.handleIframeMessage);
     },
     beforeDestroy() {
+      this.stopVizStats();
       // Clean up video URL
       if (this.videoUrl) {
         URL.revokeObjectURL(this.videoUrl);
@@ -4952,6 +5221,9 @@
       this.disposeLiveTargetMesh();
       this.disposeLiveCaptureCamera();
       this.clearLiveCameraPreview();
+      this.clearLiveLidarPreview();
+      this.stopLiveKinematicsPlotDrag();
+      this.stopLiveKinematicsPlotResize();
 
       if (this.resizeObserver) {
         this.resizeObserver.unobserve(this.$refs.mocap)
@@ -5282,6 +5554,138 @@
       }
   },
   methods: {
+    formatCoordinateLabel(name) {
+      return String(name || '')
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, (letter) => letter.toUpperCase());
+    },
+
+    configureLiveCoordinates(definitions) {
+      this.liveCoordinateDefinitions = Array.isArray(definitions)
+        ? definitions.filter((item) => item && typeof item.name === 'string')
+        : [];
+      this.liveCoordinateHistory = {};
+      const names = new Set(this.liveCoordinateDefinitions.map((item) => item.name));
+      this.liveSelectedCoordinates = this.liveSelectedCoordinates.filter((name) => names.has(name));
+      if (this.liveSelectedCoordinates.length === 0) {
+        const knees = this.liveCoordinateDefinitions
+          .filter((item) => /knee/i.test(item.name) && item.rotational !== false)
+          .slice(0, 2)
+          .map((item) => item.name);
+        const fallback = this.liveCoordinateDefinitions
+          .filter((item) => item.rotational !== false)
+          .slice(0, 2)
+          .map((item) => item.name);
+        this.liveSelectedCoordinates = knees.length > 0 ? knees : fallback;
+      }
+    },
+
+    appendLiveCoordinates(streamData) {
+      if (!streamData || !streamData.coordinates || typeof streamData.coordinates !== 'object') return;
+      const time = Number(streamData.time);
+      if (!Number.isFinite(time)) return;
+      Object.entries(streamData.coordinates).forEach(([name, rawValue]) => {
+        const value = Number(rawValue);
+        if (!Number.isFinite(value)) return;
+        if (!this.liveCoordinateHistory[name]) {
+          this.$set(this.liveCoordinateHistory, name, { times: [], values: [] });
+        }
+        const history = this.liveCoordinateHistory[name];
+        history.times.push(time);
+        history.values.push(value);
+        const cutoff = time - Math.max(2, this.liveKinematicsHistorySeconds);
+        let removeCount = 0;
+        while (removeCount < history.times.length && history.times[removeCount] < cutoff) removeCount += 1;
+        if (removeCount > 0) {
+          history.times.splice(0, removeCount);
+          history.values.splice(0, removeCount);
+        }
+      });
+    },
+
+    liveKinematicsPointer(event) {
+      const point = event.touches && event.touches.length ? event.touches[0] : event;
+      const x = Number(point && point.clientX);
+      const y = Number(point && point.clientY);
+      return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : null;
+    },
+
+    startLiveKinematicsPlotDrag(event) {
+      const point = this.liveKinematicsPointer(event);
+      if (!point) return;
+      this.liveKinematicsPlotDragging = true;
+      this.liveKinematicsPlotDragOffset = {
+        x: point.x - this.liveKinematicsPlotPosition.x,
+        y: point.y - this.liveKinematicsPlotPosition.y
+      };
+      window.addEventListener('mousemove', this.doLiveKinematicsPlotDrag);
+      window.addEventListener('mouseup', this.stopLiveKinematicsPlotDrag);
+      window.addEventListener('touchmove', this.doLiveKinematicsPlotDrag, { passive: false });
+      window.addEventListener('touchend', this.stopLiveKinematicsPlotDrag);
+      event.preventDefault();
+    },
+
+    doLiveKinematicsPlotDrag(event) {
+      if (!this.liveKinematicsPlotDragging) return;
+      const point = this.liveKinematicsPointer(event);
+      if (!point) return;
+      const maxX = Math.max(0, window.innerWidth - this.liveKinematicsPlotSize.width);
+      const maxY = Math.max(0, window.innerHeight - this.liveKinematicsPlotSize.height);
+      this.liveKinematicsPlotPosition = {
+        x: Math.max(0, Math.min(maxX, point.x - this.liveKinematicsPlotDragOffset.x)),
+        y: Math.max(0, Math.min(maxY, point.y - this.liveKinematicsPlotDragOffset.y))
+      };
+      if (event.cancelable) event.preventDefault();
+    },
+
+    stopLiveKinematicsPlotDrag() {
+      this.liveKinematicsPlotDragging = false;
+      window.removeEventListener('mousemove', this.doLiveKinematicsPlotDrag);
+      window.removeEventListener('mouseup', this.stopLiveKinematicsPlotDrag);
+      window.removeEventListener('touchmove', this.doLiveKinematicsPlotDrag);
+      window.removeEventListener('touchend', this.stopLiveKinematicsPlotDrag);
+    },
+
+    startLiveKinematicsPlotResize(event) {
+      const point = this.liveKinematicsPointer(event);
+      if (!point) return;
+      this.liveKinematicsPlotResizing = true;
+      this.liveKinematicsPlotResizeStart = {
+        x: point.x,
+        y: point.y,
+        width: this.liveKinematicsPlotSize.width,
+        height: this.liveKinematicsPlotSize.height
+      };
+      window.addEventListener('mousemove', this.doLiveKinematicsPlotResize);
+      window.addEventListener('mouseup', this.stopLiveKinematicsPlotResize);
+      window.addEventListener('touchmove', this.doLiveKinematicsPlotResize, { passive: false });
+      window.addEventListener('touchend', this.stopLiveKinematicsPlotResize);
+      event.preventDefault();
+      event.stopPropagation();
+    },
+
+    doLiveKinematicsPlotResize(event) {
+      if (!this.liveKinematicsPlotResizing) return;
+      const point = this.liveKinematicsPointer(event);
+      if (!point) return;
+      const start = this.liveKinematicsPlotResizeStart;
+      const maxWidth = Math.max(360, window.innerWidth - this.liveKinematicsPlotPosition.x);
+      const maxHeight = Math.max(260, window.innerHeight - this.liveKinematicsPlotPosition.y);
+      this.liveKinematicsPlotSize = {
+        width: Math.max(360, Math.min(maxWidth, start.width + point.x - start.x)),
+        height: Math.max(260, Math.min(maxHeight, start.height + point.y - start.y))
+      };
+      if (event.cancelable) event.preventDefault();
+    },
+
+    stopLiveKinematicsPlotResize() {
+      this.liveKinematicsPlotResizing = false;
+      window.removeEventListener('mousemove', this.doLiveKinematicsPlotResize);
+      window.removeEventListener('mouseup', this.stopLiveKinematicsPlotResize);
+      window.removeEventListener('touchmove', this.doLiveKinematicsPlotResize);
+      window.removeEventListener('touchend', this.stopLiveKinematicsPlotResize);
+    },
+
   showToast(type, message, options) {
     // Suppress notifications when embedded (e.g., in an iframe)
     if (this.$route && this.$route.query && this.$route.query.embed === 'true') {
@@ -5302,6 +5706,47 @@
       this.plotUpdatesEnabled = false;
       this.showAxes = false;
       this.showCameraControls = false;
+    },
+
+    startVizStats() {
+      if (this.vizStatsTimer) return;
+      this.vizStats.windowStartedAt = performance.now();
+      this.vizStatsTimer = window.setInterval(() => {
+        const now = performance.now();
+        const elapsed = Math.max(1, now - this.vizStats.windowStartedAt);
+        const sample = {
+          fps: this.vizStats.renderCalls * 1000 / elapsed,
+          renderMs: this.vizStats.renderMs / Math.max(1, this.vizStats.renderCalls),
+          panels: this.vizStats.panels,
+          liveFast: this.isLiveFastMode,
+          at: Date.now()
+        };
+        this.vizStats.last = sample;
+        window.__opencapVisualizerStats = sample;
+        if (this.liveMode || this.isLiveFastMode) {
+          console.log(
+            `[viz-stats] fps=${sample.fps.toFixed(1)} ` +
+            `render=${sample.renderMs.toFixed(1)}ms panels=${sample.panels} ` +
+            `live_fast=${sample.liveFast}`
+          );
+        }
+        this.vizStats.windowStartedAt = now;
+        this.vizStats.renderCalls = 0;
+        this.vizStats.renderMs = 0;
+      }, 1000);
+    },
+
+    stopVizStats() {
+      if (this.vizStatsTimer) {
+        window.clearInterval(this.vizStatsTimer);
+        this.vizStatsTimer = null;
+      }
+    },
+
+    recordVizRender(renderMs, panels) {
+      this.vizStats.renderCalls += 1;
+      this.vizStats.renderMs += renderMs;
+      this.vizStats.panels = panels;
     },
 
     openGitHubRepo() {
@@ -8974,6 +9419,10 @@
           }
           if (this.renderer && this.scene && this.camera) {
             this.renderer.render(this.scene, this.camera);
+            // Timestamp the actual live requestAnimationFrame render. The old
+            // call lived only in animateOneFrame(), which smoothing bypasses,
+            // so latency samples could sit pending for hundreds of ms.
+            this.recordLiveFrameRendered();
           }
           if (!this.isHeadlessFastMode) {
             this.drawProjectedSkeleton();
@@ -10451,10 +10900,18 @@
         this._splitOriginalRender = this.renderer.render.bind(this.renderer);
         const componentRef = this;
         this.renderer.render = function (scene, camera) {
-          if (componentRef.splitViewCount > 1 && scene && camera) {
-            componentRef._renderSplit(scene, camera);
-          } else {
-            componentRef._splitOriginalRender(scene, camera);
+          const startedAt = performance.now();
+          try {
+            if (componentRef.splitViewCount > 1 && scene && camera) {
+              componentRef._renderSplit(scene, camera);
+            } else {
+              componentRef._splitOriginalRender(scene, camera);
+            }
+          } finally {
+            componentRef.recordVizRender(
+              performance.now() - startedAt,
+              Math.max(1, componentRef.splitViewCount || 1)
+            );
           }
         };
 
@@ -10525,6 +10982,7 @@
   
         // Store the mesh reference
         this.groundMesh = groundMesh;
+        if (this.liveSceneFloor) this.handleLiveSceneFloor(this.liveSceneFloor);
   
         // Add fog to create the fading effect at the edges (DISABLED for marker visibility)
         // this.scene.fog = new THREE.FogExp2(this.backgroundColor, 0.025); // Increased density from 0.01 to 0.025
@@ -16063,6 +16521,180 @@
     window.removeEventListener('touchend', this.stopLiveCameraPreviewResize);
   },
   
+
+  handleLiveLidarPreview(raw) {
+    if (!raw || typeof raw !== 'object') return;
+    if (raw.clear === true) {
+      this.clearLiveLidarPreview();
+      return;
+    }
+    const data = raw.data || raw.image || raw.jpeg || raw.base64;
+    if (typeof data !== 'string' || !data) return;
+    const mime = String(raw.mime || raw.contentType || 'image/jpeg').trim() || 'image/jpeg';
+    const dataUrl = data.startsWith('data:') ? data : `data:${mime};base64,${data}`;
+    if (this.liveLidarPreviewObjectUrl) {
+      URL.revokeObjectURL(this.liveLidarPreviewObjectUrl);
+      this.liveLidarPreviewObjectUrl = null;
+    }
+    try {
+      const comma = dataUrl.indexOf(',');
+      const binary = atob(comma >= 0 ? dataUrl.slice(comma + 1) : data);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+      this.liveLidarPreviewObjectUrl = URL.createObjectURL(new Blob([bytes], { type: mime }));
+      this.liveLidarPreviewUrl = this.liveLidarPreviewObjectUrl;
+    } catch (e) {
+      this.liveLidarPreviewUrl = dataUrl;
+    }
+    if (!this.liveLidarPreviewClosed) this.liveLidarPreviewVisible = true;
+  },
+
+  handleLiveSceneFloor(raw) {
+    const floor = raw && typeof raw === 'object' && raw.sceneFloor && typeof raw.sceneFloor === 'object'
+      ? raw.sceneFloor
+      : raw;
+    if (!floor || typeof floor !== 'object') return;
+    this.liveSceneFloor = { ...floor };
+    // Apply even if the Three ground mesh is not ready yet: initScene reads
+    // groundSize, and a later call with the mesh present updates geometry.
+    if (floor.visible === false || floor.visible === 0 || floor.visible === 'false') {
+      this.showGround = false;
+      if (this.groundMesh) this.groundMesh.visible = false;
+      if (this.renderer && this.scene && this.camera) {
+        this.renderer.render(this.scene, this.camera);
+      }
+      return;
+    }
+    if (floor.visible === true || floor.visible === 1 || floor.visible === 'true') {
+      this.showGround = true;
+      if (this.groundMesh) this.groundMesh.visible = true;
+    }
+    const width = Number(floor.width !== undefined ? floor.width : floor.size);
+    const depth = Number(floor.depth !== undefined ? floor.depth : floor.size);
+    if (Number.isFinite(width) && width > 0 && Number.isFinite(depth) && depth > 0) {
+      this.groundSize = Math.max(width, depth);
+      if (this.groundMesh) {
+        const oldGeo = this.groundMesh.geometry;
+        const params = oldGeo.parameters || {};
+        if (params.width !== width || params.height !== depth) {
+          this.groundMesh.geometry = new THREE.PlaneGeometry(width, depth);
+          oldGeo.dispose();
+        }
+        // checker.png has two squares per repeat; keep each square 0.5 m.
+        if (this.groundTexture) this.groundTexture.repeat.set(width, depth);
+        if (this.gridTexture) this.gridTexture.repeat.set(width, depth);
+      }
+    }
+    if (this.groundMesh) {
+      const x = Number(floor.x);
+      const y = Number(floor.y);
+      const z = Number(floor.z);
+      if (Number.isFinite(x)) this.groundMesh.position.x = x;
+      if (Number.isFinite(y)) this.groundMesh.position.y = y;
+      if (Number.isFinite(z)) this.groundMesh.position.z = z;
+      this.groundMesh.visible = this.showGround;
+    }
+    if (this.renderer && this.scene && this.camera) {
+      this.renderer.render(this.scene, this.camera);
+    }
+  },
+
+  clearLiveLidarPreview() {
+    if (this.liveLidarPreviewObjectUrl) {
+      URL.revokeObjectURL(this.liveLidarPreviewObjectUrl);
+      this.liveLidarPreviewObjectUrl = null;
+    }
+    this.liveLidarPreviewUrl = null;
+    this.liveLidarPreviewVisible = false;
+  },
+
+  closeLiveLidarPreview() {
+    this.liveLidarPreviewClosed = true;
+    this.clearLiveLidarPreview();
+  },
+
+  toggleLiveLidarPreviewMinimized() {
+    this.liveLidarPreviewMinimized = !this.liveLidarPreviewMinimized;
+    this.liveLidarPreviewSize.width = this.liveLidarPreviewMinimized ? 200 : 300;
+  },
+
+  startLiveLidarPreviewDrag(event) {
+    const point = event.touches ? event.touches[0] : event;
+    if (!point) return;
+    this.liveLidarPreviewDragging = true;
+    this.liveLidarPreviewDragOffset = {
+      x: point.clientX - this.liveLidarPreviewPosition.x,
+      y: point.clientY - this.liveLidarPreviewPosition.y
+    };
+    if (event.type === 'mousedown') {
+      window.addEventListener('mousemove', this.doLiveLidarPreviewDrag);
+      window.addEventListener('mouseup', this.stopLiveLidarPreviewDrag);
+    } else {
+      window.addEventListener('touchmove', this.doLiveLidarPreviewDrag);
+      window.addEventListener('touchend', this.stopLiveLidarPreviewDrag);
+    }
+    event.preventDefault();
+  },
+
+  doLiveLidarPreviewDrag(event) {
+    if (!this.liveLidarPreviewDragging) return;
+    const point = event.touches ? event.touches[0] : event;
+    if (!point) return;
+    const width = Number(this.liveLidarPreviewSize.width) || 300;
+    this.liveLidarPreviewPosition = {
+      x: Math.max(-width + 100, Math.min(window.innerWidth - 100,
+        point.clientX - this.liveLidarPreviewDragOffset.x)),
+      y: Math.max(0, Math.min(window.innerHeight - 50,
+        point.clientY - this.liveLidarPreviewDragOffset.y))
+    };
+    event.preventDefault();
+  },
+
+  stopLiveLidarPreviewDrag() {
+    this.liveLidarPreviewDragging = false;
+    window.removeEventListener('mousemove', this.doLiveLidarPreviewDrag);
+    window.removeEventListener('mouseup', this.stopLiveLidarPreviewDrag);
+    window.removeEventListener('touchmove', this.doLiveLidarPreviewDrag);
+    window.removeEventListener('touchend', this.stopLiveLidarPreviewDrag);
+  },
+
+  startLiveLidarPreviewResize(event) {
+    const point = event.touches ? event.touches[0] : event;
+    if (!point) return;
+    this.liveLidarPreviewResizing = true;
+    this.liveLidarPreviewResizeStart = {
+      x: point.clientX,
+      y: point.clientY,
+      width: Number(this.liveLidarPreviewSize.width) || 300
+    };
+    if (event.type === 'mousedown') {
+      window.addEventListener('mousemove', this.doLiveLidarPreviewResize);
+      window.addEventListener('mouseup', this.stopLiveLidarPreviewResize);
+    } else {
+      window.addEventListener('touchmove', this.doLiveLidarPreviewResize);
+      window.addEventListener('touchend', this.stopLiveLidarPreviewResize);
+    }
+    event.preventDefault();
+  },
+
+  doLiveLidarPreviewResize(event) {
+    if (!this.liveLidarPreviewResizing) return;
+    const point = event.touches ? event.touches[0] : event;
+    if (!point) return;
+    const delta = point.clientX - this.liveLidarPreviewResizeStart.x;
+    const width = Math.max(160, Math.min(720, this.liveLidarPreviewResizeStart.width + delta));
+    this.liveLidarPreviewSize = { ...this.liveLidarPreviewSize, width };
+    event.preventDefault();
+  },
+
+  stopLiveLidarPreviewResize() {
+    this.liveLidarPreviewResizing = false;
+    window.removeEventListener('mousemove', this.doLiveLidarPreviewResize);
+    window.removeEventListener('mouseup', this.stopLiveLidarPreviewResize);
+    window.removeEventListener('touchmove', this.doLiveLidarPreviewResize);
+    window.removeEventListener('touchend', this.stopLiveLidarPreviewResize);
+  },
+
     handleVideoError(event) {
       console.error('Video error:', event);
       const video = event.target;
@@ -16759,6 +17391,7 @@
         // Mount #mocap before init arrives (ensureSceneReady needs $refs.mocap).
         this.liveMode = true;
         this.liveCameraPreviewClosed = false;
+        this.liveLidarPreviewClosed = false;
         this.$nextTick(() => {
           this.attachMocapResizeObserver();
           this.onResize();
@@ -16771,6 +17404,10 @@
           this.liveMode = true;
           this.isLivestreamModeEnabled = true;
           this.showLiveStreamDetails = true; // Keep expanded when connected
+          // Ask the server to keep at most one not-yet-rendered frame in
+          // flight. websocket.send() alone cannot observe the browser's
+          // native receive queue, which otherwise grows without bound.
+          socket.send(JSON.stringify({ type: 'frameFlowControl', enabled: true }));
           console.log('[live] Connected to', this.liveUrl);
         };
 
@@ -16799,9 +17436,43 @@
             msg.browserReceivedWallTimeMs = browserReceivedWallTimeMs;
             msg.browserReceivedPerfMs = browserReceivedPerfMs;
           }
-          this.liveMessageQueue = this.liveMessageQueue
-            .then(() => this.processLiveWebSocketMessage(msg))
-            .catch((e) => console.error('[live] Message handler error', e));
+          if (msg.type === 'frame') {
+            this.livePendingFrameMessage = msg;
+            if (!this.liveFrameDrainQueued) {
+              this.liveFrameDrainQueued = true;
+              this.liveMessageQueue = this.liveMessageQueue
+                .then(() => {
+                  const latestFrame = this.livePendingFrameMessage;
+                  this.livePendingFrameMessage = null;
+                  this.liveFrameDrainQueued = false;
+                  return latestFrame ? this.processLiveWebSocketMessage(latestFrame) : undefined;
+                })
+                .catch((e) => {
+                  this.liveFrameDrainQueued = false;
+                  console.error('[live] Message handler error', e);
+                });
+            }
+          } else if (msg.type === 'cameraPreview') {
+            this.livePendingCameraPreviewMessage = msg;
+            if (!this.liveCameraPreviewDrainQueued) {
+              this.liveCameraPreviewDrainQueued = true;
+              this.liveMessageQueue = this.liveMessageQueue
+                .then(() => {
+                  const latestPreview = this.livePendingCameraPreviewMessage;
+                  this.livePendingCameraPreviewMessage = null;
+                  this.liveCameraPreviewDrainQueued = false;
+                  return latestPreview ? this.processLiveWebSocketMessage(latestPreview) : undefined;
+                })
+                .catch((e) => {
+                  this.liveCameraPreviewDrainQueued = false;
+                  console.error('[live] Camera preview handler error', e);
+                });
+            }
+          } else {
+            this.liveMessageQueue = this.liveMessageQueue
+              .then(() => this.processLiveWebSocketMessage(msg))
+              .catch((e) => console.error('[live] Message handler error', e));
+          }
         };
       } catch (e) {
         console.error('[live] Failed to connect', e);
@@ -16871,7 +17542,14 @@
       this.resetLiveTargetState();
       this.resetLiveCaptureCamera();
       this.clearLiveCameraPreview();
+      this.clearLiveLidarPreview();
       this.liveMessageQueue = Promise.resolve();
+      this.livePendingFrameMessage = null;
+      this.liveFrameDrainQueued = false;
+      this.livePendingCameraPreviewMessage = null;
+      this.liveCameraPreviewDrainQueued = false;
+      this.liveCoordinateDefinitions = [];
+      this.liveCoordinateHistory = {};
     },
 
     updateLiveLatencyMetric(name, value) {
@@ -16929,6 +17607,17 @@
           renderedPerfMs - sample.browserReceivedPerfMs
         );
       }
+      const sequence = Number(sample.streamSequence);
+      if (
+        Number.isInteger(sequence) &&
+        this.liveSocket &&
+        this.liveSocket.readyState === WebSocket.OPEN
+      ) {
+        this.liveSocket.send(JSON.stringify({
+          type: 'frameAck',
+          streamSequence: sequence
+        }));
+      }
     },
 
     formatLiveCaptureCameraValue(field, value) {
@@ -16950,8 +17639,14 @@
           this.handleLiveCaptureCamera(msg.captureCamera);
         }
         if (msg.cameraPreview) this.handleLiveCameraPreview(msg.cameraPreview);
+        if (msg.lidarPreview) this.handleLiveLidarPreview(msg.lidarPreview);
+        if (msg.sceneFloor) this.handleLiveSceneFloor(msg.sceneFloor);
       } else if (msg.type === 'cameraPreview') {
         this.handleLiveCameraPreview(msg.cameraPreview !== undefined ? msg.cameraPreview : msg);
+      } else if (msg.type === 'lidarPreview') {
+        this.handleLiveLidarPreview(msg.lidarPreview !== undefined ? msg.lidarPreview : msg);
+      } else if (msg.type === 'sceneFloor') {
+        this.handleLiveSceneFloor(msg.sceneFloor !== undefined ? msg.sceneFloor : msg);
       } else if (msg.type === 'camera') {
         this.handleLiveCameraUpdate(msg);
       } else if (msg.type === 'frame') {
@@ -17750,6 +18445,7 @@
       this.liveBrowserQueueLatencyMs = null;
       this.livePendingLatencySample = null;
       this._liveFloat32MismatchLogged = false;
+      this.configureLiveCoordinates(msg.coordinateDefinitions);
 
       if (msg.repetition) {
         this.showLiveRepetition(msg);
@@ -18014,6 +18710,8 @@
     handleLiveFrame(msg) {
       if (msg.captureCamera !== undefined) this.handleLiveCaptureCamera(msg.captureCamera);
       if (msg.cameraPreview) this.handleLiveCameraPreview(msg.cameraPreview);
+      if (msg.lidarPreview) this.handleLiveLidarPreview(msg.lidarPreview);
+      if (msg.sceneFloor) this.handleLiveSceneFloor(msg.sceneFloor);
       const hasLiveOpenSim = this.liveHasRenderableOpenSim();
       const hasLiveSmpl = Object.keys(this.liveSmplIndices).length > 0;
       const hasLiveMhr = Object.keys(this.liveMhrIndices).length > 0;
@@ -18038,6 +18736,9 @@
       // Update each subject's animation data
       let masterData = null;
       Object.entries(streams).forEach(([subjectId, streamData]) => {
+        if (subjectId === Object.keys(this.liveAnimationIndices)[0]) {
+          this.appendLiveCoordinates(streamData);
+        }
         const animIdx = this.liveAnimationIndices[subjectId];
         if (animIdx === undefined) return;
 
@@ -18232,6 +18933,7 @@
       }
 
       this.livePendingLatencySample = {
+        streamSequence: Number(msg.streamSequence),
         hostReceiveWallTimeMs: Number(msg.hostReceiveWallTimeMs),
         serverWallTimeMs: Number(msg.serverWallTimeMs),
         browserReceivedPerfMs: Number(msg.browserReceivedPerfMs),
@@ -20628,7 +21330,6 @@
         firstFewValues: data.slice(0, 5),
         nonNullCount: data.filter(d => d !== null).length
       });
-  
       datasets.push(dataset);
       colorIndex++;
     });

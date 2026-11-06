@@ -154,6 +154,23 @@ Notes:
 - In live mode, **Low-latency motion smoothing** is enabled by default. The viewer eases motion at display refresh rate and predicts at most half of one observed stream interval beyond the newest pose, avoiding a delayed frame buffer while smoothing 20–30 Hz input.
 - Disable **Low-latency motion smoothing** in the Live IK Stream panel to render each received pose directly.
 - The **Live IK Stream** panel shows the observed stream rate in Hz, and when available also shows the nominal rate reported by the sender.
+- Enable **Live kinematics plot** to show a rolling 2–30 second history and the
+  current value for selected OpenSim coordinates. Up to six traces are drawn;
+  knee angles are selected by default when present. Rotational coordinates use
+  degrees and translations use metres. Add `?kinematics_plot=true` to open the
+  panel on page load. Drag the plot header to move it and drag its lower-right
+  corner to resize it. The five horizontal reference lines are labeled with
+  whole-number values from the plot's current shared range, matching the
+  rounded current-value and range readouts.
+- A live LiDAR overlay can be cleared without disconnecting by sending
+  `{"type":"lidarPreview","lidarPreview":{"clear":true}}`; the next valid
+  LiDAR image makes the overlay visible again.
+
+OpenSim live streamers advertise coordinates in the `init` message as
+`coordinateDefinitions: [{name, unit, rotational}]`. Each subject stream may
+then include a `coordinates` object beside `time` and `bodies`, for example
+`{"knee_angle_r":42.1,"pelvis_tx":0.03}`. Clients that do not implement the
+plot can ignore both additive fields.
 
 ### Live Repetition Counter
 
@@ -532,3 +549,14 @@ object or an array of pose objects aligned to the original body frames. The
 streamer sends the corresponding poses alongside the bodies, including when
 frames are downsampled. The CLI pose overrides poses in the file. Python callers
 can use `await send_capture_camera(position=[0,1.5,2], rotation=[0,180,0])`.
+
+
+### Live ARKit floor bounds
+
+`sceneFloor` accepts `width` and `depth` in metres, with legacy `size` as a
+square fallback, and OpenSim `x`, `y`, `z` for its center. The live pipeline
+accumulates measured floor bounds without a synthetic subject patch. The viewer
+preserves rectangular proportions and sub-metre extents, reuses geometry when
+only placement changes, and reapplies the latest live floor after scene creation.
+Checker squares stay 0.5 m wide. Floor updates do not save ground preferences.
+Rebuild with `npm run build` and hard-refresh the local viewer after this change.
