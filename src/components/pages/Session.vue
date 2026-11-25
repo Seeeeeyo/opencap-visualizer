@@ -2662,7 +2662,45 @@
               Settings
             </v-btn>
             </div>
-  
+
+          <!-- Follow skeleton (pelvis) toggle -->
+          <div class="recording-follow-row d-flex align-center mb-2">
+            <v-icon
+              small
+              class="mr-2"
+              :color="followSubject ? 'cyan lighten-2' : 'grey lighten-1'"
+            >
+              {{ followSubject ? 'mdi-crosshairs-gps' : 'mdi-crosshairs' }}
+            </v-icon>
+            <span class="text-caption" style="color: rgba(255, 255, 255, 0.85);">
+              Follow skeleton (pelvis)
+            </span>
+            <v-spacer></v-spacer>
+            <v-switch
+              :input-value="followSubject"
+              @change="setFollowSubject"
+              :disabled="!hasFollowableSubject"
+              color="cyan lighten-2"
+              dense
+              dark
+              hide-details
+              class="ma-0 pa-0"
+            ></v-switch>
+          </div>
+
+          <v-select
+            v-if="followSubject && animations.length > 1"
+            :value="followAnimationIndex"
+            :items="followTargetItems"
+            @change="setFollowAnimationIndex"
+            label="Skeleton to follow"
+            outlined
+            dense
+            dark
+            hide-details
+            class="mb-3"
+          ></v-select>
+
           <!-- Recording settings summary -->
           <div class="d-flex align-center recording-summary">
             <div class="text-caption text-center" style="flex: 1;">
@@ -2675,7 +2713,7 @@
               <span class="font-weight-bold">Loops:</span> {{ loopCount === Infinity ? '∞' : loopCount }}
             </div>
           </div>
-  
+
           <!-- Recording settings dialog -->
           <v-dialog
             v-model="showRecordingSettings"
@@ -2704,7 +2742,7 @@
                       class="mb-4"
               ></v-select>
                   </v-col>
-  
+
                   <v-col cols="12">
               <v-select
                 v-model="recordingFormat"
@@ -2720,7 +2758,7 @@
                       class="mb-4"
               ></v-select>
                   </v-col>
-  
+
                   <v-col cols="12">
               <v-select
                 v-model="videoBitrate"
@@ -2740,7 +2778,46 @@
                       class="mb-4"
               ></v-select>
                   </v-col>
-  
+
+                  <v-col cols="12">
+                    <div class="d-flex align-center">
+                      <v-icon
+                        small
+                        class="mr-2"
+                        :color="followSubject ? 'cyan lighten-2' : 'grey lighten-1'"
+                      >
+                        {{ followSubject ? 'mdi-crosshairs-gps' : 'mdi-crosshairs' }}
+                      </v-icon>
+                      <span class="subtitle-2">Follow skeleton (pelvis)</span>
+                      <v-spacer></v-spacer>
+                      <v-switch
+                        :input-value="followSubject"
+                        @change="setFollowSubject"
+                        :disabled="!hasFollowableSubject"
+                        color="cyan lighten-2"
+                        dense
+                        dark
+                        hide-details
+                        class="ma-0 pa-0"
+                      ></v-switch>
+                    </div>
+                    <div class="text-caption grey--text text--lighten-1 mt-1 mb-2">
+                      Follows the pelvis horizontally while keeping your camera angle, zoom, and height.
+                    </div>
+                    <v-select
+                      v-if="followSubject && animations.length > 1"
+                      :value="followAnimationIndex"
+                      :items="followTargetItems"
+                      @change="setFollowAnimationIndex"
+                      label="Skeleton to follow"
+                      outlined
+                      dense
+                      dark
+                      hide-details="auto"
+                      class="mt-2 mb-2"
+                    ></v-select>
+                  </v-col>
+
                   <v-col cols="12">
                     <div class="info-box pa-3 mt-2">
                       <div class="d-flex align-center mb-2">
@@ -2750,6 +2827,7 @@
                       <ul class="pl-4 mb-0 text-caption">
                         <li class="mb-1">Maximize your browser window for best quality</li>
                         <li class="mb-1">Use WebM format for better compatibility</li>
+                        <li class="mb-1">Enable Follow skeleton (pelvis) to track moving trials horizontally</li>
                         <li>Higher bitrates produce larger files but better quality</li>
                   </ul>
                 </div>
@@ -4175,6 +4253,12 @@
     trimLiveMhrMotionBuffers,
     updateMhrSequenceFrame,
   } from '@/util/mhrMesh.js';
+  import {
+    buildPose,
+    getPelvisPose,
+    followSubjectHorizontally,
+    snapFollowToSubject,
+  } from '@/util/cameraViews.js';
   
   // Create a new axios instance for SMPL service
   // In production, use the deployed service; in development, use the proxy
@@ -4277,7 +4361,10 @@
               recordedChunks: [],
               isRecording: false,
               loopCount: Infinity, // Default to Infinite
-              currentLoop: 0, // Stays 0 for infinite
+              currentLoop: 0,
+              followSubject: false, // Follow skeleton horizontally based on pelvis
+              followSmoothedLookAt: null, // Smoothed XZ look-at target for pelvis follow
+              followAnimationIndex: 0, // Animation index to follow when multiple skeletons are loaded // Stays 0 for infinite
               isLooping: true, // Add this for playback looping
               textSprites: {}, // Store text sprites for each animation
               recordingFileName: 'animation-recording.webm', // Add default filename
@@ -4367,7 +4454,7 @@
               timelapseGroups: {}, // Organized by animation index and frame numbers
               timelapseCounter: null, // Use sequential counter for mesh IDs
               captureMode: 'both', // Options: 'both', 'normal', 'transparent'
-              videoBitrate: 5000000, // Video recording bitrate in bits per second (5 Mbps default)
+              videoBitrate: 20000000, // Video recording bitrate in bits per second (20 Mbps max quality default)
               conversionError: null, // Add this line to store API error message
               sceneInitializing: false, // Flag to track scene initialization
               isHeadlessMode: false,
@@ -4669,6 +4756,19 @@
           const arr = [];
           for (let i = 0; i < this.splitViewCount; i++) arr.push(i);
           return arr;
+        },
+        followTargetItems() {
+          return this.animations.map((anim, index) => ({
+            text: anim.trialName || anim.fileName || `Skeleton ${index + 1}`,
+            value: index
+          }));
+        },
+        hasFollowableSubject() {
+          return (
+            this.animations.length > 0 ||
+            this.smplSequences.length > 0 ||
+            this.mhrSequences.length > 0
+          );
         },
         formattedTime() {
           // Round time to 2 decimal places for display
@@ -5141,6 +5241,12 @@
           });
         },
         deep: true
+      },
+      'animations.length'(newLength) {
+        if (newLength === 0 || this.followAnimationIndex >= newLength) {
+          this.followAnimationIndex = 0;
+          this.followSmoothedLookAt = null;
+        }
       },
       osimFile: {
         handler(newVal) {
@@ -8972,6 +9078,9 @@
             this.updateLiveMhrSequences();
             this.updateLiveTargetTransform();
           }
+          if (this.followSubject) {
+            this.updateFollowCamera(this.frame);
+          }
           if (this.renderer && this.scene && this.camera) {
             this.renderer.render(this.scene, this.camera);
           }
@@ -9025,6 +9134,7 @@
                     framesToAdvance = MAX_ADVANCE_PER_TICK;
                 }
                 this.frameAccumulator -= framesToAdvance;
+                const prevFrame = this.frame;
                 let nextFrame = this.frame + framesToAdvance;
                 let loopNeedsReset = false;
 
@@ -9083,6 +9193,11 @@
 
                 // Update the frame *before* updating time and rendering
                 this.frame = nextFrame;
+
+                // Snap follow camera on loop wrap-around so it doesn't drift across the scene
+                if (this.followSubject && nextFrame < prevFrame) {
+                  this.syncFollowCameraOnJump(nextFrame);
+                }
 
                 // Update displayed time
                 this.updateDisplayedTime();
@@ -9227,6 +9342,10 @@
             const forceUpdate = sequence.playable === false && sequence.lastRenderedFrame < 0;
             this.updateSmplSequenceFrame(sequence, desiredFrame, forceUpdate);
           });
+
+          if (this.followSubject) {
+            this.updateFollowCamera(cframe);
+          }
   
           // Render the scene (moved before marker update)
           if (!isHeadlessFast && this.renderer && this.scene && this.camera) {
@@ -9499,6 +9618,10 @@
           this.updateDisplayedTime(this.frame);
         }
         this.frameAccumulator = 0;
+
+        if (this.followSubject) {
+          this.syncFollowCameraOnJump(this.frame);
+        }
 
         // Render the frame without advancing
         this.animateOneFrame();
@@ -19524,6 +19647,214 @@
       });
       this.markersPlayable = playable;
     },
+    getFollowPelvisPose(frameIndex) {
+      const requestedFrame = frameIndex != null ? frameIndex : this.frame;
+
+      if (this.animations.length > 0) {
+        const clampedIndex = Math.min(
+          Math.max(0, Number.isInteger(this.followAnimationIndex) ? this.followAnimationIndex : 0),
+          this.animations.length - 1
+        );
+        const animation = this.animations[clampedIndex];
+        if (animation && animation.data && animation.data.bodies) {
+          // In live mode with visual interpolation, read the live interpolated pelvis mesh when present
+          if (this.liveMode && this.liveVisualInterpolation && this.meshes) {
+            const preferredBodies = ['pelvis', 'torso', 'body'];
+            for (const bodyName of preferredBodies) {
+              const body = animation.data.bodies[bodyName];
+              const geoms = body && Array.isArray(body.attachedGeometries) ? body.attachedGeometries : [];
+              for (const geom of geoms) {
+                const mesh = this.meshes[`anim${clampedIndex}_${bodyName}${geom}`];
+                if (mesh && mesh.position) {
+                  return buildPose(mesh.position.clone(), mesh.quaternion ? mesh.quaternion.clone() : new THREE.Quaternion());
+                }
+              }
+            }
+          }
+
+          const totalFrames = Array.isArray(this.frames) && this.frames.length > 0
+            ? this.frames.length
+            : (Array.isArray(animation.data.time) ? animation.data.time.length : 0);
+          const speedMultiplier = animation.speedMultiplier || 1.0;
+          const animFrame = this.liveMode
+            ? Math.max(0, (Array.isArray(animation.data.time) ? animation.data.time.length : 1) - 1)
+            : (speedMultiplier !== 1.0 && totalFrames > 0
+              ? Math.floor(requestedFrame * speedMultiplier) % totalFrames
+              : requestedFrame);
+
+          const pose = getPelvisPose(animation.data, animFrame, totalFrames, {
+            offset: animation.offset,
+            rotation: animation.rotation
+          });
+          if (pose) {
+            return pose;
+          }
+        }
+      }
+
+      // Fallback: SMPL root joint (index 0 = pelvis) or SMPL mesh center
+      if (this.smplSequences.length > 0) {
+        const seq = this.smplSequences.find((s) => s && (s.joints || s.mesh)) || this.smplSequences[0];
+        if (seq) {
+          if (seq.joints && seq.jointCount > 0) {
+            const jointStride = seq.jointStride || (seq.jointCount * 3);
+            const totalFrames = jointStride > 0 ? Math.floor(seq.joints.length / jointStride) : 0;
+            if (totalFrames > 0) {
+              const speedMultiplier = seq.speedMultiplier || 1.0;
+              const scaledFrame = speedMultiplier !== 1.0 && seq.playable !== false
+                ? Math.floor(requestedFrame * speedMultiplier) % totalFrames
+                : requestedFrame;
+              const clampedFrame = Math.min(Math.max(0, scaledFrame), totalFrames - 1);
+              const start = clampedFrame * jointStride;
+              if (start + 2 < seq.joints.length) {
+                const pos = new THREE.Vector3(
+                  seq.joints[start],
+                  seq.joints[start + 1],
+                  seq.joints[start + 2]
+                );
+                const quat = new THREE.Quaternion();
+                if (seq.rotation) {
+                  quat.setFromEuler(seq.rotation);
+                  pos.applyQuaternion(quat);
+                }
+                if (seq.offset) {
+                  pos.x += seq.offset.x || 0;
+                  pos.y += seq.offset.y || 0;
+                  pos.z += seq.offset.z || 0;
+                }
+                return buildPose(pos, quat);
+              }
+            }
+          }
+          if (seq.mesh) {
+            const box = new THREE.Box3().setFromObject(seq.mesh);
+            if (!box.isEmpty()) {
+              const center = new THREE.Vector3();
+              box.getCenter(center);
+              return buildPose(center);
+            }
+          }
+        }
+      }
+
+      // Fallback: MHR mesh center
+      if (this.mhrSequences.length > 0) {
+        const seq = this.mhrSequences.find((s) => s && s.mesh) || this.mhrSequences[0];
+        if (seq && seq.mesh) {
+          const box = new THREE.Box3().setFromObject(seq.mesh);
+          if (!box.isEmpty()) {
+            const center = new THREE.Vector3();
+            box.getCenter(center);
+            return buildPose(center);
+          }
+        }
+      }
+
+      return null;
+    },
+
+    setFollowSubject(enabled) {
+      this.followSubject = !!enabled;
+      if (this.followSubject) {
+        this.lockFollowTransform(this.frame);
+        this.updateFollowCamera(this.frame);
+        if (this.renderer && this.scene && this.camera) {
+          this.updateVideoPlaneTransform();
+          this.renderer.render(this.scene, this.camera);
+        }
+      } else {
+        this.followSmoothedLookAt = null;
+      }
+    },
+
+    setFollowAnimationIndex(index) {
+      const numericIndex = Number(index);
+      this.followAnimationIndex = Number.isInteger(numericIndex) && numericIndex >= 0 ? numericIndex : 0;
+      if (this.followSubject) {
+        this.lockFollowTransform(this.frame);
+        if (this.renderer && this.scene && this.camera) {
+          this.updateVideoPlaneTransform();
+          this.renderer.render(this.scene, this.camera);
+        }
+      } else {
+        this.followSmoothedLookAt = null;
+      }
+    },
+
+    lockFollowTransform(frameIndex = null) {
+      const pose = this.getFollowPelvisPose(frameIndex != null ? frameIndex : this.frame);
+      if (!pose) {
+        this.followSmoothedLookAt = null;
+        return;
+      }
+      this.followSmoothedLookAt = snapFollowToSubject(this.camera, this.controls, pose);
+      if (Array.isArray(this.auxCameras)) {
+        for (let i = 0; i < this.auxCameras.length; i++) {
+          const auxCam = this.auxCameras[i];
+          const auxCtrl = this.auxControls[i];
+          if (auxCam && auxCtrl) {
+            snapFollowToSubject(auxCam, auxCtrl, pose);
+          }
+        }
+      }
+    },
+
+    syncFollowCameraOnJump(frameIndex) {
+      if (!this.followSubject || !this.camera || !this.controls) {
+        return;
+      }
+      if (!this.followSmoothedLookAt) {
+        this.lockFollowTransform(frameIndex);
+        return;
+      }
+      this.updateFollowCamera(frameIndex, 1.0);
+    },
+
+    updateFollowCamera(frameIndex, smoothFactor = 0.18) {
+      if (!this.camera || !this.controls) {
+        return;
+      }
+
+      const pose = this.getFollowPelvisPose(frameIndex);
+      if (!pose) {
+        return;
+      }
+
+      if (!this.followSmoothedLookAt) {
+        this.lockFollowTransform(frameIndex);
+        return;
+      }
+
+      const prevLookAt = this.followSmoothedLookAt;
+      const nextLookAt = followSubjectHorizontally(
+        this.camera,
+        this.controls,
+        pose,
+        prevLookAt,
+        smoothFactor
+      );
+
+      if (nextLookAt && prevLookAt) {
+        const dx = nextLookAt.x - prevLookAt.x;
+        const dz = nextLookAt.z - prevLookAt.z;
+        if ((dx !== 0 || dz !== 0) && Array.isArray(this.auxCameras)) {
+          for (let i = 0; i < this.auxCameras.length; i++) {
+            const auxCam = this.auxCameras[i];
+            const auxCtrl = this.auxControls[i];
+            if (auxCam && auxCtrl) {
+              auxCtrl.target.x += dx;
+              auxCtrl.target.z += dz;
+              auxCam.position.x += dx;
+              auxCam.position.z += dz;
+              auxCtrl.update();
+            }
+          }
+        }
+      }
+
+      this.followSmoothedLookAt = nextLookAt;
+    },
+
     setCameraView(viewType) {
       if (!this.camera || !this.controls) return;
   
@@ -19606,6 +19937,10 @@
   
       // *** Update controls state AFTER position and target are set ***
       this.controls.update();
+
+      if (this.followSubject) {
+        this.lockFollowTransform(this.frame);
+      }
   
       // Re-render the scene
       if (this.renderer) {
@@ -19627,6 +19962,10 @@
 
       // *** Update controls state AFTER position and target are set ***
       this.controls.update();
+
+      if (this.followSubject) {
+        this.lockFollowTransform(this.frame);
+      }
 
       // Re-render the scene
       if (this.renderer) {
@@ -19737,6 +20076,12 @@
       ctrls.target.copy(currentTarget);
       cam.position.copy(newPosition);
       ctrls.update();
+      if (this.followSubject) {
+        const pose = this.getFollowPelvisPose(this.frame);
+        if (pose) {
+          snapFollowToSubject(cam, ctrls, pose);
+        }
+      }
       if (this.renderer) this.renderer.render(this.scene, this.camera);
     },
 
@@ -21654,6 +21999,13 @@
   border: 1px solid rgba(255, 255, 255, 0.3) !important;
   }
   
+  .recording-follow-row {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  padding: 6px 8px;
+  }
+
   .recording-summary {
   background: rgba(0, 0, 0, 0.2);
   border-radius: 4px;
